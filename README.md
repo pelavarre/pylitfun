@@ -174,15 +174,8 @@ Can we live within in these limits and still rewrite this text so well as to hop
 
 <!--
 
-The Comments are the first Issue Tracker
+'The Comments are the first Issue Tracker'
 
-one self-contained Python program per verb
-
-./g = #!/bin/sh or sym link or ...
-
-|g = grep -ai -e ... -e ...
-
-g ... = git ...
-
+8th Game - **Smushup** - Arrow Pair to move 8 ways, and smush matching colors
 
 -->

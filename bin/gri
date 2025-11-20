@@ -1,0 +1,2 @@
+#!/bin/sh
+g.py --shfile="$0" "$@"
