@@ -171,3 +171,18 @@ because they don't enjoy having real terminals surprise them
 Can we live within in these limits and still rewrite this text so well as to hope I can reach my audience?
 
 -->
+
+<!--
+
+The Comments are the first Issue Tracker
+
+one self-contained Python program per verb
+
+./g = #!/bin/sh or sym link or ...
+
+|g = grep -ai -e ... -e ...
+
+g ... = git ...
+
+
+-->
