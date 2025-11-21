@@ -51,11 +51,14 @@ help:
 
 
 bin:
-	cp -p bin/[a-z]* ~/bin/.
-	rm -fr ~/pylitfun.py
+	rm -fr ~/bin/pwnme ~/bin/pylitfun.py
 	rm -fr ~/bin/pylitfun/
+	:
+	cp -p bin/[a-z]* ~/bin/.
 	mkdir -p ~/bin/pylitfun/
 	cp -ip *.py ~/bin/pylitfun/.
+	:
+	rm -fr ~/bin/pwnme ~/bin/pylitfun.py
 
 
 #
