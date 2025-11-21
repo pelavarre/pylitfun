@@ -39,7 +39,7 @@ shline_by_shverb = {
     "ga": "git add ...",
     "gb": "git branch --sort=committerdate",
     "gcaa": "git commit --all --amend",
-    "gcam": "git commit --all -m wip",
+    "gcam": "git commit --all -m wip",  # inverts : grh1 && git reset HEAD~1
     "gcl": "... && git clean -dffxq",
     "gcp": "git cherry-pick ...",
     "gd": "git diff --color-moved [...]",
@@ -59,6 +59,7 @@ shline_by_shverb = {
     "grias": "git rebase -i --autosquash [...]",
     "gspno": "git show --pretty= --name-only [...]",
     "grh": "git reset --hard ...",  # actual no args 'git reset hard' would mean to Head
+    "grh1": "git reset HEAD~1",  # inverts : gcam && git commit --all -m wip
     "grhu": "... && git reset --hard @{upstream}",
     "grl": "git reflog --date=relative --numstat",
     "grv": r'''echo git clone "$(git remote -v |tr ' \t' '\n' |grep : |uniq)"''',
@@ -179,10 +180,8 @@ if expanded_shline.startswith("... && "):
     print(f"Press ⌃D to run:  {expanded_shline}", file=sys.stderr)
     try:
         sys.stdin.readline()
-    except KeyboardInterrupt:  # but Python Callers must catch KeyboardInterrupt again
+    except KeyboardInterrupt:
         sys.exit(130)
-
-        # todo: does Linux KeyboardInterrupt need another Line-Break written?
 
 
 # Decorate the the incoming Sh ArgV extensively, for 'gg', 'ggl', and 'glf'

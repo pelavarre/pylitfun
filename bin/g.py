@@ -12,7 +12,10 @@ sys.argv[0] = shverb
 try:
     run = subprocess.run(sys.argv)
 except KeyboardInterrupt:
-    print(file=sys.stderr)
+    print(file=sys.stderr)  # after "^" and "C" printed without a "\r\n"
     sys.exit(130)
+
+    # subprocess.run raises KeyboardInterrupt even when the called Python does catch & exit
+    # some Linux Shells print a "\r\n" after Python exits after catching a KeyboardInterrupt
 
 sys.exit(run.returncode)
