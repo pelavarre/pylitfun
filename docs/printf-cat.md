@@ -79,7 +79,7 @@ but it changes their EchoCtl encoding away from ^[[F ^[[H over to
 
     ^[[1;2F ^[[1;2H
 
-All the while, Google Cloud Shell will say that you've pressed no keys at
+All the while, Google Cloud Shell will say that you've pressed no keys at all
 
 
 ### The ⌥-Click across Lines of Vim or Emacs
