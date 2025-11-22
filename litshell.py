@@ -1,5 +1,5 @@
 """
-usage: from litpyfun import litshell
+usage: from pylitfun import litshell
 """
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard

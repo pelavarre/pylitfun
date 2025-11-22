@@ -20,6 +20,7 @@ examples:
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
 
+import difflib
 import os
 import shlex
 import signal
@@ -46,26 +47,32 @@ shline_by_shverb = {
     "gda": "git describe --always --dirty",
     "gdh": "git diff --color-moved HEAD~1",
     "gdno": "git diff --name-only [...]",
+    "gf": "git fetch --prune --prune-tags --force",
     "gg": "git grep ...",  # -ai -e ... -e ...
     "ggl": "git grep -l ...",  # -ai -e ... -e ...
-    "gf": "git fetch --prune --prune-tags --force",
     "gl": "git log --pretty=fuller --no-decorate [...]",
     "glf": "git ls-files |grep [...]",  # |grep -ai -e ... -e ...
-    "gls": "git log --pretty=fuller --no-decorate --numstat [...]",
     "glq": "git log --oneline --no-decorate [...]",
+    "gls": "git log --pretty=fuller --no-decorate --numstat [...]",
     "glv": "git log --oneline --decorate [...]",
     "gno": "git show --pretty= --name-only [...]",  # cuts back to truthy 'qdno' when available
-    "gri": "git rebase -i [...]",
-    "grias": "git rebase -i --autosquash [...]",
-    "gspno": "git show --pretty= --name-only [...]",
     "grh": "git reset --hard ...",  # actual no args 'git reset hard' would mean to Head
     "grh1": "git reset HEAD~1",  # inverts : gcam && git commit --all -m wip
     "grhu": "... && git reset --hard @{upstream}",
+    "gri": "git rebase -i [...]",
+    "grias": "git rebase -i --autosquash [...]",
     "grl": "git reflog --date=relative --numstat",
     "grv": r'''echo git clone "$(git remote -v |tr ' \t' '\n' |grep : |uniq)"''',
     "gs": "git show --color-moved [...]",
     "gsis": "git status --ignored --short",
+    "gspno": "git show --pretty= --name-only [...]",
 }
+
+
+a = list(shline_by_shverb.keys())
+b = sorted(a)
+diffs = list(difflib.unified_diff(a=a, b=b, fromfile="a", tofile="b", lineterm=""))
+assert not diffs, (diffs,)
 
 
 # Expand the Shell Verb as a Git Alias
@@ -83,7 +90,7 @@ if shverb not in git_shverbs:
 
 shline = shline_by_shverb[shverb]
 
-if shline.endswith(" ..."):
+if shline.endswith(" ..."):  # ga, gcp, gg, ggl, grh
     required_args_usage = f"usage: {shverb} ..."
 
     arguable_shline_0 = shline.removesuffix(" ...")
@@ -93,13 +100,13 @@ if shline.endswith(" ..."):
         print(required_args_usage, file=sys.stderr)
         sys.exit(2)  # exits 2 for bad args
 
-elif shline.endswith(" [...]"):
+elif shline.endswith(" [...]"):  # gd, gdno, gl, glf, glq, gls, glv, gno, gri, grias, gs, gspno
     optional_args_usage = f"usage: {shverb} [...]"
 
     arguable_shline_0 = shline.removesuffix(" [...]")
     shsuffix = " ..." if incoming_shargv[1:] else ""
 
-else:
+else:  # g, gb, gcaa, gcam, gda, gdh, gf, grh1, grl, grv, gsis
     no_args_usage = f"usage: {shverb}"
 
     arguable_shline_0 = shline
@@ -156,7 +163,7 @@ gpwd = run.stdout.decode().rstrip()
 relpath = os.path.relpath(gpwd)
 if gpwd != os.getcwd():
     if shverb in ("ga", "gcl", "glf"):
-        print(f"# {shverb!r} not at: cd {relpath}/", file=sys.stderr)
+        print(f"# {shverb!r} not at:  cd {relpath}/", file=sys.stderr)
 
 
 # Expand 'gno' differently while 'git diff --name-only' truthy
