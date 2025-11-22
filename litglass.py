@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
 
 r"""
-usage: litglass.py [-h]
+usage: litglass.py [-h] [--egg EGG]
 
 loop back Input to Output, to Screen from Touch/ Mouse/ Key
 
 options:
   -h, --help  show this help message and exit
+  --egg EGG   a hint of how to behave, such as 'repr' or 'sigint'
+
+quirks:
+  talks with the Terminal at Stderr (with /dev/stderr, not with /dev/tty)
+  quits when given ⌃C
 
 examples:
   ./litglass.py --
+  ./litglass.py --egg=repr
+  ./litglass.py --egg=sigint
 """
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -17,19 +24,24 @@ examples:
 
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
 
-import __main__  # to parse the __main__.__doc__
+import __main__
 import argparse
-import bdb  # to catch bdb.BdbQuit
+import bdb
 import collections
-import collections.abc  # .abc is not .collections.abc
+import collections.abc  # .collections.abc is not .abc
 import dataclasses
 import difflib
 import os
 import pdb
+import select
 import signal
 import sys
+import termios
 import textwrap
+import tty
 import types
+import typing
+
 
 _: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
 
@@ -37,6 +49,28 @@ if not __debug__:
     raise NotImplementedError([__debug__])  # because 'python3 better than python3 -O'
 
 default_eq_None = None  # spells out 'default=None' where Python forbids that
+
+
+#
+# Choose a personality
+#
+
+
+@dataclasses.dataclass(order=True)  # , frozen=True)
+class Flags:
+    """Choose a personality"""
+
+    apple: bool = sys.platform == "darwin"  # flags.apple
+    google: bool = bool(os.environ.get("CLOUD_SHELL", ""))  # flags.google
+    terminal: bool = os.environ.get("TERM_PROGRAM", "") == "Apple_Terminal"  # flags.terminal
+
+    _repr_: bool = False  # flags._repr_ to loop the Repr, not the Str
+    sigint: bool = False  # flags.sigint for ⌃C to raise KeyboardInterrupt
+
+
+flags = Flags()
+
+# flags.sigint = True
 
 
 #
@@ -52,12 +86,17 @@ def main() -> None:
     parser = arg_doc_to_parser(__main__.__doc__ or "")
     shell_args_take_in(args=sys.argv[1:], parser=parser)
 
+    lbr = Loopbacker()
+    lbr.run_loopbacker_awhile()
 
 
 def arg_doc_to_parser(doc: str) -> ArgDocParser:
     """Declare the Positional Arguments & Options"""
 
     parser = ArgDocParser(doc, add_help=True)
+
+    egg_help = "a hint of how to behave, such as 'repr' or 'sigint'"
+    parser.add_argument("--egg", dest="eggs", metavar="EGG", action="append", help=egg_help)
 
     return parser
 
@@ -68,17 +107,240 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
     ns = parser.parse_args_if(args)  # often prints help & exits zero
 
     ns_keys = list(vars(ns).keys())
-    assert not ns_keys, (ns_keys, ns, args)
+    assert ns_keys == ["eggs"], (ns_keys, ns, args)
+
+    celebrated_eggs = ["repr", "sigint"]
+
+    ns_eggs = ns.eggs or list()
+    for egg_arg in ns_eggs:
+        eggs = egg_arg.split(",")
+        for egg in eggs:
+            if egg and "repr".startswith(egg):
+                flags._repr_ = True
+            elif egg and "sigint".startswith(egg):
+                flags.sigint = True
+            else:
+                parser.parser.print_usage()
+                print(f"don't choose {egg!r}, do choose from {celebrated_eggs}", file=sys.stderr)
+                sys.exit(2)  # exits 2 for bad Arg
 
     return ns
 
+
+#
+# Loop back Input to Output, to Screen from Touch/ Mouse/ Key
+#
+
+
+class Loopbacker:
+    """Loop back Input to Output, to Screen from Touch/ Mouse/ Key"""
+
+    def run_loopbacker_awhile(self) -> None:
+
+        assert ord("C") ^ 0x40 == ord("\003")
+
+        with TerminalBoss() as tb:
+            kr = tb.keyboard_reader
+            sw = tb.screen_writer
+
+            sw.print_text("Press ⌃C")
+
+            while True:
+
+                tb.kbhit(timeout=None)
+                reads = kr.read_kbhit_bytes()
+
+                text = reads.decode()
+                if flags._repr_:
+                    sw.print_text(repr(text))
+                else:
+                    sw.write_text(text)
+
+                if text == "\003":
+                    break
+
+
+class TerminalBoss:
+
+    stdio: typing.TextIO
+    fileno: int
+    tcgetattr: list[int | list[bytes | int]]  # replaced by .__enter__
+
+    screen_writer: ScreenWriter
+    keyboard_reader: KeyboardReader
+
+    def __init__(self) -> None:
+
+        stdio = sys.__stderr__
+        assert stdio is not None  # refuses to run headless
+
+        fileno = stdio.fileno()
+
+        sw = ScreenWriter(self)
+        kr = KeyboardReader(self)
+
+        self.stdio = stdio
+        self.fileno = fileno
+        self.tcgetattr = list()  # replaced by .__enter__
+
+        self.screen_writer = sw
+        self.keyboard_reader = kr
+
+    def __enter__(self) -> TerminalBoss:
+
+        stdio = self.stdio
+        fileno = self.fileno
+        tcgetattr = self.tcgetattr
+
+        # Enter once
+
+        if tcgetattr:
+            return self
+
+        # Flush Output, drain Input, and change Input Mode
+
+        stdio.flush()  # before 'tty.setraw' of TerminalStudio.__enter__
+
+        with_tcgetattr = termios.tcgetattr(fileno)
+        assert with_tcgetattr, (with_tcgetattr,)
+
+        self.tcgetattr = with_tcgetattr  # replaces
+
+        # Stop line-buffering Input, stop replacing \n Output with \r\n, etc
+
+        if not flags.sigint:
+            tty.setraw(fileno, when=termios.TCSADRAIN)
+        else:
+            tty.setcbreak(fileno, when=termios.TCSADRAIN)
+
+        # Succeed
+
+        return self
+
+        # todo: try termios.TCSAFLUSH to discard Input while entering
+
+    def __exit__(self, exc_type: type, exc_value: Exception, traceback: types.TracebackType) -> None:
+
+        stdio = self.stdio
+        fileno = self.fileno
+        tcgetattr = self.tcgetattr
+
+        # Exit once
+
+        if not tcgetattr:
+            return
+
+        # Flush Output, drain Input, and change Input Mode
+
+        stdio.flush()  # before 'termios.tcsetattr' of TerminalStudio.__exit__
+
+        fd = fileno
+        when = termios.TCSADRAIN
+        attributes = tcgetattr
+        termios.tcsetattr(fd, when, attributes)
+
+        self.tcgetattr = list()  # replaces
+
+        # todo: try termios.TCSAFLUSH to discard Input while exiting
+
+    def write_some_bytes(self, data: bytes) -> None:
+
+        fileno = self.fileno
+        fd = fileno
+        os.write(fd, data)
+
+    def read_one_byte(self) -> bytes:
+
+        fileno = self.fileno
+
+        fd = fileno
+        length = 1
+        read = os.read(fd, length)
+
+        assert len(read) == 1, (read,)  # todo: test os.read returns empty
+
+        return read
+
+    def kbhit(self, timeout: float | None) -> bool:
+        """Block till next Input Byte, else till Timeout, else till forever"""
+
+        stdio = self.stdio
+        fileno = self.fileno
+
+        assert self.tcgetattr, (self.tcgetattr,)
+
+        stdio.flush()  # before select.select of .kbhit
+        (r, w, x) = select.select([fileno], [], [], timeout)
+
+        hit = fileno in r
+
+        return hit
+
+        # a la msvcrt.kbhit
+
+
+class ScreenWriter:
+
+    terminal_boss: TerminalBoss
+
+    def __init__(self, terminal_boss: TerminalBoss) -> None:
+        self.terminal_boss = terminal_boss
+
+    def print_text(self, text: str, end="\r\n") -> None:
+
+        self.write_text(text + end)
+
+    def write_text(self, text: str) -> None:
+
+        tb = self.terminal_boss
+        data = text.encode()  # may raise UnicodeEncodeError
+        tb.write_some_bytes(data)
+
+
+class KeyboardReader:
+
+    terminal_boss: TerminalBoss
+
+    def __init__(self, terminal_boss: TerminalBoss) -> None:
+        self.terminal_boss = terminal_boss
+
+    def read_kbhit_bytes(self) -> bytes:
+        """Read the zero or more available Bytes"""
+
+        tb = self.terminal_boss
+
+        ba = bytearray()
+        while tb.kbhit(timeout=0e0):
+            read = tb.read_one_byte()
+            ba.extend(read)
+
+        reads = bytes(ba)
+        return reads  # maybe empty
+
+        #  ⎋[200⇧~ .. ⎋[201⇧~ arrive together from ⎋[ ⇧?2004H Bracketed Paste
+
+        #
+        # at macOS Terminal
+        #
+        #   mashing the ← ↑ → ↓ Arrow Keys sends 1..3
+        #   ⌥-Click sends >= 1 bursts of Arrow Keys
+        #   ⌥` sends b"``" sometimes together, sometimes separately
+        #
+
+        #
+        # at macOS iTerm2
+        #
+        #   mashing the ← ↑ → ↓ Arrow Keys sends 1..2
+        #   ⌥-Click sends 1 burst of Arrow Keys
+        #   ⌥` sends b"``" always together
+        #
 
 #
 # Amp up Import ArgParse
 #
 
 
-_ARGPARSE_3_10_ = (3, 10)  # Ubuntu 2022 Oct/2021 Python 3.10
+_ARGPARSE_3_10_ = (3, 10)  # Oct/2021 Python 3.10, like from Ubuntu 2022
 
 
 @dataclasses.dataclass(order=True)  # , frozen=True)
