@@ -33,6 +33,7 @@ import dataclasses
 import difflib
 import os
 import pdb
+import re
 import select
 import signal
 import sys
@@ -143,21 +144,28 @@ class Loopbacker:
             kr = tb.keyboard_reader
             sw = tb.screen_writer
 
+            sw.print_text()
             sw.print_text("Press ⌃C")
+            sw.write_text("\t")
 
             while True:
 
                 tb.kbhit(timeout=None)
-                reads = kr.read_kbhit_bytes()
+                # reads = kr.read_kbhit_bytes()
+                (y_row, x_column, reads) = kr.read_yx_bytes()
 
                 text = reads.decode()
                 if flags._repr_:
-                    sw.print_text(repr(text))
+                    sw.print_text(y_row, x_column, repr(text))
+                    sw.write_text("\t")
                 else:
                     sw.write_text(text)
 
                 if text == "\003":
                     break
+
+        sw.print_text("bye")
+        sw.print_text()
 
 
 class TerminalBoss:
@@ -286,11 +294,17 @@ class ScreenWriter:
     def __init__(self, terminal_boss: TerminalBoss) -> None:
         self.terminal_boss = terminal_boss
 
-    def print_text(self, text: str, end="\r\n") -> None:
+    def print_text(self, *args: object, end: str | None = "\r\n") -> None:
+        """Answer the question of 'what is print?'"""
 
-        self.write_text(text + end)
+        text = " ".join(str(_) for _ in args)
+        end_plus = "" if (end is None) else end
+        self.write_text(text + end_plus)
+
+        # .end=None puns with .end="", same as it does in Python's .print
 
     def write_text(self, text: str) -> None:
+        """Write the Byte Encodings of Text without adding a Line-Break"""
 
         tb = self.terminal_boss
         data = text.encode()  # may raise UnicodeEncodeError
@@ -303,6 +317,45 @@ class KeyboardReader:
 
     def __init__(self, terminal_boss: TerminalBoss) -> None:
         self.terminal_boss = terminal_boss
+
+    def read_yx_bytes(self) -> tuple[int, int, bytes]:
+
+        tb = self.terminal_boss
+
+        assert DSR6 == "\033[" "6n"
+        assert CPR_Y_X == "\033[" "{};{}R"
+
+        tb.write_some_bytes(b"\033[6n")  # ⎋[6n
+        tb.kbhit(timeout=0e0)  # flushes after .write_some_bytes
+
+        y_row = -1
+        x_column = -1
+        ba = bytearray()
+
+        while True:
+
+            read = tb.read_one_byte()
+            ba.extend(read)
+
+            if y_row < 0:
+                m = re.search(rb"\033\[([0-9]+);([0-9]+)R$", string=ba)
+                if not m:
+                    continue
+
+                n = len(m.group(0))
+                y_row = int(m.group(1))
+                x_column = int(m.group(2))
+
+                del ba[-n:]
+
+            if not tb.kbhit(timeout=0e0):
+                break
+
+        reads = bytes(ba)
+
+        return (y_row, x_column, reads)
+
+        # ⌥-Click sends the ⎋[⇧D's, then the ⎋[⇧A's or ⎋[⇧B]'s, then the ⎋[⇧C's
 
     def read_kbhit_bytes(self) -> bytes:
         """Read the zero or more available Bytes"""
@@ -323,7 +376,7 @@ class KeyboardReader:
         # at macOS Terminal
         #
         #   mashing the ← ↑ → ↓ Arrow Keys sends 1..3
-        #   ⌥-Click sends >= 1 bursts of Arrow Keys
+        #   ⌥-Click sends >= 1 Bursts of Arrow Keys
         #   ⌥` sends b"``" sometimes together, sometimes separately
         #
 
@@ -331,9 +384,14 @@ class KeyboardReader:
         # at macOS iTerm2
         #
         #   mashing the ← ↑ → ↓ Arrow Keys sends 1..2
-        #   ⌥-Click sends 1 burst of Arrow Keys
+        #   ⌥-Click sends 1 Burst of Arrow Keys
         #   ⌥` sends b"``" always together
         #
+
+
+DSR6 = "\033[" "6n"  # ⎋[6n
+CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;xR
+
 
 #
 # Amp up Import ArgParse

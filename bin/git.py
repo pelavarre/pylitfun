@@ -53,6 +53,7 @@ shline_by_shverb = {
     "gdno": "git diff --name-only [...]",
     "gf": "git fetch --prune --prune-tags --force",
     "gg": "git grep ...",  # -ai -e ... -e ...
+    "gg0": "git status",  # shown in the Shell as 'gg' without Sh Args
     "ggl": "git grep -l ...",  # -ai -e ... -e ...
     "gl": "git log --pretty=fuller --no-decorate [...]",
     "glf": "git ls-files |grep [...]",  # |grep -ai -e ... -e ...
@@ -82,7 +83,12 @@ assert not diffs, (diffs,)
 # Expand the Shell Verb as a Git Alias
 
 incoming_shargv = litshell.sys_argv_partition(default="g")
+
 shverb = incoming_shargv[0]
+if shverb == "gg":  # 'git status' without args, or 'git grep' with args
+    if not incoming_shargv[1:]:
+        shverb = "gg0"
+
 
 git_shverbs = tuple(shline_by_shverb.keys())
 if shverb not in git_shverbs:
