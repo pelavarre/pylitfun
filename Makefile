@@ -119,6 +119,8 @@ flake8:
 			|grep -v '  from pkg_resources import iter_entry_points' \
 			|cat -
 
+# exits 0 despite finding some F401 '...' imported but unused
+
 # --max-line-length=999  # Black max line lengths over Flake8 max line lengths
 # --max-complexity 10  # limit how much McCabe Cyclomatic Complexity we accept
 # --ignore=E203  # Black '[ : ]' rules over E203 whitespace before ':'

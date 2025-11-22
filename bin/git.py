@@ -22,6 +22,7 @@ examples:
 
 import difflib
 import os
+import pathlib
 import shlex
 import signal
 import subprocess
@@ -31,6 +32,9 @@ from pylitfun import litshell
 
 if not __debug__:
     raise NotImplementedError([__debug__])  # because 'python3 better than python3 -O'
+
+
+assert int(0x80 + signal.SIGINT) == 130
 
 
 # Define two dozen and more everyday Git Aliases
@@ -169,7 +173,7 @@ if gpwd != os.getcwd():
 # Expand 'gno' differently while 'git diff --name-only' truthy
 
 expanded_shverb = shverb
-expanded_shline_0 = arguable_shline_1
+expanded_shline_n1 = arguable_shline_1
 
 if shverb == "gno":
     expanded_shverb = "gspno"
@@ -192,22 +196,22 @@ if shverb == "gno":
 
         if run.stdout:
             expanded_shverb = "gdno"
-            expanded_shline_0 = gdno_shline
+            expanded_shline_n1 = gdno_shline
 
 
 # Pause for affirmation
 
-assert int(0x80 + signal.SIGINT) == 130
+expanded_shline_0 = expanded_shline_n1
+taggable_shline_0 = expanded_shline_n1
 
-taggable_shline_0 = expanded_shline_0
-if expanded_shline_0.startswith("... && "):
-
-    expanded_shline = expanded_shline_0.removeprefix("... && ")
+if expanded_shline_n1.startswith("... && "):
+    expanded_shline_0 = expanded_shline_n1.removeprefix("... && ")
     taggable_shline_0 = "echo Press ⌃D && cat - >/dev/null && " + expanded_shline_0
 
-    print(f"Press ⌃D to run:  {expanded_shline_0}", file=sys.stderr)
+    print(f"Press ⌃D to auth:  {expanded_shline_0}", file=sys.stderr)
+    assert int(0x80 + signal.SIGINT) == 130
     try:
-        sys.stdin.readline()
+        sys.stdin.read()
     except KeyboardInterrupt:
         sys.exit(130)
 
@@ -223,11 +227,11 @@ if not incoming_shargv[1:]:
 elif shverb in ("gg", "ggl"):
     shargv = (shargv[0],) + litshell.grep_expand_ae_i(incoming_shargv[1:])
 elif shverb == "glf":
-    assert taggable_shline_0 == expanded_shline_0, (taggable_shline_0, expanded_shline_0)
+    assert taggable_shline_0 == expanded_shline_n1, (taggable_shline_0, expanded_shline_n1)
     grep_shargv_1 = litshell.grep_expand_ae_i(incoming_shargv[1:])
     grep_shargv_1_join = " ".join(shlex.quote(_) for _ in grep_shargv_1[1:])
 
-    expanded_shline_1 = expanded_shline_0 + " " + grep_shargv_1_join
+    expanded_shline_1 = expanded_shline_n1 + " " + grep_shargv_1_join
     taggable_shline_1 = taggable_shline_0 + " " + grep_shargv_1_join
     shargv = tuple()
 
@@ -241,11 +245,45 @@ print(tagged_shline, file=sys.stderr)  # not ("+",  # not ("|" +
 
 # Run the expansion of the Git Alias
 
-if shell:
-    litshell.exit_after_shell(expanded_shline_1)
+shline = expanded_shline_1
+argv = shlex.split(expanded_shline_1) + list(shargv[1:])
 
-alt_sys_argv = shlex.split(expanded_shline_1) + list(shargv[1:])
-litshell.exit_after_run(alt_sys_argv)
+if shell:
+    assert shverb != "gcaa", (shverb, shell, expanded_shline_1)
+
+    run = subprocess.run(shline, shell=True)
+    if run.returncode:
+        print("+ exit", run.returncode, file=sys.stderr)
+
+    sys.exit(run.returncode)
+
+run = subprocess.run(argv)
+if run.returncode:
+    print("+ exit", run.returncode, file=sys.stderr)
+
+    # Help recover when 'git commit' loses its input file
+
+    if shverb == "gcaa":
+        print("+ cat .git/COMMIT_EDITMSG", file=sys.stderr)
+
+        path = pathlib.Path(".git/COMMIT_EDITMSG")
+        text = path.read_text()
+
+        sys.stderr.flush()
+        print(text)
+        sys.stdout.flush()
+        print("+", file=sys.stderr)
+
+        print("Press ⌃D", file=sys.stderr)
+        assert int(0x80 + signal.SIGINT) == 130
+        try:
+            sys.stdin.read()
+        except KeyboardInterrupt:
+            sys.exit(130)
+
+        print("+ exit", run.returncode, file=sys.stderr)  # repeat from above
+
+sys.exit(run.returncode)
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/git.py

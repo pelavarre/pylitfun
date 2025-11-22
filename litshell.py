@@ -6,28 +6,7 @@ usage: from pylitfun import litshell
 
 
 import os
-import subprocess
 import sys
-
-
-def exit_after_shell(shline: str) -> None:
-    """Run the Sh Line on Stdin/Stdout/Stderr and exit, but mention the Exit Code if nonzero"""
-
-    run = subprocess.run(shline, shell=True)
-    if run.returncode:
-        print("+ exit", run.returncode, file=sys.stderr)
-
-    sys.exit(run.returncode)
-
-
-def exit_after_run(argv: list[str]) -> None:
-    """Run the ArgV on Stdin/Stdout/Stderr and exit, but mention the Exit Code if nonzero"""
-
-    run = subprocess.run(argv)
-    if run.returncode:
-        print("+ exit", run.returncode, file=sys.stderr)
-
-    sys.exit(run.returncode)
 
 
 def grep_expand_ae_i(shargs: tuple[str, ...]) -> tuple[str, ...]:

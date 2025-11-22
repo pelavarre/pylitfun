@@ -176,9 +176,14 @@ Can we live within in these limits and still rewrite this text so well as to hop
 
 'The Comments are the first Issue Tracker'
 
-`gcaa` should dump .git/COMMIT_EDITMSG at nonzero exit
-
 8th Game - **Smushup** - Arrow Pair to move 8 ways, and smush matching colors
 Single File Downloads
+
+-->
+
+<!--
+
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/README.md
+# copied from:  git clone https://github.com/pelavarre/pylitfun.git
 
 -->
