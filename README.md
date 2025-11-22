@@ -20,7 +20,7 @@ Wrong. Try it in vim or emacs, and click past the end of a wrapped line. The cur
 
 Or try ⇧← in your favorite terminal app framework, and try ⌥↓, and try ⇧Fn→. Half the time they're decoded as plain ← ↓ → arrows with their modifier keys lost, or the engine gives up and tells you nothing was pressed at all
 
-And can we roll our eyes over the large ⎋ Esc key delays? Press and release Esc: now you wait. The engine freezes in fear, for hey you just might be slowly typing out the ⎋ [ ⇧A encoding of the ↑ Up Arrow key
+And can we roll our eyes over the large ⎋ Esc key delays? Press and release Esc: now you wait. The engine freezes in fear, as if you just might be slowly typing out the ⎋ [ ⇧A encoding of the ↑ Up Arrow key
 
 **These aren't edge cases. These are Tuesday.**
 
@@ -39,13 +39,13 @@ We decode what your terminal sends: instantly, simply, & correctly
    We frame your input instantly & simply & correctly by sending ⎋[5N DSR5 queries for ⎋[0N DSR0 replies. When you release the ⎋ Esc key, we know immediately. We don't wait and wonder
 
 4. **Double-character keystrokes work**  
-   Try ⌥E J on macOS. You get 'j́' (j with combining accent). Most terminal engines, including Emacs ⌃H K, then lose track, wrongly saying you pressed J without the ⌥E before it that adds the aigu accent afterwards. We frame the 'j́' from ⌥E J correctly, and the 'J́' from ⌥E ⇧J too
+   Try ⌥E J on macOS. You get 'j́' (j with combining accent). Most terminal engines, including Emacs ⌃H K, then lose track, wrongly saying you pressed J without the ⌥E before that adds the aigu accent afterwards. We frame the 'j́' from ⌥E J and the 'J́' from ⌥E ⇧J correctly
 
 5. **Double-wide characters work too**  
    Characters like 😃 and 祝 and ￥ should take two columns, says Unicode. We make it so, at both odd and even columns. We don't chop double-wide characters in half
 
 6. **Free-form layout, cell by cell**  
-   Here, your widgets write to their choice of screen cells and scrollback cells. We don't force you clear and fill a rectangular panes. We don't lock you out of adding to the scrollback. We do help your widgets move, grow, shrink, hide away, and return. We set you up to share the screen well with other widgets and with the terminal apps you ran way back when, before calling us
+   We give widgets their choice of screen cells and scrollback cells to write. We don't force them to clear and fill rectangular panes. We don't lock them out of adding rows to the scrollback. We do help them move, grow, shrink, hide away, and return to the screen. We help them share the screen well with other widgets, and share it well with the terminal apps you ran before calling us
 
 
 ## Quick Start
@@ -58,10 +58,10 @@ which -a python3  # such as 2025/Oct Python 3.10
 python3 bin/pylitfun.py --egg=yolo
 ```
 
-**Requirements**: Python and a terminal <br>
-**Tested in**: macOS Terminal, iTerm2, Google Cloud Shell <br>
-**Tested on**: iPad, iPhone, MacBook, a remote Linux <br>
-**Tests needed**: WSL, Windows Command Prompt, more Linux terminals <br>
+**Requirements**: Python and a Terminal <br>
+**Tested in**: macOS Terminal, macOS iTerm2, and Google Cloud Shell <br>
+**Tested on**: iPad, iPhone, MacBook, and a remote Linux <br>
+**Tests needed**: WSL, Windows Command Prompt, more Linuxes <br>
 
 **Launch one widget**: python3 bin/pylitfun.py Luff <br>
 **Send keycaps by name**: python3 bin/pylitfun.py Fn F1 <br>
@@ -69,7 +69,7 @@ python3 bin/pylitfun.py --egg=yolo
 
 ## Widgets you can build here
 
-7 games up nearby, as proofs of concept:
+We put up 7 games nearby, as proofs of concept:
 
 - **Tic-Tac-Tuh** - Tic-Tac-Toe plus flip, rotate, undo, extra turns, and try to lose
 - **Chuckers** - Checkers with 0, 1, or 2 players, and you can save the game to come back and play more later
@@ -81,15 +81,18 @@ python3 bin/pylitfun.py --egg=yolo
 
 We include Easter eggs in every game to help you improve the rules. Because we can
 
+We're working presently to port these 7 in here
+
 Tell us what else you know will fit in here?
 How about Galaga® 1981, Dig-Dug® 1982, Tetris®, Sorry!®, and LEGO®
 from the commercial gaming world?
 How about Go from China, and Pachisi from India?
+Can we do something visually fun with a Text Adventure? Hunt the Wumpus?
 
 
 ## Status
 
-We're porting code in from the older repos we put up as proofs of concept
+We're porting 1 Engine and 7 Games in from the older repos we put up as proofs of concept
 
 **Completed**
 - This README
@@ -100,7 +103,7 @@ We're porting code in from the older repos we put up as proofs of concept
 - 'from pylitfun.litglass import Loopbacker' - Echo with vertical paste, loop back the control sequences you type straight into the screen and scrollback
 
 **Coming next**
-- Our seven games, but rewritten to run as widgets,
+- Our 7 games, but rewritten now to run as widgets,
 no longer running only as full-screen apps
 
 
@@ -119,19 +122,21 @@ no longer running only as full-screen apps
 
 **Linux**: You know where your Terminal is
 
-**Web Browser**: Google Cloud Shell at [shell.cloud.google.com](https://shell.cloud.google.com/?show=terminal) comes free of charge, bundled with Gmail, except you do have to learn to ignore its silly prompts. Google Cloud Shell does still work after you click "Reject" on its every ask to upsell you. And it does keep your saved games saved, when you close the Browser Tab and choose "Leave Page" in place of "Stay on Page". And you accidentally clicking the wrong choice is harmless, they do give you a second chance
+**Web Browser**: Yes you do have a Linux in your Web Browser, like so =>
+
+Google Cloud Shell at [shell.cloud.google.com](https://shell.cloud.google.com/?show=terminal) comes free of charge, bundled with Gmail, except you do have to learn to ignore its silly prompts. It really does still work after you click "Reject" on its every ask to upsell you. It really does keep your saved games saved, when you close the Browser Tab and choose "Leave Page" in place of "Stay on Page". And you can accidentally click the wrong choice, no problem, for then they do give you your second chance to say No, No, please do stop asking me
 
 
 ## Why This Repo Exists
 
-Because vim gets ⌥-Click wrong and emacs gets ⌥E ⇧J wrong <br>
-Because pressing ⎋ Esc shouldn't make you wait <br>
 Because ⇧← shouldn't be decoded as ← <br>
-Because wide emoji shouldn't be chopped in half <br>
+Because Vim gets ⌥-Click wrong and Emacs gets ⌥E ⇧J wrong <br>
+Because pressing ⎋ Esc shouldn't make you wait <br>
+Because wide emoji shouldn't come out chopped in half <br>
 
-Because these bugs have been "acceptable" for decades, and they're not acceptable
+Because we've wrongly been saying these bugs are impractically expensive to fix
 
-Because you hold the right to edit what printed before your process began. You hold the right to add rows to scrollback, off screen. These rights survive only so long as people do exercise them. We exercise them
+Because I like turning "impossible" into "done"
 
 
 ## Links
