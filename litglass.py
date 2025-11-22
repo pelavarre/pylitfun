@@ -31,6 +31,7 @@ import collections
 import collections.abc  # .collections.abc is not .abc
 import dataclasses
 import difflib
+import itertools
 import os
 import pdb
 import re
@@ -151,12 +152,15 @@ class Loopbacker:
             while True:
 
                 tb.kbhit(timeout=None)
-                # reads = kr.read_kbhit_bytes()
-                (y_row, x_column, reads) = kr.read_yx_bytes()
+
+                # reads = kr.read_kbhit_bytes()  # todo: --egg for this
+                # (yx, reads) = kr.read_yx_bytes()  # todo: --egg for this
+                # (hwyx, reads) = kr.read_hwyx_bytes()  # todo: --egg for this
+                (hwyx, reads) = kr.read_fewer_hwyx_bytes()
 
                 text = reads.decode()
                 if flags._repr_:
-                    sw.print_text(y_row, x_column, repr(text))
+                    sw.print_text(hwyx, repr(text))
                     sw.write_text("\t")
                 else:
                     sw.write_text(text)
@@ -318,7 +322,49 @@ class KeyboardReader:
     def __init__(self, terminal_boss: TerminalBoss) -> None:
         self.terminal_boss = terminal_boss
 
-    def read_yx_bytes(self) -> tuple[int, int, bytes]:
+    def read_fewer_hwyx_bytes(self) -> tuple[tuple[int, int, int, int], bytes]:
+        """Call .read_hwyx_bytes and convert Arrows Bursts into Mouse Releases"""
+
+        (yxhw, reads) = self.read_hwyx_bytes()
+
+        if len(reads) % 3:  # requires only Byte Triples in an Arrow Burst
+            return (yxhw, reads)
+
+        if len(reads) <= 3:  # requires >= 2 Arrows in an Arrow Burst
+            return (yxhw, reads)
+
+        ba = bytearray()
+        for i in range(0, len(reads), 3):
+            few = reads[i:][:3]
+            if few not in (b"\033[A", b"\033[B", b"\033[C", b"\033[D"):
+
+                return (yxhw, reads)  # requires only Arrows in an Arrow Burst
+
+            ba.extend(few[-1:])
+
+        leaps = list(f"\033[{len(list(g))}{chr(k)}" for k, g in itertools.groupby(ba))
+        alt_reads = b"".join(_.encode() for _ in leaps)
+
+        return (yxhw, alt_reads)
+
+    def read_hwyx_bytes(self) -> tuple[tuple[int, int, int, int], bytes]:
+        """Call .read_yx_bytes and .os.get_terminal_size"""
+
+        tb = self.terminal_boss
+        fileno = tb.fileno
+
+        (yx, reads) = self.read_yx_bytes()  # todo: test macOS Terminal
+        (y_row, x_column) = yx
+
+        fd = fileno
+        (w_columns, h_rows) = os.get_terminal_size(fd)
+
+        yxhw = (y_row, x_column, h_rows, w_columns)
+
+        return (yxhw, reads)
+
+    def read_yx_bytes(self) -> tuple[tuple[int, int], bytes]:
+        """Read one Byte, then call for Cursor Position, then block till it comes"""
 
         tb = self.terminal_boss
 
@@ -351,9 +397,10 @@ class KeyboardReader:
             if not tb.kbhit(timeout=0e0):
                 break
 
+        yx = (y_row, x_column)
         reads = bytes(ba)
 
-        return (y_row, x_column, reads)
+        return (yx, reads)
 
         # ⌥-Click sends the ⎋[⇧D's, then the ⎋[⇧A's or ⎋[⇧B]'s, then the ⎋[⇧C's
 
