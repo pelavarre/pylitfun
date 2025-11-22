@@ -50,7 +50,7 @@ shline_by_shverb = {
     "ggl": "git grep -l ...",  # -ai -e ... -e ...
     "gf": "git fetch --prune --prune-tags --force",
     "gl": "git log --pretty=fuller --no-decorate [...]",
-    "glf": "git ls-files ...",  # |grep -ai -e ... -e ...
+    "glf": "git ls-files |grep [...]",  # |grep -ai -e ... -e ...
     "gls": "git log --pretty=fuller --no-decorate --numstat [...]",
     "glq": "git log --oneline --no-decorate [...]",
     "glv": "git log --oneline --decorate [...]",
@@ -86,7 +86,7 @@ shline = shline_by_shverb[shverb]
 if shline.endswith(" ..."):
     required_args_usage = f"usage: {shverb} ..."
 
-    arguable_shline = shline.removesuffix(" ...")
+    arguable_shline_0 = shline.removesuffix(" ...")
     shsuffix = " ..."
 
     if not incoming_shargv[1:]:
@@ -96,18 +96,38 @@ if shline.endswith(" ..."):
 elif shline.endswith(" [...]"):
     optional_args_usage = f"usage: {shverb} [...]"
 
-    arguable_shline = shline.removesuffix(" [...]")
+    arguable_shline_0 = shline.removesuffix(" [...]")
     shsuffix = " ..." if incoming_shargv[1:] else ""
 
 else:
     no_args_usage = f"usage: {shverb}"
 
-    arguable_shline = shline
+    arguable_shline_0 = shline
     shsuffix = ""
 
     if incoming_shargv[1:]:
         print(no_args_usage, file=sys.stderr)
         sys.exit(2)  # exits 2 for bad args
+
+
+# Choose to call Git through Shell, else directly
+
+arguable_shline_1 = arguable_shline_0
+shell = False
+
+if shverb == "grv":
+    assert '"$(' in arguable_shline_0, (arguable_shline_0,)
+    shell = True
+
+elif shverb == "glf":
+    assert arguable_shline_0 == "git ls-files |grep"
+    if not incoming_shargv[1:]:
+        arguable_shline_1 = "git ls-files"
+    else:
+        assert " |" in arguable_shline_0, (arguable_shline_0,)
+        shell = True
+
+    # todo: learn to operate 'glf' and 'grv' without 'shell=True'
 
 
 # Fail fast when called outside of a Git Clone
@@ -142,7 +162,7 @@ if gpwd != os.getcwd():
 # Expand 'gno' differently while 'git diff --name-only' truthy
 
 expanded_shverb = shverb
-expanded_shline = arguable_shline
+expanded_shline_0 = arguable_shline_1
 
 if shverb == "gno":
     expanded_shverb = "gspno"
@@ -165,19 +185,20 @@ if shverb == "gno":
 
         if run.stdout:
             expanded_shverb = "gdno"
-            expanded_shline = gdno_shline
+            expanded_shline_0 = gdno_shline
 
 
 # Pause for affirmation
 
 assert int(0x80 + signal.SIGINT) == 130
 
-taggable_shline = expanded_shline
-if expanded_shline.startswith("... && "):
-    expanded_shline = expanded_shline.removeprefix("... && ")
-    taggable_shline = "echo Press ⌃D && cat - >/dev/null && " + expanded_shline
+taggable_shline_0 = expanded_shline_0
+if expanded_shline_0.startswith("... && "):
 
-    print(f"Press ⌃D to run:  {expanded_shline}", file=sys.stderr)
+    expanded_shline = expanded_shline_0.removeprefix("... && ")
+    taggable_shline_0 = "echo Press ⌃D && cat - >/dev/null && " + expanded_shline_0
+
+    print(f"Press ⌃D to run:  {expanded_shline_0}", file=sys.stderr)
     try:
         sys.stdin.readline()
     except KeyboardInterrupt:
@@ -186,26 +207,37 @@ if expanded_shline.startswith("... && "):
 
 # Decorate the the incoming Sh ArgV extensively, for 'gg', 'ggl', and 'glf'
 
+expanded_shline_1 = expanded_shline_0
+taggable_shline_1 = taggable_shline_0
 shargv = tuple(incoming_shargv)  # because 'better copied than aliased'
-if shverb in ("gg", "ggl", "glf"):
-    shargv = (shargv[0],) + litshell.grep_expand_ae_i(incoming_shargv[1:])
 
+if not incoming_shargv[1:]:
+    assert shverb not in ("gg", "ggl"), (shverb, incoming_shargv)
+elif shverb in ("gg", "ggl"):
+    shargv = (shargv[0],) + litshell.grep_expand_ae_i(incoming_shargv[1:])
+elif shverb == "glf":
+    assert taggable_shline_0 == expanded_shline_0, (taggable_shline_0, expanded_shline_0)
+    grep_shargv_1 = litshell.grep_expand_ae_i(incoming_shargv[1:])
+    grep_shargv_1_join = " ".join(shlex.quote(_) for _ in grep_shargv_1[1:])
+
+    expanded_shline_1 = expanded_shline_0 + " " + grep_shargv_1_join
+    taggable_shline_1 = taggable_shline_0 + " " + grep_shargv_1_join
+    shargv = tuple()
 
 # Show the expansion of the Git Alias, on screen before running it
 # todo: Shrink back down such voluminous expanded ShArgV as *.py
 
 shargv_join = " ".join(shlex.quote(_) for _ in shargv[1:])  # less quote marks than shlex.join
-tagged_shline = f": {expanded_shverb}{shsuffix} && {taggable_shline} {shargv_join}".rstrip()
+tagged_shline = f": {expanded_shverb}{shsuffix} && {taggable_shline_1} {shargv_join}".rstrip()
 print(tagged_shline, file=sys.stderr)  # not ("+",  # not ("|" +
 
 
 # Run the expansion of the Git Alias
 
-if "(" in expanded_shline:
-    assert "..." not in expanded_shline, (expanded_shline, shverb)
-    litshell.exit_after_shell(expanded_shline)
+if shell:
+    litshell.exit_after_shell(expanded_shline_1)
 
-alt_sys_argv = shlex.split(expanded_shline) + list(shargv[1:])
+alt_sys_argv = shlex.split(expanded_shline_1) + list(shargv[1:])
 litshell.exit_after_run(alt_sys_argv)
 
 
