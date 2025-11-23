@@ -100,7 +100,7 @@ We're porting 1 Engine and 7 Games in from the older repos we put up as proofs o
 
 **Coming soon**
 - 'from pylitfun.litglass import KeyLogger' - Print the keycaps you release and their byte encodings
-- 'from pylitfun.litglass import Loopbacker' - Echo with vertical paste, loop back the control sequences you type straight into the screen and scrollback
+- 'from pylitfun.litglass import Loopbacker' - Echo with vertical paste, loop the control sequences you type straight back into the screen and scrollback
 
 **Coming next**
 - Our 7 games, but rewritten now to run as widgets,

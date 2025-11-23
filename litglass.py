@@ -3,7 +3,7 @@
 r"""
 usage: litglass.py [-h] [--egg EGG]
 
-loop back Input to Output, to Screen from Touch/ Mouse/ Key
+loop Input back to Output, to Screen from Touch/ Mouse/ Key
 
 options:
   -h, --help  show this help message and exit
@@ -130,14 +130,15 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
 
 
 #
-# Loop back Input to Output, to Screen from Touch/ Mouse/ Key
+# Loop Input back to Output, to Screen from Touch/ Mouse/ Key
 #
 
 
 class Loopbacker:
-    """Loop back Input to Output, to Screen from Touch/ Mouse/ Key"""
+    """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
 
     def run_loopbacker_awhile(self) -> None:
+        """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
 
         assert ord("C") ^ 0x40 == ord("\003")
 
@@ -154,11 +155,16 @@ class Loopbacker:
                 tb.kbhit(timeout=None)
 
                 # reads = kr.read_kbhit_bytes()  # todo: --egg for this
-                # (yx, reads) = kr.read_yx_bytes()  # todo: --egg for this
-                # (hwyx, reads) = kr.read_hwyx_bytes()  # todo: --egg for this
-                (hwyx, reads) = kr.read_fewer_hwyx_bytes()
 
-                text = reads.decode()
+                # (yx, reads) = kr.read_yx_bytes()  # todo: --egg for this
+
+                # (hwyx, reads) = kr.read_hwyx_bytes()  # todo: --egg for this
+
+                (hwyx, leaps, after) = kr.read_hwyx_bytes_and_bytes()
+                reads = leaps + after
+
+                text = reads.decode()  # may raise UnicodeDecodeError
+
                 if flags._repr_:
                     sw.print_text(hwyx, repr(text))
                     sw.write_text("\t")
@@ -173,6 +179,7 @@ class Loopbacker:
 
 
 class TerminalBoss:
+    """Talk with one KeyboardReader and one ScreenWriter"""
 
     stdio: typing.TextIO
     fileno: int
@@ -199,6 +206,7 @@ class TerminalBoss:
         self.keyboard_reader = kr
 
     def __enter__(self) -> TerminalBoss:
+        r"""Stop line-buffering Input, stop taking \n Output as \r\n, etc"""
 
         stdio = self.stdio
         fileno = self.fileno
@@ -231,7 +239,8 @@ class TerminalBoss:
 
         # todo: try termios.TCSAFLUSH to discard Input while entering
 
-    def __exit__(self, exc_type: type, exc_value: Exception, traceback: types.TracebackType) -> None:
+    def __exit__(self, *args: object) -> None:
+        r"""Restart line-buffering Input, restart taking \n Output as \r\n, etc"""
 
         stdio = self.stdio
         fileno = self.fileno
@@ -256,12 +265,14 @@ class TerminalBoss:
         # todo: try termios.TCSAFLUSH to discard Input while exiting
 
     def write_some_bytes(self, data: bytes) -> None:
+        """Write zero or more Bytes"""
 
         fileno = self.fileno
         fd = fileno
-        os.write(fd, data)
+        os.write(fd, data)  # maybe empty
 
     def read_one_byte(self) -> bytes:
+        """Read one Byte"""
 
         fileno = self.fileno
 
@@ -292,6 +303,7 @@ class TerminalBoss:
 
 
 class ScreenWriter:
+    """Write Lines of Output to the Terminal Screen"""
 
     terminal_boss: TerminalBoss
 
@@ -299,7 +311,7 @@ class ScreenWriter:
         self.terminal_boss = terminal_boss
 
     def print_text(self, *args: object, end: str | None = "\r\n") -> None:
-        """Answer the question of 'what is print?'"""
+        """Answer the question of 'what is print?' here lately"""
 
         text = " ".join(str(_) for _ in args)
         end_plus = "" if (end is None) else end
@@ -316,36 +328,64 @@ class ScreenWriter:
 
 
 class KeyboardReader:
+    """Read Frames of Input from the Terminal Keyboard"""
 
     terminal_boss: TerminalBoss
 
+    stash: bytearray
+
+    row_y: int
+    column_x: int
+    y_high: int
+    x_wide: int
+
     def __init__(self, terminal_boss: TerminalBoss) -> None:
+
         self.terminal_boss = terminal_boss
 
-    def read_fewer_hwyx_bytes(self) -> tuple[tuple[int, int, int, int], bytes]:
-        """Call .read_hwyx_bytes and convert Arrows Bursts into Mouse Releases"""
+        self.stash = bytearray()
+
+        self.row_y = -1
+        self.column_x = -1
+        self.y_high = -1
+        self.x_wide = -1
+
+    #
+    # Frame the Bytes that share a Cursor Position Report
+    #
+
+    def read_hwyx_bytes_and_bytes(self) -> tuple[tuple[int, int, int, int], bytes, bytes]:
+        """Read H W Y X and Bytes, but convert a leading Arrows Burst into a Pn Arrow Bytes"""
 
         (yxhw, reads) = self.read_hwyx_bytes()
+        (arrowheads, after) = self.bytes_split_arrowheads(reads)
 
-        if len(reads) % 3:  # requires only Byte Triples in an Arrow Burst
-            return (yxhw, reads)
+        leap_list = list(f"\033[{len(list(g))}{k}" for k, g in itertools.groupby(arrowheads))
+        leaps = b"".join(_.encode() for _ in leap_list)
 
-        if len(reads) <= 3:  # requires >= 2 Arrows in an Arrow Burst
-            return (yxhw, reads)
+        return (yxhw, leaps, after)
 
-        ba = bytearray()
+    def bytes_split_arrowheads(self, reads: bytes) -> tuple[str, bytes]:
+        """Split a Burst of Arrows into a Head of Arrows and a Tail of Bytes"""
+
+        marks: list[str] = list()
+        after = b""
+
         for i in range(0, len(reads), 3):
-            few = reads[i:][:3]
+            few = reads[i:][:3]  # spans of 3 bytes, but maybe short at end
+
             if few not in (b"\033[A", b"\033[B", b"\033[C", b"\033[D"):
+                after = reads[i:]
+                break
 
-                return (yxhw, reads)  # requires only Arrows in an Arrow Burst
+            ord_mark = few[-1]
+            mark = chr(ord_mark)  # the Csi Final Byte
 
-            ba.extend(few[-1:])
+            assert mark in ("A", "B", "C", "D"), (mark, few)
+            marks.append(mark)
 
-        leaps = list(f"\033[{len(list(g))}{chr(k)}" for k, g in itertools.groupby(ba))
-        alt_reads = b"".join(_.encode() for _ in leaps)
-
-        return (yxhw, alt_reads)
+        arrowheads = "".join(marks)
+        return (arrowheads, after)
 
     def read_hwyx_bytes(self) -> tuple[tuple[int, int, int, int], bytes]:
         """Call .read_yx_bytes and .os.get_terminal_size"""
@@ -357,9 +397,9 @@ class KeyboardReader:
         (y_row, x_column) = yx
 
         fd = fileno
-        (w_columns, h_rows) = os.get_terminal_size(fd)
+        (x_wide, y_high) = os.get_terminal_size(fd)
 
-        yxhw = (y_row, x_column, h_rows, w_columns)
+        yxhw = (y_row, x_column, y_high, x_wide)
 
         return (yxhw, reads)
 
@@ -402,7 +442,12 @@ class KeyboardReader:
 
         return (yx, reads)
 
-        # ⌥-Click sends the ⎋[⇧D's, then the ⎋[⇧A's or ⎋[⇧B]'s, then the ⎋[⇧C's
+        # ⌥-Click sends D A B C in the sense of D's, then A's or B's, then C's;
+        # except across a Wrapped Line it can even send like D B C B C
+
+    #
+    # Frame the Bytes that arrive together
+    #
 
     def read_kbhit_bytes(self) -> bytes:
         """Read the zero or more available Bytes"""
