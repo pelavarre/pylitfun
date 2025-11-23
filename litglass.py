@@ -229,12 +229,26 @@ class Loopbacker:
             sw.write_text(text)
             return
 
-        # Loop the Keyboard back into the Screen at every Keycap
+        # If Frame has Keycaps
 
         text = frame.decode()  # may raise UnicodeDecodeError
 
         kseqs = kd.to_kseqs_if(frame)
         if kseqs and frame not in (b"\033", b"\033\033"):
+            join = str(kseqs)
+
+            # Loop back as Arrow, no matter the shifting Keys
+
+            arrows = tuple(_ for _ in ("←", "↑", "→", "↓") if _ in join)
+            if len(arrows) == 1:
+                arrow = arrows[-1]
+                alt_text = kd.decode_by_kseq[arrow]
+
+                sw.write_text(alt_text)
+                return
+
+            # Trust loop back if Keycap found  # todo9: for now, not forever
+
             sw.write_text(text)
             return
 
@@ -389,7 +403,7 @@ class ScreenWriter:
         end_plus = "" if (end is None) else end
         self.write_text(text + end_plus)
 
-        # .end=None puns with .end="", same as it does in Python's .print
+        # .end=None here puns with .end="", same as it does in Python's .print
 
     def write_text(self, text: str) -> None:
         """Write the Byte Encodings of Text without adding a Line-Break"""
@@ -599,7 +613,7 @@ class KeyboardReader:
 
         # Read one Byte, then call for Cursor Position, then block till it comes
 
-        (yx, reads) = self.read_yx_bytes()  # todo: test macOS Terminal
+        (yx, reads) = self.read_yx_bytes()
         (row_y, column_x) = yx
 
         fd = fileno
@@ -1194,11 +1208,11 @@ class KeyboardDecoder:
         # Add the named Keycaps: Esc, Tab, ⇧Tab, Return, Delete
 
         d0 = {
-            r"⇥": "\t",
-            r"⏎": "\r",
-            r"⎋": "\033",
-            r"⇧⇥": "\033[Z",  # ⎋ [ ⇧Z
-            r"⌫": "\177",
+            r"⇥": "\t",  # ⌃I
+            r"⏎": "\r",  # ⌃M
+            r"⎋": "\033",  # ⌃[
+            r"⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
+            r"⌫": "\177",  # ⌃⇧?
         }
 
         for k, v in d0.items():
@@ -1208,9 +1222,9 @@ class KeyboardDecoder:
         # Add the forms of Spacebar
 
         d1 = {
-            r"␢": "\040",
-            r"⌃␢": "\000",
-            r"⌥␢": "\240",
+            r"␢": "\040",  # ⌃`
+            r"⌃␢": "\000",  # ⌃⇧@
+            r"⌥␢": "\240",  # U+00A0 No-Break Space
         }
 
         for k, v in d1.items():
@@ -1260,10 +1274,10 @@ class KeyboardDecoder:
         # Add the basic Arrows
 
         d3 = {
-            r"↑": "\033[A",
-            r"↓": "\033[B",
-            r"→": "\033[C",
-            r"←": "\033[D",
+            r"↑": "\033[" "A",  # ⎋[⇧A
+            r"↓": "\033[" "B",  # ⎋[⇧B
+            r"→": "\033[" "C",  # ⎋[⇧C
+            r"←": "\033[" "D",  # ⎋[⇧D
         }
 
         for k, v in d3.items():
@@ -1275,18 +1289,23 @@ class KeyboardDecoder:
         d4 = {
             r"⌥↑": d3[r"↑"],
             r"⌥↓": d3[r"↓"],
-            r"⌥→": "\033f",
-            r"⌥←": "\033b",
+            r"⌥→": "\033" "f",  # ⎋F
+            r"⌥←": "\033" "b",  # ⎋B
             #
             r"⇧↑": d3[r"↑"],
             r"⇧↓": d3[r"↓"],
-            r"⇧→": "\033[1;2C",
-            r"⇧←": "\033[1;2D",
+            r"⇧→": "\033[" "1;2C",  # ⎋[1;2⇧C
+            r"⇧←": "\033[" "1;2D",  # ⎋[1;2⇧D
             #
             r"⌥⇧↑": d3[r"↑"],
             r"⌥⇧↓": d3[r"↓"],
             r"⌥⇧→": d3[r"→"],
             r"⌥⇧←": d3[r"←"],
+            #
+            r"⇧Fn↑": "\033[" "5~",  # ⎋[5⇧~
+            r"⇧Fn↓": "\033[" "6~",  # ⎋[6⇧~
+            r"⇧Fn→": "\033[" "F",  # ⎋[⇧F
+            r"⇧Fn←": "\033[" "H",  # ⎋[⇧H
         }
 
         for k, v in d4.items():
@@ -1831,10 +1850,15 @@ if __name__ == "__main__":
     main()
 
 
-# todo9: gather todo's
+# todo9: reply to KeyCaps
+# todo9: scavenge repeat count input as Python Literal Int, maybe marked with ⌃U
 
+# todo9: drop Keycaps specific to macOS Terminal, when elsewhere
+# todo9: add iTerm2 Keycaps
+# todo9: add Google Cloud Shell Keycaps
 
-# todo9: parsed Csi, parsed Arrows, KeyCaps
+# todo9: add Fn Keycaps
+
 # todo9: --egg=scroll to scroll then swap in Alt Screen
 # todo9: --egg=paste to do bracketed paste
 # todo9: echo input
