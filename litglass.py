@@ -143,10 +143,19 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
 class Loopbacker:
     """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
 
-    def run_loopbacker_awhile(self) -> None:
-        """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
+    terminal_boss: TerminalBoss
+    screen_writer: ScreenWriter
+    keyboard_reader: KeyboardReader
+
+    keyboard_decoder: KeyboardDecoder
+
+    def __init__(self) -> None:
 
         kd = KeyboardDecoder()
+        self.keyboard_decoder = kd
+
+    def run_loopbacker_awhile(self) -> None:
+        """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
 
         assert ord("C") ^ 0x40 == ord("\003")
 
@@ -154,6 +163,10 @@ class Loopbacker:
         with TerminalBoss() as tb:
             kr = tb.keyboard_reader
             sw = tb.screen_writer
+
+            self.terminal_boss = tb
+            self.screen_writer = sw
+            self.keyboard_reader = kr
 
             sw.print_text()
             sw.print_text("Press ⌃C")
@@ -165,33 +178,76 @@ class Loopbacker:
                 tb.kbhit(timeout=None)
                 frames = kr.read_byte_frames()
 
-                for frame_index, frame in enumerate(frames):
-                    text = frame.decode()  # may raise UnicodeDecodeError
+                if flags._repr_:
+                    self.frames_print_repr(frames)
+                else:
+                    for frame in frames:
+                        self.frame_write_reply(frame)
 
-                    if not flags._repr_:
-                        sw.write_text(text)
-                    else:
-
-                        kseqs = kd.to_kseqs_if(frame)
-                        if not kseqs:
-                            if not frames[1:]:
-                                sw.print_text(repr(text))
-                            else:
-                                sw.print_text(frame_index, repr(text))
-                        else:
-                            if not frames[1:]:
-                                sw.print_text(kseqs, repr(text))
-                            else:
-                                sw.print_text(kseqs, frame_index, repr(text))
-
-                        sw.write_text("\t\t")
-
-                    if text == "\003":
-                        quitting = True
-                        break
+                if b"\003" in frames:
+                    quitting = True
+                    break
 
         sw.print_text("bye")
         sw.print_text()
+
+    def frames_print_repr(self, frames: tuple[bytes, ...]) -> None:
+
+        sw = self.screen_writer
+        kd = self.keyboard_decoder
+
+        for frame_index, frame in enumerate(frames):
+            text = frame.decode()  # may raise UnicodeDecodeError
+
+            kseqs = kd.to_kseqs_if(frame)
+            if not kseqs:
+                if not frames[1:]:
+                    sw.print_text(repr(text))
+                else:
+                    sw.print_text(frame_index, repr(text))
+            else:
+                if not frames[1:]:
+                    sw.print_text(kseqs, repr(text))
+                else:
+                    sw.print_text(kseqs, frame_index, repr(text))
+
+            sw.write_text("\t\t")
+
+    def frame_write_reply(self, frame: bytes) -> None:
+
+        sw = self.screen_writer
+        kd = self.keyboard_decoder
+
+        # Leap the Cursor to the ⌥ -Click
+
+        kbf = KeyByteFrame(frame)
+        (marks, ints) = kbf.to_csi_marks_ints_if(frame)
+
+        if (marks == b"<m") and (len(ints) == 3):
+            (b, x, y) = ints  # todo: bounds check on Click Release
+            text = "\033[" f"{y};{x}" "H"
+            sw.write_text(text)
+            return
+
+        # Loop the Keyboard back into the Screen at every Keycap
+
+        text = frame.decode()  # may raise UnicodeDecodeError
+
+        kseqs = kd.to_kseqs_if(frame)
+        if kseqs and frame not in (b"\033", b"\033\033"):
+            sw.write_text(text)
+            return
+
+        # Show a brief Repr of other Encodes
+
+        alt_text = " "
+        for decode in text:
+            encode = decode.encode()
+            kseqs = kd.to_kseqs_if(encode)
+            kseq = kseqs[0] if kseqs else repr(decode)[1:-1]
+            alt_text += kseq
+
+        sw.write_text(alt_text)
 
 
 class TerminalBoss:
@@ -677,7 +733,7 @@ class KeyByteFrame:
 
         join = bytes(decodable + head + neck + backtail + stash)
 
-        return join
+        return join  # no matter if .closed or not
 
     def close(self) -> None:
         """Close if not closed already"""
@@ -686,6 +742,35 @@ class KeyByteFrame:
         assert not stash, (stash,)
 
         self.closed = True
+
+    #
+    # Pick apart a Esc Csi Sequence into its Marks and Ints
+    #
+
+    def to_csi_marks_ints_if(self, frame: bytes) -> tuple[bytes, tuple[int, ...]]:
+        """Pick out the Nonnegative Int Literals of a Csi Escape Sequence"""
+
+        decodable = self.decodable
+        head = self.head
+        neck = self.neck
+        backtail = self.backtail
+        stash = self.stash
+
+        assert CSI == "\033["
+
+        if (head != b"\033[") or decodable or stash or (not backtail):
+            return (b"", tuple())
+
+        fm = re.fullmatch(rb"^([^0-9;]*)([0-9;]*)(.*)$", string=neck + backtail)
+        assert fm, (fm, neck, backtail)
+
+        marks = fm.group(1) + fm.group(3)
+        ints = tuple((int(_) if _ else -1) for _ in fm.group(2).split(b";"))
+
+        return (marks, ints)
+
+        # (b"A", [])
+        # (b"H", [123, -1])
 
     #
     # Take 1 Byte in and return 0 Bytes, else return 1..4 Bytes that don't fit
@@ -1065,10 +1150,14 @@ CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R
 class KeyboardDecoder:
     """Speak of a Byte Encoding as a Sequence of Chords of Keycaps"""
 
+    selves: list[KeyboardDecoder] = list()
+
     decode_by_kseq: dict[str, str]
     kseqs_by_decode: dict[str, tuple[str, ...]]
 
     def __init__(self) -> None:
+
+        KeyboardDecoder.selves.append(self)
 
         self.decode_by_kseq = dict()
         self.kseqs_by_decode = dict()
@@ -1234,18 +1323,18 @@ class KeyboardDecoder:
         """
 
         option_printables = r"""
-            !⁄Æ‹›ﬁ‡æ·‚°±≤–≥÷
+            ¥⁄Æ‹›ﬁ‡æ·‚°±≤–≥÷
             º¡™£¢∞§¶•ªÚ…¯≠˘¿
             €ÅıÇÎ´Ï˝ÓˆÔÒÂ˜Ø
             ∏Œ‰Íˇ¨◊„˛Á¸“«‘ﬂ—
-            !å∫ç∂!ƒ©˙!∆˚¬µ!ø
-            πœ®ß†!√∑≈¥Ω”»’!
+            ¥å∫ç∂¥ƒ©˙¥∆˚¬µ¥ø
+            πœ®ß†¥√∑≈¥Ω”»’¥
         """
 
         assert len(plain_printables) == len(option_printables)
 
         for plain, option in zip(plain_printables, option_printables):
-            if option in ("\n", " ", "!"):
+            if option in ("\n", " ", "¥"):
                 continue
 
             assert option not in plain_printables, (option,)
@@ -1258,9 +1347,9 @@ class KeyboardDecoder:
 
             d[decode].append(kseq)
 
-            # ⌥Y often comes through as the U+005C Reverse-Solidus, not U+00A5 ¥ Yen-Sign
+            # ⌥Y comes through as the U+005C Reverse-Solidus, not U+00A5 ¥ Yen-Sign
 
-        assert option_printables.count("!") == 7  # ⌥␢ ⌥E ⌥I ⌥N ⌥U ⌥` ⌥⌫
+        assert option_printables.count("¥") == 8  # ⌥␢ ⌥E ⌥I ⌥N ⌥U ⌥Y ⌥` ⌥⌫
 
         option_kseq_by_decode = {  # upper "j́" is "J́" len 2 decode, led by plain U+004A 'J'
             # ⌥E
