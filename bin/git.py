@@ -44,6 +44,7 @@ shline_by_shverb = {
     "ga": "git add ...",
     "gb": "git branch --sort=committerdate",
     "gcaa": "git commit --all --amend",
+    "gcaf": "git commit --all --fixup [...]",
     "gcam": "git commit --all -m wip",  # inverts : grh1 && git reset HEAD~1
     "gcl": "... && git clean -dffxq",
     "gcp": "git cherry-pick ...",
@@ -111,10 +112,12 @@ if shline.endswith(" ..."):  # ga, gcp, gg, ggl, grh
         sys.exit(2)  # exits 2 for bad args
 
 elif shline.endswith(" [...]"):  # gd, gdno, gl, glf, glq, gls, glv, gno, gri, grias, gs, gspno
-    optional_args_usage = f"usage: {shverb} [...]"
+    optional_args_usage = f"usage: {shverb} [...]"  # also: gcaf
 
     arguable_shline_0 = shline.removesuffix(" [...]")
     shsuffix = " ..." if incoming_shargv[1:] else ""
+    if shverb == "gcaf" and not incoming_shargv[1:]:
+        arguable_shline_0 += " HEAD"
 
 else:  # g, gb, gcaa, gcam, gda, gdh, gf, grh1, grl, grv, gsis
     no_args_usage = f"usage: {shverb}"

@@ -154,25 +154,30 @@ class Loopbacker:
 
                 tb.kbhit(timeout=None)
 
-                # reads = kr.read_kbhit_bytes()  # todo: --egg for this
-
-                # (yx, reads) = kr.read_yx_bytes()  # todo: --egg for this
-
-                # (hwyx, reads) = kr.read_hwyx_bytes()  # todo: --egg for this
-
-                (hwyx, leaps, after) = kr.read_hwyx_bytes_and_bytes()
-                reads = leaps + after
-
+                reads = kr.read_bytes()
                 text = reads.decode()  # may raise UnicodeDecodeError
 
                 if flags._repr_:
-                    sw.print_text(hwyx, repr(text))
+                    sw.print_text(repr(text))
                     sw.write_text("\t")
                 else:
                     sw.write_text(text)
 
                 if text == "\003":
                     break
+
+                #
+                # todo: --egg's to split apart our KeyboardReader stack
+                #
+                #   reads = kr.read_kbhit_bytes()
+                #
+                #   (yx, reads) = kr.read_yx_bytes()
+                #
+                #   (hwyx, reads) = kr.read_hwyx_bytes()
+                #
+                #   (hwyx, leaps, after) = kr.read_hwyx_bytes_and_bytes()
+                #   reads = leaps + after
+                #
 
         sw.print_text("bye")
         sw.print_text()
@@ -334,10 +339,10 @@ class KeyboardReader:
 
     stash: bytearray
 
+    y_high: int  # H W Y X always positive after initial (-1, -1, -1, -1)
+    x_wide: int
     row_y: int
     column_x: int
-    y_high: int
-    x_wide: int
 
     def __init__(self, terminal_boss: TerminalBoss) -> None:
 
@@ -349,6 +354,75 @@ class KeyboardReader:
         self.column_x = -1
         self.y_high = -1
         self.x_wide = -1
+
+    #
+    # Read one Frame at a time, and help the Client ignore H W Y X
+    #
+
+    def read_bytes(self) -> bytes:
+        """Read one Frame at a time, and help the Client ignore H W Y X"""
+
+        stash = self.stash
+
+        # Demand more Input when needed
+
+        if not stash:
+
+            (yxhw, reads) = self.read_hwyx_bytes()
+            assert reads, (reads,)
+
+            # Hide away the fresh H W Y X
+
+            (row_y, column_x, y_high, x_wide) = yxhw
+
+            self.row_y = row_y
+            self.column_x = column_x
+            self.y_high = y_high
+            self.x_wide = x_wide
+
+            assert y_high >= 5, (y_high,)  # todo: test of Terminals smaller than macOS Terminals
+            assert x_wide >= 20, (x_wide,)  # todo: test of 9 Columns x 2 Rows at macOS iTerm2
+
+            # Take an ⌥-Click if present
+
+            (arrowheads, after) = self.bytes_split_arrowheads(reads)
+            assert arrowheads or after, (arrowheads, after, reads)
+
+            stash.extend(after)
+            if arrowheads:
+                frame = self.arrowheads_to_frame(arrowheads)
+                assert frame, arrowheads
+                return frame
+
+            assert stash, (stash, arrowheads, after)
+
+        # Take one Frame, keep the rest for later
+
+        assert stash, (stash,)
+        stash_bytes = bytes(stash)
+
+        (frame, after) = self.bytes_split_frame(stash_bytes)
+        assert (frame + after) == stash_bytes, (frame, after, stash_bytes)
+
+        stash.clear()
+        stash.extend(after)
+
+        assert frame, (frame, after, stash)
+
+        return frame
+
+    def bytes_split_frame(self, reads: bytes) -> tuple[bytes, bytes]:
+        """Split one Frame from Bytes"""
+
+        return (reads, b"")  # todo1: work harder, do split them
+
+    def arrowheads_to_frame(self, arrowheads: str) -> bytes:
+        """Convert a Burst of Arrows into a Pn Arrow"""
+
+        leap_list = list(f"\033[{len(list(g))}{k}" for k, g in itertools.groupby(arrowheads))
+        leaps = b"".join(_.encode() for _ in leap_list)
+
+        return leaps  # todo1: work harder, convert to ⌥-Click
 
     #
     # Frame the Bytes that share a Cursor Position Report
@@ -365,11 +439,16 @@ class KeyboardReader:
 
         return (yxhw, leaps, after)
 
+        # todo: delete .read_hwyx_bytes_and_bytes if not tested
+
     def bytes_split_arrowheads(self, reads: bytes) -> tuple[str, bytes]:
         """Split a Burst of Arrows into a Head of Arrows and a Tail of Bytes"""
 
         marks: list[str] = list()
         after = b""
+
+        if len(reads) <= 3:
+            return ("", reads)
 
         for i in range(0, len(reads), 3):
             few = reads[i:][:3]  # spans of 3 bytes, but maybe short at end
@@ -443,7 +522,7 @@ class KeyboardReader:
         return (yx, reads)
 
         # ⌥-Click sends D A B C in the sense of D's, then A's or B's, then C's;
-        # except across a Wrapped Line it can even send like D B C B C
+        # except across a Wrapped Line it can even send like D B C B C, and A D A D A
 
     #
     # Frame the Bytes that arrive together
@@ -461,6 +540,8 @@ class KeyboardReader:
 
         reads = bytes(ba)
         return reads  # maybe empty
+
+        # todo: delete .read_kbhit_bytes if not tested
 
         #  ⎋[200⇧~ .. ⎋[201⇧~ arrive together from ⎋[ ⇧?2004H Bracketed Paste
 
