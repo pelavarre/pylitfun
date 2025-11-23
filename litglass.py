@@ -199,7 +199,7 @@ class Loopbacker:
         for frame_index, frame in enumerate(frames):
             text = frame.decode()  # may raise UnicodeDecodeError
 
-            kseqs = kd.to_kseqs_if(frame)
+            kseqs = kd.bytes_to_kseqs_if(frame)
             if not kseqs:
                 if not frames[1:]:
                     sw.print_text(repr(text))
@@ -233,9 +233,16 @@ class Loopbacker:
 
         text = frame.decode()  # may raise UnicodeDecodeError
 
-        kseqs = kd.to_kseqs_if(frame)
-        if kseqs and frame not in (b"\033", b"\033\033"):
+        kseqs = kd.bytes_to_kseqs_if(frame)
+        if kseqs and frame not in (b"\033", b"\033\033"):  # ⎋ ⎋⎋
             join = str(kseqs)
+            kseq = kseqs[0]
+
+            # Loop back ⌃M ⏎ Return as CR LF
+
+            if kseq == "⏎":
+                sw.write_text("\r\n")
+                return
 
             # Loop back as Arrow, no matter the shifting Keys
 
@@ -257,7 +264,7 @@ class Loopbacker:
         alt_text = " "
         for decode in text:
             encode = decode.encode()
-            kseqs = kd.to_kseqs_if(encode)
+            kseqs = kd.bytes_to_kseqs_if(encode)
             kseq = kseqs[0] if kseqs else repr(decode)[1:-1]
             alt_text += kseq
 
@@ -1183,7 +1190,7 @@ class KeyboardDecoder:
     # Speak of a Byte Encoding as a Sequence of Chords of Keycaps
     #
 
-    def to_kseqs_if(self, data: bytes) -> tuple[str, ...]:
+    def bytes_to_kseqs_if(self, data: bytes) -> tuple[str, ...]:
         """Speak of a Byte Encoding as a Sequence of Chords of Keycaps"""
 
         decode = data.decode()
@@ -1850,17 +1857,27 @@ if __name__ == "__main__":
     main()
 
 
-# todo9: reply to KeyCaps
+# todo9: scavenge Key Byte Frame from Reads of Y X Reads
+# todo9: loop ⌃ M as ⌃M
+# todo9: loop ⎋ [ ⇧M as ⎋[⇧M
+# todo9: block/emulate ⎋ C as ⎋[3⇧J⎋[⇧J⎋[2⇧J
 # todo9: scavenge repeat count input as Python Literal Int, maybe marked with ⌃U
+# todo9: reply to KeyCaps
+
+# todo9: --egg=scroll to scroll then swap in Alt Screen
+
+# todo9: --egg=paste to do vertical bracketed paste
+
+
+# todo9: pick apart text key jams and unbracketed text paste
+# todo9: show when arrow key jams make mouse click
+
+# todo9: add Fn Keycaps
 
 # todo9: drop Keycaps specific to macOS Terminal, when elsewhere
 # todo9: add iTerm2 Keycaps
 # todo9: add Google Cloud Shell Keycaps
 
-# todo9: add Fn Keycaps
-
-# todo9: --egg=scroll to scroll then swap in Alt Screen
-# todo9: --egg=paste to do bracketed paste
 # todo9: echo input
 # todo9: show settings
 # todo9: place input echoes on the side
