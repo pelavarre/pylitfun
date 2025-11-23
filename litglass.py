@@ -434,6 +434,10 @@ class KeyboardReader:
 
         for a in arrowheads:
 
+            if x > w:
+                x -= w
+                y += 1
+
             if a == "A":
 
                 y -= 1
@@ -445,9 +449,6 @@ class KeyboardReader:
             elif a == "C":
 
                 x += 1
-                if x > w:
-                    x -= w
-                    y += 1
 
             else:
                 assert a == "D", (a,)
@@ -463,7 +464,10 @@ class KeyboardReader:
                 continue
 
             assert Y1 <= y <= h, (y, x, h, w, o)
-            assert X1 <= x <= w, (y, x, h, w, o)
+            assert X1 <= x <= (w + 1), (y, x, h, w, o)
+
+        if x > w:
+            x -= 1
 
         f = int("0b01000", base=0)  # f = 0b⌃⌥⇧00
         option_mouse_release = f"\033[<{f};{x};{y}m".encode()
@@ -471,6 +475,8 @@ class KeyboardReader:
         # option_mouse_release = arrowheads.encode() + option_mouse_release  # todo: --egg for this
 
         return option_mouse_release  # lower 'm' for Release
+
+        # todo8: is the Option Mouse Release counted up from (1, 1) or from (0, 0)?
 
     def _bytes_split_frame_(self, data: bytes) -> tuple[bytes, bytes]:
         """Split one Frame off the Start of the Bytes"""
@@ -597,7 +603,8 @@ class KeyboardReader:
         return (yx, reads)
 
         # ⌥-Click sends D A B C in the sense of D's, then A's or B's, then C's;
-        # except across a Wrapped Line it can even send like D B C B C, and A D A D A
+        # except across a Wrapped Line it can even send like D B C B C, and A D A D A,
+        # and A D A D C, and so on and on
 
     #  ⎋[200⇧~ .. ⎋[201⇧~ arrive together from ⎋[ ⇧?2004H Bracketed Paste
 
