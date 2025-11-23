@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 r"""
-usage: litglass.py [-h] [--egg EGG]
+usage: litglass.py [-h] [-f] [--egg EGG]
 
 loop Input back to Output, to Screen from Touch/ Mouse/ Key
 
 options:
-  -h, --help  show this help message and exit
-  --egg EGG   a hint of how to behave, such as 'repr' or 'sigint'
+  -h, --help   show this help message and exit
+  -f, --force  ask fewer questions (like do run slow self-test's)
+  --egg EGG    a hint of how to behave, such as 'repr' or 'sigint'
 
 quirks:
   talks with the Terminal at Stderr (with /dev/stderr, not with /dev/tty)
@@ -98,6 +99,9 @@ def arg_doc_to_parser(doc: str) -> ArgDocParser:
     parser = ArgDocParser(doc, add_help=True)
 
     egg_help = "a hint of how to behave, such as 'repr' or 'sigint'"
+    force_help = "ask fewer questions (like do run slow self-test's)"
+
+    parser.add_argument("-f", "--force", action="count", help=force_help)
     parser.add_argument("--egg", dest="eggs", metavar="EGG", action="append", help=egg_help)
 
     return parser
@@ -109,7 +113,7 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
     ns = parser.parse_args_if(args)  # often prints help & exits zero
 
     ns_keys = list(vars(ns).keys())
-    assert ns_keys == ["eggs"], (ns_keys, ns, args)
+    assert ns_keys == ["force", "eggs"], (ns_keys, ns, args)
 
     celebrated_eggs = ["repr", "sigint"]
 
@@ -125,6 +129,9 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
                 parser.parser.print_usage()
                 print(f"don't choose {egg!r}, do choose from {celebrated_eggs}", file=sys.stderr)
                 sys.exit(2)  # exits 2 for bad Arg
+
+    if ns.force:
+        _try_lit_glass_()
 
     return ns
 
@@ -148,20 +155,32 @@ class Loopbacker:
 
             sw.print_text()
             sw.print_text("Press ⌃C")
-            sw.write_text("\t")
 
+            if flags._repr_:
+                sw.write_text("\t\t")
+
+            index = None
             while True:
 
-                tb.kbhit(timeout=None)
+                if not kr.incoming_kbytearray:
+                    index = None
+                    tb.kbhit(timeout=None)
 
                 reads = kr.read_bytes()
+                if (index is not None) or kr.incoming_kbytearray:
+                    index = 0 if (index is None) else (index + 1)
+
                 text = reads.decode()  # may raise UnicodeDecodeError
 
-                if flags._repr_:
-                    sw.print_text(repr(text))
-                    sw.write_text("\t")
-                else:
+                if not flags._repr_:
                     sw.write_text(text)
+                else:
+                    if index is None:
+                        sw.print_text(repr(text))
+                    else:
+                        sw.print_text(index, repr(text))
+
+                    sw.write_text("\t\t")
 
                 if text == "\003":
                     break
@@ -337,7 +356,7 @@ class KeyboardReader:
 
     terminal_boss: TerminalBoss
 
-    stash: bytearray
+    incoming_kbytearray: bytearray
 
     y_high: int  # H W Y X always positive after initial (-1, -1, -1, -1)
     x_wide: int
@@ -348,7 +367,7 @@ class KeyboardReader:
 
         self.terminal_boss = terminal_boss
 
-        self.stash = bytearray()
+        self.incoming_kbytearray = bytearray()
 
         self.row_y = -1
         self.column_x = -1
@@ -362,11 +381,11 @@ class KeyboardReader:
     def read_bytes(self) -> bytes:
         """Read one Frame at a time, and help the Client ignore H W Y X"""
 
-        stash = self.stash
+        incoming_kbytearray = self.incoming_kbytearray
 
         # Demand more Input when needed
 
-        if not stash:
+        if not incoming_kbytearray:
 
             (yxhw, reads) = self.read_hwyx_bytes()
             assert reads, (reads,)
@@ -388,41 +407,126 @@ class KeyboardReader:
             (arrowheads, after) = self.bytes_split_arrowheads(reads)
             assert arrowheads or after, (arrowheads, after, reads)
 
-            stash.extend(after)
+            incoming_kbytearray.extend(after)
             if arrowheads:
                 frame = self.arrowheads_to_frame(arrowheads)
                 assert frame, arrowheads
                 return frame
 
-            assert stash, (stash, arrowheads, after)
+            assert incoming_kbytearray, (incoming_kbytearray, arrowheads, after)
 
         # Take one Frame, keep the rest for later
 
-        assert stash, (stash,)
-        stash_bytes = bytes(stash)
+        assert incoming_kbytearray, (incoming_kbytearray,)
+        incoming_kbytes = bytes(incoming_kbytearray)
 
-        (frame, after) = self.bytes_split_frame(stash_bytes)
-        assert (frame + after) == stash_bytes, (frame, after, stash_bytes)
+        (frame, after) = self.bytes_split_frame(incoming_kbytes)
+        assert (frame + after) == incoming_kbytes, (frame, after, incoming_kbytes)
 
-        stash.clear()
-        stash.extend(after)
+        incoming_kbytearray.clear()
+        incoming_kbytearray.extend(after)
 
-        assert frame, (frame, after, stash)
+        assert frame, (frame, after, incoming_kbytearray)
 
         return frame
 
-    def bytes_split_frame(self, reads: bytes) -> tuple[bytes, bytes]:
-        """Split one Frame from Bytes"""
+    def bytes_split_frame(self, data: bytes) -> tuple[bytes, bytes]:
+        """Split one Frame off the Start of the Bytes"""
 
-        return (reads, b"")  # todo1: work harder, do split them
+        if not data:
+            return (data, b"")
+
+        decode = KeyByteFrame.bytes_decode_if(data)
+
+        # Accept the b"``" as the Frame of ⌥⇧`
+
+        if len(decode) == 2:
+            if decode == "``":
+                frame = data
+                after = b""
+                return (frame, after)
+
+            # Split the ⌥ Accents arriving together with an Unaccented Decode
+
+            accents = "`" "´" "¨" "ˆ" "˜"  # ⌥⇧` ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
+            if decode[0] in accents:
+                frame = decode[0].encode()
+                after = decode[1:].encode()
+                return (frame, after)
+
+        # Split one Text or Control Frame off the Start of the Bytes
+
+        after = b""
+
+        kbf = KeyByteFrame(b"")
+        for i in range(len(data)):
+            kbyte = data[i:][:1]
+            kbytes = data[i:][1:]
+
+            extras = kbf.take_one_kbyte_if(kbyte)
+            if extras:
+                assert kbf.closed, (kbf.closed, extras, kbyte, kbf)
+                after = extras + kbytes
+                break
+
+            if kbf.closed:
+                after = kbytes
+                break
+
+        frame = kbf.to_frame_bytes()
+        assert (frame + after) == data, (frame, after, data)
+
+        return (frame, after)
 
     def arrowheads_to_frame(self, arrowheads: str) -> bytes:
-        """Convert a Burst of Arrows into a Pn Arrow"""
+        """Convert a Burst of Arrows into a ⌥-Click Release"""
 
-        leap_list = list(f"\033[{len(list(g))}{k}" for k, g in itertools.groupby(arrowheads))
-        leaps = b"".join(_.encode() for _ in leap_list)
+        y = self.row_y
+        x = self.column_x
+        h = self.y_high
+        w = self.x_wide
 
-        return leaps  # todo1: work harder, convert to ⌥-Click
+        o = (y, x, h, w, arrowheads)
+
+        for a in arrowheads:
+
+            if a == "A":
+
+                y -= 1
+
+            elif a == "B":
+
+                y += 1
+
+            elif a == "C":
+
+                x += 1
+                if x > w:
+                    x -= w
+                    y += 1
+
+            else:
+                assert a == "D", (a,)
+
+                x -= 1
+                if x < X1:
+                    x += w
+                    y -= 1
+
+            if len(arrowheads) <= 3:  # takes Arrow Key Mash as ⌥-Click Release
+                y = min(max(Y1, y), h)
+                x = min(max(X1, x), w)
+                continue
+
+            assert Y1 <= y <= h, (y, x, h, w, o)
+            assert X1 <= x <= w, (y, x, h, w, o)
+
+        f = int("0b01000", base=0)  # f = 0b⌃⌥⇧00
+        option_mouse_release = f"\033[<{f};{x};{y}m".encode()
+
+        # option_mouse_release = arrowheads.encode() + option_mouse_release  # todo: --egg for this
+
+        return option_mouse_release  # lower 'm' for Release
 
     #
     # Frame the Bytes that share a Cursor Position Report
@@ -441,20 +545,20 @@ class KeyboardReader:
 
         # todo: delete .read_hwyx_bytes_and_bytes if not tested
 
-    def bytes_split_arrowheads(self, reads: bytes) -> tuple[str, bytes]:
+    def bytes_split_arrowheads(self, data: bytes) -> tuple[str, bytes]:
         """Split a Burst of Arrows into a Head of Arrows and a Tail of Bytes"""
 
         marks: list[str] = list()
         after = b""
 
-        if len(reads) <= 3:
-            return ("", reads)
+        if len(data) <= 3:
+            return ("", data)
 
-        for i in range(0, len(reads), 3):
-            few = reads[i:][:3]  # spans of 3 bytes, but maybe short at end
+        for i in range(0, len(data), 3):
+            few = data[i:][:3]  # spans of 3 bytes, but maybe short at end
 
             if few not in (b"\033[A", b"\033[B", b"\033[C", b"\033[D"):
-                after = reads[i:]
+                after = data[i:]
                 break
 
             ord_mark = few[-1]
@@ -513,6 +617,9 @@ class KeyboardReader:
 
                 del ba[-n:]
 
+                if not ba:  # someone else wrote ⎋[6n earlier
+                    continue
+
             if not tb.kbhit(timeout=0e0):
                 break
 
@@ -562,8 +669,469 @@ class KeyboardReader:
         #
 
 
-DSR6 = "\033[" "6n"  # ⎋[6n
+@dataclasses.dataclass(order=True)  # , frozen=True)
+class KeyByteFrame:
+    """Frame the Bytes of an ⎋ Esc Sequence"""
+
+    decodable: bytearray  # b''  # Decodable Printable Text
+
+    head: bytearray  # b''  # N * ESC  # N * ESC + CSI  # N * ESC + SS3  # OSC
+    neck: bytearray  # b''  # Csi Params  # Osc Payload
+    backtail: bytearray  # b''  # Csi Intermediates and Final  # Osc Terminator
+
+    stash: bytearray  # b''  # 1..3 Bytes taken while not decodable
+
+    closed: bool
+
+    def __init__(self, data: bytes) -> None:
+
+        self.decodable = bytearray()
+
+        self.head = bytearray()
+        self.neck = bytearray()
+        self.backtail = bytearray()
+
+        self.stash = bytearray()
+
+        self.closed = False
+
+        # Take the Bytes in, else raise ValueError
+
+        for i in range(len(data)):
+            kbyte = data[i:][:1]
+
+            extras = self.take_one_kbyte_if(kbyte)
+            if extras:
+                raise ValueError(extras, kbyte, self)
+
+    def to_frame_bytes(self) -> bytes:
+        """List the Bytes taken"""
+
+        decodable = self.decodable
+
+        head = self.head
+        neck = self.neck
+        backtail = self.backtail
+
+        stash = self.stash
+
+        join = bytes(decodable + head + neck + backtail + stash)
+
+        return join
+
+    def close(self) -> None:
+        """Close if not closed already"""
+
+        stash = self.stash
+        assert not stash, (stash,)
+
+        self.closed = True
+
+    #
+    # Take 1 Byte in and return 0 Bytes, else return 1..4 Bytes that don't fit
+    #
+
+    def take_one_kbyte_if(self, kbyte: bytes) -> bytes:
+        """Take 1 Byte in and return 0 Bytes, else return 1..4 Bytes that don't fit"""
+
+        assert len(kbyte) == 1, (kbyte,)
+
+        decodable = self.decodable
+        head = self.head
+        stash = self.stash
+        closed = self.closed
+
+        assert ESC == "\033"
+
+        assert SS3 == "\033O"
+        assert CSI == "\033["
+        assert CSI_SHIFT_M == "\033[M"
+        assert OSC == "\033]"
+
+        # Bounce while Closed
+
+        if closed:
+            return kbyte
+
+        # Hold 1..3 Bytes to decode later
+
+        encode = bytes(stash + kbyte)
+        try:
+            decode = encode.decode()
+        except UnicodeDecodeError:
+            decode = ""
+
+        if not decode:
+            if KeyByteFrame.bytes_to_later_decode_if(encode):
+                stash.extend(kbyte)
+                return b""
+
+        assert len(decode) <= 1, (len(decode), decode, encode)
+
+        stash.clear()
+
+        # Take the Bytes in before the first Head, or without ever a Head
+
+        if not head:
+            extras = self._take_before_head_if_(encode, decode=decode)
+            return extras
+
+        # Take later Bytes in differently, after starts with each kind of Head
+
+        assert not decodable, (decodable,)
+
+        dent = len(head) - len(head.lstrip(b"\033"))
+        dent = (dent - 1) if dent else 0
+        undented_head = head[dent:]
+
+        if undented_head == b"\033":
+            extras = self._take_after_esc_if_(encode)
+            return extras
+
+        elif undented_head == b"\033O":
+            extras = self._take_after_ss3_if_(encode)
+            return extras
+
+        elif undented_head == b"\033[M":
+            extras = self._take_after_csi_m_if_(encode)
+            return extras
+
+        elif undented_head == b"\033[":
+            extras = self._take_after_csi_if_(encode, decode=decode)
+            return extras
+
+        elif undented_head == b"\033]":
+            extras = self._take_after_osc_if_(encode, decode=decode)
+            return extras
+
+        assert False, (head, head[dent:], dent, self)
+
+    def _take_before_head_if_(self, encode: bytes, decode: str) -> bytes:
+        """Take 1..4 more Bytes in, before any Head, else return what doesn't fit"""
+
+        decodable = self.decodable
+        head = self.head
+
+        # Take 1 Decoded Printable Char, without closing the Frame
+
+        if decode:
+            if decode.isprintable():
+                self.decodable = decodable + encode
+                return b""
+
+        # End a Text Frame before Unprintable or Undecodable Bytes
+
+        if decodable:
+            self.close()
+            return encode
+
+        # Take 1..4 Unprintable or Undecodable Bytes as Head
+
+        head.extend(encode)
+        if head != b"\033":
+            self.close()
+
+        return b""
+
+        # takes \b \t \n \r \x7f etc
+
+        # doesn't take bytes([0x80 | 0x0B]) as meaning b"\033\x5b" Csi ⎋[
+        # doesn't take bytes([0x80 | 0x0F]) as meaning b"\033\x4f" Ss3 ⎋O
+        # doesn't take bytes([0x90 | 0x0D]) as meaning b"\033\x5d" Osc ⎋]
+
+        # despite "Table 2b - Bit combinations" "control functions of the C1 set in an 8-bit code"
+
+    Headbook = (
+        b"\033",  # ⎋ ESC
+        b"\033\033",  # ⎋⎋ after
+        b"\033\033O",  # ⎋⎋O is ⎋ before ⎋O
+        b"\033\033[",  # ⎋⎋[ is ⎋ before ⎋[
+        b"\033O",  # ⎋O SS3
+        b"\033[",  # ⎋[ CSI
+        b"\033[M",  # ⎋[⇧M Click Press/ Release
+        b"\033]",  # ⎋ OSC
+    )
+
+    def _take_after_esc_if_(self, encode: bytes) -> bytes:
+        """Take 1..4 more Bytes in, after ⎋ Esc, else return what doesn't fit"""
+
+        head = self.head
+
+        # Take one of the ⎋ Esc Head's, without closing the Frame
+
+        head_plus = head + encode
+        if head_plus in KeyByteFrame.Headbook:
+            lstrip = head_plus.lstrip(b"\033")
+            assert len(lstrip) <= 1, (head_plus,)
+
+            head.extend(encode)
+            return b""
+
+            # doesn't take ⇧M after \⎋ [ here
+
+        # Take ⎋ Esc as an Emacs Meta Byte before 1..4 Bytes
+
+        head.extend(encode)
+        self.close()
+        return b""
+
+    def _take_after_ss3_if_(self, encode: bytes) -> bytes:
+        """Take 1..4 more Bytes in, after ⎋O SS3, else return what doesn't fit"""
+
+        head = self.head
+
+        head.extend(encode)
+        self.close()
+        return b""
+
+    def _take_after_csi_m_if_(self, encode: bytes) -> bytes:
+        """Take 1..4 more Bytes in, after ⎋[⇧M, else return what doesn't fit"""
+
+        head = self.head
+        backtail = self.backtail
+
+        # Take up to three B X Y Chars after the Head, if all decodable
+
+        head_backtail_plus = bytes(head + backtail + encode)
+        plus_later = KeyByteFrame.bytes_to_later_decode_if(head_backtail_plus)
+        assert not plus_later, (plus_later, head, backtail, encode)
+
+        plus_decode = KeyByteFrame.bytes_decode_if(head_backtail_plus)
+        if plus_decode:
+            if len(plus_decode) <= 6:
+                backtail.extend(encode)
+                if len(plus_decode) == 6:
+                    self.close()
+                return b""
+
+        # Take up to three B X Y Bytes after the Head without limitation
+
+        fit = 6 - len(head + backtail)
+        if fit > 0:
+            backtail.extend(encode[:fit])
+            extra = encode[fit:]
+            if len(head_backtail_plus) >= 6:
+                self.close()
+            return extra  # maybe empty
+
+        # Close the ⎋[⇧M Frame after 6 Bytes or before
+
+        self.close()
+        return encode
+
+    def _take_after_csi_if_(self, encode: bytes, decode: str) -> bytes:
+        """Take 1..4 more Bytes in, after ⎋[ CSI, else return what doesn't fit"""
+
+        code = ord(decode)
+
+        head = self.head
+        neck = self.neck
+        backtail = self.backtail
+
+        assert CSI_SHIFT_M == "\033[M"
+
+        # Take the 3-Byte ⎋[⇧M Esc Head, without closing the Frame
+
+        if (not neck) and (not backtail):
+            head_plus = head + encode
+            if head_plus in KeyByteFrame.Headbook:
+                assert head_plus == b"\033[M", (head_plus,)
+                head.extend(encode)
+                return b""
+
+        # Grow the ⎋[ Csi Frame with 1 Decoded Printable Char
+
+        if decode and decode.isprintable():
+            assert code >= 0x20, (code, decode, encode)
+
+            # Grow the Neck until the Backtail starts
+
+            if 0x30 <= code < 0x40:  # 16 Parameter Codes  # 0123456789:;<=>?
+
+                if not backtail:
+                    neck.extend(encode)
+                    return b""
+
+                # Close before more Params, if Backtail has started
+
+                self.close()
+                return encode
+
+            # Grow the Backtail
+
+            if 0x20 <= code < 0x30:  # 16 Intermediate Codes  # ␢!"#$%&\'()*+,-./
+                backtail.extend(encode)
+                return b""
+
+            # Close after a Csi Final Code, or after Printable Unicode
+
+            assert code >= 0x40, (code, decode, encode)  # 63 Final Codes  # @A Z[\\]^_`a z{|}~
+
+            backtail.extend(encode)
+            self.close()
+            return b""
+
+        # Close the ⎋[ Csi Frame before Unprintable or Undecodable Bytes
+
+        self.close()
+        return encode
+
+    def _take_after_osc_if_(self, encode: bytes, decode: str) -> bytes:
+        """Take 1..4 more Bytes in, after ⎋] OSC, else return what doesn't fit"""
+
+        neck = self.neck
+        backtail = self.backtail
+
+        assert BEL == "\007"
+        assert ST == "\033\134"
+
+        # Grow the ⎋] Osc Frame with 1 Decoded Printable Char
+
+        if decode and decode.isprintable():
+            neck.extend(encode)
+            return b""
+
+        # Close the ⎋] Osc Frame with BEL or ST
+
+        if decode == "\007":
+            backtail.extend(encode)
+            self.close()
+            return b""
+
+        if not backtail:
+            if decode == "\033":
+                backtail.extend(encode)
+                self.close()
+                return b""
+
+        if backtail == b"\033":
+            if decode == "\134":
+                backtail.extend(encode)
+                self.close()
+                return b""
+
+            # todo: how should other Bytes past "\033" close an ⎋] Osc Frame?
+
+        # Close the ⎋] Osc Frame before Unprintable or Undecodable Bytes
+
+        self.close()
+        return encode
+
+    #
+    # Work with Decodable and Undecodable Bytes
+    #
+
+    @staticmethod
+    def bytes_decode_if(data: bytes) -> str:
+        """Say if decodable"""
+
+        try:
+            decode = data.decode()
+            return decode  # returns first found
+        except UnicodeDecodeError:
+            pass
+
+        return ""
+
+    Endswiths = (b"\xbf", b"\x80\x80", b"\xbf\xbf", b"\x80\x80\x80", b"\xbf\xbf\xbf")
+
+    @staticmethod
+    def bytes_to_later_decode_if(data: bytes) -> str:
+        """Say if some Bytes start 1 or more UTF-8 Encodings of Chars"""
+
+        endswiths = KeyByteFrame.Endswiths
+
+        for endswith in endswiths:
+            encode = data + endswith
+            try:
+                decode = encode.decode()
+                assert len(decode) >= 1, (decode,)
+                return decode  # returns first found
+            except UnicodeDecodeError:
+                continue
+
+        return ""
+
+    #
+    # for b"\xc2", b"\xed", b"\xe0", b"\xf4", b"\xf0", & friends
+    # because =>
+    #
+    # "\u0000"  # b"\x00"
+    # "\u007f"  # b"\x7f"
+    #
+    # "\u0080"  # b"\xc2\x80" accepted with b"\xc2\xbf", could be accepted as b"\xc2\x80"
+    # "\u07ff"  # b"\xdf\xbf" ditto
+    #
+    # "\u0800"  # b"\xe0\xa0\x80" accepted with b"\xe0\xbf\xbf"
+    # "\ud7ff"  # b"\xed\x9f\xbf" accepted with b"\xed\x80\x80"
+    # "\ud800".."\udfff"  # rejected as b"\xed\xa0\x80" .. b"\xed\xbf\xbf" surrogates
+    # "\ue000"  # b"\xee\x80\x80" accepted
+    # "\uffff"  # b"\xef\xbf\xbf" accepted
+    #
+    # "\U00010000"  # b"\xf0\x90\x80\x80" accepted with "\xf0\xbf\xbf\xbf"
+    # "\U0010ffff"  # b"\xf4\x8f\xbf\xbf" accepted with "\xf4\x80\x80\x80"
+    #
+
+    # todo: invent UTF-8'ish Encoding beyond 1..4 Bytes for Unicode Codes > 0x10_FFFF ?
+
+
+Y1 = 1  # min Y of Terminal Cursor
+X1 = 1  # min X of Terminal Cursor
+
+
+BEL = "\007"  # 00/07 Bell
+
+ESC = "\033"  # 01/11 Escape ⎋
+
+SS3 = "\033O"  # 01/11 04/15 Single Shift Three  # ⎋O
+CSI = "\033["  # 01/11 05/11 Control Sequence Introducer  # ⎋[
+OSC = "\033]"  # 01/11 05/13 Operating System Command  # ⎋]
+
+ST = "\033\134"  # 01/11 05/12 String Terminator  # ⎋\
+
+
+CSI_SHIFT_M = "\033[M"  # ⎋[⇧M{b}{x}{y} Click Press/ Release
+
+
+DSR6 = "\033[" "6n"  # Csi 06/14 [Request] Device Status Report  # Ps 6 Request CPR  # ⎋[6N
 CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;xR
+
+
+#
+# Try things
+#
+
+
+def _try_lit_glass_() -> None:
+    """Run slow and quick Self-Test's of this Module"""
+
+    _try_key_byte_frame_()
+
+
+def _try_key_byte_frame_() -> None:
+
+    KeyByteFrame(b"")
+
+    kbf = KeyByteFrame(b"\x1b[A")
+    assert kbf.to_frame_bytes() == b"\x1b[A", (kbf,)
+    assert kbf.closed, (kbf,)
+
+    kbf = KeyByteFrame(b"\x1b\x1b[A")
+    assert kbf.to_frame_bytes() == b"\x1b\x1b[A", (kbf,)
+    assert kbf.closed, (kbf,)
+
+    kbf = KeyByteFrame(b"\x1b[Mabc")
+    assert kbf.to_frame_bytes() == b"\x1b[Mabc", (kbf,)
+    assert kbf.closed, (kbf,)
+
+    kbf = KeyByteFrame(b"\x1b[Mab\xff")
+    assert kbf.to_frame_bytes() == b"\x1b[Mab\xff", (kbf,)
+    assert kbf.closed, (kbf,)
+
+    #
+    # todo: port in more KeyByteFrame tests from ._try_key_pack_ of
+    #   https://github.com/pelavarre/less-beeps/blob/1009pl/bin/less-beeps.py
+    #
 
 
 #
