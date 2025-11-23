@@ -146,6 +146,8 @@ class Loopbacker:
     def run_loopbacker_awhile(self) -> None:
         """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
 
+        kd = KeyboardDecoder()
+
         assert ord("C") ^ 0x40 == ord("\003")
 
         quitting = False
@@ -160,10 +162,9 @@ class Loopbacker:
                 sw.write_text("\t\t")
 
             while not quitting:
-
                 tb.kbhit(timeout=None)
-
                 frames = kr.read_byte_frames()
+
                 for frame_index, frame in enumerate(frames):
                     text = frame.decode()  # may raise UnicodeDecodeError
 
@@ -171,10 +172,17 @@ class Loopbacker:
                         sw.write_text(text)
                     else:
 
-                        if not frames[1:]:
-                            sw.print_text(repr(text))
+                        kseqs = kd.to_kseqs_if(frame)
+                        if not kseqs:
+                            if not frames[1:]:
+                                sw.print_text(repr(text))
+                            else:
+                                sw.print_text(frame_index, repr(text))
                         else:
-                            sw.print_text(frame_index, repr(text))
+                            if not frames[1:]:
+                                sw.print_text(kseqs, repr(text))
+                            else:
+                                sw.print_text(kseqs, frame_index, repr(text))
 
                         sw.write_text("\t\t")
 
@@ -472,11 +480,7 @@ class KeyboardReader:
         f = int("0b01000", base=0)  # f = 0b⌃⌥⇧00
         option_mouse_release = f"\033[<{f};{x};{y}m".encode()
 
-        # option_mouse_release = arrowheads.encode() + option_mouse_release  # todo: --egg for this
-
         return option_mouse_release  # lower 'm' for Release
-
-        # todo8: is the Option Mouse Release counted up from (1, 1) or from (0, 0)?
 
     def _bytes_split_frame_(self, data: bytes) -> tuple[bytes, bytes]:
         """Split one Frame off the Start of the Bytes"""
@@ -1050,7 +1054,311 @@ CSI_SHIFT_M = "\033[M"  # ⎋[⇧M{b}{x}{y} Click Press/ Release
 
 
 DSR6 = "\033[" "6n"  # Csi 06/14 [Request] Device Status Report  # Ps 6 Request CPR  # ⎋[6N
-CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;xR
+CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R
+
+
+#
+# Speak of a Byte Encoding as a Sequence of Chords of Keycaps
+#
+
+
+class KeyboardDecoder:
+    """Speak of a Byte Encoding as a Sequence of Chords of Keycaps"""
+
+    decode_by_kseq: dict[str, str]
+    kseqs_by_decode: dict[str, tuple[str, ...]]
+
+    def __init__(self) -> None:
+
+        self.decode_by_kseq = dict()
+        self.kseqs_by_decode = dict()
+
+        self._add_basic_kseqs_()
+        self._invert_decode_by_kseq_()
+
+    #
+    # Speak of a Byte Encoding as a Sequence of Chords of Keycaps
+    #
+
+    def to_kseqs_if(self, data: bytes) -> tuple[str, ...]:
+        """Speak of a Byte Encoding as a Sequence of Chords of Keycaps"""
+
+        decode = data.decode()
+
+        kseqs_by_decode = self.kseqs_by_decode
+
+        if decode in kseqs_by_decode.keys():
+            kseqs = kseqs_by_decode.get(decode, tuple())
+            return kseqs
+
+        return tuple()
+
+    #
+    # Add the Keycap Sequences for US-Ascii at MacBook
+    #
+
+    def _add_basic_kseqs_(self) -> None:
+        """Add the Keycap Sequences for US-Ascii at MacBook"""
+
+        decode_by_kseq = self.decode_by_kseq
+
+        # Add the named Keycaps: Esc, Tab, ⇧Tab, Return, Delete
+
+        d0 = {
+            r"⇥": "\t",
+            r"⏎": "\r",
+            r"⎋": "\033",
+            r"⇧⇥": "\033[Z",  # ⎋ [ ⇧Z
+            r"⌫": "\177",
+        }
+
+        for k, v in d0.items():
+            assert k not in decode_by_kseq.keys(), (k,)
+            decode_by_kseq[k] = v
+
+        # Add the forms of Spacebar
+
+        d1 = {
+            r"␢": "\040",
+            r"⌃␢": "\000",
+            r"⌥␢": "\240",
+        }
+
+        for k, v in d1.items():
+            assert k not in decode_by_kseq.keys(), (k,)
+            decode_by_kseq[k] = v
+
+        # Add the unnamed Keycaps: ⇧A..⇧Z, A..Z, 0..9, and the marks
+
+        kseq = r"""
+
+            ⌃⇧@  ⌃A  ⌃B  ⌃C  ⌃D  ⌃E  ⌃F  ⌃G  ⌃H  ⌃I  ⌃J  ⌃K  ⌃L  ⌃M  ⌃N  ⌃O
+            ⌃P  ⌃Q  ⌃R  ⌃S  ⌃T  ⌃U  ⌃V  ⌃W  ⌃X  ⌃Y  ⌃Z  ⌃[  ⌃\  ⌃]  ⌃⇧^  ⌃-
+
+            ⌃`  ⇧!  ⇧"  ⇧#  ⇧$  ⇧%  ⇧&  '  ⇧(  ⇧)  ⇧*  ⇧+  ,  -  .  /
+            0  1  2  3  4  5  6  7  8  9  ⇧:  ;  ⇧<  =  ⇧>  ⇧?
+
+            ⇧@  ⇧A  ⇧B  ⇧C  ⇧D  ⇧E  ⇧F  ⇧G  ⇧H  ⇧I  ⇧J  ⇧K  ⇧L  ⇧M  ⇧N  ⇧O
+            ⇧P  ⇧Q  ⇧R  ⇧S  ⇧T  ⇧U  ⇧V  ⇧W  ⇧X  ⇧Y  ⇧Z  [  \  ]  ⇧^  ⇧_
+
+            `  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
+            P  Q  R  S  T  U  V  W  X  Y  Z  ⇧{  ⇧|  ⇧}  ⇧~  ⌃⇧?
+
+        """
+
+        code = -1
+        for kcap in kseq.split():
+            code += 1
+            decode = chr(code)
+
+            if kcap not in ("⌃`", "⌃⇧?"):
+                assert kcap not in decode_by_kseq.keys(), (kcap,)
+                decode_by_kseq[kcap] = decode
+
+        # Add the aliases
+
+        d2 = {
+            r"⌃⇧_": r"⌃-",  # quicker to type ⌃-, easier to encode ⌃⇧_
+            r"⌃⇧{": r"⌃[",
+            r"⌃⇧|": r"⌃\ ".rstrip(),
+            r"⌃⇧}": r"⌃]",
+        }
+
+        for k, v in d2.items():
+            assert k not in decode_by_kseq.keys(), (k,)
+            decode_by_kseq[k] = decode_by_kseq[v]
+
+        # Add the basic Arrows
+
+        d3 = {
+            r"↑": "\033[A",
+            r"↓": "\033[B",
+            r"→": "\033[C",
+            r"←": "\033[D",
+        }
+
+        for k, v in d3.items():
+            assert k not in decode_by_kseq.keys(), (k,)
+            decode_by_kseq[k] = v
+
+        # Add the ⌥ and ⇧ Arrows
+
+        d4 = {
+            r"⌥↑": d3[r"↑"],
+            r"⌥↓": d3[r"↓"],
+            r"⌥→": "\033f",
+            r"⌥←": "\033b",
+            #
+            r"⇧↑": d3[r"↑"],
+            r"⇧↓": d3[r"↓"],
+            r"⇧→": "\033[1;2C",
+            r"⇧←": "\033[1;2D",
+            #
+            r"⌥⇧↑": d3[r"↑"],
+            r"⌥⇧↓": d3[r"↓"],
+            r"⌥⇧→": d3[r"→"],
+            r"⌥⇧←": d3[r"←"],
+        }
+
+        for k, v in d4.items():
+            assert k not in decode_by_kseq.keys(), (k,)
+            decode_by_kseq[k] = v
+
+    #
+    # Index the Keycap Sequences by their Decodes
+    #
+
+    def _invert_decode_by_kseq_(self) -> None:
+        """Index the Keycap Sequences by their Decodes"""
+
+        decode_by_kseq = self.decode_by_kseq
+        kseqs_by_decode = self.kseqs_by_decode
+
+        # Index the Sequences collected by now
+
+        d = collections.defaultdict(list)
+        for kseq, decode in decode_by_kseq.items():
+            d[decode].append(kseq)
+
+        # Add the ⌥ variants of Non-Blank Printable US-Ascii
+
+        assert "" == "\uf8ff"
+
+        plain_printables = r"""
+            -!"#$%&'()*+,-./
+            0123456789:;<=>?
+            @ABCDEFGHIJKLMNO
+            PQRSTUVWXYZ[\]^_
+            `abcdefghijklmno
+            pqrstuvwxyz{|}~
+        """
+
+        option_printables = r"""
+            !⁄Æ‹›ﬁ‡æ·‚°±≤–≥÷
+            º¡™£¢∞§¶•ªÚ…¯≠˘¿
+            €ÅıÇÎ´Ï˝ÓˆÔÒÂ˜Ø
+            ∏Œ‰Íˇ¨◊„˛Á¸“«‘ﬂ—
+            !å∫ç∂!ƒ©˙!∆˚¬µ!ø
+            πœ®ß†!√∑≈¥Ω”»’!
+        """
+
+        assert len(plain_printables) == len(option_printables)
+
+        for plain, option in zip(plain_printables, option_printables):
+            if option in ("\n", " ", "!"):
+                continue
+
+            assert option not in plain_printables, (option,)
+
+            kseq = "⌥" + d[plain][0]
+            decode = option
+
+            assert kseq not in decode_by_kseq.keys(), (kseq,)
+            decode_by_kseq[kseq] = decode
+
+            d[decode].append(kseq)
+
+            # ⌥Y often comes through as the U+005C Reverse-Solidus, not U+00A5 ¥ Yen-Sign
+
+        assert option_printables.count("!") == 7  # ⌥␢ ⌥E ⌥I ⌥N ⌥U ⌥` ⌥⌫
+
+        option_kseq_by_decode = {  # upper "j́" is "J́" len 2 decode, led by plain U+004A 'J'
+            # ⌥E
+            "á": "⌥E A",  # ⌥⇧Y is Á is ⌥E ⇧A
+            "é": "⌥E E",
+            "í": "⌥E I",  # ⌥⇧S is Í is ⌥E ⇧I
+            "j́": "⌥E J",  # len 2 decode, led by plain U+006A 'j'
+            "ó": "⌥E O",  # ⌥⇧H is Ó is ⌥E ⇧O
+            "ú": "⌥E U",
+            "´": "⌥⇧E",
+            # ⌥I
+            "â": "⌥I A",  # ⌥⇧M is Â is ⌥I ⇧A
+            "ê": "⌥I E",
+            "î": "⌥I I",  # ⌥⇧D is Î is ⌥I ⇧I
+            "ô": "⌥I O",  # ⌥⇧J is Ô is ⌥I ⇧O
+            "û": "⌥I U",
+            "ˆ": "⌥⇧I",
+            # ⌥N
+            "ã": "⌥N A",
+            "ñ": "⌥N N",
+            "õ": "⌥N O",
+            "˜": "⌥⇧N",
+            # ⌥U
+            "ä": "⌥U A",
+            "ë": "⌥U E",
+            "ï": "⌥U I",  # ⌥⇧F is ï is ⌥U ⇧I
+            "ö": "⌥U O",
+            "ü": "⌥U U",
+            "ÿ": "⌥U Y",
+            "¨": "⌥⇧U",
+            # ⌥`
+            "à": "⌥` A",
+            "è": "⌥` E",
+            "ì": "⌥` I",
+            "ò": "⌥` O",  # ⌥⇧L is Ò is ⌥` ⇧O
+            "ù": "⌥` U",
+            "``": "⌥`",  # len 2 decode, two copies of plain U+0060 ` Grave Accent
+        }
+
+        for decode, kseq in option_kseq_by_decode.items():
+
+            if kseq in decode_by_kseq.keys():
+                assert decode_by_kseq[kseq] == decode, (decode_by_kseq[kseq], decode, kseq)
+            else:
+                decode_by_kseq[kseq] = decode
+                d[decode].append(kseq)
+
+            if " " in kseq:
+                ks = kseq[:-1] + "⇧" + kseq[-1:]
+                dc = decode.upper()  # 'Á' from 'á'
+                if dc != decode:
+
+                    if ks in decode_by_kseq.keys():
+                        assert decode_by_kseq[ks] == dc, (decode_by_kseq[ks], dc, ks)
+                    else:
+                        decode_by_kseq[ks] = dc
+                        d[dc].append(ks)
+
+        # Add the "Use Option as Meta key" of macOS Terminal
+
+        for code in range(0, 0x80):
+            if code not in (0, 0x1E):  # ⎋⌃␢ and ⎋⌃⇧@ and ⎋⌃⇧^ don't
+                decode = chr(code)
+
+                kseqs = tuple(d[decode])
+                for kseq in kseqs:
+                    assert " " not in kseq, (kseq,)
+
+                    alt_kseq = "⎋" + kseq  # '⎋␢'
+                    alt_decode = "\033" + decode
+
+                    assert alt_kseq not in decode_by_kseq.keys(), (alt_kseq,)
+                    decode_by_kseq[alt_kseq] = alt_decode
+
+                    d[alt_decode].append(alt_kseq)
+
+                    # ⎋B hides behind ⌥←, ⎋F hides behind ⌥→
+
+        kseqs = ("⇧⇥", "↑", "↓", "→", "←")
+        for kseq in kseqs:
+            assert " " not in kseq, (kseq,)
+            decode = decode_by_kseq[kseq]
+
+            alt_kseq = "⎋" + kseq  # '⎋␢'
+            alt_decode = "\033" + decode
+
+            assert alt_kseq not in decode_by_kseq.keys(), (alt_kseq,)
+            decode_by_kseq[alt_kseq] = alt_decode
+
+            d[alt_decode].append(alt_kseq)
+
+            # ⎋← hides behind ⎋B behind ⌥←, ⎋→ hides behind ⎋F behind ⌥→
+
+        # Convert to immutable Tuples from mutable Lists
+
+        for decode, kseq_list in d.items():
+            assert decode not in kseqs_by_decode, (decode, kseqs_by_decode[decode], kseq_list)
+            kseqs_by_decode[decode] = tuple(kseq_list)
 
 
 #
