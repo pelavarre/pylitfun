@@ -32,7 +32,6 @@ import collections
 import collections.abc  # .collections.abc is not .abc
 import dataclasses
 import difflib
-import itertools
 import os
 import pdb
 import re
@@ -149,6 +148,7 @@ class Loopbacker:
 
         assert ord("C") ^ 0x40 == ord("\003")
 
+        quitting = False
         with TerminalBoss() as tb:
             kr = tb.keyboard_reader
             sw = tb.screen_writer
@@ -159,44 +159,28 @@ class Loopbacker:
             if flags._repr_:
                 sw.write_text("\t\t")
 
-            index = None
-            while True:
+            while not quitting:
 
-                if not kr.incoming_kbytearray:
-                    index = None
-                    tb.kbhit(timeout=None)
+                tb.kbhit(timeout=None)
 
-                reads = kr.read_bytes()
-                if (index is not None) or kr.incoming_kbytearray:
-                    index = 0 if (index is None) else (index + 1)
+                frames = kr.read_byte_frames()
+                for frame_index, frame in enumerate(frames):
+                    text = frame.decode()  # may raise UnicodeDecodeError
 
-                text = reads.decode()  # may raise UnicodeDecodeError
-
-                if not flags._repr_:
-                    sw.write_text(text)
-                else:
-                    if index is None:
-                        sw.print_text(repr(text))
+                    if not flags._repr_:
+                        sw.write_text(text)
                     else:
-                        sw.print_text(index, repr(text))
 
-                    sw.write_text("\t\t")
+                        if not frames[1:]:
+                            sw.print_text(repr(text))
+                        else:
+                            sw.print_text(frame_index, repr(text))
 
-                if text == "\003":
-                    break
+                        sw.write_text("\t\t")
 
-                #
-                # todo: --egg's to split apart our KeyboardReader stack
-                #
-                #   reads = kr.read_kbhit_bytes()
-                #
-                #   (yx, reads) = kr.read_yx_bytes()
-                #
-                #   (hwyx, reads) = kr.read_hwyx_bytes()
-                #
-                #   (hwyx, leaps, after) = kr.read_hwyx_bytes_and_bytes()
-                #   reads = leaps + after
-                #
+                    if text == "\003":
+                        quitting = True
+                        break
 
         sw.print_text("bye")
         sw.print_text()
@@ -356,10 +340,9 @@ class KeyboardReader:
 
     terminal_boss: TerminalBoss
 
-    incoming_kbytearray: bytearray
-
     y_high: int  # H W Y X always positive after initial (-1, -1, -1, -1)
     x_wide: int
+
     row_y: int
     column_x: int
 
@@ -367,118 +350,79 @@ class KeyboardReader:
 
         self.terminal_boss = terminal_boss
 
-        self.incoming_kbytearray = bytearray()
-
         self.row_y = -1
         self.column_x = -1
         self.y_high = -1
         self.x_wide = -1
 
     #
-    # Read one Frame at a time, and help the Client ignore H W Y X
+    # Split the Input Bytes of a Cursor Position Report into >= 1 Frames,
+    # and update the H W Y X of this KeyboardReader
     #
 
-    def read_bytes(self) -> bytes:
+    def read_byte_frames(self) -> tuple[bytes, ...]:
         """Read one Frame at a time, and help the Client ignore H W Y X"""
 
-        incoming_kbytearray = self.incoming_kbytearray
+        (click_release_frame, after) = self._read_click_release_frame_and_after_()
 
-        # Demand more Input when needed
+        frame_list = list()
+        if click_release_frame:
+            frame_list.append(click_release_frame)
 
-        if not incoming_kbytearray:
+        while after:
+            (frame, next_after) = self._bytes_split_frame_(after)
+            assert (frame + next_after) == after, (frame, next_after, after)
 
-            (yxhw, reads) = self.read_hwyx_bytes()
-            assert reads, (reads,)
+            frame_list.append(frame)
+            after = next_after
 
-            # Hide away the fresh H W Y X
+        frames = tuple(frame_list)
+        assert frames, (frames,)
 
-            (row_y, column_x, y_high, x_wide) = yxhw
+        return frames
 
-            self.row_y = row_y
-            self.column_x = column_x
-            self.y_high = y_high
-            self.x_wide = x_wide
+    def _read_click_release_frame_and_after_(self) -> tuple[bytes, bytes]:
+        """Read Bytes, but split off a leading ⌥-Click if present"""
 
-            assert y_high >= 5, (y_high,)  # todo: test of Terminals smaller than macOS Terminals
-            assert x_wide >= 20, (x_wide,)  # todo: test of 9 Columns x 2 Rows at macOS iTerm2
+        reads = self.read_bytes()
+        assert reads, (reads,)
 
-            # Take an ⌥-Click if present
+        (arrowheads, after) = self.bytes_split_arrowheads(reads)
+        assert arrowheads or after, (arrowheads, after, reads)
 
-            (arrowheads, after) = self.bytes_split_arrowheads(reads)
-            assert arrowheads or after, (arrowheads, after, reads)
+        click_release_frame = b""
+        if arrowheads:
+            click_release_frame = self._arrowheads_to_frame_(arrowheads)
+            assert click_release_frame, (click_release_frame, arrowheads)
 
-            incoming_kbytearray.extend(after)
-            if arrowheads:
-                frame = self.arrowheads_to_frame(arrowheads)
-                assert frame, arrowheads
-                return frame
+        return (click_release_frame, after)
 
-            assert incoming_kbytearray, (incoming_kbytearray, arrowheads, after)
+    def bytes_split_arrowheads(self, data: bytes) -> tuple[str, bytes]:
+        """Split a Burst of Arrows into a Head of Arrows and a Tail of Bytes"""
 
-        # Take one Frame, keep the rest for later
-
-        assert incoming_kbytearray, (incoming_kbytearray,)
-        incoming_kbytes = bytes(incoming_kbytearray)
-
-        (frame, after) = self.bytes_split_frame(incoming_kbytes)
-        assert (frame + after) == incoming_kbytes, (frame, after, incoming_kbytes)
-
-        incoming_kbytearray.clear()
-        incoming_kbytearray.extend(after)
-
-        assert frame, (frame, after, incoming_kbytearray)
-
-        return frame
-
-    def bytes_split_frame(self, data: bytes) -> tuple[bytes, bytes]:
-        """Split one Frame off the Start of the Bytes"""
-
-        if not data:
-            return (data, b"")
-
-        decode = KeyByteFrame.bytes_decode_if(data)
-
-        # Accept the b"``" as the Frame of ⌥⇧`
-
-        if len(decode) == 2:
-            if decode == "``":
-                frame = data
-                after = b""
-                return (frame, after)
-
-            # Split the ⌥ Accents arriving together with an Unaccented Decode
-
-            accents = "`" "´" "¨" "ˆ" "˜"  # ⌥⇧` ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
-            if decode[0] in accents:
-                frame = decode[0].encode()
-                after = decode[1:].encode()
-                return (frame, after)
-
-        # Split one Text or Control Frame off the Start of the Bytes
-
+        marks: list[str] = list()
         after = b""
 
-        kbf = KeyByteFrame(b"")
-        for i in range(len(data)):
-            kbyte = data[i:][:1]
-            kbytes = data[i:][1:]
+        if len(data) <= 3:
+            return ("", data)
 
-            extras = kbf.take_one_kbyte_if(kbyte)
-            if extras:
-                assert kbf.closed, (kbf.closed, extras, kbyte, kbf)
-                after = extras + kbytes
+        for i in range(0, len(data), 3):
+            few = data[i:][:3]  # spans of 3 bytes, but maybe short at end
+
+            if few not in (b"\033[A", b"\033[B", b"\033[C", b"\033[D"):
+                after = data[i:]
                 break
 
-            if kbf.closed:
-                after = kbytes
-                break
+            ord_mark = few[-1]
+            mark = chr(ord_mark)  # the Csi Final Byte
 
-        frame = kbf.to_frame_bytes()
-        assert (frame + after) == data, (frame, after, data)
+            assert mark in ("A", "B", "C", "D"), (mark, few)
+            marks.append(mark)
 
-        return (frame, after)
+        arrowheads = "".join(marks)
+        return (arrowheads, after)
 
-    def arrowheads_to_frame(self, arrowheads: str) -> bytes:
+    def _arrowheads_to_frame_(self, arrowheads: str) -> bytes:
         """Convert a Burst of Arrows into a ⌥-Click Release"""
 
         y = self.row_y
@@ -528,63 +472,87 @@ class KeyboardReader:
 
         return option_mouse_release  # lower 'm' for Release
 
-    #
-    # Frame the Bytes that share a Cursor Position Report
-    #
+    def _bytes_split_frame_(self, data: bytes) -> tuple[bytes, bytes]:
+        """Split one Frame off the Start of the Bytes"""
 
-    def read_hwyx_bytes_and_bytes(self) -> tuple[tuple[int, int, int, int], bytes, bytes]:
-        """Read H W Y X and Bytes, but convert a leading Arrows Burst into a Pn Arrow Bytes"""
+        if not data:
+            return (data, b"")
 
-        (yxhw, reads) = self.read_hwyx_bytes()
-        (arrowheads, after) = self.bytes_split_arrowheads(reads)
+        decode = KeyByteFrame.bytes_decode_if(data)
 
-        leap_list = list(f"\033[{len(list(g))}{k}" for k, g in itertools.groupby(arrowheads))
-        leaps = b"".join(_.encode() for _ in leap_list)
+        # Accept the b"``" as the Frame of ⌥⇧`
 
-        return (yxhw, leaps, after)
+        if len(decode) == 2:
+            if decode == "``":
+                frame = data
+                after = b""
+                return (frame, after)
 
-        # todo: delete .read_hwyx_bytes_and_bytes if not tested
+            # Split the ⌥ Accents arriving together with an Unaccented Decode
 
-    def bytes_split_arrowheads(self, data: bytes) -> tuple[str, bytes]:
-        """Split a Burst of Arrows into a Head of Arrows and a Tail of Bytes"""
+            accents = "`" "´" "¨" "ˆ" "˜"  # ⌥⇧` ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
+            if decode[0] in accents:
+                frame = decode[0].encode()
+                after = decode[1:].encode()
+                return (frame, after)
 
-        marks: list[str] = list()
+        # Split one Text or Control Frame off the Start of the Bytes
+
         after = b""
 
-        if len(data) <= 3:
-            return ("", data)
+        kbf = KeyByteFrame(b"")
+        for i in range(len(data)):
+            kbyte = data[i:][:1]
+            kbytes = data[i:][1:]
 
-        for i in range(0, len(data), 3):
-            few = data[i:][:3]  # spans of 3 bytes, but maybe short at end
-
-            if few not in (b"\033[A", b"\033[B", b"\033[C", b"\033[D"):
-                after = data[i:]
+            extras = kbf.take_one_kbyte_if(kbyte)
+            if extras:
+                assert kbf.closed, (kbf.closed, extras, kbyte, kbf)
+                after = extras + kbytes
                 break
 
-            ord_mark = few[-1]
-            mark = chr(ord_mark)  # the Csi Final Byte
+            if kbf.closed:
+                after = kbytes
+                break
 
-            assert mark in ("A", "B", "C", "D"), (mark, few)
-            marks.append(mark)
+        frame = kbf.to_frame_bytes()
+        assert (frame + after) == data, (frame, after, data)
 
-        arrowheads = "".join(marks)
-        return (arrowheads, after)
+        return (frame, after)
 
-    def read_hwyx_bytes(self) -> tuple[tuple[int, int, int, int], bytes]:
-        """Call .read_yx_bytes and .os.get_terminal_size"""
+    #
+    # Frame the Input Bytes that share a Cursor Position Report,
+    # and update the H W Y X of this KeyboardReader
+    #
+
+    def read_bytes(self) -> bytes:
+        """Frame the Bytes that share a Cursor Position Report"""
 
         tb = self.terminal_boss
         fileno = tb.fileno
 
+        # Read one Byte, then call for Cursor Position, then block till it comes
+
         (yx, reads) = self.read_yx_bytes()  # todo: test macOS Terminal
-        (y_row, x_column) = yx
+        (row_y, column_x) = yx
 
         fd = fileno
         (x_wide, y_high) = os.get_terminal_size(fd)
 
-        yxhw = (y_row, x_column, y_high, x_wide)
+        # Publish this fresh H W Y X sample separately
 
-        return (yxhw, reads)
+        assert y_high >= 5, (y_high,)  # todo: test of Terminals smaller than macOS Terminals
+        assert x_wide >= 20, (x_wide,)  # todo: test of 9 Columns x 2 Rows at macOS iTerm2
+
+        self.row_y = row_y
+        self.column_x = column_x
+
+        self.y_high = y_high
+        self.x_wide = x_wide
+
+        # Succeed
+
+        return reads
 
     def read_yx_bytes(self) -> tuple[tuple[int, int], bytes]:
         """Read one Byte, then call for Cursor Position, then block till it comes"""
@@ -631,42 +599,23 @@ class KeyboardReader:
         # ⌥-Click sends D A B C in the sense of D's, then A's or B's, then C's;
         # except across a Wrapped Line it can even send like D B C B C, and A D A D A
 
+    #  ⎋[200⇧~ .. ⎋[201⇧~ arrive together from ⎋[ ⇧?2004H Bracketed Paste
+
     #
-    # Frame the Bytes that arrive together
+    # at macOS Terminal
+    #
+    #   mashing the ← ↑ → ↓ Arrow Keys sends 1..3 Arrows
+    #   ⌥-Click sends 1..X Burst of 1..Y Arrows each
+    #   ⌥` sends b"``" sometimes together, sometimes separately
     #
 
-    def read_kbhit_bytes(self) -> bytes:
-        """Read the zero or more available Bytes"""
-
-        tb = self.terminal_boss
-
-        ba = bytearray()
-        while tb.kbhit(timeout=0e0):
-            read = tb.read_one_byte()
-            ba.extend(read)
-
-        reads = bytes(ba)
-        return reads  # maybe empty
-
-        # todo: delete .read_kbhit_bytes if not tested
-
-        #  ⎋[200⇧~ .. ⎋[201⇧~ arrive together from ⎋[ ⇧?2004H Bracketed Paste
-
-        #
-        # at macOS Terminal
-        #
-        #   mashing the ← ↑ → ↓ Arrow Keys sends 1..3
-        #   ⌥-Click sends >= 1 Bursts of Arrow Keys
-        #   ⌥` sends b"``" sometimes together, sometimes separately
-        #
-
-        #
-        # at macOS iTerm2
-        #
-        #   mashing the ← ↑ → ↓ Arrow Keys sends 1..2
-        #   ⌥-Click sends 1 Burst of Arrow Keys
-        #   ⌥` sends b"``" always together
-        #
+    #
+    # at macOS iTerm2
+    #
+    #   mashing the ← ↑ → ↓ Arrow Keys sends 1..2 Arrows
+    #   ⌥-Click sends 1 Burst of 1..Y Arrows
+    #   ⌥` sends b"``" always together
+    #
 
 
 @dataclasses.dataclass(order=True)  # , frozen=True)
@@ -1431,7 +1380,15 @@ if __name__ == "__main__":
     main()
 
 
-# todo1:
+# todo9: gather todo's
+
+
+# todo9: parsed Csi, parsed Arrows, KeyCaps
+# todo9: --egg=scroll to scroll then swap in Alt Screen
+# todo9: --egg=paste to do bracketed paste
+# todo9: echo input
+# todo9: show settings
+# todo9: place input echoes on the side
 
 
 # 3456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789
