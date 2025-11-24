@@ -28,15 +28,16 @@ def grep_expand_ae_i(shargs: tuple[str, ...]) -> tuple[str, ...]:
     return argv
 
 
-def sys_argv_partition(default: str) -> tuple[str, ...]:
-    """Drop a leading '--shfile=' Arg if present"""
+def sys_argv_patch_shverb_if(default: str) -> tuple[str, ...]:
+    """Replace the ArgV 0 with the '--shfile=' Shell Arg if present as ArgV 1"""
 
-    alt_sys_argv = (default, *sys.argv[1:])
+    shverb = default
+    alt_sys_argv = (shverb, *sys.argv[1:])
 
     if sys.argv[1:]:
-        arg1 = sys.argv[1]
+        argv1 = sys.argv[1]
 
-        (head, sep, tail) = arg1.partition("--shfile=")
+        (head, sep, tail) = argv1.partition("--shfile=")
         if (not head) and sep and tail:
             basename = os.path.basename(tail)
 
@@ -44,6 +45,8 @@ def sys_argv_partition(default: str) -> tuple[str, ...]:
             shargs = tuple(sys.argv[2:])
 
             alt_sys_argv = (shverb, *shargs)
+
+    assert alt_sys_argv[0] == shverb, (alt_sys_argv, shverb)
 
     return alt_sys_argv
 

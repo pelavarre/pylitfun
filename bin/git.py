@@ -83,12 +83,15 @@ assert not diffs, (diffs,)
 
 # Expand the Shell Verb as a Git Alias
 
-incoming_shargv = litshell.sys_argv_partition(default="g")
+incoming_shargv = litshell.sys_argv_patch_shverb_if(default="g")
 
 shverb = incoming_shargv[0]
 if shverb == "gg":  # 'git status' without args, or 'git grep' with args
-    if not incoming_shargv[1:]:
+    obvious_posargs = list(_ for _ in incoming_shargv[1:] if not _.startswith("-"))
+    if not obvious_posargs:
         shverb = "gg0"
+
+        # accepts 'gg --ignored --short' is a kind of 'git status', not a 'git grep -ai -e'
 
 
 git_shverbs = tuple(shline_by_shverb.keys())
@@ -104,8 +107,8 @@ shline = shline_by_shverb[shverb]
 if shline.endswith(" ..."):  # ga, gcp, gg, ggl, grh
     required_args_usage = f"usage: {shverb} ..."
 
-    arguable_shline_0 = shline.removesuffix(" ...")
     shsuffix = " ..."
+    arguable_shline_0 = shline.removesuffix(" ...")
 
     if not incoming_shargv[1:]:
         print(required_args_usage, file=sys.stderr)
@@ -114,20 +117,28 @@ if shline.endswith(" ..."):  # ga, gcp, gg, ggl, grh
 elif shline.endswith(" [...]"):  # gd, gdno, gl, glf, glq, gls, glv, gno, gri, grias, gs, gspno
     optional_args_usage = f"usage: {shverb} [...]"  # also: gcaf
 
-    arguable_shline_0 = shline.removesuffix(" [...]")
     shsuffix = " ..." if incoming_shargv[1:] else ""
+
+    arguable_shline_0 = shline.removesuffix(" [...]")
     if shverb == "gcaf" and not incoming_shargv[1:]:
         arguable_shline_0 += " HEAD"
 
 else:  # g, gb, gcaa, gcam, gda, gdh, gf, grh1, grl, grv, gsis
-    no_args_usage = f"usage: {shverb}"
+    no_leading_pos_arg_usage = f"usage: {shverb}"
 
-    arguable_shline_0 = shline
     shsuffix = ""
+    arguable_shline_0 = shline
 
     if incoming_shargv[1:]:
-        print(no_args_usage, file=sys.stderr)
-        sys.exit(2)  # exits 2 for bad args
+        if incoming_shargv[1].startswith("-"):
+            pass  # even when starts with "--" or "-"
+        else:
+            print(no_leading_pos_arg_usage, file=sys.stderr)
+            sys.exit(2)  # exits 2 for bad args
+
+        # accepts:  g -
+        # accepts:  g --
+        # accepts:  gdh -w
 
 
 # Choose to call Git through Shell, else directly

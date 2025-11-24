@@ -34,7 +34,7 @@ if not __debug__:
     raise NotImplementedError([__debug__])  # because 'python3 better than python3 -O'
 
 
-shargv = litshell.sys_argv_partition(default="g")
+shargv = litshell.sys_argv_patch_shverb_if(default="g")
 if shargv[0] != "g":
     raise NotImplementedError(shargv)
 
