@@ -120,8 +120,12 @@ elif shline.endswith(" [...]"):  # gd, gdno, gl, glf, glq, gls, glv, gno, gri, g
     shsuffix = " ..." if incoming_shargv[1:] else ""
 
     arguable_shline_0 = shline.removesuffix(" [...]")
-    if shverb == "gcaf" and not incoming_shargv[1:]:
-        arguable_shline_0 += " HEAD"
+    if not incoming_shargv[1:]:
+        if shverb == "gcaf":
+            arguable_shline_0 += " HEAD"
+        elif arguable_shline_0.startswith("git log "):
+            assert shverb in ("gl", "glq", "gls", "glv"), (shverb, arguable_shline_0)
+            arguable_shline_0 += " -9"
 
 else:  # g, gb, gcaa, gcam, gda, gdh, gf, grh1, grl, grv, gsis
     no_leading_pos_arg_usage = f"usage: {shverb}"
