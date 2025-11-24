@@ -218,7 +218,7 @@ class Loopbacker:
         sw = self.screen_writer
         kd = self.keyboard_decoder
 
-        # Leap the Cursor to the ⌥ -Click
+        # Leap the Cursor to the ⌥-Click  # todo1: also ⎋[⇧M Click Releases
 
         kbf = KeyByteFrame(frame)
         (marks, ints) = kbf.to_csi_marks_ints_if(frame)
@@ -226,7 +226,7 @@ class Loopbacker:
         if (marks == b"<m") and (len(ints) == 3):
             (b, x, y) = ints  # todo: bounds check on Click Release
             text = "\033[" f"{y};{x}" "H"
-            sw.write_text(text)
+            sw.write_text(text + "@")  # '@' to make ⌥-Click's visible
             return
 
         # If Frame has Keycaps
