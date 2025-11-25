@@ -40,7 +40,7 @@ assert int(0x80 + signal.SIGINT) == 130
 # Define two dozen and more everyday Git Aliases
 
 shline_by_shverb = {
-    "g": "git checkout",
+    "g": "git checkout [...]",
     "ga": "git add ...",
     "gb": "git branch --sort=committerdate",
     "gcaa": "git commit --all --amend",
@@ -68,7 +68,7 @@ shline_by_shverb = {
     "gri": "git rebase -i [...]",
     "grias": "git rebase -i --autosquash [...]",
     "grl": "git reflog --date=relative --numstat",
-    "grv": r'''echo git clone "$(git remote -v |tr ' \t' '\n' |grep : |uniq)"''',
+    "grv": r"git remote -v |tr ' \t' '\n' |grep : |uniq |sed 's,^,git clone ,'",
     "gs": "git show --color-moved [...]",
     "gsis": "git status --ignored --short",
     "gspno": "git show --pretty= --name-only [...]",
@@ -114,7 +114,7 @@ if shline.endswith(" ..."):  # ga, gcp, gg, ggl, grh
         print(required_args_usage, file=sys.stderr)
         sys.exit(2)  # exits 2 for bad args
 
-elif shline.endswith(" [...]"):  # gd, gdno, gl, glf, glq, gls, glv, gno, gri, grias, gs, gspno
+elif shline.endswith(" [...]"):  # g, gd, gdno, gl, glf, glq, gls, glv, gno, gri, grias, gs, gspno
     optional_args_usage = f"usage: {shverb} [...]"  # also: gcaf
 
     shsuffix = " ..." if incoming_shargv[1:] else ""
@@ -127,7 +127,7 @@ elif shline.endswith(" [...]"):  # gd, gdno, gl, glf, glq, gls, glv, gno, gri, g
             assert shverb in ("gl", "glq", "gls", "glv"), (shverb, arguable_shline_0)
             arguable_shline_0 += " -9"
 
-else:  # g, gb, gcaa, gcam, gda, gdh, gf, grh1, grl, grv, gsis
+else:  # gb, gcaa, gcam, gda, gdh, gf, grh1, grl, grv, gsis
     no_leading_pos_arg_usage = f"usage: {shverb}"
 
     shsuffix = ""
@@ -151,7 +151,7 @@ arguable_shline_1 = arguable_shline_0
 shell = False
 
 if shverb == "grv":
-    assert '"$(' in arguable_shline_0, (arguable_shline_0,)
+    assert " |" in arguable_shline_0, (arguable_shline_0,)
     shell = True
 
 elif shverb == "glf":
