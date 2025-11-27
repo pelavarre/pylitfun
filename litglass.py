@@ -216,11 +216,12 @@ class Loopbacker:
             # Take in the Frame by itself, while order incomplete
 
             sco.take_decode(kdecode, yx=(kr.row_y, kr.column_x))
-            (row_y, column_x, strong, factor, slow_kencode) = sco.compile_order()
 
             if not (sco.forceful or sco.intricate):
                 self.kdecode_cook_and_loop_back(kdecode, intricate=False)
                 continue
+
+            (row_y, column_x, strong, factor, slow_kencode) = sco.compile_order()
 
             if not slow_kencode:
                 self.frame_write_echo(frame)
@@ -315,11 +316,8 @@ class Loopbacker:
 
         # But do forward well-known Csi & Osc Byte Sequences arriving as multiple Frames
 
-        print("SQUIRREL 1", end="\r\n")
         if self.csi_osc_cook_and_loop_back(decode=decode):
-            print("SQUIRREL 2", end="\r\n")
             return
-        print("SQUIRREL 3", end="\r\n")
 
         # Echo a blocked Sequence vertically
 
@@ -571,10 +569,15 @@ class ScreenChangeOrder:
         int_literal = self.int_literal
         late_mark = self.late_mark
 
+        intricate = self.intricate
+
         kbf = self.key_byte_frame
         kencode = kbf.to_frame_bytes()
 
-        s = f"{early_mark!r} {int_literal!r} {late_mark!r} {kencode!r}"
+        em = repr(early_mark)[1:-1]
+        lm = repr(late_mark)[1:-1]
+
+        s = f"{em} {int_literal} {lm} {intricate} {kencode!r}"  # no .forceful
 
         return s
 
@@ -704,14 +707,9 @@ class ScreenChangeOrder:
 
             return
 
-        # Else start over
+        # Else secretly silently start over  # like when reached by ⎋ [ ' 2
 
         self.clear_order()
-
-        self.yx = yx
-
-        extras = kbf.take_kencode_if(encode)
-        assert not extras, (extras, encode, kbf)
 
     @staticmethod
     def is_int_value_error(x: str) -> bool:
