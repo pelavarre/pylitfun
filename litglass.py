@@ -185,7 +185,7 @@ class Loopbacker:
                 if flags._repr_:
                     self.some_frames_print_repr(frames)
                 else:
-                    self.some_frames_take_in(frames)
+                    self.some_frames_loop_back(frames)
 
                 if b"\003" in frames:
                     quitting = True
@@ -194,7 +194,7 @@ class Loopbacker:
         sw.print_text("bye")
         sw.print_text()
 
-    def some_frames_take_in(self, frames: tuple[bytes, ...]) -> None:
+    def some_frames_loop_back(self, frames: tuple[bytes, ...]) -> None:
         """Collect Input Frames over time as a Screen Change Order"""
 
         sw = self.screen_writer
@@ -202,13 +202,12 @@ class Loopbacker:
 
         # Collapse a Burst of Text Frames into one Frame
 
-        kbytes = b"".join(frames)
-        try:
-            kdecode = kbytes.decode()
-        except UnicodeDecodeError:
-            kdecode = ""
+        alt_frames = list(frames)  # because 'copied is better than aliased'
 
-        alt_frames = [kbytes] if kdecode else frames
+        kbfs = list(KeyByteFrame(_) for _ in frames)
+        if all(_.printable for _ in kbfs):
+            kbytes = b"".join(frames)
+            alt_frames = [kbytes]
 
         # Take in each Frame
 
@@ -221,11 +220,14 @@ class Loopbacker:
             # Take the Frame by itself, if not part of a larger Screen Change Order
 
             if not kdecode:
-                self.frame_write_reply(frame)
+                self.frame_loop_back(frame)
                 continue
 
             if not sco.take_decode(kdecode):
-                self.frame_write_reply(frame)
+                if kdecode.isprintable():
+                    sw.write_text(kdecode)
+                else:
+                    self.kdecode_cook_and_loop_back(kdecode, multiframe=False)
                 continue
 
             # Echo the Frame and grow the Order, till completed
@@ -235,35 +237,122 @@ class Loopbacker:
                 if frame == b"\025":  # ⌃U
                     self.frame_write_echo(frame)
                 else:
-                    self.frame_write_reply(frame)
+                    self.frame_write_echo(frame)
                 continue
 
             slow_kdecode = slow_kencode.decode()  # todo: undecodable Orders
             if slow_kdecode.isprintable() and (not strong):
-                self.frame_write_reply(frame)
+                sw.write_text(kdecode)
                 continue
 
             # Run the Order, after all of it arrives
 
-            if factor < 1:  # todo: could be 'if factor <= 1:'
+            if factor < -1:  # echoes without writing
+                self.frame_write_echo(frame)
+
+            elif factor == -1:  # echoes and greatly details
+                self.frame_write_echo(frame)
                 sw.write_text(" ")
                 self.some_frames_print_repr(tuple([slow_kencode]))
-            else:
+
+            elif factor == 0:  # echoes and writes
+                self.frame_write_echo(frame)
+                sw.write_text(slow_kdecode)
+
+            else:  # echoes and cooks and writes
                 self.frame_write_echo(frame)
                 for _ in range(factor):
-                    sw.write_text(slow_kdecode)
+                    self.kdecode_cook_and_loop_back(slow_kdecode, multiframe=sco.multiframe)
 
             sco.clear_order()
 
-    def frame_write_reply(self, frame: bytes) -> None:
+    def kdecode_cook_and_loop_back(self, decode: str, multiframe: bool) -> None:
+        """Emulate the Frame, if we can"""
+
+        frame = decode.encode()
+
+        sw = self.screen_writer
+        kd = self.keyboard_decoder
+
+        # If Frame is Printable
+
+        if decode.isprintable():
+            sw.write_text(decode)
+            return
+
+        # If Frame has Keycaps
+
+        kseqs = kd.bytes_to_kseqs_if(frame)
+        if kseqs:  # ⎋ ⎋⎋
+            join = str(kseqs)
+            kseq = kseqs[0]
+
+            # Loop back a few Key Chord Byte Sequences unchanged
+
+            loopable_kseqs = ("⌃G", "⌃H", "⇥", "⌃J", "⌃K", "⇧⇥")
+            if kseq in loopable_kseqs:
+                sw.write_text(decode)  # ⎋[⇧Z for ⇧⇥, etc
+                return
+
+            # Loop back ⌃M ⏎ Return as CR LF
+
+            if kseq == "⏎":
+                sw.write_text("\r\n")
+                return
+
+            # Loop back ⌃⇧? ⌫ as Delete
+
+            if kseq == "⌫":
+                sw.write_text("\033[D" "\033[P")
+                return
+
+            # Loop back as Arrow, no matter the shifting Keys
+
+            if not multiframe:
+
+                arrows = tuple(_ for _ in ("←", "↑", "→", "↓") if _ in join)
+                if len(arrows) == 1:
+                    arrow = arrows[-1]
+                    alt_text = kd.decode_by_kseq[arrow]
+
+                    sw.write_text(alt_text)
+                    return
+
+        # Loop back a few Esc Byte Sequences unchanged
+
+        loopable_decodes = ("\0337", "\0338", "\033D", "\033E", "\033M")
+        if decode in loopable_decodes:
+            sw.write_text(decode)
+            return
+
+        # Block the heavy hammer of ⎋C and the complex hammer of ⎋L
+
+        if decode == "\033C":  # ⎋C to ⎋[3⇧J ⎋[⇧H ⎋[2⇧J screen-erase
+            self.frame_write_echo(b"\033[3J" b"\033[H" b"\033[2J")
+            return
+
+        if decode == "\033L":  # ⎋L to ⎋[⇧H
+            self.frame_write_echo(b"\033[H")
+            return
+
+        # Trust the Osc and Csi Byte Sequences
+
+        if decode.startswith("\033[") or decode.startswith("\033]"):
+            sw.write_text(decode)  # todo: Accept only some Csi/ Osc
+            return
+
+        # Fall back to simpler loopback
+
+        self.frame_loop_back(frame)
+
+    def frame_loop_back(self, frame: bytes) -> None:
         """Take one Input Frame as a Screen Change Order"""
 
         text = frame.decode()  # todo9: may raise UnicodeDecodeError
 
         sw = self.screen_writer
-        kd = self.keyboard_decoder
 
-        # Leap the Cursor to the ⌥-Click  # todo1: also ⎋[⇧M Click Releases
+        # Leap the Cursor to the ⌥-Click  # todo9: also ⎋[⇧M Click Releases
 
         kbf = KeyByteFrame(frame)
         (marks, ints) = kbf.to_csi_marks_ints_if(frame)
@@ -279,34 +368,6 @@ class Loopbacker:
         n = len(frame)
         if frame == (n * b"\033"):  # has .kseqs at ⎋ and at ⎋⎋
             sw.write_text(n * "⎋")
-            return
-
-        # If Frame has Keycaps
-
-        kseqs = kd.bytes_to_kseqs_if(frame)
-        if kseqs:  # ⎋ ⎋⎋
-            join = str(kseqs)
-            kseq = kseqs[0]
-
-            # Loop back ⌃M ⏎ Return as CR LF
-
-            if kseq == "⏎":
-                sw.write_text("\r\n")
-                return
-
-            # Loop back as Arrow, no matter the shifting Keys
-
-            arrows = tuple(_ for _ in ("←", "↑", "→", "↓") if _ in join)
-            if len(arrows) == 1:
-                arrow = arrows[-1]
-                alt_text = kd.decode_by_kseq[arrow]
-
-                sw.write_text(alt_text)
-                return
-
-            # Trust loop back if Keycap found  # todo9: for now, not forever
-
-            sw.write_text(text)
             return
 
         # Show a brief Repr of other Encodes
@@ -414,6 +475,11 @@ class ScreenChangeOrder:
     late_mark: str  # ''  # '\025' ⌃U
 
     key_byte_frame: KeyByteFrame
+    multiframe: bool
+
+    #
+    # Define Init, Bool, Str, & Clear
+    #
 
     def __init__(self) -> None:
 
@@ -438,7 +504,7 @@ class ScreenChangeOrder:
 
         return s
 
-        # todo9: example str(sco)
+        # '\x15' '0' '\x15' b'\x1b[A'
 
     def clear_order(self) -> None:
         """Start again"""
@@ -450,6 +516,11 @@ class ScreenChangeOrder:
         self.late_mark = ""
 
         kbf.clear_frame()
+        self.multiframe = False
+
+    #
+    # Define Eval & Grow
+    #
 
     def compile_order(self) -> tuple[int, int, bytes]:
         """Say what to run, and say if to run it once, or repeatedly, or not at all"""
@@ -554,10 +625,13 @@ class ScreenChangeOrder:
 
         # Grow the Frame till it closes  # todo: indefinitely large Text
 
+        with_bool_kbf = bool(kbf)
         with_bool_self = bool(self)
 
         extras = kbf.take_kencode_if(encode)
         if not extras:
+            if with_bool_kbf:
+                self.multiframe = True
             if with_bool_self:
                 return True
 
@@ -2221,10 +2295,9 @@ if __name__ == "__main__":
     main()
 
 
-# todo9: loop ⌃ M as ⌃M
-# todo9: loop ⎋ [ ⇧M as ⎋[⇧M
-# todo9: block/emulate ⎋ C as ⎋[3⇧J⎋[⇧J⎋[2⇧J
-# todo9: reply to KeyCaps
+# todo9: bounce to first Y X of ScreenChangeOrder to run it
+# todo9: vs scroll while echo of ScreenChangeOrder's in the far Southeast
+
 
 # todo9: --egg=scroll to scroll then swap in Alt Screen
 
@@ -2232,7 +2305,6 @@ if __name__ == "__main__":
 
 
 # todo9: pick apart text key jams and unbracketed text paste
-# todo9: show when arrow key jams make mouse click
 
 # todo9: add Fn Keycaps
 

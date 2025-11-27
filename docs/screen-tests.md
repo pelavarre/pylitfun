@@ -17,15 +17,15 @@ Apple macOS Keycap Symbols are ⎋ Esc, ⌃ Control, ⌥ Option/ Alt, ⇧ Shift,
 
 The famous Esc ⎋ Byte Pairs are ⎋ 7 8 C L ⇧D ⇧E ⇧M
 
-    ⎋7 cursor-checkpoint  ⎋8 cursor-revert (defaults to Y 1 X 1)
     ⎋C terminal-reset  ⎋L terminal-confuse
+    ⎋7 cursor-checkpoint  ⎋8 cursor-revert (defaults to Y 1 X 1)
     ⎋⇧D \n  ⎋⇧E \r↓ else \r\n  ⎋⇧M ↑ else south-row-delete
 
-The famous Csi ⎋[ Outputs are ⎋[ ⇧ @ ABCDE GHIJKLM P ST Z and ⎋[ D H LM Q
+The famous Csi ⎋[ Outputs are ⎋[ ⇧ @ ABCDEFGHIJKLM P ST Z and ⎋[ D F H LM Q
 
-    ⎋[⇧A ↑  ⎋[⇧B ↓  ⎋[⇧C →  ⎋[⇧D ←
+    ⎋[⇧A ↑  ⎋[⇧B ↓  ⎋[⇧C →  ⎋[⇧D ←  ⎋[⇧E \r ↓  ⎋[⇧F \r ↑
     ⎋[I ⌃I  ⎋[⇧Z ⇧Tab
-    ⎋[D row-leap  ⎋[⇧G column-leap  ⎋[⇧H row-column-leap
+    ⎋[D row-leap  ⎋[⇧G column-leap  ⎋[⇧H row-column-leap  ⎋[F row-column-leap
 
     ⎋[1⇧M rows-delete  ⎋[⇧L rows-insert  ⎋[⇧P chars-delete  ⎋[⇧@ chars-insert
     ⎋[⇧J after-erase  ⎋[1⇧J before-erase  ⎋[2⇧J screen-erase  ⎋[3⇧J scrollback-erase
@@ -55,14 +55,22 @@ The famous Csi ⎋[ Inputs, apart from the Replies, are
 
 Our results shown above are as seen at macOS Terminal. The Terminal Emulations of macOS iTerm2 and Google Cloud Shell are different
 
-Our loop-back is impure on purpose. If you type out a repeat count before your Input, then we'll repeat your Input that many times, and write it purely. So when you need to see pure effects, you can type a digit 1 and then your Input and you do test the pure effects. But when you don't type out repeat count, we more guess what you mean, try to help you out
+We run four kinds of loop-back for Terminal Inputs
 
-| Input   | Emulation               | Platforms |
+a ) Echoes without writing, for negative repeat counts <br>
+b ) Echoes and lots of details, for a repeat count of exactly -1 <br>
+c ) Echoes and writes, for a repeat count of 0 <br>
+d ) Echoes and cooks and writes, for positive repeat counts and for no repeat count<br>
+
+| Input   | Cooked Form             | Platforms |
 |---------|-------------------------|-----------|
 |  ⎋C     |  ⎋[3⇧J ⎋[⇧H ⎋[2⇧J       | (all)     |
 |  ⎋L     |  ⎋[⇧H                   | (all)     |
 |  ⎋['⇧}  |  one ⎋[D ⎋[⇧@ per row   | (all)     |
 |  ⎋['⇧~  |  one ⎋[⇧P ⎋[⇧@ per row  | (all)     |
+
+⎋ [ ' 4 ⇧} is what you type to get four of our Csi ⇧} emulations.
+⎋ [ ' 8 ⇧~ is what you type to get eight of our Csi ⇧~ emulations
 
 <!--
 
