@@ -217,10 +217,9 @@ class Loopbacker:
 
             sco.take_decode(kdecode, yx=(kr.row_y, kr.column_x))
             (y_row, x_column, strong, factor, slow_kencode) = sco.compile_order()
-            slow_kdecode = slow_kencode.decode()
 
             if not (sco.forceful or sco.intricate):
-                self.kdecode_cook_and_loop_back(slow_kdecode, intricate=False)
+                self.kdecode_cook_and_loop_back(kdecode, intricate=False)
                 continue
 
             if not slow_kencode:
@@ -228,6 +227,8 @@ class Loopbacker:
                 continue
 
             # Run the Order, after all of it arrives
+
+            slow_kdecode = slow_kencode.decode()
 
             if slow_kdecode.isprintable() and (not strong):
                 sw.write_text(kdecode)
@@ -386,37 +387,8 @@ class Loopbacker:
         sw = self.screen_writer
         kd = self.keyboard_decoder
 
-        # Show Keycaps, if available as ⌫ ⇧⇥ ⇥ etc, except show ⏎ as ⌃M
-
-        kseqs = kd.bytes_to_kseqs_if(frame)
-        if kseqs:
-            kseq = kseqs[0]
-            sw.write_text(kseq)  # ⌫  # ⇧⇥  # ⇥  # ⏎
-            return
-
-        # Show the unquoted Repr, if not decodable
-
-        try:
-            kdecode = frame.decode()
-        except UnicodeDecodeError:
-            kdecode = ""
-
-        if not kdecode:
-            sw.write_text(repr(frame)[1:-1])
-            return
-
-        # Show one Keycap per Character, if decodable
-
-        s = ""
-        for decode in kdecode:
-            encode = decode.encode()
-            kseqs = kd.bytes_to_kseqs_if(encode)
-            kseq = kseqs[0] if kseqs else repr(decode)[1:-1]
-            s += kseq
-
-        sw.write_text(s)
-
-        # todo9: move .frame_write_echo into Class KeyboardDecoder
+        echo = kd.frame_to_echo(frame)
+        sw.write_text(echo)
 
     def some_frames_print_repr(self, frames: tuple[bytes, ...]) -> None:
         """Print the Repr of each Frame, but mark the Frames as framed together"""
@@ -1662,6 +1634,38 @@ class KeyboardDecoder:
     #
     # Speak of a Byte Encoding as a Sequence of Chords of Keycaps
     #
+
+    def frame_to_echo(self, frame: bytes) -> str:
+        """Form a brief Repr of one Input Frame"""
+
+        # Show Keycaps, if available as ⌫ ⇧⇥ ⇥ etc, except show ⏎ as ⌃M
+
+        kseqs = self.bytes_to_kseqs_if(frame)
+        if kseqs:
+            s = kseqs[0]
+            return s  # ⌫  # ⇧⇥  # ⇥  # ⏎
+
+        # Show the unquoted Repr, if not decodable
+
+        try:
+            kdecode = frame.decode()
+        except UnicodeDecodeError:
+            kdecode = ""
+
+        if not kdecode:
+            s = repr(frame)[1:-1]
+            return s
+
+        # Show one Keycap per Character, if decodable
+
+        s = ""
+        for decode in kdecode:
+            encode = decode.encode()
+            kseqs = self.bytes_to_kseqs_if(encode)
+            kseq = kseqs[0] if kseqs else repr(decode)[1:-1]
+            s += kseq
+
+        return s
 
     def bytes_to_kseqs_if(self, data: bytes) -> tuple[str, ...]:
         """Speak of a Byte Encoding as a Sequence of Chords of Keycaps"""
