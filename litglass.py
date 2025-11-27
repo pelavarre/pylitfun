@@ -198,51 +198,41 @@ class Loopbacker:
         """Collect Input Frames over time as a Screen Change Order"""
 
         sw = self.screen_writer
+        kr = self.keyboard_reader
         sco = self.screen_change_order
-
-        # Collapse a Burst of Text Frames into one Frame
-
-        alt_frames = list(frames)  # because 'copied is better than aliased'
-
-        kbfs = list(KeyByteFrame(_) for _ in frames)
-        if all(_.printable for _ in kbfs):
-            kbytes = b"".join(frames)
-            alt_frames = [kbytes]
 
         # Take in each Frame
 
-        for frame in alt_frames:
+        for frame in frames:
             try:
                 kdecode = frame.decode()
             except UnicodeDecodeError:
                 kdecode = ""
 
-            # Take the Frame by itself, if not part of a larger Screen Change Order
-
             if not kdecode:
                 self.frame_write_echo(frame)
                 continue
 
-            if not sco.take_decode(kdecode):
-                if kdecode.isprintable():
-                    sw.write_text(kdecode)
-                else:
-                    self.kdecode_cook_and_loop_back(kdecode, multiframe=False)
+            # Take in the Frame by itself, while order incomplete
+
+            sco.take_decode(kdecode, yx=(kr.row_y, kr.column_x))
+            (y_row, x_column, strong, factor, slow_kencode) = sco.compile_order()
+            slow_kdecode = slow_kencode.decode()
+
+            if not (sco.forceful or sco.intricate):
+                self.kdecode_cook_and_loop_back(slow_kdecode, intricate=False)
                 continue
 
-            # Echo the Frame and grow the Order, till completed
-
-            (strong, factor, slow_kencode) = sco.compile_order()
             if not slow_kencode:
                 self.frame_write_echo(frame)
                 continue
 
-            slow_kdecode = slow_kencode.decode()  # todo: undecodable Orders
+            # Run the Order, after all of it arrives
+
             if slow_kdecode.isprintable() and (not strong):
                 sw.write_text(kdecode)
+                sco.clear_order()
                 continue
-
-            # Run the Order, after all of it arrives
 
             if factor < -1:  # echoes without writing
                 self.frame_write_echo(frame)
@@ -252,18 +242,20 @@ class Loopbacker:
                 sw.write_text(" ")
                 self.some_frames_print_repr(tuple([slow_kencode]))
 
-            elif factor == 0:  # echoes and writes
-                self.frame_write_echo(frame)
+            elif factor == 0:  # echoes and leaps and writes
+                self.frame_write_echo("⌃m".encode() if (frame == b"\r") else frame)  # ⌃M
+                sw.write_text(f"\033[{y_row};{x_column}H")
                 sw.write_text(slow_kdecode)
 
-            else:  # echoes and cooks and writes
+            else:  # echoes and cooks and leaps and writes
                 self.frame_write_echo(frame)
+                sw.write_text(f"\033[{y_row};{x_column}H")
                 for _ in range(factor):
-                    self.kdecode_cook_and_loop_back(slow_kdecode, multiframe=sco.multiframe)
+                    self.kdecode_cook_and_loop_back(slow_kdecode, intricate=sco.intricate)
 
             sco.clear_order()
 
-    def kdecode_cook_and_loop_back(self, decode: str, multiframe: bool) -> None:
+    def kdecode_cook_and_loop_back(self, decode: str, intricate: bool) -> None:
         """Interpret the Decode of the Frame, else echo it"""
 
         frame = decode.encode()
@@ -277,7 +269,7 @@ class Loopbacker:
 
         # If Frame has Keycaps
 
-        if self.kseqs_cook_and_loop_back(decode=decode, multiframe=multiframe):
+        if self.kseqs_cook_and_loop_back(decode=decode, intricate=intricate):
             return
 
         # Loop back a few Esc Byte Sequences unchanged
@@ -310,7 +302,7 @@ class Loopbacker:
 
         # Trust the Osc and Csi Byte Sequences
 
-        if multiframe:
+        if intricate:
 
             if decode.startswith("\033["):
                 if decode[-1] in "@" "ABCDEFGHIJKLM" "P" "ST" "Z" "d" "f" "h" "lm" "q":
@@ -333,7 +325,7 @@ class Loopbacker:
         sw.write_text(" ")
         self.frame_write_echo(frame)
 
-    def kseqs_cook_and_loop_back(self, decode: str, multiframe: bool) -> bool:
+    def kseqs_cook_and_loop_back(self, decode: str, intricate: bool) -> bool:
         """Interpret the Keycaps of the Frame, else return False"""
 
         kd = self.keyboard_decoder
@@ -376,7 +368,7 @@ class Loopbacker:
         # Loop back as Arrow, no matter the shifting Keys
 
         join = str(kseqs)
-        if not multiframe:
+        if not intricate:
 
             arrows = tuple(_ for _ in ("←", "↑", "→", "↓") if _ in join)
             if len(arrows) == 1:
@@ -398,8 +390,8 @@ class Loopbacker:
 
         kseqs = kd.bytes_to_kseqs_if(frame)
         if kseqs:
-            kseq = kseqs[1] if frame == b"\r" else kseqs[0]  # ⌃M
-            sw.write_text(kseq)  # ⌫  # ⇧⇥  # ⇥
+            kseq = kseqs[0]
+            sw.write_text(kseq)  # ⌫  # ⇧⇥  # ⇥  # ⏎
             return
 
         # Show the unquoted Repr, if not decodable
@@ -424,7 +416,7 @@ class Loopbacker:
 
         sw.write_text(s)
 
-        # todo: move .frame_write_echo into Class KeyByteFrame
+        # todo9: move .frame_write_echo into Class KeyboardDecoder
 
     def some_frames_print_repr(self, frames: tuple[bytes, ...]) -> None:
         """Print the Repr of each Frame, but mark the Frames as framed together"""
@@ -436,18 +428,16 @@ class Loopbacker:
 
         (y, x) = (kr.row_y, kr.column_x)
         for frame_index, frame in enumerate(frames):
-
-            if not frames[1:]:
-                self.frame_write_repr(frame, frame_index=None)
-            else:
-                self.frame_write_repr(frame, frame_index=frame_index)
+            self.frames_write_one_repr(frames, frame_index=frame_index)
 
             y += 1  # todo: 'row_y > y_high' happens here  # todo: update Y X shadow
             sw.write_text("\n")
             sw.write_text(f"\033[{y};{x}H")
 
-    def frame_write_repr(self, frame: bytes, frame_index: int | None) -> None:
+    def frames_write_one_repr(self, frames: tuple[bytes, ...], frame_index: int) -> None:
         """Write the Repr of one Frame, but mark the Frames as framed together"""
+
+        frame = frames[frame_index]
 
         try:
             decode = frame.decode()
@@ -463,9 +453,12 @@ class Loopbacker:
 
         kseqs = kd.bytes_to_kseqs_if(frame)
         if kseqs:
-            printables.append(kseqs)
+            if (frame == b"`") and frames[1:]:
+                printables.append(tuple(reversed(kseqs)))  # ('⌥⇧`', '`') 0 `
+            else:
+                printables.append(kseqs)
 
-        if frame_index is not None:
+        if frames[1:]:
             printables.append(frame_index)
 
         if decode and decode.isprintable():
@@ -483,12 +476,14 @@ class Loopbacker:
 class ScreenChangeOrder:
     """Hold some Text, or one Control Sequence"""
 
+    yx: tuple[int, ...]
+
     early_mark: str  # ''  # '\025' ⌃U
     int_literal: str  # ''  # '0x42'  # '9'
     late_mark: str  # ''  # '\025' ⌃U
 
     key_byte_frame: KeyByteFrame
-    multiframe: bool
+    intricate: bool  # says if .key_byte_frame grown from multiple Inputs
 
     #
     # Define Init, Bool, Str, & Clear
@@ -499,10 +494,28 @@ class ScreenChangeOrder:
         self.key_byte_frame = KeyByteFrame(b"")
         self.clear_order()
 
+    def clear_order(self) -> None:
+
+        kbf = self.key_byte_frame
+
+        self.yx = tuple()
+
+        self.early_mark = ""
+        self.int_literal = ""
+        self.late_mark = ""
+
+        kbf.clear_frame()
+        self.intricate = False
+
     def __bool__(self) -> bool:
 
         truthy = self != ScreenChangeOrder()
         return truthy
+
+    @property
+    def forceful(self) -> bool:
+        forceful = bool(self.early_mark or self.int_literal or self.late_mark)
+        return forceful
 
     def __str__(self) -> str:
 
@@ -519,24 +532,14 @@ class ScreenChangeOrder:
 
         # '\x15' '0' '\x15' b'\x1b[A'
 
-    def clear_order(self) -> None:
-        """Start again"""
-
-        kbf = self.key_byte_frame
-
-        self.early_mark = ""
-        self.int_literal = ""
-        self.late_mark = ""
-
-        kbf.clear_frame()
-        self.multiframe = False
-
     #
-    # Define Eval & Grow
+    # Say what to do and where
     #
 
-    def compile_order(self) -> tuple[int, int, bytes]:
-        """Say what to run, and say if to run it once, or repeatedly, or not at all"""
+    def compile_order(self) -> tuple[int, int, int, int, bytes]:
+        """Say where to run, what to run, and if strongly told to run it other than once"""
+
+        yx = self.yx
 
         early_mark = self.early_mark
         int_literal = self.int_literal
@@ -546,6 +549,10 @@ class ScreenChangeOrder:
 
         assert DL_Y == "\033[" "{}M"
         assert _CLICK3_ == "\033[M"
+
+        # Say where to run
+
+        (y_row, x_column) = yx
 
         # Say how strongly marked the Factor is, if marked at all
 
@@ -573,30 +580,36 @@ class ScreenChangeOrder:
 
         if not kbf.closed:
             if not kbf.printable:
-                return (0, 0, b"")
+                kencode = b""
 
         # Succeed
 
-        return (strong, factor, kencode)
+        return (y_row, x_column, strong, factor, kencode)
 
-    def take_decode(self, decode: str) -> bool:
-        """Add on an Input and return True, else restart & return False"""
+    #
+    # Add on a next Input, else restart
+    #
 
+    def take_decode(self, decode: str, yx: tuple[int, int]) -> None:
+        """Add on a next Input, else restart"""
+
+        assert decode, (decode,)
         encode = decode.encode()
+
         kbf = self.key_byte_frame
         assert _FACTOR_MARK_ == "\025"
 
-        # Take no Input as no growth
-
-        if not decode:
-            return False
-
-        # Take Input after Frame as a new Order
+        # Take Input after a Text Frame or Closed Frame as a new Order
 
         if kbf.printable or kbf.closed:
             self.clear_order()
 
-        # Pick Self apart AFTER last .clear_order
+        # Place Output over top of first Input
+
+        if not self.yx:
+            self.yx = yx
+
+        # Pick Self apart AFTER our last .clear_order
 
         early_mark = self.early_mark
         int_literal = self.int_literal
@@ -610,7 +623,7 @@ class ScreenChangeOrder:
             if (early_mark and late_mark) or kbf:
                 self.clear_order()
                 self.early_mark = decode
-                return True
+                return
 
             if not early_mark:
                 self.early_mark = decode
@@ -619,7 +632,7 @@ class ScreenChangeOrder:
             else:
                 self.late_mark = decode
 
-            return True
+            return
 
         # Start or grow an Int Literal
 
@@ -631,26 +644,26 @@ class ScreenChangeOrder:
 
                     if not ScreenChangeOrder.is_int_value_error(lit_plus + "0"):
                         self.int_literal = lit_plus
-                        return True
+                        return
 
-        # Grow the Frame till it closes  # todo: indefinitely large Text
+        # Grow the Frame
 
         with_bool_kbf = bool(kbf)
-        with_bool_self = bool(self)
-
         extras = kbf.take_kencode_if(encode)
         if not extras:
             if with_bool_kbf:
-                self.multiframe = True
-            if with_bool_self:
-                return True
+                self.intricate = True
 
-            return False
+            return
 
-        # Else start over with nothing
+        # Else start over
 
         self.clear_order()
-        return False
+
+        self.yx = yx
+
+        extras = kbf.take_kencode_if(encode)
+        assert not extras, (extras, encode, kbf)
 
     @staticmethod
     def is_int_value_error(x: str) -> bool:
@@ -987,7 +1000,7 @@ class KeyboardReader:
         # Accept the b"``" as the Frame of ⌥⇧`
 
         if len(decode) == 2:
-            if decode == "``":
+            if decode == "``":  # ⌥⇧` `
                 frame = data
                 after = b""
                 return (frame, after)
@@ -1872,7 +1885,8 @@ class KeyboardDecoder:
             "ì": "⌥` I",
             "ò": "⌥` O",  # ⌥⇧L is Ò is ⌥` ⇧O
             "ù": "⌥` U",
-            "``": "⌥`",  # len 2 decode, two copies of plain U+0060 ` Grave Accent
+            "``": "⌥` `",  # len 2 decode, two copies of plain U+0060 ` Grave Accent
+            "`": "⌥⇧`",  # the U+0060 ` Grave Accent keycapped as ` and ⌥⇧`
         }
 
         for decode, kseq in option_kseq_by_decode.items():
@@ -2317,16 +2331,10 @@ if __name__ == "__main__":
     main()
 
 
-# todo9: bounce to first Y X of ScreenChangeOrder to run it
-# todo9: vs scroll while echo of ScreenChangeOrder's in the far Southeast
-
-
+# todo9: --egg=enter to enter without setup of vertical bracketed paste
+# todo9: --egg=exit to exit without teardown of screen tests to 4 clear South Rows
 # todo9: --egg=scroll to scroll then swap in Alt Screen
 
-# todo9: --egg=paste to do vertical bracketed paste
-
-
-# todo9: pick apart text key jams and unbracketed text paste
 
 # todo9: add Fn Keycaps
 
@@ -2334,9 +2342,14 @@ if __name__ == "__main__":
 # todo9: add iTerm2 Keycaps
 # todo9: add Google Cloud Shell Keycaps
 
+
+# todo9: pick apart text key jams and unbracketed text paste
+
+
 # todo9: echo input
 # todo9: show settings
 # todo9: place input echoes on the side
+# todo9: vs scroll while echo of ScreenChangeOrder's in the far Southeast
 
 
 # 3456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789
