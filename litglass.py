@@ -623,18 +623,15 @@ class ScreenChangeOrder:
 
         # Start or grow an Int Literal
 
+        lit_plus = int_literal + decode
+
         if not late_mark:
             if not decode.isspace():
                 if not kbf:
 
-                    lit = int_literal + decode
-                    try:  # todo9: too much Code inside the Try
-                        base = 0
-                        _ = int(lit + "0", base)
-                        self.int_literal = lit
+                    if not ScreenChangeOrder.is_int_value_error(lit_plus + "0"):
+                        self.int_literal = lit_plus
                         return True
-                    except ValueError:
-                        pass
 
         # Grow the Frame till it closes  # todo: indefinitely large Text
 
@@ -654,6 +651,18 @@ class ScreenChangeOrder:
 
         self.clear_order()
         return False
+
+    @staticmethod
+    def is_int_value_error(x: str) -> bool:
+        """Say if is Int Literal"""
+
+        base_eq_0 = 0
+
+        try:
+            _ = int(x, base_eq_0)
+            return False
+        except ValueError:
+            return True
 
 
 class TerminalBoss:
