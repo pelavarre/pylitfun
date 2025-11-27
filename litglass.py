@@ -216,7 +216,7 @@ class Loopbacker:
             # Take in the Frame by itself, while order incomplete
 
             sco.take_decode(kdecode, yx=(kr.row_y, kr.column_x))
-            (y_row, x_column, strong, factor, slow_kencode) = sco.compile_order()
+            (row_y, column_x, strong, factor, slow_kencode) = sco.compile_order()
 
             if not (sco.forceful or sco.intricate):
                 self.kdecode_cook_and_loop_back(kdecode, intricate=False)
@@ -245,12 +245,14 @@ class Loopbacker:
 
             elif factor == 0:  # echoes and leaps and writes
                 self.frame_write_echo("⌃m".encode() if (frame == b"\r") else frame)  # ⌃M
-                sw.write_text(f"\033[{y_row};{x_column}H")
+                sw.write_text(f"\033[{row_y};{column_x}H")
                 sw.write_text(slow_kdecode)
 
             else:  # echoes and cooks and leaps and writes
                 self.frame_write_echo(frame)
-                sw.write_text(f"\033[{y_row};{x_column}H")
+                sw.write_text(f"\033[{row_y};{column_x}H")
+                kr.row_y = row_y
+                kr.column_x = column_x
                 for _ in range(factor):
                     self.kdecode_cook_and_loop_back(slow_kdecode, intricate=sco.intricate)
 
@@ -259,8 +261,12 @@ class Loopbacker:
     def kdecode_cook_and_loop_back(self, decode: str, intricate: bool) -> None:
         """Interpret the Decode of the Frame, else echo it"""
 
-        frame = decode.encode()
         sw = self.screen_writer
+        kr = self.keyboard_reader
+        kd = self.keyboard_decoder
+
+        frame = decode.encode()
+        echo = kd.frame_to_echo(frame)
 
         # If Frame is Printable
 
@@ -297,34 +303,43 @@ class Loopbacker:
 
         if (marks == b"<m") and (len(ints) == 3):
             (b, x, y) = ints  # todo: bounds check on Click Release
-            text = "\033[" f"{y};{x}" "H"
-            sw.write_text(text + "@")  # '@' to make ⌥-Click's visible
+            sw.write_text("\033[{y};{x}H")
+            sw.write_text("@")  # '@' to make ⌥-Click's visible
             return
-
-        # Trust the Osc and Csi Byte Sequences
-
-        if intricate:
-
-            if decode.startswith("\033["):
-                if decode[-1] in "@" "ABCDEFGHIJKLM" "P" "ST" "Z" "d" "f" "h" "lm" "q":
-                    sw.write_text(decode)
-                    return
-                if decode[-1] in "nt":
-                    sw.write_text(decode)
-                    return
-
-                    # todo: Accept only the Csi understood by our Class ScreenWriter
-
-            if decode.startswith("\033]"):
-                sw.write_text(decode)
-                return
-
-            # todo: Accept only the Osc understood by our Class ScreenWriter
 
         # Show a brief Repr of other Encodes
 
-        sw.write_text(" ")
-        self.frame_write_echo(frame)
+        if not intricate:
+            sw.write_text(echo)
+            return
+
+        # But do forward the Osc and Csi Byte Sequences arriving as multiple Frames,
+        # if Osc or if well-known Csi
+
+        if decode.startswith("\033["):
+            if decode[-1] in "@" "ABCDEFGHIJKLM" "P" "ST" "Z" "d" "f" "h" "lm" "q":
+                sw.write_text(decode)
+                return
+            if decode[-1] in "nt":
+                sw.write_text(decode)
+                return
+
+                # todo: Accept only the Csi understood by our Class ScreenWriter
+
+        if decode.startswith("\033]"):
+            if decode in ("\033]11;?\007", "\033]11;?\033\134"):
+                sw.write_text(decode)  # ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
+                return
+
+        # Echo a blocked Sequence vertically
+
+        for e in echo:
+            sw.write_text(e)
+            kr.row_y = min(kr.y_high, kr.row_y + 1)
+            sw.write_text(f"\033[{kr.row_y};{kr.column_x}H")
+
+        # todo: Accept only the Osc understood by our Class ScreenWriter
+        # todo: Accept ⎋\ ST in place of ⌃G BEL to end the Osc Sequence
 
     def kseqs_cook_and_loop_back(self, decode: str, intricate: bool) -> bool:
         """Interpret the Keycaps of the Frame, else return False"""
@@ -524,7 +539,7 @@ class ScreenChangeOrder:
 
         # Say where to run
 
-        (y_row, x_column) = yx
+        (row_y, column_x) = yx
 
         # Say how strongly marked the Factor is, if marked at all
 
@@ -556,7 +571,7 @@ class ScreenChangeOrder:
 
         # Succeed
 
-        return (y_row, x_column, strong, factor, kencode)
+        return (row_y, column_x, strong, factor, kencode)
 
     #
     # Add on a next Input, else restart
@@ -1054,8 +1069,8 @@ class KeyboardReader:
         tb.write_some_bytes(b"\033[6n")  # ⎋[6n
         tb.kbhit(timeout=0e0)  # flushes after .write_some_bytes
 
-        y_row = -1
-        x_column = -1
+        row_y = -1
+        column_x = -1
         ba = bytearray()
 
         while True:
@@ -1063,14 +1078,14 @@ class KeyboardReader:
             read = tb.read_one_byte()
             ba.extend(read)
 
-            if y_row < 0:
+            if row_y < 0:
                 m = re.search(rb"\033\[([0-9]+);([0-9]+)R$", string=ba)
                 if not m:
                     continue
 
                 n = len(m.group(0))
-                y_row = int(m.group(1))
-                x_column = int(m.group(2))
+                row_y = int(m.group(1))
+                column_x = int(m.group(2))
 
                 del ba[-n:]
 
@@ -1080,7 +1095,7 @@ class KeyboardReader:
             if not tb.kbhit(timeout=0e0):
                 break
 
-        yx = (y_row, x_column)
+        yx = (row_y, column_x)
         reads = bytes(ba)
 
         return (yx, reads)
@@ -1494,9 +1509,10 @@ class KeyByteFrame:
 
         # Grow the ⎋] Osc Frame with 1 Decoded Printable Char
 
-        if decode and decode.isprintable():
-            neck.extend(encode)
-            return b""
+        if not backtail:
+            if decode and decode.isprintable():
+                neck.extend(encode)
+                return b""
 
         # Close the ⎋] Osc Frame with BEL or ST
 
@@ -1508,7 +1524,6 @@ class KeyByteFrame:
         if not backtail:
             if decode == "\033":
                 backtail.extend(encode)
-                self.close_frame()
                 return b""
 
         if backtail == b"\033":
@@ -1969,20 +1984,24 @@ def _try_key_byte_frame_() -> None:
 
     KeyByteFrame(b"")
 
-    kbf = KeyByteFrame(b"\x1b[A")
-    assert kbf.to_frame_bytes() == b"\x1b[A", (kbf,)
+    kbf = KeyByteFrame(b"\033[A")
+    assert kbf.to_frame_bytes() == b"\033[A", (kbf,)
     assert kbf.closed, (kbf,)
 
-    kbf = KeyByteFrame(b"\x1b\x1b[A")
-    assert kbf.to_frame_bytes() == b"\x1b\x1b[A", (kbf,)
+    kbf = KeyByteFrame(b"\033\033[A")
+    assert kbf.to_frame_bytes() == b"\033\033[A", (kbf,)
     assert kbf.closed, (kbf,)
 
-    kbf = KeyByteFrame(b"\x1b[Mabc")
-    assert kbf.to_frame_bytes() == b"\x1b[Mabc", (kbf,)
+    kbf = KeyByteFrame(b"\033[Mabc")
+    assert kbf.to_frame_bytes() == b"\033[Mabc", (kbf,)
     assert kbf.closed, (kbf,)
 
-    kbf = KeyByteFrame(b"\x1b[Mab\xff")
-    assert kbf.to_frame_bytes() == b"\x1b[Mab\xff", (kbf,)
+    kbf = KeyByteFrame(b"\033[Mab\xff")
+    assert kbf.to_frame_bytes() == b"\033[Mab\xff", (kbf,)
+    assert kbf.closed, (kbf,)
+
+    kbf = KeyByteFrame(b"\033]11;?\033\\")
+    assert kbf.to_frame_bytes() == b"\033]11;?\033\\", (kbf,)
     assert kbf.closed, (kbf,)
 
     #

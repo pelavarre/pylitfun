@@ -47,7 +47,7 @@ The famous Csi ⎋[ and Osc ⎋] Output Calls and Reply Inputs are
 
     ⎋[5N call for reply ⎋[0N
     ⎋[6N call for reply ⎋[{y};{x}⇧R  ⎋[18T call for reply ⎋[8;{rows};{columns}T
-    ⎋]11;?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
+    ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
 
 The famous Csi ⎋[ Inputs, apart from the Reply Inputs, are
 
