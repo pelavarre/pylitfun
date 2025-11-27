@@ -28,20 +28,17 @@ The famous Csi ⎋[ Outputs are ⎋[ ⇧ @ ABCDEFGHIJKLM P ST Z and ⎋[ D F H L
     ⎋[D row-leap  ⎋[⇧G column-leap  ⎋[⇧H row-column-leap  ⎋[F row-column-leap
 
     ⎋[1⇧M rows-delete  ⎋[⇧L rows-insert  ⎋[⇧P chars-delete  ⎋[⇧@ chars-insert
-    ⎋[⇧J after-erase  ⎋[1⇧J before-erase  ⎋[2⇧J screen-erase  ⎋[3⇧J scrollback-erase
+    ⎋[⇧J after-erase  ⎋[1⇧J before-erase  ⎋[2⇧J screen-erase  ⎋[3⇧J scroll-erase
     ⎋[⇧K row-tail-erase  ⎋[1⇧K row-head-erase  ⎋[2⇧K row-erase
     ⎋[⇧T south-rows-delete  ⎋[⇧S north-rows-delete
     ⎋['⇧} cols-insert  ⎋['⇧~ cols-delete
 
-    ⎋[4H insert  ⎋[4L replace
-    ⎋[?25H cursor-show  ⎋[?25L cursor-hide  ⎋[6 Q bar  ⎋[4 Q skid  ⎋[ Q unstyled
+    ⎋[4H inserting  ⎋[4L replacing  ⎋[⇧?2004H paste-wrap  ⎋[⇧?2004L paste-unwrap
+    ⎋[?25H cursor-show  ⎋[?25L -hide  ⎋[6 Q -bar  ⎋[4 Q -skid  ⎋[ Q -unstyled
 
     ⎋[1M bold  ⎋[4M underline  ⎋[7M reverse/inverse
     ⎋[31M red  ⎋[32M green  ⎋[34M blue  ⎋[38;5;130M orange
-    ⎋[M plain
-
-    ⎋[⇧?1049H screen-alt  ⎋[⇧?1049L screen-main
-    ⎋[⇧?2004H paste-on  ⎋[⇧?2004L paste-off
+    ⎋[M plain  ⎋[⇧?1049H screen-alt  ⎋[⇧?1049L screen-main
 
 The famous Csi ⎋[ and Osc ⎋] Output Calls and Reply Inputs are
 
@@ -73,6 +70,10 @@ d ) Echoes and cooks and writes, for positive repeat counts and for no repeat co
 
 ⎋ [ ' 4 ⇧} is what you type to get four of our Csi ⇧} emulations.
 ⎋ [ ' 8 ⇧~ is what you type to get eight of our Csi ⇧~ emulations
+
+## Eggs
+
+--egg=sigint does define ⌃C to raise KeyboardInterrupt. But --egg=sigint also defines the ⏎ Return Key to work like ⌃J rather than like ⌃M
 
 <!--
 

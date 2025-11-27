@@ -16,8 +16,10 @@ quirks:
 
 examples:
   ./litglass.py --
-  ./litglass.py --egg=repr
-  ./litglass.py --egg=sigint
+  ./litglass.py --egg=enter  # to launch loop back with no setup
+  ./litglass.py --egg=exit  # to launch loop back with no teardown
+  ./litglass.py --egg=repr  # to loop the Repr, not the Str
+  ./litglass.py --egg=sigint  # for ⌃C to raise KeyboardInterrupt
 """
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -66,6 +68,8 @@ class Flags:
     google: bool = bool(os.environ.get("CLOUD_SHELL", ""))  # flags.google
     terminal: bool = os.environ.get("TERM_PROGRAM", "") == "Apple_Terminal"  # flags.terminal
 
+    enter: bool = False  # --egg=enter  # flags.enter to launch loop back with no setup
+    _exit_: bool = False  # --egg=exit  # flags._exit_ to launch loop back with no teardown
     _repr_: bool = False  # --egg=repr  # flags._repr_ to loop the Repr, not the Str
     sigint: bool = False  # --egg=sigint  # flags.sigint for ⌃C to raise KeyboardInterrupt
 
@@ -88,8 +92,8 @@ def main() -> None:
     parser = arg_doc_to_parser(__main__.__doc__ or "")
     shell_args_take_in(args=sys.argv[1:], parser=parser)
 
-    lbr = Loopbacker()
-    lbr.run_loopbacker_awhile()
+    with Loopbacker() as lbr:
+        lbr.loop_back_till()
 
 
 def arg_doc_to_parser(doc: str) -> ArgDocParser:
@@ -114,16 +118,22 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
     ns_keys = list(vars(ns).keys())
     assert ns_keys == ["force", "eggs"], (ns_keys, ns, args)
 
-    celebrated_eggs = ["repr", "sigint"]
+    celebrated_eggs = ["enter", "exit", "repr", "sigint"]
 
     ns_eggs = ns.eggs or list()
     for egg_arg in ns_eggs:
         eggs = egg_arg.split(",")
         for egg in eggs:
-            if egg and "repr".startswith(egg):
+
+            if egg and "enter".startswith(egg):
+                flags.enter = True
+            elif egg and "exit".startswith(egg):
+                flags._exit_ = True
+            elif egg and "repr".startswith(egg):
                 flags._repr_ = True
             elif egg and "sigint".startswith(egg):
                 flags.sigint = True
+
             else:
                 parser.parser.print_usage()
                 print(f"don't choose {egg!r}, do choose from {celebrated_eggs}", file=sys.stderr)
@@ -152,44 +162,79 @@ class Loopbacker:
 
     def __init__(self) -> None:
 
+        tb = TerminalBoss()
+        kr = tb.keyboard_reader
+        sw = tb.screen_writer
+
         kd = KeyboardDecoder()
+
         sco = ScreenChangeOrder()
+
+        self.terminal_boss = tb
+        self.screen_writer = sw
+        self.keyboard_reader = kr
 
         self.keyboard_decoder = kd
         self.screen_change_order = sco
 
-    def run_loopbacker_awhile(self) -> None:
+    def __enter__(self) -> Loopbacker:
+
+        tb = self.terminal_boss
+        sw = self.screen_writer
+
+        tb.__enter__()
+
+        if not flags.enter:
+            sw.write_text("\033[?2004h")  # paste-wrap
+
+        return self
+
+    def __exit__(self, *args: object) -> None:
+
+        tb = self.terminal_boss
+        sw = self.screen_writer
+
+        if not flags.enter:
+            sw.write_text("\033[?2004l")  # paste-unwrap
+
+        if not flags._exit_:
+            sw.write_text("\033[m")  # plain
+            sw.write_text("\033[ q")  # cursor-unstyled
+            sw.write_text("\033[4l")  # replacing
+            sw.write_text("\033[?25h")  # cursor-show
+            sw.write_text("\033[?1049l")  # cursor-unstyled
+
+        tb.__exit__(*args)
+
+    def loop_back_till(self) -> None:
         """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
+
+        tb = self.terminal_boss
+        sw = self.screen_writer
+        kr = self.keyboard_reader
 
         assert ord("C") ^ 0x40 == ord("\003")
 
         quitting = False
-        with TerminalBoss() as tb:
-            kr = tb.keyboard_reader
-            sw = tb.screen_writer
 
-            self.terminal_boss = tb
-            self.screen_writer = sw
-            self.keyboard_reader = kr
+        sw.print_text()
+        sw.print_text("Press ⌃C")
 
-            sw.print_text()
-            sw.print_text("Press ⌃C")
+        if flags._repr_:
+            sw.write_text("\t\t")
+
+        while not quitting:
+            tb.kbhit(timeout=None)
+            frames = kr.read_byte_frames()
 
             if flags._repr_:
-                sw.write_text("\t\t")
+                self.some_frames_print_repr(frames)
+            else:
+                self.some_frames_loop_back(frames)
 
-            while not quitting:
-                tb.kbhit(timeout=None)
-                frames = kr.read_byte_frames()
-
-                if flags._repr_:
-                    self.some_frames_print_repr(frames)
-                else:
-                    self.some_frames_loop_back(frames)
-
-                if b"\003" in frames:
-                    quitting = True
-                    break
+            if b"\003" in frames:
+                quitting = True
+                break
 
         sw.print_text("bye")
         sw.print_text()
@@ -2439,7 +2484,7 @@ if __name__ == "__main__":
 # todo9: pick apart text key jams and unbracketed text paste
 
 
-# todo9: echo input
+# todo9: echo input well, like to show ⎋ [ ' 2 is two Frames:  ⎋[' and 2
 # todo9: show settings
 # todo9: place input echoes on the side
 # todo9: vs scroll while echo of ScreenChangeOrder's in the far Southeast
