@@ -299,11 +299,11 @@ class Loopbacker:
         # Leap the Cursor to the ⌥-Click  # todo9: also ⎋[⇧M Click Releases
 
         kbf = KeyByteFrame(frame)
-        (marks, ints) = kbf.to_csi_marks_ints_if(frame)
+        (marks, ints) = kbf.to_csi_marks_ints_if()
 
         if (marks == b"<m") and (len(ints) == 3):
             (b, x, y) = ints  # todo: bounds check on Click Release
-            sw.write_text("\033[{y};{x}H")
+            sw.write_text(f"\033[{y};{x}H")
             sw.write_text("@")  # '@' to make ⌥-Click's visible
             return
 
@@ -313,23 +313,13 @@ class Loopbacker:
             sw.write_text(echo)
             return
 
-        # But do forward the Osc and Csi Byte Sequences arriving as multiple Frames,
-        # if Osc or if well-known Csi
+        # But do forward well-known Csi & Osc Byte Sequences arriving as multiple Frames
 
-        if decode.startswith("\033["):
-            if decode[-1] in "@" "ABCDEFGHIJKLM" "P" "ST" "Z" "d" "f" "h" "lm" "q":
-                sw.write_text(decode)
-                return
-            if decode[-1] in "nt":
-                sw.write_text(decode)
-                return
-
-                # todo: Accept only the Csi understood by our Class ScreenWriter
-
-        if decode.startswith("\033]"):
-            if decode in ("\033]11;?\007", "\033]11;?\033\134"):
-                sw.write_text(decode)  # ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
-                return
+        print("SQUIRREL 1", end="\r\n")
+        if self.csi_osc_cook_and_loop_back(decode=decode):
+            print("SQUIRREL 2", end="\r\n")
+            return
+        print("SQUIRREL 3", end="\r\n")
 
         # Echo a blocked Sequence vertically
 
@@ -338,8 +328,42 @@ class Loopbacker:
             kr.row_y = min(kr.y_high, kr.row_y + 1)
             sw.write_text(f"\033[{kr.row_y};{kr.column_x}H")
 
-        # todo: Accept only the Osc understood by our Class ScreenWriter
-        # todo: Accept ⎋\ ST in place of ⌃G BEL to end the Osc Sequence
+    def csi_osc_cook_and_loop_back(self, decode: str) -> bool:
+
+        frame = decode.encode()
+        kbf = KeyByteFrame(frame)
+
+        sw = self.screen_writer
+
+        if decode.startswith("\033["):
+
+            if decode[-1] in "@" "ABCDEFGHIJKLM" "P" "ST" "Z" "d" "f" "h" "lm" "q":
+                sw.write_text(decode)
+                return True
+
+            if decode[-1] in "nt":
+                sw.write_text(decode)
+                return True
+
+            # Emulate Columns Insert/ Delete by Csi
+
+            if decode[-2:] in ("'}", "'~"):
+                (marks, ints) = kbf.to_csi_marks_ints_if()
+                if marks in (b"'}", b"'~"):
+                    if len(ints) <= 1:
+                        self.screen_columns_insert_delete(marks, ints=ints)
+                        return True
+
+            # todo: Accept only the Csi understood by our Class ScreenWriter
+
+        if decode.startswith("\033]"):
+            if decode in ("\033]11;?\007", "\033]11;?\033\134"):
+                sw.write_text(decode)  # ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
+                return True
+
+            # todo: Accept only the Osc understood by our Class ScreenWriter
+
+        return False
 
     def kseqs_cook_and_loop_back(self, decode: str, intricate: bool) -> bool:
         """Interpret the Keycaps of the Frame, else return False"""
@@ -395,6 +419,43 @@ class Loopbacker:
                 return True
 
         return False
+
+    def screen_columns_insert_delete(self, marks: bytes, ints: tuple[int, ...]) -> None:
+        """Emulate Columns Insert/ Delete by Csi"""
+
+        assert marks in [b"'}", b"'~"], (marks,)
+        assert len(ints) <= 1, (ints,)
+
+        deleting = [b"'}", b"'~"].index(marks)
+
+        pn_int = ints[-1] if ints else PN1
+        pn = pn_int  # accepts pn = 0
+
+        #
+
+        sw = self.screen_writer
+
+        kr = self.keyboard_reader
+        row_y = kr.row_y
+        y_high = kr.y_high
+
+        #
+
+        assert ICH_X == "\033[" "{}" "@"
+        assert VPA_Y == "\033[" "{}" "d"
+        assert DECDC_X == "\033[" "{}" "'~"
+        assert DECIC_X == "\033[" "{}" "'}}"  # speaking of ⎋[ '}
+
+        #
+
+        for y in range(Y1, y_high + 1):
+
+            sw.write_text(f"\033[{y}d")
+            sw.write_text(f"\033[{pn}P" if deleting else f"\033[{pn}@")
+
+        sw.write_text(f"\033[{row_y}d")
+
+        # Apple & Google lack ⎋['⇧} cols-insert
 
     def frame_write_echo(self, frame: bytes) -> None:
         """Show a brief Repr of one Frame"""
@@ -1209,7 +1270,7 @@ class KeyByteFrame:
     # Pick apart a Esc Csi Sequence into its Marks and Ints
     #
 
-    def to_csi_marks_ints_if(self, frame: bytes) -> tuple[bytes, tuple[int, ...]]:
+    def to_csi_marks_ints_if(self) -> tuple[bytes, tuple[int, ...]]:
         """Pick out the Nonnegative Int Literals of a Csi Escape Sequence"""
 
         printable = self.printable
@@ -1600,6 +1661,9 @@ class KeyByteFrame:
 Y1 = 1  # min Y of Terminal Cursor
 X1 = 1  # min X of Terminal Cursor
 
+PN0 = 0  # default Csi Pn = 0 for some
+PN1 = 1  # default Csi Pn = 1 for others
+
 
 BEL = "\007"  # 00/07 Bell
 
@@ -1614,7 +1678,15 @@ OSC = "\033]"  # 01/11 05/13 Operating System Command  # ⎋]
 ST = "\033\134"  # 01/11 05/12 String Terminator  # ⎋\
 
 
+ICH_X = "\033[" "{}" "@"  # Csi 04/06 [Insert] Cursor Horizontal [Pn] [Columns]
+
 CUP_Y_X = "\033[" "{};{}H"  # Csi 04/08 [Choose] Cursor Position [Y and X]
+
+VPA_Y = "\033[" "{}" "d"  # Csi 04/10 Vertical Position Absolute [Row]
+
+DECIC_X = "\033[" "{}" "'}}"  # Csi 04/12 [DEC] Insert Column [Pn]
+DECDC_X = "\033[" "{}" "'~"  # Csi 04/12 [DEC] Delete Column [Pn]
+
 DL_Y = "\033[" "{}M"  # Csi 04/13 Delete Line [Row]
 _CLICK3_ = "\033[M"  # ⎋[⇧M{b}{x}{y} Click Press/ Release
 

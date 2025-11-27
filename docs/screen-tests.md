@@ -55,7 +55,7 @@ The famous Csi ⎋[ Inputs, apart from the Reply Inputs, are
 
 ## Results
 
-Our results shown above are as seen at macOS Terminal. The Terminal Emulations of macOS iTerm2 and Google Cloud Shell are different
+Our results shown above are as seen at macOS Terminal. Results at macOS iTerm2 and Google Cloud Shell are different
 
 We run four kinds of loop-back for Terminal Inputs
 
