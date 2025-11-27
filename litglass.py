@@ -264,12 +264,10 @@ class Loopbacker:
             sco.clear_order()
 
     def kdecode_cook_and_loop_back(self, decode: str, multiframe: bool) -> None:
-        """Emulate the Frame, if we can"""
+        """Interpret the Decode of the Frame, else echo it"""
 
         frame = decode.encode()
-
         sw = self.screen_writer
-        kd = self.keyboard_decoder
 
         # If Frame is Printable
 
@@ -279,47 +277,8 @@ class Loopbacker:
 
         # If Frame has Keycaps
 
-        kseqs = kd.bytes_to_kseqs_if(frame)
-        if kseqs:
-            join = str(kseqs)
-            kseq = kseqs[0]
-
-            # Echo ⎋ Esc as such  # todo9: Accept the ⌃ ⌥ ⇧ Fn Shifting Keys into sco.kbf
-
-            if kseq in ("⎋", "⎋⎋"):
-                sw.write_text(kseq)
-                return
-
-            # Loop back a few Key Chord Byte Sequences unchanged
-
-            loopable_kseqs = ("⌃G", "⌃H", "⇥", "⌃J", "⌃K", "⇧⇥")
-            if kseq in loopable_kseqs:
-                sw.write_text(decode)  # ⎋[⇧Z for ⇧⇥, etc
-                return
-
-            # Loop back ⌃M ⏎ Return as CR LF
-
-            if kseq == "⏎":
-                sw.write_text("\r\n")
-                return
-
-            # Loop back ⌃⇧? ⌫ as Delete
-
-            if kseq == "⌫":
-                sw.write_text("\033[D" "\033[P")
-                return
-
-            # Loop back as Arrow, no matter the shifting Keys
-
-            if not multiframe:
-
-                arrows = tuple(_ for _ in ("←", "↑", "→", "↓") if _ in join)
-                if len(arrows) == 1:
-                    arrow = arrows[-1]
-                    alt_text = kd.decode_by_kseq[arrow]
-
-                    sw.write_text(alt_text)
-                    return
+        if self.kseqs_cook_and_loop_back(decode=decode, multiframe=multiframe):
+            return
 
         # Loop back a few Esc Byte Sequences unchanged
 
@@ -351,14 +310,83 @@ class Loopbacker:
 
         # Trust the Osc and Csi Byte Sequences
 
-        if decode.startswith("\033[") or decode.startswith("\033]"):
-            sw.write_text(decode)  # todo: Accept only some Csi/ Osc
-            return
+        if multiframe:
+
+            if decode.startswith("\033["):
+                if decode[-1] in "@" "ABCDEFGHIJKLM" "P" "ST" "Z" "d" "f" "h" "lm" "q":
+                    sw.write_text(decode)
+                    return
+                if decode[-1] in "nt":
+                    sw.write_text(decode)
+                    return
+
+                    # todo: Accept only the Csi understood by our Class ScreenWriter
+
+            if decode.startswith("\033]"):
+                sw.write_text(decode)
+                return
+
+            # todo: Accept only the Osc understood by our Class ScreenWriter
 
         # Show a brief Repr of other Encodes
 
         sw.write_text(" ")
         self.frame_write_echo(frame)
+
+    def kseqs_cook_and_loop_back(self, decode: str, multiframe: bool) -> bool:
+        """Interpret the Keycaps of the Frame, else return False"""
+
+        kd = self.keyboard_decoder
+
+        frame = decode.encode()
+        kseqs = kd.bytes_to_kseqs_if(frame)
+        if not kseqs:
+            return False
+
+        kseq = kseqs[0]  # only search for the first Keycap
+
+        sw = self.screen_writer
+        kd = self.keyboard_decoder
+
+        # Echo ⎋ Esc as such  # todo9: Accept the ⌃ ⌥ ⇧ Fn Shifting Keys into sco.kbf
+
+        if kseq in ("⎋", "⎋⎋"):
+            sw.write_text(kseq)
+            return True
+
+        # Loop back a few Key Chord Byte Sequences unchanged
+
+        loopable_kseqs = ("⌃G", "⌃H", "⇥", "⌃J", "⌃K", "⇧⇥")
+        if kseq in loopable_kseqs:
+            sw.write_text(decode)  # ⎋[⇧Z for ⇧⇥, etc
+            return True
+
+        # Loop back ⌃M ⏎ Return as CR LF
+
+        if kseq == "⏎":
+            sw.write_text("\r\n")
+            return True
+
+        # Loop back ⌃⇧? ⌫ as Delete
+
+        if kseq == "⌫":
+            sw.write_text("\033[D" "\033[P")
+            return True
+
+        # Loop back as Arrow, no matter the shifting Keys
+
+        join = str(kseqs)
+        if not multiframe:
+
+            arrows = tuple(_ for _ in ("←", "↑", "→", "↓") if _ in join)
+            if len(arrows) == 1:
+                arrow = arrows[-1]
+                alt_text = kd.decode_by_kseq[arrow]
+
+                sw.write_text(alt_text)
+                return True
+
+        return False
 
     def frame_write_echo(self, frame: bytes) -> None:
         """Show a brief Repr of one Frame"""

@@ -40,16 +40,18 @@ The famous Csi ⎋[ Outputs are ⎋[ ⇧ @ ABCDEFGHIJKLM P ST Z and ⎋[ D F H L
     ⎋[31M red  ⎋[32M green  ⎋[34M blue  ⎋[38;5;130M orange
     ⎋[M plain
 
-The famous Osc ⎋] and Csi ⎋[ Output Calls and Input Replies are
+    ⎋[⇧?1049H screen-alt  ⎋[⇧?1049L screen-main
+    ⎋[⇧?2004H paste-on  ⎋[⇧?2004L paste-off
 
-    ⎋]11;?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
+The famous Csi ⎋[ and Osc ⎋] Output Calls and Reply Inputs are
 
     ⎋[5N call for reply ⎋[0N
     ⎋[6N call for reply ⎋[{y};{x}⇧R  ⎋[18T call for reply ⎋[8;{rows};{columns}T
+    ⎋]11;?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
 
-The famous Csi ⎋[ Inputs, apart from the Replies, are
+The famous Csi ⎋[ Inputs, apart from the Reply Inputs, are
 
-    ⎋[>{f};{x};{y}⇧M release  ⎋[>{f};{x};{y}M press  ⎋[⇧M{b}{x}{y} press/release
+    ⎋[>{f};{x};{y}⇧M press  ⎋[>{f};{x};{y}M release  ⎋[⇧M{b}{x}{y} press/release
 
 ## Results
 
