@@ -17,7 +17,7 @@ quirks:
 examples:
   ./litglass.py --
   ./litglass.py --egg=enter  # to launch loop back with no setup
-  ./litglass.py --egg=exit  # to launch loop back with no teardown
+  ./litglass.py --egg=exit  # to quit loop back with no teardown
   ./litglass.py --egg=repr  # to loop the Repr, not the Str
   ./litglass.py --egg=sigint  # for ⌃C to raise KeyboardInterrupt
 """
@@ -69,7 +69,7 @@ class Flags:
     terminal: bool = os.environ.get("TERM_PROGRAM", "") == "Apple_Terminal"  # flags.terminal
 
     enter: bool = False  # --egg=enter  # flags.enter to launch loop back with no setup
-    _exit_: bool = False  # --egg=exit  # flags._exit_ to launch loop back with no teardown
+    _exit_: bool = False  # --egg=exit  # flags._exit_ to quit loop back with no teardown
     _repr_: bool = False  # --egg=repr  # flags._repr_ to loop the Repr, not the Str
     sigint: bool = False  # --egg=sigint  # flags.sigint for ⌃C to raise KeyboardInterrupt
 
@@ -194,15 +194,21 @@ class Loopbacker:
         tb = self.terminal_boss
         sw = self.screen_writer
 
+        assert _MAX_PN_32100_ == 32100
+
         if not flags.enter:
-            sw.write_text("\033[?2004l")  # paste-unwrap
+            sw.write_text("\033[?2004l")  # paste-unwrap ⎋[?2004L
 
         if not flags._exit_:
-            sw.write_text("\033[m")  # plain
-            sw.write_text("\033[ q")  # cursor-unstyled
-            sw.write_text("\033[4l")  # replacing
-            sw.write_text("\033[?25h")  # cursor-show
-            sw.write_text("\033[?1049l")  # cursor-unstyled
+            sw.write_text("\033[m")  # plain ⎋[M vs other ⎋[ M
+            sw.write_text("\033[ q")  # cursor-unstyled ⎋[␢Q vs other ⎋[ Q
+            sw.write_text("\033[4l")  # replacing ⎋[4L vs ⎋[4H
+            sw.write_text("\033[?25h")  # cursor-show ⎋[⇧?25H vs ⎋[?25L
+            sw.write_text("\033[?1049l")  # cursor-unstyled ⎋[⇧?1049L vs ⎋[⇧?1049H
+
+            sw.write_text("\033[32100H")  # cursor-unstyled ⎋[32100⇧H
+            sw.write_text("\033[A")  # 1 ↑ ⎋[⇧A
+            sw.write_text("\033[J")  # after-erase ⎋[⇧J  # simpler than ⎋[0⇧J
 
         tb.__exit__(*args)
 
@@ -217,8 +223,7 @@ class Loopbacker:
 
         quitting = False
 
-        sw.print_text()
-        sw.print_text("Press ⌃C")
+        sw.print_text("Press ⌃C ", end="")
 
         if flags._repr_:
             sw.write_text("\t\t")
@@ -235,9 +240,6 @@ class Loopbacker:
             if b"\003" in frames:
                 quitting = True
                 break
-
-        sw.print_text("bye")
-        sw.print_text()
 
     def some_frames_loop_back(self, frames: tuple[bytes, ...]) -> None:
         """Collect Input Frames over time as a Screen Change Order"""
@@ -945,10 +947,10 @@ class KeyboardReader:
 
     terminal_boss: TerminalBoss
 
-    y_high: int  # H W Y X always positive after initial (-1, -1, -1, -1)
+    y_high: int  # H W always positive after initial (-1, -1)
     x_wide: int
 
-    row_y: int
+    row_y: int  # todo: row_y_column_x: tuple[int, ...] to be initially Empty Tuple
     column_x: int
 
     def __init__(self, terminal_boss: TerminalBoss) -> None:
@@ -1706,7 +1708,7 @@ X1 = 1  # min X of Terminal Cursor
 
 PN0 = 0  # default Csi Pn = 0 for some
 PN1 = 1  # default Csi Pn = 1 for others
-
+_MAX_PN_32100_ = 32100  # max Csi Pn = 32100 exceeds the x_wide x y_high of most Terminal Screens
 
 BEL = "\007"  # 00/07 Bell
 
@@ -2469,8 +2471,6 @@ if __name__ == "__main__":
     main()
 
 
-# todo9: --egg=enter to enter without setup of vertical bracketed paste
-# todo9: --egg=exit to exit without teardown of screen tests to 4 clear South Rows
 # todo9: --egg=scroll to scroll then swap in Alt Screen
 
 
