@@ -220,7 +220,7 @@ class Loopbacker:
             # Take the Frame by itself, if not part of a larger Screen Change Order
 
             if not kdecode:
-                self.frame_loop_back(frame)
+                self.frame_write_echo(frame)
                 continue
 
             if not sco.take_decode(kdecode):
@@ -234,10 +234,7 @@ class Loopbacker:
 
             (strong, factor, slow_kencode) = sco.compile_order()
             if not slow_kencode:
-                if frame == b"\025":  # ⌃U
-                    self.frame_write_echo(frame)
-                else:
-                    self.frame_write_echo(frame)
+                self.frame_write_echo(frame)
                 continue
 
             slow_kdecode = slow_kencode.decode()  # todo: undecodable Orders
@@ -283,9 +280,15 @@ class Loopbacker:
         # If Frame has Keycaps
 
         kseqs = kd.bytes_to_kseqs_if(frame)
-        if kseqs:  # ⎋ ⎋⎋
+        if kseqs:
             join = str(kseqs)
             kseq = kseqs[0]
+
+            # Echo ⎋ Esc as such  # todo9: Accept the ⌃ ⌥ ⇧ Fn Shifting Keys into sco.kbf
+
+            if kseq in ("⎋", "⎋⎋"):
+                sw.write_text(kseq)
+                return
 
             # Loop back a few Key Chord Byte Sequences unchanged
 
@@ -335,23 +338,6 @@ class Loopbacker:
             self.frame_write_echo(b"\033[H")
             return
 
-        # Trust the Osc and Csi Byte Sequences
-
-        if decode.startswith("\033[") or decode.startswith("\033]"):
-            sw.write_text(decode)  # todo: Accept only some Csi/ Osc
-            return
-
-        # Fall back to simpler loopback
-
-        self.frame_loop_back(frame)
-
-    def frame_loop_back(self, frame: bytes) -> None:
-        """Take one Input Frame as a Screen Change Order"""
-
-        text = frame.decode()  # todo9: may raise UnicodeDecodeError
-
-        sw = self.screen_writer
-
         # Leap the Cursor to the ⌥-Click  # todo9: also ⎋[⇧M Click Releases
 
         kbf = KeyByteFrame(frame)
@@ -363,11 +349,10 @@ class Loopbacker:
             sw.write_text(text + "@")  # '@' to make ⌥-Click's visible
             return
 
-        # Echo ⎋ Esc as such  # todo9: Accept ⌃ ⌥ ⇧ Fn into sco.kbf
+        # Trust the Osc and Csi Byte Sequences
 
-        n = len(frame)
-        if frame == (n * b"\033"):  # has .kseqs at ⎋ and at ⎋⎋
-            sw.write_text(n * "⎋")
+        if decode.startswith("\033[") or decode.startswith("\033]"):
+            sw.write_text(decode)  # todo: Accept only some Csi/ Osc
             return
 
         # Show a brief Repr of other Encodes
