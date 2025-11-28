@@ -15,10 +15,11 @@ quirks:
   quits when given ⌃C
 
 examples:
-  ./litglass.py --
+  ./litglass.py --  # to run with defaults
   ./litglass.py --egg=enter  # to launch loop back with no setup
   ./litglass.py --egg=exit  # to quit loop back with no teardown
   ./litglass.py --egg=repr  # to loop the Repr, not the Str
+  ./litglass.py --egg=scroll  # to scroll into Scrollback then launch in Alt Screen
   ./litglass.py --egg=sigint  # for ⌃C to raise KeyboardInterrupt
 """
 
@@ -71,6 +72,7 @@ class Flags:
     enter: bool = False  # --egg=enter  # flags.enter to launch loop back with no setup
     _exit_: bool = False  # --egg=exit  # flags._exit_ to quit loop back with no teardown
     _repr_: bool = False  # --egg=repr  # flags._repr_ to loop the Repr, not the Str
+    scroll: bool = False  # --egg=scroll  # flags.scroll to launch below Scrollback
     sigint: bool = False  # --egg=sigint  # flags.sigint for ⌃C to raise KeyboardInterrupt
 
 
@@ -125,13 +127,15 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
         eggs = egg_arg.split(",")
         for egg in eggs:
 
-            if egg and "enter".startswith(egg):
+            if "enter".startswith(egg) and not "exit".startswith(egg):
                 flags.enter = True
-            elif egg and "exit".startswith(egg):
+            elif "exit".startswith(egg) and not "enter".startswith(egg):
                 flags._exit_ = True
-            elif egg and "repr".startswith(egg):
+            elif "repr".startswith(egg) and not "".startswith(egg):
                 flags._repr_ = True
-            elif egg and "sigint".startswith(egg):
+            elif "scroll".startswith(egg) and not "sigint".startswith(egg):
+                flags.scroll = True
+            elif "sigint".startswith(egg) and not "scroll".startswith(egg):
                 flags.sigint = True
 
             else:
@@ -181,11 +185,23 @@ class Loopbacker:
 
         tb = self.terminal_boss
         sw = self.screen_writer
+        kr = self.keyboard_reader
 
         tb.__enter__()
 
         if not flags.enter:
             sw.write_text("\033[?2004h")  # paste-wrap
+
+        if flags.scroll:
+
+            sw.write_text("\033[6n")
+            kr.read_bytes()
+
+            y = kr.row_y
+            if y > 1:
+                sw.write_text(f"\033[{y - 1}S")  # ⎋[⇧S south-rows-insert
+
+            sw.write_text("\033[?1049h")  # alt-screen ⎋[⇧?1049H
 
         return self
 
@@ -204,7 +220,7 @@ class Loopbacker:
             sw.write_text("\033[ q")  # cursor-unstyled ⎋[␢Q vs other ⎋[ Q
             sw.write_text("\033[4l")  # replacing ⎋[4L vs ⎋[4H
             sw.write_text("\033[?25h")  # cursor-show ⎋[⇧?25H vs ⎋[?25L
-            sw.write_text("\033[?1049l")  # cursor-unstyled ⎋[⇧?1049L vs ⎋[⇧?1049H
+            sw.write_text("\033[?1049l")  # main-screen ⎋[⇧?1049L vs ⎋[⇧?1049H
 
             sw.write_text("\033[32100H")  # cursor-unstyled ⎋[32100⇧H
             sw.write_text("\033[A")  # 1 ↑ ⎋[⇧A
@@ -2469,9 +2485,6 @@ _ = """  # more famous Python Imports to run in place of our Code here
 
 if __name__ == "__main__":
     main()
-
-
-# todo9: --egg=scroll to scroll then swap in Alt Screen
 
 
 # todo9: add Fn Keycaps

@@ -1,5 +1,6 @@
 # screen-tests.md
 
+
 ## Context
 
 Try our tests, for the fun of it  : -)
@@ -7,6 +8,7 @@ Try our tests, for the fun of it  : -)
 Launch a loop-back test to write your Keyboard Input Bytes back into your Screen
 
     % python3 ./litglass.py --
+
 
 ## Tests
 
@@ -30,7 +32,7 @@ The famous Csi ⎋[ Outputs are ⎋[ ⇧ @ ABCDEFGHIJKLM P ST Z and ⎋[ D F H L
     ⎋[1⇧M rows-delete  ⎋[⇧L rows-insert  ⎋[⇧P chars-delete  ⎋[⇧@ chars-insert
     ⎋[⇧J after-erase  ⎋[1⇧J before-erase  ⎋[2⇧J screen-erase  ⎋[3⇧J scroll-erase
     ⎋[⇧K row-tail-erase  ⎋[1⇧K row-head-erase  ⎋[2⇧K row-erase
-    ⎋[⇧T south-rows-delete  ⎋[⇧S north-rows-delete
+    ⎋[⇧S south-rows-insert  ⎋[⇧T north-rows-insert
     ⎋['⇧} cols-insert  ⎋['⇧~ cols-delete
 
     ⎋[4H inserting  ⎋[4L replacing  ⎋[⇧?2004H paste-wrap  ⎋[⇧?2004L paste-unwrap
@@ -49,6 +51,7 @@ The famous Csi ⎋[ and Osc ⎋] Output Calls and Reply Inputs are
 The famous Csi ⎋[ Inputs, apart from the Reply Inputs, are
 
     ⎋[>{f};{x};{y}⇧M press  ⎋[>{f};{x};{y}M release  ⎋[⇧M{b}{x}{y} press/release
+
 
 ## Results
 
@@ -71,9 +74,19 @@ d ) Echoes and cooks and writes, for positive repeat counts and for no repeat co
 ⎋ [ ' 4 ⇧} is what you type to get four of our Csi ⇧} emulations.
 ⎋ [ ' 8 ⇧~ is what you type to get eight of our Csi ⇧~ emulations
 
+
 ## Eggs
 
---egg=sigint does define ⌃C to raise KeyboardInterrupt. But --egg=sigint also defines the ⏎ Return Key to work like ⌃J rather than like ⌃M
+  --egg=enter to launch loop back with no setup
+
+  --egg=exit to quit loop back with no teardown
+
+  --egg=repr to loop the Repr, not the Str
+
+  --egg=scroll to scroll into Scrollback. Also launches in Alt Screen, not Main Screen
+
+  --egg=sigint for ⌃C to raise KeyboardInterrupt. Also defines the ⏎ Return Key to work like ⌃J rather than like ⌃M
+
 
 <!--
 
