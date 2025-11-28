@@ -181,9 +181,11 @@ Can we live within in these limits and still rewrite this text so well as to hop
 
 'The Comments are the first Issue Tracker'
 
-accept 'gdh -w' without accepting positional arguments
+'gcam alfa bravo' should mean:  git commit --all -m 'wip - alfa bravo'
+
 8th Game - **Smushup** - Arrow Pair to move 8 ways, and smush matching colors
-Single File Downloads
+9th Game - **Muhnswuhper** - Minesweeper® style, but ...
+Single File Download & Run of the Python
 
 -->
 

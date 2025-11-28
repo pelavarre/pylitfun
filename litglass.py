@@ -18,9 +18,10 @@ examples:
   ./litglass.py --  # to run with defaults
   ./litglass.py --egg=enter  # to launch loop back with no setup
   ./litglass.py --egg=exit  # to quit loop back with no teardown
-  ./litglass.py --egg=keycaps  # to launch our keyboard-viewer of keycaps
   ./litglass.py --egg=scroll  # to scroll into scrollback then launch in alt screen
 """
+
+# ./litglass.py --egg=keycaps  # to launch our keyboard-viewer of keycaps
 # ./litglass.py --egg=repr  # to loop the Repr, not the Str
 # ./litglass.py --egg=sigint  # for ⌃C to raise KeyboardInterrupt
 
@@ -41,7 +42,6 @@ import pdb
 import re
 import select
 import signal
-import string
 import sys
 import termios
 import textwrap
@@ -128,12 +128,14 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
     ns_keys = list(vars(ns).keys())
     assert ns_keys == ["force", "eggs"], (ns_keys, ns, args)
 
-    celebrated_eggs = ["enter", "exit", "repr", "sigint"]
+    celebrated_eggs = ["enter", "exit", "keycaps", "repr", "scroll", "sigint"]
 
     ns_eggs = ns.eggs or list()
     for egg_arg in ns_eggs:
         eggs = egg_arg.split(",")
         for egg in eggs:
+
+            assert len(celebrated_eggs) == 6
 
             if "enter".startswith(egg) and not "exit".startswith(egg):
                 flags.enter = True
@@ -164,19 +166,22 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
 #
 
 
-class KeyboardViewer:
+class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
     Keyboard = r"""
         ⎋    F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>
         `~  1! 2@ 3# 4$ 5% 6^ 7& 8* 9( 0)  -_  =+    ⌫
-        ⇥    qQ wW eE rR tT yY uU iI oO pP  [{  ]}    \|
+        ⇧⇥   qQ wW eE rR tT yY uU iI oO pP  [{  ]}    \|
         ⇪     aA sS dD fF gG hH jJ kK lL  ;:  '"       ⏎
-        ⇧      zZ xX cC vV bB nN mM  ,  .  /           ⇧
-        Fn  ⌃  ⌥  ⌘   Spacebar    ⌘   ⌥        ← ↑ → ↓
+        ⇧      zZ xX cC vV bB nN mM  ,< .> /?          ⇧
+        Fn  ⌃  ⌥  ⌘   Spacebar    ⌘   ⌥        ⇧← ↑ ⇧→ ↓
     """
 
-    Shifts = r'~ !@#$%^&*()_+ QWERTYUIOP{}| ASDFGHJKL:" ZXCVBNM<>?'
-    Shifts = "".join(Shifts.split())
+    Plains = r"` 1234567890-= qwertyuiop[]\ asdfghjkl;' zxcvbnm,./"
+    Plains = "".join(Plains.split())
+
+    Shifteds = r'~ !@#$%^&*()_+ QWERTYUIOP{}| ASDFGHJKL:" ZXCVBNM<>?'
+    Shifteds = "".join(Shifteds.split())
 
     def __init__(self, loopbacker: Loopbacker) -> None:
         self.loopbacker = loopbacker
@@ -189,90 +194,26 @@ class KeyboardViewer:
         tb = lbr.terminal_boss
         sw = lbr.screen_writer
         kr = lbr.keyboard_reader
-        kd = lbr.keyboard_decoder
 
         assert ord("C") ^ 0x40 == ord("\003")
 
+        # Draw the Gameboard
+
+        shifters = ""  # none of ⎋ ⌃ ⌥ ⇧
+        shifters = "⇧"
+        self.gameboard_draw(shifters)
+
+        # Run till Quit
+
         quitting = False
-
-        # Draw the plain Gameboard, as if none of ⎋ ⌃ ⌥ ⇧ pressed
-
-        dedent = textwrap.dedent(KeyboardViewer.Keyboard).strip()
-
-        s = KeyboardViewer.Shifts
-        trans = str.maketrans(s, len(s) * " ")
-
-        dent = 4 * " "
-
-        sw.print_text()
-
-        splitlines = dedent.splitlines()
-        for index, line in enumerate(splitlines):
-            rindex = index - len(splitlines)
-
-            text = dent + line
-            if index and (rindex != -1):
-                text = text.translate(trans)
-
-            sw.print_text(text)
-
-        sw.print_text()
-        sw.print_text("Press ⌃C")
-
-        # Wipe out each Keycap when pressed
-
         while not quitting:
+
+            # Take Input
 
             tb.kbhit(timeout=None)
             frames = kr.read_byte_frames()
 
-            row_y = kr.row_y
-            column_x = kr.column_x
-
-            for frame in frames:
-                kseqs = kd.bytes_to_kseqs_if(frame)
-                if not kseqs:
-                    continue
-
-                caps = sorted(set(kseqs[0]))
-
-                removesuffix = dedent.removesuffix(splitlines[-1])
-                for cap in caps:
-
-                    hittable = dedent if cap in "␢←↑→↓" else removesuffix
-
-                    find = len(splitlines[0]) if cap in string.digits else -1
-                    while True:
-
-                        alt_cap = cap
-                        if cap == "␢":
-                            alt_cap = "Spacebar"
-                        elif cap in string.ascii_uppercase:
-                            alt_cap = cap.casefold()
-
-                        start = find + 1
-                        find = hittable.find(alt_cap, start)
-                        if find < 0:
-                            break
-
-                        n = len(splitlines)
-                        y = row_y - 3 - n
-                        x = X1 + len(dent)
-
-                        found = dedent[: find + 1].splitlines()
-                        assert found, (
-                            found,
-                            find,
-                            alt_cap,
-                        )
-
-                        y += len(found)
-                        x += len(found[-1]) - 1
-
-                        sw.write_text(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
-                        sw.write_text(len(alt_cap) * "@")
-
-            sw.write_text(f"\033[{row_y};{column_x}H")  # row-column-leap ⎋[⇧H
+            self.frames_write_keycaps_reply(frames, shifters)
 
             if b"\003" in frames:
                 quitting = True
@@ -280,7 +221,134 @@ class KeyboardViewer:
 
         sw.print_text()
 
-        # todo: take mouse hits
+        # todo1: solve ⇪⇥
+        # todo1: solve ← ↑ → ↓
+        # todo1: toggle back out of @@@@@@@@@ or @@ or @
+        # todo1: take mouse hits
+
+    def frames_write_keycaps_reply(self, frames: tuple[bytes, ...], shifters: str) -> None:
+
+        lbr = self.loopbacker
+
+        sw = lbr.screen_writer
+        kr = lbr.keyboard_reader
+        kd = lbr.keyboard_decoder
+
+        #
+
+        dent = 4 * " "
+        dedent = textwrap.dedent(KeyboardViewer.Keyboard).strip()
+        splitlines = dedent.splitlines()
+        removesuffix = dedent.removesuffix(splitlines[-1])
+
+        plains_set = set(KeyboardViewer.Plains)
+        shifteds_set = set(KeyboardViewer.Shifteds)
+
+        #
+
+        row_y = kr.row_y
+        column_x = kr.column_x
+
+        unhit_kseqs = list()
+        for frame in frames:
+            kseqs = kd.bytes_to_kseqs_if(frame)
+            if not kseqs:
+                continue
+
+            # Visit each Keycap
+
+            for kseq in kseqs[:1]:  # todo: so outdent this loop body
+
+                plain = kseq[-1]
+                lower = plain.lower()
+                upper = plain.upper()
+
+                cap = kseq
+                if kseq == "␢":
+                    cap = "Spacebar"
+                elif kseq in ("⇧⇥", "⇧←", "⇧→"):
+                    cap = plain
+                elif plain in shifteds_set:
+                    if (lower in plains_set) or (upper in shifteds_set):
+                        cap = upper  # find 'Q' for Q or for ⇧Q
+
+                # Wipe out each Keycap when pressed
+
+                suffix_kseqs = ("␢", "←", "↑", "→", "↓", "⇧←", "⇧→")
+                hittable = dedent if kseq in suffix_kseqs else removesuffix
+                find = len(splitlines[0]) if cap != "⎋" else -1
+
+                hits = 0
+                while True:
+
+                    start = find + 1
+                    find = hittable.find(cap, start)
+                    if find < 0:
+                        break
+
+                    hits += 1
+
+                    n = len(splitlines)
+                    y = row_y - 3 - n
+                    x = X1 + len(dent)
+
+                    found = dedent[: find + 1].splitlines()
+                    assert found, (found, find, cap)
+
+                    y += len(found)
+                    x += len(found[-1]) - 1
+
+                    if cap in ("⎋", "⌫", "⏎", "↑", "↓"):
+                        width = len(cap)
+                    else:
+                        width = len(shifters) + len(cap)
+                        x -= len(shifters)
+
+                    sw.write_text(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
+                    sw.write_text(width * "@")
+
+                if not hits:
+                    unhit_kseqs.append([cap, kseq])
+
+        sw.write_text(f"\033[{row_y};{column_x}H")  # row-column-leap ⎋[⇧H
+
+        if unhit_kseqs:
+            sw.print_text(unhit_kseqs, "not found")
+
+    def gameboard_draw(self, shifters: str) -> None:
+        """Draw the Gameboard"""
+
+        assert shifters in ("", "⇧"), (shifters,)
+        sw = self.loopbacker.screen_writer
+
+        if not shifters:
+            s = KeyboardViewer.Shifteds
+            trans = str.maketrans(s, len(s) * " ")
+        else:
+            assert shifters == "⇧", (shifters,)  # todo1: add ⎋ ⌃ ⌥ ⇧
+            s = KeyboardViewer.Plains
+            trans = str.maketrans(s, len(s) * "⇧")
+
+        dent = 4 * " "
+        dedent = textwrap.dedent(KeyboardViewer.Keyboard).strip()
+        splitlines = dedent.splitlines()
+
+        sw.print_text()
+
+        for index, line in enumerate(splitlines):
+            rindex = index - len(splitlines)
+
+            text = dent + line
+            if index and (rindex != -1):
+                text = text.translate(trans)
+                if shifters != "⇧":
+                    text = text.replace("⇪⇥", "⇥ ")
+                    text = text.replace("⇧← ↑ ⇧→ ↓", "  ← ↑ → ↓")
+
+            sw.print_text(text)
+
+        sw.print_text()
+        sw.print_text("Press ⌃C")
 
 
 #
@@ -373,21 +441,21 @@ class Loopbacker:
         assert ord("C") ^ 0x40 == ord("\003")
         assert _MAX_PN_32100_ == 32100
 
-        quitting = False
-
-        sw.print_text("Press ⌃C ", end="")
-
-        if flags._repr_:
+        if not flags._repr_:
+            sw.print_text("Press ⌃C ", end="")
+        else:
+            sw.print_text("Press ⌃C")
             sw.write_text("\t\t")
 
+        quitting = False
         while not quitting:
             tb.kbhit(timeout=None)
             frames = kr.read_byte_frames()
 
-            if flags._repr_:
-                self.some_frames_print_repr(frames)
-            else:
+            if not flags._repr_:
                 self.some_frames_loop_back(frames)
+            else:
+                self.some_frames_print_repr(frames)
 
             if b"\003" in frames:
                 quitting = True
@@ -2628,7 +2696,14 @@ if __name__ == "__main__":
     main()
 
 
+# todo7: the Arrows of the ⇧ Shifted Game, and Git Push, but then
+
+# todo8: take the ⌃ ⌥ ⇧ out of the Key Caps of the Shifted Games
+
+
 # todo9: --egg=keycaps 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
+
+# todo9: --egg=resize to fit the Terminal to the Gameboard and vice versa
 
 
 # todo9: add Fn Keycaps
