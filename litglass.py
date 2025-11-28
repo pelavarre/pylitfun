@@ -18,10 +18,11 @@ examples:
   ./litglass.py --  # to run with defaults
   ./litglass.py --egg=enter  # to launch loop back with no setup
   ./litglass.py --egg=exit  # to quit loop back with no teardown
-  ./litglass.py --egg=repr  # to loop the Repr, not the Str
-  ./litglass.py --egg=scroll  # to scroll into Scrollback then launch in Alt Screen
-  ./litglass.py --egg=sigint  # for ⌃C to raise KeyboardInterrupt
+  ./litglass.py --egg=keycaps  # to launch our keyboard-viewer of keycaps
+  ./litglass.py --egg=scroll  # to scroll into scrollback then launch in alt screen
 """
+# ./litglass.py --egg=repr  # to loop the Repr, not the Str
+# ./litglass.py --egg=sigint  # for ⌃C to raise KeyboardInterrupt
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
 
@@ -40,6 +41,7 @@ import pdb
 import re
 import select
 import signal
+import string
 import sys
 import termios
 import textwrap
@@ -71,6 +73,7 @@ class Flags:
 
     enter: bool = False  # --egg=enter  # flags.enter to launch loop back with no setup
     _exit_: bool = False  # --egg=exit  # flags._exit_ to quit loop back with no teardown
+    keycaps: bool = False  # --egg=keycaps  # flags.keycaps to launch our keyboard-viewer of keycaps
     _repr_: bool = False  # --egg=repr  # flags._repr_ to loop the Repr, not the Str
     scroll: bool = False  # --egg=scroll  # flags.scroll to launch below Scrollback
     sigint: bool = False  # --egg=sigint  # flags.sigint for ⌃C to raise KeyboardInterrupt
@@ -95,7 +98,12 @@ def main() -> None:
     shell_args_take_in(args=sys.argv[1:], parser=parser)
 
     with Loopbacker() as lbr:
-        lbr.loop_back_till()
+        kv = KeyboardViewer(lbr)
+
+        if flags.keycaps:
+            kv.trace_key_releases_till()
+        else:
+            lbr.loop_back_till()
 
 
 def arg_doc_to_parser(doc: str) -> ArgDocParser:
@@ -131,6 +139,8 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
                 flags.enter = True
             elif "exit".startswith(egg) and not "enter".startswith(egg):
                 flags._exit_ = True
+            elif "keycaps".startswith(egg) and not "".startswith(egg):
+                flags.keycaps = True
             elif "repr".startswith(egg) and not "".startswith(egg):
                 flags._repr_ = True
             elif "scroll".startswith(egg) and not "sigint".startswith(egg):
@@ -147,6 +157,130 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
         _try_lit_glass_()
 
     return ns
+
+
+#
+#
+#
+
+
+class KeyboardViewer:
+
+    Keyboard = r"""
+        ⎋    F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>
+        `~  1! 2@ 3# 4$ 5% 6^ 7& 8* 9( 0)  -_  =+    ⌫
+        ⇥    qQ wW eE rR tT yY uU iI oO pP  [{  ]}    \|
+        ⇪     aA sS dD fF gG hH jJ kK lL  ;:  '"       ⏎
+        ⇧      zZ xX cC vV bB nN mM  ,  .  /           ⇧
+        Fn  ⌃  ⌥  ⌘   Spacebar    ⌘   ⌥        ← ↑ → ↓
+    """
+
+    Shifts = r'~ !@#$%^&*()_+ QWERTYUIOP{}| ASDFGHJKL:" ZXCVBNM<>?'
+    Shifts = "".join(Shifts.split())
+
+    def __init__(self, loopbacker: Loopbacker) -> None:
+        self.loopbacker = loopbacker
+
+    def trace_key_releases_till(self) -> None:
+        """Trace Key Releases till ⌃C"""
+
+        lbr = self.loopbacker
+
+        tb = lbr.terminal_boss
+        sw = lbr.screen_writer
+        kr = lbr.keyboard_reader
+        kd = lbr.keyboard_decoder
+
+        assert ord("C") ^ 0x40 == ord("\003")
+
+        quitting = False
+
+        # Draw the plain Gameboard, as if none of ⎋ ⌃ ⌥ ⇧ pressed
+
+        dedent = textwrap.dedent(KeyboardViewer.Keyboard).strip()
+
+        s = KeyboardViewer.Shifts
+        trans = str.maketrans(s, len(s) * " ")
+
+        dent = 4 * " "
+
+        sw.print_text()
+
+        splitlines = dedent.splitlines()
+        for index, line in enumerate(splitlines):
+            rindex = index - len(splitlines)
+
+            text = dent + line
+            if index and (rindex != -1):
+                text = text.translate(trans)
+
+            sw.print_text(text)
+
+        sw.print_text()
+        sw.print_text("Press ⌃C")
+
+        # Wipe out each Keycap when pressed
+
+        while not quitting:
+
+            tb.kbhit(timeout=None)
+            frames = kr.read_byte_frames()
+
+            row_y = kr.row_y
+            column_x = kr.column_x
+
+            for frame in frames:
+                kseqs = kd.bytes_to_kseqs_if(frame)
+                if not kseqs:
+                    continue
+
+                caps = sorted(set(kseqs[0]))
+
+                removesuffix = dedent.removesuffix(splitlines[-1])
+                for cap in caps:
+
+                    hittable = dedent if cap in "␢←↑→↓" else removesuffix
+
+                    find = len(splitlines[0]) if cap in string.digits else -1
+                    while True:
+
+                        alt_cap = cap
+                        if cap == "␢":
+                            alt_cap = "Spacebar"
+                        elif cap in string.ascii_uppercase:
+                            alt_cap = cap.casefold()
+
+                        start = find + 1
+                        find = hittable.find(alt_cap, start)
+                        if find < 0:
+                            break
+
+                        n = len(splitlines)
+                        y = row_y - 3 - n
+                        x = X1 + len(dent)
+
+                        found = dedent[: find + 1].splitlines()
+                        assert found, (
+                            found,
+                            find,
+                            alt_cap,
+                        )
+
+                        y += len(found)
+                        x += len(found[-1]) - 1
+
+                        sw.write_text(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
+                        sw.write_text(len(alt_cap) * "@")
+
+            sw.write_text(f"\033[{row_y};{column_x}H")  # row-column-leap ⎋[⇧H
+
+            if b"\003" in frames:
+                quitting = True
+                break
+
+        sw.print_text()
+
+        # todo: take mouse hits
 
 
 #
@@ -209,22 +343,23 @@ class Loopbacker:
 
         tb = self.terminal_boss
         sw = self.screen_writer
-
-        assert _MAX_PN_32100_ == 32100
+        kr = self.keyboard_reader
 
         if not flags.enter:
+
             sw.write_text("\033[?2004l")  # paste-unwrap ⎋[?2004L
 
         if not flags._exit_:
+
             sw.write_text("\033[m")  # plain ⎋[M vs other ⎋[ M
             sw.write_text("\033[ q")  # cursor-unstyled ⎋[␢Q vs other ⎋[ Q
             sw.write_text("\033[4l")  # replacing ⎋[4L vs ⎋[4H
             sw.write_text("\033[?25h")  # cursor-show ⎋[⇧?25H vs ⎋[?25L
-            sw.write_text("\033[?1049l")  # main-screen ⎋[⇧?1049L vs ⎋[⇧?1049H
 
-            sw.write_text("\033[32100H")  # cursor-unstyled ⎋[32100⇧H
-            sw.write_text("\033[A")  # 1 ↑ ⎋[⇧A
-            sw.write_text("\033[J")  # after-erase ⎋[⇧J  # simpler than ⎋[0⇧J
+            sw.write_text("\033[6n")
+            kr.read_bytes()
+            sw.write_text("\033[?1049l")  # main-screen ⎋[⇧?1049L vs ⎋[⇧?1049H
+            sw.write_text(f"\033[{kr.row_y};{kr.column_x}H")  # row-column-leap ⎋[⇧H
 
         tb.__exit__(*args)
 
@@ -236,6 +371,7 @@ class Loopbacker:
         kr = self.keyboard_reader
 
         assert ord("C") ^ 0x40 == ord("\003")
+        assert _MAX_PN_32100_ == 32100
 
         quitting = False
 
@@ -256,6 +392,11 @@ class Loopbacker:
             if b"\003" in frames:
                 quitting = True
                 break
+
+        if not flags._exit_:
+            sw.write_text("\033[32100H")  # cursor-unstyled ⎋[32100⇧H
+            sw.write_text("\033[A")  # 1 ↑ ⎋[⇧A
+            sw.write_text("\033[J")  # after-erase ⎋[⇧J  # simpler than ⎋[0⇧J
 
     def some_frames_loop_back(self, frames: tuple[bytes, ...]) -> None:
         """Collect Input Frames over time as a Screen Change Order"""
@@ -2485,6 +2626,9 @@ _ = """  # more famous Python Imports to run in place of our Code here
 
 if __name__ == "__main__":
     main()
+
+
+# todo9: --egg=keycaps 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
 
 
 # todo9: add Fn Keycaps
