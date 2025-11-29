@@ -37,6 +37,7 @@ import collections
 import collections.abc  # .collections.abc is not .abc
 import dataclasses
 import difflib
+import math
 import os
 import pdb
 import re
@@ -45,6 +46,7 @@ import signal
 import sys
 import termios
 import textwrap
+import time
 import tty
 import types
 import typing
@@ -86,6 +88,9 @@ class Flags:
 flags = Flags()
 
 # flags.sigint = True
+
+
+MAX_ARROW_KEY_JAM_2 = 2  # takes Key Jams larger than Double Arrow as ⌥-Click's
 
 
 #
@@ -172,9 +177,9 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
 def _try_lit_glass_() -> None:
     """Run slow and quick Self-Test's of this Module"""
 
-    _try_unicode_source_texts_()
-
+    _try_chop_()
     _try_key_byte_frame_()
+    _try_unicode_source_texts_()
 
 
 #
@@ -385,6 +390,7 @@ class Loopbacker:
 
     keyboard_decoder: KeyboardDecoder
     screen_change_order: ScreenChangeOrder
+    slow_time_time: float  # .time.time() of last .screen_change_order.clear_order restart
 
     def __init__(self) -> None:
 
@@ -479,15 +485,20 @@ class Loopbacker:
 
             # Read Input
 
+            t0 = time.time()
+
             tb.kbhit(timeout=None)
             frames = kr.read_byte_frames()
+
+            t1 = time.time()
+            t1t0 = t1 - t0
 
             # Eval Input & print Output
 
             if not flags._repr_:
                 self.some_frames_loop_back(frames)
             else:
-                self.some_frames_print_repr(frames)
+                self.some_frames_print_repr(frames, t1t0=t1t0)
 
             # Quit at ⌃C
 
@@ -510,6 +521,8 @@ class Loopbacker:
         # Take in each Frame
 
         for frame in frames:
+            t1 = time.time()
+
             try:
                 kdecode = frame.decode()
             except UnicodeDecodeError:
@@ -521,7 +534,9 @@ class Loopbacker:
 
             # Take in the Frame by itself, while order incomplete
 
-            sco.take_decode(kdecode, yx=(kr.row_y, kr.column_x))
+            time_time = sco.take_decode(kdecode, yx=(kr.row_y, kr.column_x))
+            if time_time:
+                self.slow_time_time = time_time
 
             if not (sco.forceful or sco.intricate):
                 self.kdecode_cook_and_loop_back(kdecode, intricate=False)
@@ -539,31 +554,44 @@ class Loopbacker:
             slow_isprintable = slow_kdecode.isprintable()
 
             if slow_isprintable and (not strong):
-                sw.write_printable(kdecode)
-                sco.clear_order()
-                continue
 
-            if factor < -1:  # echoes without writing
+                sw.write_printable(kdecode)
+
+            elif factor < -1:  # echoes without writing
+
                 self.frame_write_echo(frame)
 
             elif factor == -1:  # echoes and greatly details
+
+                slow_frames = tuple([slow_kencode])
+                slow_t1t0 = t1 - self.slow_time_time
+
                 self.frame_write_echo(frame)
+
                 sw.write_printable(" ")
-                self.some_frames_print_repr(tuple([slow_kencode]))
+                self.some_frames_print_repr(slow_frames, t1t0=slow_t1t0)
 
             elif factor == 0:  # echoes and leaps and writes
+
                 self.frame_write_echo("⌃m".encode() if (frame == b"\r") else frame)  # ⌃M
+
                 sw.write_one_control(f"\033[{row_y};{column_x}H")
+                kr.row_y = row_y
+                kr.column_x = column_x
+
                 if slow_isprintable:
                     sw.write_printable(slow_kdecode)
                 else:
                     sw.write_one_control(slow_kdecode)
 
             else:  # echoes and cooks and leaps and writes
+
                 self.frame_write_echo(frame)
+
                 sw.write_one_control(f"\033[{row_y};{column_x}H")
                 kr.row_y = row_y
                 kr.column_x = column_x
+
                 for _ in range(factor):
                     self.kdecode_cook_and_loop_back(slow_kdecode, intricate=sco.intricate)
 
@@ -772,7 +800,7 @@ class Loopbacker:
         echo = kd.frame_to_echo(frame)
         sw.write_printable(echo)
 
-    def some_frames_print_repr(self, frames: tuple[bytes, ...]) -> None:
+    def some_frames_print_repr(self, frames: tuple[bytes, ...], t1t0: float) -> None:
         """Print the Repr of each Frame, but mark the Frames as framed together"""
 
         sw = self.screen_writer
@@ -780,15 +808,22 @@ class Loopbacker:
 
         assert CUP_Y_X == "\033[" "{};{}H"
 
+        frame_t1t0 = t1t0
         (y, x) = (kr.row_y, kr.column_x)
-        for frame_index, frame in enumerate(frames):
-            self.frames_write_one_repr(frames, frame_index=frame_index)
 
+        for frame_index in range(len(frames)):
+
+            self.frames_write_one_repr(frames, frame_index=frame_index, t1t0=frame_t1t0)
+
+            frame_t1t0 = 0e0
             y += 1  # todo: 'row_y > y_high' happens here  # todo: update Y X shadow
+
             sw.write_one_control("\n")
             sw.write_one_control(f"\033[{y};{x}H")
 
-    def frames_write_one_repr(self, frames: tuple[bytes, ...], frame_index: int) -> None:
+    def frames_write_one_repr(
+        self, frames: tuple[bytes, ...], frame_index: int, t1t0: float
+    ) -> None:
         """Write the Repr of one Frame, but mark the Frames as framed together"""
 
         frame = frames[frame_index]
@@ -801,29 +836,50 @@ class Loopbacker:
         sw = self.screen_writer
         kd = self.keyboard_decoder
 
-        # Choose the details
+        # Choose which Keycaps to put out front
+
+        kseqs = kd.bytes_to_kseqs_if(frame)
+
+        alt_kseqs = kseqs
+        if kseqs:
+            if (frame == b"`") and frames[1:]:
+                alt_kseqs = tuple(reversed(kseqs))  # ('⌥⇧`', '`') 0 `
+
+        # Choose which details to print
 
         printables: list[object] = list()
 
-        kseqs = kd.bytes_to_kseqs_if(frame)
-        if kseqs:
-            if (frame == b"`") and frames[1:]:
-                printables.append(tuple(reversed(kseqs)))  # ('⌥⇧`', '`') 0 `
-            else:
-                printables.append(kseqs)
-
-        if frames[1:]:
-            printables.append(frame_index)
+        if alt_kseqs:
+            printables.append(alt_kseqs[0])
 
         if decode and decode.isprintable():
             printables.append(decode)
         else:
             printables.append(repr(frame))
 
-        # Write the chosen details
+        printables.append(chop(1000 * t1t0))
+
+        if alt_kseqs[1:]:
+            printables.append(alt_kseqs[1:])
+
+        if frames[1:]:
+            printables.append(frame_index)
+
+        # Print the chosen details
 
         text = " ".join(str(_) for _ in printables)
         sw.write_printable(text)
+
+        self.t = time.time()
+
+        #
+        # Quadruple Key Jam
+        #
+        #   → b'\x1b[C' 192 ('⌥⇧→',) 0
+        #   ← b'\x1b[D' 0 ('⌥⇧←',) 1
+        #   ↓ b'\x1b[B' 0 ('⌥↓', '⇧↓', '⌥⇧↓') 2
+        #   ↑ b'\x1b[A' 0 ('⌥↑', '⇧↑', '⌥⇧↑') 3
+        #
 
 
 @dataclasses.dataclass(order=True)  # , frozen=True)
@@ -846,9 +902,12 @@ class ScreenChangeOrder:
     def __init__(self) -> None:
 
         self.key_byte_frame = KeyByteFrame(b"")
+
         self.clear_order()
 
-    def clear_order(self) -> None:
+    def clear_order(self) -> float:
+
+        time_time = time.time()
 
         kbf = self.key_byte_frame
 
@@ -860,6 +919,8 @@ class ScreenChangeOrder:
 
         kbf.clear_frame()
         self.intricate = False
+
+        return time_time
 
     def __bool__(self) -> bool:
 
@@ -945,7 +1006,7 @@ class ScreenChangeOrder:
     # Add on a next Input, else restart
     #
 
-    def take_decode(self, decode: str, yx: tuple[int, int]) -> None:
+    def take_decode(self, decode: str, yx: tuple[int, int]) -> float:
         """Add on a next Input, else restart"""
 
         assert decode, (decode,)
@@ -956,8 +1017,9 @@ class ScreenChangeOrder:
 
         # Take Input after a Text Frame or Closed Frame as a new Order
 
+        time_time = 0e0
         if kbf.printable or kbf.closed:
-            self.clear_order()
+            time_time = self.clear_order()
 
         # Place Output over top of first Input
 
@@ -976,18 +1038,20 @@ class ScreenChangeOrder:
         if decode == "\025":  # ⌃U
 
             if (early_mark and late_mark) or kbf:
-                self.clear_order()
-                self.early_mark = decode
-                return
 
-            if not early_mark:
+                time_time = self.clear_order()
                 self.early_mark = decode
-            elif not int_literal:
-                self.early_mark += decode
+
             else:
-                self.late_mark = decode
 
-            return
+                if not early_mark:
+                    self.early_mark = decode
+                elif not int_literal:
+                    self.early_mark += decode
+                else:
+                    self.late_mark = decode
+
+            return time_time
 
         # Start or grow an Int Literal
 
@@ -999,7 +1063,8 @@ class ScreenChangeOrder:
 
                     if not ScreenChangeOrder.is_int_value_error(lit_plus + "0"):
                         self.int_literal = lit_plus
-                        return
+
+                        return time_time
 
         # Grow the Frame
 
@@ -1009,11 +1074,12 @@ class ScreenChangeOrder:
             if with_bool_kbf:
                 self.intricate = True
 
-            return
+            return time_time
 
-        # Else secretly silently start over  # like when reached by ⎋ [ ' 2
+        # Else start over  # like when reached by ⎋ [ ' 2
 
-        self.clear_order()
+        time_time = self.clear_order()
+        return time_time
 
     @staticmethod
     def is_int_value_error(x: str) -> bool:
@@ -1027,6 +1093,10 @@ class ScreenChangeOrder:
         except ValueError:
             return True
 
+
+#
+# Talk with one KeyboardReader and one ScreenWriter
+#
 
 class TerminalBoss:
     """Talk with one KeyboardReader and one ScreenWriter"""
@@ -1316,7 +1386,7 @@ class KeyboardReader:
 
         assert ClassicArrowEncodes == (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
 
-        if len(data) <= 2 * 3:  # takes double ClassicArrowEncodes as 8-way Compass Arrows
+        if len(data) <= (MAX_ARROW_KEY_JAM_2 * 3):
             return ("", data)
 
         for i in range(0, len(data), 3):
@@ -1395,10 +1465,10 @@ class KeyboardReader:
         assert KeyboardDecoder.OptionAccents == ("`", "´", "¨", "ˆ", "˜")
         assert KeyboardDecoder.OptionGraveGrave == "``"
 
-        assert _NorthEastArrowEncode_ == "\033[↗".encode()
         assert _NorthWestArrowEncode_ == "\033[↖".encode()
-        assert _SouthWestArrowEncode_ == "\033[↙".encode()
+        assert _NorthEastArrowEncode_ == "\033[↗".encode()
         assert _SouthEastArrowEncode_ == "\033[↘".encode()
+        assert _SouthWestArrowEncode_ == "\033[↙".encode()
 
         if not data:
             return (data, b"")
@@ -2454,14 +2524,14 @@ DownwardsArrowEncode = b"\033[B"
 RightwardsArrowEncode = b"\033[C"
 LeftwardsArrowEncode = b"\033[D"
 
-_NorthEastArrowEncode_ = "\033[↗".encode()  # W D, D W
 _NorthWestArrowEncode_ = "\033[↖".encode()  # A W, W A
-_SouthWestArrowEncode_ = "\033[↙".encode()  # A S, S A
+_NorthEastArrowEncode_ = "\033[↗".encode()  # W D, D W
 _SouthEastArrowEncode_ = "\033[↘".encode()  # S D, D S
+_SouthWestArrowEncode_ = "\033[↙".encode()  # A S, S A
 
 
 #
-# Try things
+# Try KeyByteFrame things
 #
 
 
@@ -2749,6 +2819,102 @@ class ArgDocParser:
 
 
 #
+# Amp up Import BuiltIns Float
+#
+
+
+def chop(f: float) -> str:
+    """Find a nonzero Float Literal closer to zero with <= 3 Digits"""
+
+    if not f:
+        lit = "-0e0" if (math.copysign(1e0, f) < 0e0) else "0"
+        return lit
+
+    s = ("-" + _chop_nonnegative_(-f)) if (f < 0) else _chop_nonnegative_(f)
+
+    return s
+
+
+def _chop_nonnegative_(f: float) -> str:
+    """Find a nonnegative nonzero Float Literal closer to zero with <= 3 Digits"""
+
+    assert f > 0, (f,)
+
+    # Form the Scientific Notation
+
+    sci = int(math.floor(math.log10(f)))
+    mag = f / (10**sci)
+    assert 1 <= mag < 10, (mag, f)
+
+    # Choose a Floor, in the way of Engineering Notation
+
+    triple = str(int(100 * mag))  # 100 == 10 ** 2
+    assert "100" <= triple <= "999", (triple, mag, sci, f)
+
+    eng = 3 * (sci // 3)  # ..., -6, -3, 0, 3, 6, ...
+    span = 1 + sci - eng
+    assert 1 <= span <= 3, (span, triple, mag, eng, sci, f)
+
+    # Stand on the chosen Floor, but never say '.' nor '.0' nor '.00'
+
+    dotted = triple[:span] + "." + triple[span:]
+    dotted = dotted.rstrip("0").rstrip(".")
+
+    # And never say 'e0' either
+
+    lit = f"{dotted}e{eng}".removesuffix("e0")  # may lack both '.' and 'e'
+
+    # But never wander far
+
+    float_lit = float(lit)
+
+    diff = f - float_lit
+    precision = 10**eng
+    assert diff < precision, (f, sci, mag, triple, eng, span, dotted, lit, diff, precision)
+
+    return lit
+
+    # Python math.trunc is a round towards zero, but can be zero, and leaps to the int ceil/ floor
+
+
+def _try_chop_() -> None:
+
+    pairs = [
+        (0, "0"),
+        (0e0, "0"),
+        (-0e0, "-0e0"),
+        #
+        (1e-4, "100e-6"),
+        (1e-3, "1e-3"),
+        (1.2e-3, "1.2e-3"),
+        (9.876e-3, "9.87e-3"),  # not '9.88e-3'
+        (1e-2, "10e-3"),
+        (1e-1, "100e-3"),
+        #
+        (1e0, "1"),
+        (1e1, "10"),
+        (1.2e1, "12"),
+        (9.876e1, "98.7"),  # not '98.8'
+        (1e2, "100"),
+        (1.23e2, "123"),
+        #
+        (1e3, "1e3"),
+        #
+    ]
+
+    pairs = [(1e-4, "100e-6")]
+
+    for f, lit in pairs:
+
+        chop_f = chop(f)
+        assert chop_f == lit, (chop_f, lit, f"{f:.2e}", f)
+
+        if f:
+            chop_minus_f = chop(-f)
+            assert chop_minus_f == (f"-{lit}"), (chop_f, lit, f"{f:.2e}", f)
+
+
+#
 # Amp up Import Traceback
 #
 # Especially when installed via:  sys.excepthook = excepthook
@@ -2848,7 +3014,7 @@ def _try_unicode_source_texts_() -> None:
     #
     # The Apple MacBook Keyboard doesn't send U+2196..U+2199 Diagonal Arrows as such
     #
-    #   ↗ ↖ ↙ ↘
+    #   ↖ ↗ ↘ ↙
     #
     # June/1993 Unicode 1.1.0 gave us these four, among its U+2190 .. U+219F Symbols And Arrows
     #
@@ -2924,7 +3090,7 @@ if __name__ == "__main__":
     main()
 
 
-# todo7: the Arrows of the ⇧ Shifted Game, and Git Push, but then
+# todo8: --egg=turtle to echo the ← ↑ → ↓ ↖ ↗ ↘ ↙ etc as they come
 
 # todo8: take the ⌃ ⌥ ⇧ out of the Key Caps of the Shifted Games
 
