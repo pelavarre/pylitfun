@@ -14,6 +14,12 @@ Launch a loop-back test to write your Keyboard Input Bytes back into your Screen
 
 Apple macOS Keycap Symbols are ⎋ Esc, ⌃ Control, ⌥ Option/ Alt, ⇧ Shift, ⌘ Command/ Os
 
+However
++ U+005E ^ Circumflex Accent ... is not U+2303 ⌃ Up Arrowhead ... is not U+2191 ↑ Upwards Arrow
++ U+21EA ⇪ Upwards White Arrow From Bar ... is not U+21E7 ⇧ Upwards White Arrow
+
+The famous 7-bit Control Bytes are
+
     ⌃G ⌃H ⌃J mean \a \b \n, and ⌃[ means \e, also known as ⎋ Esc
     ⇥ Tab means ⌃I \t, and ⏎ Return means ⌃M \r, and ⌫ ⌃? Delete means \b
 
@@ -51,7 +57,6 @@ The famous Csi ⎋[ and Osc ⎋] Output Calls and Reply Inputs are
 The famous Csi ⎋[ Inputs, apart from the Reply Inputs, are
 
     ⎋[>{f};{x};{y}⇧M press  ⎋[>{f};{x};{y}M release  ⎋[⇧M{b}{x}{y} press/release
-
 
 ## Results
 

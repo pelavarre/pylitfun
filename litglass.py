@@ -21,9 +21,9 @@ examples:
   ./litglass.py --egg=scroll  # to scroll into scrollback then launch in alt screen
 """
 
-# ./litglass.py --egg=keycaps  # to launch our keyboard-viewer of keycaps
-# ./litglass.py --egg=repr  # to loop the Repr, not the Str
-# ./litglass.py --egg=sigint  # for ⌃C to raise KeyboardInterrupt
+# ./litglass.py --egg=Keycaps  # to launch our keyboard-viewer of keycaps
+# ./litglass.py --egg=Repr  # to loop the Repr, not the Str
+# ./litglass.py --egg=SigInt  # for ⌃C to raise KeyboardInterrupt
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
 
@@ -49,11 +49,14 @@ import tty
 import types
 import typing
 
+# import unicodedata  # of a .unicodedata.unidata_version for friends of 웃 襾 ¤
+
 
 _: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
 
 if not __debug__:
     raise NotImplementedError([__debug__])  # because 'python3 better than python3 -O'
+
 
 default_eq_None = None  # spells out 'default=None' where Python forbids that
 
@@ -73,10 +76,11 @@ class Flags:
 
     enter: bool = False  # --egg=enter  # flags.enter to launch loop back with no setup
     _exit_: bool = False  # --egg=exit  # flags._exit_ to quit loop back with no teardown
-    keycaps: bool = False  # --egg=keycaps  # flags.keycaps to launch our keyboard-viewer of keycaps
-    _repr_: bool = False  # --egg=repr  # flags._repr_ to loop the Repr, not the Str
     scroll: bool = False  # --egg=scroll  # flags.scroll to launch below Scrollback
-    sigint: bool = False  # --egg=sigint  # flags.sigint for ⌃C to raise KeyboardInterrupt
+
+    keycaps: bool = False  # --egg=Keycaps  # flags.keycaps to launch our keyboard-viewer of keycaps
+    _repr_: bool = False  # --egg=Repr  # flags._repr_ to loop the Repr, not the Str
+    sigint: bool = False  # --egg=Sigint  # flags.sigint for ⌃C to raise KeyboardInterrupt
 
 
 flags = Flags()
@@ -134,20 +138,21 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
     for egg_arg in ns_eggs:
         eggs = egg_arg.split(",")
         for egg in eggs:
+            casefold = egg.casefold()
 
             assert len(celebrated_eggs) == 6
 
-            if "enter".startswith(egg) and not "exit".startswith(egg):
+            if "enter".startswith(casefold) and not "exit".startswith(casefold):
                 flags.enter = True
-            elif "exit".startswith(egg) and not "enter".startswith(egg):
+            elif "exit".startswith(casefold) and not "enter".startswith(casefold):
                 flags._exit_ = True
-            elif "keycaps".startswith(egg) and not "".startswith(egg):
+            elif "keycaps".startswith(casefold) and not "".startswith(casefold):
                 flags.keycaps = True
-            elif "repr".startswith(egg) and not "".startswith(egg):
+            elif "repr".startswith(casefold) and not "".startswith(casefold):
                 flags._repr_ = True
-            elif "scroll".startswith(egg) and not "sigint".startswith(egg):
+            elif "scroll".startswith(casefold) and not "sigint".startswith(casefold):
                 flags.scroll = True
-            elif "sigint".startswith(egg) and not "scroll".startswith(egg):
+            elif "sigint".startswith(casefold) and not "scroll".startswith(casefold):
                 flags.sigint = True
 
             else:
@@ -155,10 +160,21 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
                 print(f"don't choose {egg!r}, do choose from {celebrated_eggs}", file=sys.stderr)
                 sys.exit(2)  # exits 2 for bad Arg
 
+    sum = flags.keycaps + flags._repr_
+    assert sum <= 1, (dict(_ for _ in vars(flags).items() if _[-1]),)
+
     if ns.force:
         _try_lit_glass_()
 
     return ns
+
+
+def _try_lit_glass_() -> None:
+    """Run slow and quick Self-Test's of this Module"""
+
+    _try_unicode_source_texts_()
+
+    _try_key_byte_frame_()
 
 
 #
@@ -393,6 +409,8 @@ class Loopbacker:
         sw = self.screen_writer
         kr = self.keyboard_reader
 
+        assert DSR6 == "\033[" "6n"
+
         tb.__enter__()
 
         if not flags.enter:
@@ -400,7 +418,7 @@ class Loopbacker:
 
         if flags.scroll:
 
-            sw.write_one_control("\033[6n")
+            sw.write_one_control("\033[6n")  # todo9: more automagic Cursor Y X Reads
             kr.read_bytes()
 
             y = kr.row_y
@@ -417,6 +435,8 @@ class Loopbacker:
         sw = self.screen_writer
         kr = self.keyboard_reader
 
+        assert DSR6 == "\033[" "6n"
+
         if not flags.enter:
 
             sw.write_one_control("\033[?2004l")  # paste-unwrap ⎋[?2004L
@@ -428,7 +448,7 @@ class Loopbacker:
             sw.write_one_control("\033[4l")  # replacing ⎋[4L vs ⎋[4H
             sw.write_one_control("\033[?25h")  # cursor-show ⎋[⇧?25H vs ⎋[?25L
 
-            sw.write_one_control("\033[6n")
+            sw.write_one_control("\033[6n")  # todo9: more automagic Cursor Y X Reads
             kr.read_bytes()
             sw.write_one_control("\033[?1049l")  # main-screen ⎋[⇧?1049L vs ⎋[⇧?1049H
             sw.write_one_control(f"\033[{kr.row_y};{kr.column_x}H")  # row-column-leap ⎋[⇧H
@@ -1294,9 +1314,9 @@ class KeyboardReader:
         marks: list[str] = list()
         after = b""
 
-        assert ArrowEncodes == (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
+        assert ClassicArrowEncodes == (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
 
-        if len(data) <= 3:
+        if len(data) <= 2 * 3:  # takes double ClassicArrowEncodes as 8-way Compass Arrows
             return ("", data)
 
         for i in range(0, len(data), 3):
@@ -1323,7 +1343,7 @@ class KeyboardReader:
         h = self.y_high
         w = self.x_wide
 
-        assert ArrowEncodes == (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
+        assert ClassicArrowEncodes == (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
 
         o = (y, x, h, w, arrowheads)
 
@@ -1372,6 +1392,14 @@ class KeyboardReader:
     def _bytes_split_frame_(self, data: bytes) -> tuple[bytes, bytes]:
         """Split one Frame off the Start of the Bytes"""
 
+        assert KeyboardDecoder.OptionAccents == ("`", "´", "¨", "ˆ", "˜")
+        assert KeyboardDecoder.OptionGraveGrave == "``"
+
+        assert _NorthEastArrowEncode_ == "\033[↗".encode()
+        assert _NorthWestArrowEncode_ == "\033[↖".encode()
+        assert _SouthWestArrowEncode_ == "\033[↙".encode()
+        assert _SouthEastArrowEncode_ == "\033[↘".encode()
+
         if not data:
             return (data, b"")
 
@@ -1387,11 +1415,15 @@ class KeyboardReader:
 
             # Split the ⌥ Accents arriving together with an Unaccented Decode
 
-            accents = "`" "´" "¨" "ˆ" "˜"  # ⌥⇧` ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
+            accents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧` ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
             if decode[0] in accents:
                 frame = decode[0].encode()
                 after = decode[1:].encode()
                 return (frame, after)
+
+        # Accept Double-Key-Jam's as 8-way Compass Arrows  # todo7:
+
+        pass
 
         # Split one Text or Control Frame off the Start of the Bytes
 
@@ -1472,7 +1504,7 @@ class KeyboardReader:
             ba.extend(read)
 
             if row_y < 0:
-                m = re.search(rb"\033\[([0-9]+);([0-9]+)R$", string=ba)
+                m = re.search(rb"\033\[([0-9]+);([0-9]+)R$", string=ba)  # ⎋[{y};{x}⇧R
                 if not m:
                     continue
 
@@ -2211,7 +2243,7 @@ class KeyboardDecoder:
             assert k not in decode_by_kseq.keys(), (k,)
             decode_by_kseq[k] = decode_by_kseq[v]
 
-        # Add the basic Arrows
+        # Add the Basic Arrows and the Double-Key-Jam Arrows  # todo7:
 
         d3 = {
             r"↑": "\033[" "A",  # ⎋[⇧A
@@ -2224,7 +2256,7 @@ class KeyboardDecoder:
             assert k not in decode_by_kseq.keys(), (k,)
             decode_by_kseq[k] = v
 
-        # Add the ⌥ and ⇧ Arrows
+        # Add the ⌥ and ⇧ Arrows  # todo8: differently at Apple vs others
 
         d4 = {
             r"⌥↑": d3[r"↑"],
@@ -2256,6 +2288,9 @@ class KeyboardDecoder:
     # Index the Keycap Sequences by their Decodes
     #
 
+    OptionAccents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧` ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
+    OptionGraveGrave = "``"  # ⌥⇧` `
+
     def _invert_decode_by_kseq_(self) -> None:
         """Index the Keycap Sequences by their Decodes"""
 
@@ -2270,8 +2305,6 @@ class KeyboardDecoder:
 
         # Add the ⌥ variants of Non-Blank Printable US-Ascii
 
-        assert "" == "\uf8ff"
-
         plain_printables = r"""
             -!"#$%&'()*+,-./
             0123456789:;<=>?
@@ -2280,6 +2313,8 @@ class KeyboardDecoder:
             `abcdefghijklmno
             pqrstuvwxyz{|}~
         """
+
+        assert "" == "\uf8ff"  # U+F8FF  # also tested by ._try_unicode_source_texts_
 
         option_printables = r"""
             ¥⁄Æ‹›ﬁ‡æ·‚°±≤–≥÷
@@ -2409,13 +2444,20 @@ class KeyboardDecoder:
             assert decode not in kseqs_by_decode, (decode, kseqs_by_decode[decode], kseq_list)
             kseqs_by_decode[decode] = tuple(kseq_list)
 
+        # no explicit mention of ÁÉÍJ́ÓÚ ÂÊÎÔÛ ÃÑÕ ÄËÏÖÜŸ ÀÈÌÒÙ
 
-ArrowEncodes = (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
+
+ClassicArrowEncodes = (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
 
 UpwardsArrowEncode = b"\033[A"
 DownwardsArrowEncode = b"\033[B"
 RightwardsArrowEncode = b"\033[C"
 LeftwardsArrowEncode = b"\033[D"
+
+_NorthEastArrowEncode_ = "\033[↗".encode()  # W D, D W
+_NorthWestArrowEncode_ = "\033[↖".encode()  # A W, W A
+_SouthWestArrowEncode_ = "\033[↙".encode()  # A S, S A
+_SouthEastArrowEncode_ = "\033[↘".encode()  # S D, D S
 
 
 #
@@ -2423,19 +2465,18 @@ LeftwardsArrowEncode = b"\033[D"
 #
 
 
-def _try_lit_glass_() -> None:
-    """Run slow and quick Self-Test's of this Module"""
-
-    _try_key_byte_frame_()
-
-
 def _try_key_byte_frame_() -> None:
 
     assert DL_Y == "\033[" "{}M"
     assert _CLICK3_ == "\033[M"
     assert UpwardsArrowEncode == b"\033[A"
+    assert ST == "\033\134"
+
+    # Do nothing with grace & elegance
 
     KeyByteFrame(b"")
+
+    # Speak well of ↑ and ⎋↑
 
     kbf = KeyByteFrame(b"\033[A")
     assert kbf.to_frame_bytes() == b"\033[A", (kbf,)
@@ -2444,6 +2485,8 @@ def _try_key_byte_frame_() -> None:
     kbf = KeyByteFrame(b"\033\033[A")
     assert kbf.to_frame_bytes() == b"\033\033[A", (kbf,)
     assert kbf.closed, (kbf,)
+
+    # Dance well with the _CLICK3_ clash into DL_Y without Pn
 
     kbf = KeyByteFrame(b"\033[M")
     assert kbf.to_frame_bytes() == b"\033[M", (kbf,)
@@ -2456,6 +2499,14 @@ def _try_key_byte_frame_() -> None:
     kbf = KeyByteFrame(b"\033[Mab\xff")
     assert kbf.to_frame_bytes() == b"\033[Mab\xff", (kbf,)
     assert kbf.closed, (kbf,)
+
+    # Accept 8-way Compass Arrows, not just the 4-way Most Classic Arrows
+
+    kbf = KeyByteFrame("\033[↗".encode())
+    assert kbf.to_frame_bytes() == "\033[↗".encode(), (kbf,)
+    assert kbf.closed, (kbf,)
+
+    # Accept the ⎋\ String Terminator (ST) to close an ⎋] Osc Frame
 
     kbf = KeyByteFrame(b"\033]11;?\033\\")
     assert kbf.to_frame_bytes() == b"\033]11;?\033\\", (kbf,)
@@ -2753,6 +2804,68 @@ def excepthook(  # ) -> ...:
 
     print(">" ">" "> pdb.pm()", file=with_stderr)  # (3 * ">") spelled unlike a Git Conflict
     pdb.pm()
+
+
+#
+# Amp up Import UnicodeData
+#
+# P=litglass.py && cat $P |python3 -c 'import sys; print(repr("".join(sorted(set(sys.stdin.read())))))'
+#
+
+
+def _try_unicode_source_texts_() -> None:
+    """Explicitly don't limit our Source Text to US-Ascii"""
+
+    assert "" == "\uf8ff"  # U+F8FF  # last of U+E000 .. U+F8FF Private Use Area (PUA)
+
+    #
+    # The Apple ⌥ Option/Alt Keys send lots of printable U+00A1 .. U+00FF
+    #
+    #   ÀÁÂÃÄÅ Æ ÈÉÊË ÌÍÎÏ Ñ ÒÓÔÕÖ Ø ÙÚÛÜ àáâãäå æ èéêë ìíîï ñ òóôõö ùúûü ÿ
+    #
+    # but not
+    #
+    #   chr(0x00A4)  # "¤"  # Currency Sign
+    #   chr(0x00A6)  # "¦"  # Broken Bar
+    #
+    #   chr(0x00B2)  # "²"  # Superscript Two
+    #   chr(0x00B3)  # "³"  # Superscript Three
+    #   chr(0x00B9)  # "¹"  # Superscript One
+    #   chr(0x00BC)  # "¼"  # Vulgar Fraction One Quarter
+    #   chr(0x00BD)  # "½"  # Vulgar Fraction One Half
+    #   chr(0x00BE)  # "¾"  # Vulgar Fraction Three Quarters
+    #
+    #   chr(0x00D0)  # "Ð"  # Latin Capital Letter Eth
+    #   chr(0x00D7)  # "×"  # Multiplication Sign
+    #   chr(0x00DD)  # "Ý"  # Latin Capital Letter Y With Acute
+    #   chr(0x00DE)  # "Þ"  # Latin Capital Letter Thorn
+    #
+    #   chr(0x00F0)  # "ð"  # Latin Small Letter Eth
+    #   chr(0x00FD)  # "ý"  # Latin Small Letter Y With Acute
+    #   chr(0x00FE)  # "þ"  # Latin Small Letter Thorn
+    #
+
+    #
+    # The Apple MacBook Keyboard doesn't send U+2196..U+2199 Diagonal Arrows as such
+    #
+    #   ↗ ↖ ↙ ↘
+    #
+    # June/1993 Unicode 1.1.0 gave us these four, among its U+2190 .. U+219F Symbols And Arrows
+    #
+
+    #
+    # Here in 2025 we're running no Tests of Unicode U+FB01 and U+FB02
+    #
+    #   ﬁ ﬂ
+    #
+    # And no Tests of Unicode U+0131 .. U+25CA
+    #
+    #   ıŒœŸƒˆˇ˘˙˚˛˜˝́Ωπ–—‘’‚“”„†‡•…‰‹›⁄€™←↑→↓⇥⇧⇪∂∆∏∑√∞∫≈≠≤≥⌃⌘⌥⌫⎋⏎␢◊
+    #
+    # And no Tests of Unicode U+00A1 .. U+00F8
+    #
+    #   ¡¢£¥§¨©ª«¬®¯°±´µ¶·¸º»¿Çßç÷ø
+    #
 
 
 #
