@@ -2859,6 +2859,9 @@ def chop(f: float) -> str:
 
     return s
 
+    # never says '0' except to mean Float +0e0 and Int 0
+    # values your ink & time properly, by never saying '.' nor '.0' nor '.00' nor 'e+0'
+
 
 def _chop_nonnegative_(f: float) -> str:
     """Find a nonnegative nonzero Float Literal closer to zero with <= 3 Digits"""
@@ -2894,7 +2897,7 @@ def _chop_nonnegative_(f: float) -> str:
     float_lit = float(lit)
 
     diff = f - float_lit
-    precision = 10**eng
+    precision = 10 ** (eng - 3 + span)
     assert diff < precision, (f, sci, mag, triple, eng, span, dotted, lit, diff, precision)
 
     return lit
