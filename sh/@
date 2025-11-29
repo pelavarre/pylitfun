@@ -1,0 +1,5 @@
+if [ $# -eq 0 ]; then
+    ./litglass.py --
+else
+    ./litglass.py "$@"
+fi

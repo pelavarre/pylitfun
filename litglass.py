@@ -193,6 +193,8 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
     gameboard_yx: tuple[int, ...]
     shifters: str  # todo: dump/ load Keycaps Games
 
+    # Lay out 6 Rows per Keyboard  # todo: measure how high, don't guess
+
     PlainKeyboard = r"""
         ⎋    F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>
         `   1  2  3  4  5  6  7  8  9  0   -   =     ⌫
@@ -214,6 +216,10 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         Fn  ⌃  ⌥  ⌘   Spacebar    ⌘   ⌥            ← →
     """
 
+    # . 123456789 123456789 123456789 123456789 12345678
+
+    #
+
     def __init__(self, loopbacker: Loopbacker) -> None:
 
         self.loopbacker = loopbacker
@@ -232,17 +238,28 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         assert ord("C") ^ 0x40 == ord("\003")
         assert DSR6 == "\033[" "6n"
 
+        # Scroll to make Rows in the South, if need be, like after:  seq 987
+
+        sep = 1  # 1 in the North, 1 in the South, 1 between Board & Hello, 1 between Hello & Chat
+        high = sep + 6 + sep + 1 + sep + 3 + sep  # todo: measure how high, don't guess
+        wide = 4 + 48 + 4  # todo: measure how wide, don't guess
+
+        n = high - 1  # 1 Southernmost comes free by Convention
+        sw.write_some_controls(n * ["\n"])
+        sw.write_some_controls(n * ["\033[A"])
+
         # Place the Gameboard
 
-        sw.write_one_control("\033[6n")  # todo9: more automagic Cursor Y X Reads
-        kr.read_bytes()
+        (h, w, y, x) = kr.sample_hwyx()  # todo9: more automagic Cursor Y X Reads
 
-        gameboard_yx = (kr.row_y, kr.column_x)
-        self.gameboard_yx = gameboard_yx  # replaces
+        assert h >= high, (h, high)  # todo: negotiate Height more gracefully
+        assert w >= wide, (w, wide)  # todo: negotiate Width more gracefully
+
+        self.gameboard_yx = (y, x)  # replaces
 
         # Draw the Gameboard
 
-        self.keycaps_gameboard_draw()
+        self.keycaps_gameboard_draw()  # todo: draw well onto larger & smaller Screens
 
         # Run till Quit
 
@@ -293,13 +310,14 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         sw.print()
         for line in splitlines:
             sw.write(dent + line)
-            sw.write_some_controls("\033[K")
-            sw.write_some_controls("\r", "\n")
+            sw.write_one_control("\033[K")
+            sw.write_some_controls(["\r", "\n"])
 
         # Print a Trailer in the far Southeast
 
         sw.print()
         sw.print("Press ⌃C")
+        sw.print()
 
     def keycaps_step_once(self, frames: tuple[bytes, ...]) -> None:
 
@@ -448,11 +466,10 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         if not hits:
             unhit_kseqs.append([cap, kseqs])
 
-    # todo5: stop miscalculating Y X when run after like:  seq 987
     # todo5: show Shift Locked with Inverse Reverse Video
 
-    # todo7: drop messages down a row and say five is enough
-    # todo7: send messages overflowing the Screen up into Scrollback
+    # todo7: say three Chat Rows is plenty
+    # todo7: scroll the Chat Rows up into the Screen Scrollback
 
     # todo8: restart in each Keyboard viewed
     # todo8: save/ load progress in each Keyboard viewed
@@ -507,10 +524,7 @@ class Loopbacker:
 
         if flags.scroll:
 
-            sw.write_one_control("\033[6n")  # todo9: more automagic Cursor Y X Reads
-            kr.read_bytes()
-
-            y = kr.row_y
+            (h, w, y, x) = kr.sample_hwyx()  # todo9: more automagic Cursor Y X Reads
             if y > 1:
                 sw.write_one_control(f"\033[{y - 1}S")  # ⎋[⇧S south-rows-insert
 
@@ -558,10 +572,10 @@ class Loopbacker:
         assert _MAX_PN_32100_ == 32100
 
         if not flags._repr_:
-            sw.print("Press ⌃C ", end="")
+            sw.write("Press ⌃C ")
         else:
             sw.print("Press ⌃C")
-            sw.write_some_controls("\t", "\t")
+            sw.write_some_controls(2 * ["\t"])
 
         quitting = False
         while not quitting:
@@ -816,13 +830,13 @@ class Loopbacker:
         # Loop back ⌃M ⏎ Return as CR LF
 
         if kseq == "⏎":
-            sw.write_some_controls("\r", "\n")
+            sw.write_some_controls(["\r", "\n"])
             return True
 
         # Loop back ⌃⇧? ⌫ as Delete
 
         if kseq == "⌫":
-            sw.write_some_controls("\033[D", "\033[P")
+            sw.write_some_controls(["\033[D", "\033[P"])
             return True
 
         # Loop back as Arrow, no matter the shifting Keys
@@ -1336,26 +1350,15 @@ class ScreenWriter:
     def __init__(self, terminal_boss: TerminalBoss) -> None:
         self.terminal_boss = terminal_boss
 
-    def print(self, *args: object, end: str | None = "\r\n") -> None:
+    def print(self, *args: object) -> None:
         """Answer the question of 'what is print?' here lately"""
 
         text = " ".join(str(_) for _ in args)
 
-        end_str = "" if (end is None) else end
-        if end_str:
-            assert not end_str.isprintable(), (end_str,)
-
-            # todo: tighter contract than the merely standard 'def print'
-
-        self.write_printable(text)  # may raise UnicodeEncodeError
-        self.write_some_controls(*end_str)  # may raise UnicodeEncodeError
+        self.write_printable(text)  # may raise UnicodeEncodeError on purpose
+        self.write_some_controls(["\r", "\n"])
 
         # todo: one 'def print' per project is exactly enough?
-
-        # .end=None here puns with .end="", same as it does in Python's .print
-
-        # presumes writes of arbitrary bytes will go to 'tb.write_some_bytes'
-        # does 'may raise UnicodeEncodeError' on purpose
 
     def write_printable(self, text: str) -> None:
         """Write the Byte Encodings of Printable Text without adding a Line-Break"""
@@ -1363,7 +1366,7 @@ class ScreenWriter:
         assert text.isprintable(), (text,)
         self.write(text)
 
-    def write_some_controls(self, *texts: str) -> None:
+    def write_some_controls(self, texts: typing.Iterable[str]) -> None:
         """Write the Byte Encodings of >= 0 Unprintable Control Texts"""
 
         for text in texts:
@@ -1380,14 +1383,11 @@ class ScreenWriter:
         assert not text.isprintable(), (text,)
 
         encode = text.encode()
-        kbf = KeyByteFrame(encode)  # may raise UnicodeEncodeError
+        kbf = KeyByteFrame(encode)  # may raise UnicodeEncodeError on purpose
         kbf.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
         assert (not kbf.printable) and kbf.closed, (encode, kbf)
 
         self.write(text)
-
-        # presumes writes of arbitrary bytes will go to 'tb.write_some_bytes'
-        # does 'may raise UnicodeEncodeError' on purpose
 
     def write(self, text: str) -> None:
         """Write the Byte Encodings of Text without adding a Line-Break"""
@@ -1611,6 +1611,25 @@ class KeyboardReader:
     # and update the H W Y X of this KeyboardReader
     #
 
+    def sample_hwyx(self) -> tuple[int, int, int, int]:
+
+        tb = self.terminal_boss
+        sw = tb.screen_writer
+
+        assert CPR_Y_X == "\033[" "{};{}R"
+
+        sw.write_one_control("\033[6n")
+        cpryx = self.read_bytes()
+        (h, w, y, x) = (self.y_high, self.x_wide, self.row_y, self.column_x)
+
+        fm = re.fullmatch(rb"\033\[([0-9]+);([0-9]+)R", string=cpryx)  # ⎋[{y};{x}⇧R
+        assert fm, (fm, cpryx)
+        (yfm, xfm) = (int(fm.group(1)), int(fm.group(2)))
+        assert y == yfm, (y, yfm, cpryx)
+        assert x == xfm, (x, xfm, cpryx)
+
+        return (h, w, y, x)
+
     def read_bytes(self) -> bytes:
         """Frame the Bytes that share a Cursor Position Report"""
 
@@ -1792,9 +1811,9 @@ class KeyByteFrame:
 
                 self.close_frame()
 
-        # todo: an awful lot of code here, for a dramatically simple idea?
+                # stops staying open to accepting b x y into ⎋[⇧M{b}{x}{y}
 
-        # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
+        # todo: can the .tilt_to_close_frame idea be spoken lots more simply?
 
     def to_frame_bytes(self) -> bytes:
         """List the Bytes taken"""
@@ -3218,7 +3237,7 @@ if __name__ == "__main__":
     main()
 
 
-# todo6: --egg=turtle to echo the ← ↑ → ↓ ↖ ↗ ↘ ↙ etc as they come
+# todo5: --egg=pen to echo the ← ↑ → ↓ ↖ ↗ ↘ ↙ etc as they come
 
 # todo9: --egg=keycaps 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
 # todo9: --egg=resize to fit the Terminal to the Gameboard and vice versa
