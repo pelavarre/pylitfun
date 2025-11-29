@@ -117,7 +117,7 @@ if shline.endswith(" ..."):  # ga, gcp, gg, ggl, grh
 elif shline.endswith(" [...]"):  # g, gd, gdno, gl, glf, glq, gls, glv, gno, gri, grias, gs, gspno
     optional_args_usage = f"usage: {shverb} [...]"  # also: gcaf
 
-    shsuffix = " ..." if incoming_shargv[1:] else ""
+    shsuffix = " ..." if incoming_shargv[1:] else ""  # maybe Empty Str here
 
     arguable_shline_0 = shline.removesuffix(" [...]")
     if not incoming_shargv[1:]:
@@ -130,7 +130,7 @@ elif shline.endswith(" [...]"):  # g, gd, gdno, gl, glf, glq, gls, glv, gno, gri
 else:  # gb, gcaa, gcam, gda, gdh, gf, grh1, grl, grv, gsis
     no_leading_pos_arg_usage = f"usage: {shverb}"
 
-    shsuffix = ""
+    shsuffix = ""  # always Empty Str here
     arguable_shline_0 = shline
 
     if incoming_shargv[1:]:
@@ -169,56 +169,76 @@ elif shverb == "glf":
 
 gpwd_shline = "git rev-parse --show-toplevel"
 
-run = subprocess.run(
+gpwd_run = subprocess.run(
     shlex.split(gpwd_shline),
     stdin=None,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,  # small 2 Lines vs like 129 Lines from "git diff"
 )
 
-if run.returncode:
+if gpwd_run.returncode:
     print(f": gpwd && {gpwd_shline}", file=sys.stderr)
-    sys.stderr.write(run.stdout.decode())  # written to Stderr, and commonly empty
-    sys.stderr.write(run.stderr.decode())
-    print(f"+ exit {run.returncode}", file=sys.stderr)
+    sys.stderr.write(gpwd_run.stdout.decode())  # written to Stderr, and commonly empty
+    sys.stderr.write(gpwd_run.stderr.decode())
+    print(f"+ exit {gpwd_run.returncode}", file=sys.stderr)
 
-    sys.exit(run.returncode)
+    sys.exit(gpwd_run.returncode)
 
 
-# Sometimes mention it, when Git runs outside of the top-level of a Git Clone
+# Always notice when Git runs outside of the top-level Pwd of a Git Clone
 
-gpwd = run.stdout.decode().rstrip()
+gpwd = gpwd_run.stdout.decode().rstrip()
 relpath = os.path.relpath(gpwd)
 if gpwd != os.getcwd():
+
+    # Do mention Pwd not top-level when it commonly wildly distorts results
+
     if shverb in ("ga", "gcl", "glf"):
         print(f"# {shverb!r} not at:  cd {relpath}/", file=sys.stderr)
 
 
-# Expand 'gno' differently while 'git diff --name-only' truthy
+# Sometimes list the Files involved in Git Diff
+
+gdno_shline = "git diff --name-only"
+gdno_run_stdout = b""
+
+if shverb in ("gcam", "gno"):
+
+    gdno_run = subprocess.run(
+        shlex.split(gdno_shline),
+        stdin=None,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    if gdno_run.returncode or gdno_run.stderr:
+        print(f": gdno && {gdno_shline} && ...", file=sys.stderr)
+        sys.stderr.write(gdno_run.stdout.decode())  # written to Stderr, and commonly empty
+        sys.stderr.write(gdno_run.stderr.decode())
+        print(f"+ exit {gdno_run.returncode}", file=sys.stderr)
+
+        sys.exit(gdno_run.returncode)
+
+    gdno_run_stdout = gdno_run.stdout
+
+# Expand 'gcam' and 'gno' differently while 'git diff --name-only' truthy
 
 expanded_shverb = shverb
 expanded_shline_n1 = arguable_shline_1
 
-if shverb == "gno":
+if shverb == "gcam":
+    assert arguable_shline_1 == "git commit --all -m wip", (arguable_shline_1,)
+
+    message = shlex.quote("wip -")
+    for line in gdno_run_stdout.decode().splitlines():
+        message += shlex.quote(" " + line)
+
+    expanded_shline_n1 = "git commit --all -m " + message
+
+elif shverb == "gno":
     expanded_shverb = "gspno"
-    if not shsuffix:
-        gdno_shline = "git diff --name-only"
-        run = subprocess.run(
-            shlex.split(gdno_shline),
-            stdin=None,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        if run.returncode or run.stderr:
-            print(f": gdno && {gdno_shline} && ...", file=sys.stderr)
-            sys.stderr.write(run.stdout.decode())  # written to Stderr, and commonly empty
-            sys.stderr.write(run.stderr.decode())
-            print(f"+ exit {run.returncode}", file=sys.stderr)
-
-            sys.exit(run.returncode)
-
-        if run.stdout:
+    if not shsuffix:  # if no args taken
+        if gdno_run_stdout:
             expanded_shverb = "gdno"
             expanded_shline_n1 = gdno_shline
 
@@ -275,15 +295,15 @@ argv = shlex.split(expanded_shline_1) + list(shargv[1:])
 if shell:
     assert shverb != "gcaa", (shverb, shell, expanded_shline_1)
 
-    run = subprocess.run(shline, shell=True)
-    if run.returncode:
-        print("+ exit", run.returncode, file=sys.stderr)
+    shline_run = subprocess.run(shline, shell=True)
+    if shline_run.returncode:
+        print("+ exit", shline_run.returncode, file=sys.stderr)
 
-    sys.exit(run.returncode)
+    sys.exit(shline_run.returncode)
 
-run = subprocess.run(argv)
-if run.returncode:
-    print("+ exit", run.returncode, file=sys.stderr)
+argv_run = subprocess.run(argv)
+if argv_run.returncode:
+    print("+ exit", argv_run.returncode, file=sys.stderr)
 
     # Help recover when 'git commit' loses its input file
 
@@ -305,9 +325,9 @@ if run.returncode:
         except KeyboardInterrupt:
             sys.exit(130)
 
-        print("+ exit", run.returncode, file=sys.stderr)  # repeat from above
+        print("+ exit", argv_run.returncode, file=sys.stderr)  # repeat from above
 
-sys.exit(run.returncode)
+sys.exit(argv_run.returncode)
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/git.py
