@@ -51,8 +51,7 @@ import time
 import tty
 import types
 import typing
-
-# import unicodedata  # of a .unicodedata.unidata_version for friends of 웃 襾 ¤
+import unicodedata  # of a .unicodedata.unidata_version for friends of 웃 襾 ¤
 
 
 _: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
@@ -192,7 +191,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
     loopbacker: Loopbacker
     gameboard_yx: tuple[int, ...]
-    shifters: str  # none of ⎋ ⌃ ⌥ ⇧  # todo: dump/ load Keycaps Games
+    shifters: str  # todo: dump/ load Keycaps Games
 
     PlainKeyboard = r"""
         ⎋    F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>
@@ -219,8 +218,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         self.loopbacker = loopbacker
         self.gameboard_yx = tuple()
-        self.shifters = ""
-        # self.shifters = "⇧"
+        self.shifters = ""  # none of ⎋ ⌃ ⌥ ⇧
 
     def trace_key_releases_till(self) -> None:
         """Trace Key Releases till ⌃C"""
@@ -232,11 +230,19 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         kr = lbr.keyboard_reader
 
         assert ord("C") ^ 0x40 == ord("\003")
+        assert DSR6 == "\033[" "6n"
+
+        # Place the Gameboard
+
+        sw.write_one_control("\033[6n")  # todo9: more automagic Cursor Y X Reads
+        kr.read_bytes()
+
+        gameboard_yx = (kr.row_y, kr.column_x)
+        self.gameboard_yx = gameboard_yx  # replaces
 
         # Draw the Gameboard
 
-        gameboard_yx = self.keycaps_gameboard_draw()
-        self.gameboard_yx = gameboard_yx  # replaces
+        self.keycaps_gameboard_draw()
 
         # Run till Quit
 
@@ -248,10 +254,9 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
             tb.kbhit(timeout=None)
             frames = kr.read_byte_frames()
 
-            # Eval Input & print Output
+            # Eval Input and print Output
 
-            shifters = self.keycaps_step_once(frames)
-            self.shifters = shifters
+            self.keycaps_step_once(frames)
 
             # Quit at ⌃C
 
@@ -262,9 +267,9 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         sw.print()
 
         # todo8: toggle back out of @@@@@@@@@ or @@ or @
-        # todo8: take mouse hits
+        # todo8: take mouse hits to the Keyboard viewed
 
-    def keycaps_gameboard_draw(self) -> tuple[int, int]:
+    def keycaps_gameboard_draw(self) -> None:
         """Draw the Gameboard"""
 
         shifters = self.shifters
@@ -272,16 +277,8 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         lbr = self.loopbacker
         sw = lbr.screen_writer
-        kr = lbr.keyboard_reader
 
-        assert DSR6 == "\033[" "6n"
-
-        # Place the Gameboard
-
-        sw.write_one_control("\033[6n")  # todo9: more automagic Cursor Y X Reads
-        kr.read_bytes()
-
-        gameboard_yx = (kr.row_y, kr.column_x)
+        assert EL_PS == "\033[" "{}" "K"
 
         # Form the Rows of the Gameboards
 
@@ -295,32 +292,104 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         sw.print()
         for line in splitlines:
-            sw.print(dent + line)
+            sw.write(dent + line)
+            sw.write_some_controls("\033[K")
+            sw.write_some_controls("\r", "\n")
 
         # Print a Trailer in the far Southeast
 
         sw.print()
         sw.print("Press ⌃C")
 
-        # Succeed
+    def keycaps_step_once(self, frames: tuple[bytes, ...]) -> None:
 
-        return gameboard_yx
+        lbr = self.loopbacker
+        sw = lbr.screen_writer
 
-    def keycaps_step_once(self, frames: tuple[bytes, ...]) -> str:
+        kr = lbr.keyboard_reader
+        kd = lbr.keyboard_decoder
+
+        assert ord("C") ^ 0x40 == ord("\003")
+        assert unicodedata.name("¤").title() == "Currency Sign".title()
+
+        # Eval each Input Frame
+
+        unhit_kseqs: list[object] = list()
+
+        row_y = kr.row_y
+        column_x = kr.column_x
+
+        for frame in frames:
+            kseqs = kd.bytes_to_kseqs_if(frame)
+
+            if not kseqs:
+                unhit_kseqs.append([frame, kseqs])
+            else:
+                self.keycaps_switch_tab_if(kseqs)
+                self.keycaps_press_keys_if(kseqs, unhit_kseqs)
+
+        sw.write_one_control(f"\033[{row_y};{column_x}H")  # row-column-leap ⎋[⇧H
+
+        if unhit_kseqs:
+            if frames != (b"\003",):
+                sw.print(unhit_kseqs, "Keycap not found", frames)
+
+    def keycaps_switch_tab_if(self, kseqs: tuple[str, ...]) -> None:
+        """Switch to next Keyboard View when a Key is struck out there"""
+
+        kseqs_join = "".join(kseqs)
+        kseq = kseqs[0]
 
         lbr = self.loopbacker
         gameboard_yx = self.gameboard_yx
         shifters = self.shifters
 
         sw = lbr.screen_writer
-        kr = lbr.keyboard_reader
-        kd = lbr.keyboard_decoder
+        (board_y, board_x) = gameboard_yx
 
-        assert ord("C") ^ 0x40 == ord("\003")
+        # Change Keyboard Choice, or don't
+
+        kseqs_shifters = shifters
+
+        if not shifters:
+
+            if "⇧" in kseq:
+                kseqs_shifters = "⇧"
+
+        else:
+
+            assert shifters == "⇧", (shifters,)
+            if kseq in string.ascii_uppercase:
+                kseqs_shifters = ""
+            elif kseq in ("↑", "↓"):  # despite could be ⌥⇧↑ ⌥⇧↓
+                kseqs_shifters = ""
+            elif "⇧" not in kseqs_join:
+                kseqs_shifters = ""
+
+        # Switch Tabs when Keyboard Choice changes
+
+        if kseqs_shifters == shifters:
+            return
+
+        shifters = kseqs_shifters
+        self.shifters = shifters
+
+        sw.write_one_control(f"\033[{board_y};{board_x}H")  # row-column-leap ⎋[⇧H
+        self.keycaps_gameboard_draw()
+
+    def keycaps_press_keys_if(self, kseqs: tuple[str, ...], unhit_kseqs: list[object]) -> None:
+        """Wipe out each Keycap when pressed"""
+
+        assert kseqs, (kseqs,)
+
+        lbr = self.loopbacker
+        gameboard_yx = self.gameboard_yx
+        shifters = self.shifters
+
+        sw = lbr.screen_writer
+        (board_y, board_x) = gameboard_yx
 
         # Form the Rows of the Gameboards
-
-        (board_y, board_x) = gameboard_yx
 
         keyboard = self.ShiftedKeyboard if (shifters == "⇧") else self.PlainKeyboard
 
@@ -330,74 +399,64 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         removesuffix = dedent.removesuffix(splitlines[-1])
 
-        #
+        # Visit each Keycap
 
-        row_y = kr.row_y
-        column_x = kr.column_x
+        kseq = kseqs[0]
 
-        unhit_kseqs: list[object] = list()
+        cap = kseq
+        if kseq == "␢":
+            cap = "Spacebar"
+        elif kseq in tuple(string.ascii_uppercase):
+            cap = kseq.lower()
+        elif kseq == ("⇧" + kseq[-1]):
+            cap = kseq[-1]
 
-        for frame in frames:
-            kseqs = kd.bytes_to_kseqs_if(frame)
-            if not kseqs:
-                unhit_kseqs.append(frame)
-                continue
+        # Wipe out each Keycap when pressed
 
-            # Visit each Keycap
+        suffix_kseqs = ("␢", "←", "↑", "→", "↓", "⇧←", "⇧→")
+        hittable = dedent if kseq in suffix_kseqs else removesuffix
+        find = len(splitlines[0]) if cap != "⎋" else -1
 
-            for kseq in kseqs[:1]:  # todo: so outdent this loop body
+        hits = 0
+        while True:
 
-                cap = kseq
-                if kseq == "␢":
-                    cap = "Spacebar"
-                elif kseq in tuple(string.ascii_uppercase):
-                    cap = kseq.lower()
-                elif kseq == ("⇧" + kseq[-1]):
-                    cap = kseq[-1]
+            start = find + 1
+            find = hittable.find(cap, start)
+            if find < 0:
+                break
 
-                # Wipe out each Keycap when pressed
+            hits += 1
 
-                suffix_kseqs = ("␢", "←", "↑", "→", "↓", "⇧←", "⇧→")
-                hittable = dedent if kseq in suffix_kseqs else removesuffix
-                find = len(splitlines[0]) if cap != "⎋" else -1
+            found_lines = dedent[: find + 1].splitlines()
+            assert found_lines, (found_lines, find, cap)
 
-                hits = 0
-                while True:
+            # Leap to this found Keycap
 
-                    start = find + 1
-                    find = hittable.find(cap, start)
-                    if find < 0:
-                        break
+            y = board_y + len(found_lines)
+            x = board_x + len(dent) + len(found_lines[-1]) - 1
 
-                    hits += 1
+            sw.write_one_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
-                    found_lines = dedent[: find + 1].splitlines()
-                    assert found_lines, (found_lines, find, cap)
+            # Wipe out this Keycap
 
-                    #
+            width = len(cap)  # width 1 except for len('Spacebar')
 
-                    y = board_y + len(found_lines)
-                    x = board_x + len(dent) + len(found_lines[-1]) - 1
+            sw.write_one_control("\033[1m")
+            sw.write_printable(width * "¤")
+            sw.write_one_control("\033[m")
 
-                    sw.write_one_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
+        if not hits:
+            unhit_kseqs.append([cap, kseqs])
 
-                    #
+    # todo5: stop miscalculating Y X when run after like:  seq 987
+    # todo5: show Shift Locked with Inverse Reverse Video
 
-                    width = len(cap)  # width 1 except for len('Spacebar')
-                    sw.write_printable(width * "@")
+    # todo7: drop messages down a row and say five is enough
+    # todo7: send messages overflowing the Screen up into Scrollback
 
-                #
-
-                if not hits:
-                    unhit_kseqs.append([cap, kseq])
-
-        sw.write_one_control(f"\033[{row_y};{column_x}H")  # row-column-leap ⎋[⇧H
-
-        if unhit_kseqs:
-            if frames != (b"\003",):
-                sw.print(unhit_kseqs, "Keycap not found", frames)
-
-        return shifters
+    # todo8: restart in each Keyboard viewed
+    # todo8: save/ load progress in each Keyboard viewed
+    # todo8: celebrate near to winning, and celebrate winning
 
 
 #
@@ -517,7 +576,7 @@ class Loopbacker:
             t1 = time.time()
             t1t0 = t1 - t0
 
-            # Eval Input & print Output
+            # Eval Input and print Output
 
             if not flags._repr_:
                 self.some_frames_loop_back(frames)
@@ -877,7 +936,10 @@ class Loopbacker:
             printables.append(alt_kseqs[0])
 
         if decode and decode.isprintable():
-            printables.append(decode)
+            if decode == " ":
+                printables.append(repr(decode))
+            else:
+                printables.append(decode)
         else:
             printables.append(repr(frame))
 
@@ -1516,7 +1578,7 @@ class KeyboardReader:
                 after = decode[1:].encode()
                 return (frame, after)
 
-        # Accept Double-Key-Jam's as 8-way Compass Arrows  # todo7:
+        # Accept Double-Key-Jam's as 8-way Compass Arrows  # todo6:
 
         pass
 
@@ -2173,7 +2235,8 @@ ICH_X = "\033[" "{}" "@"  # Csi 04/00 [Insert] Cursor Horizontal [Pn] [Columns]
 
 CUU_Y = "\033[" "{}" "A"  # Csi 04/01 Cursor Up [Pn] [Rows]
 CUP_Y_X = "\033[" "{};{}H"  # Csi 04/08 [Choose] Cursor Position [Y and X]
-ED_PS = "\033[" "{}" "J"  # Csi 04/10 Erase Data [Ps]  # Ps 0 1 2 3
+ED_PS = "\033[" "{}" "J"  # CSI 04/10 Erase in Display  # 0 Tail # 1 Head # 2 Rows # 3 Scrollback
+EL_PS = "\033[" "{}" "K"  # CSI 04/11 Erase in Line  # 0 Tail # 1 Head # 2 Row
 DL_Y = "\033[" "{}M"  # Csi 04/13 Delete Line [Row]
 
 VPA_Y = "\033[" "{}" "d"  # Csi 06/04 Vertical Position Absolute [Row]
@@ -2272,26 +2335,65 @@ class KeyboardDecoder:
 
         decode_by_kseq = self.decode_by_kseq
 
-        # Add the named Keycaps: Esc, Tab, ⇧Tab, Return, Delete
+        # Add the simplest named Keycaps: Esc, Return, Delete
 
         d0 = {
-            r"⇥": "\t",  # ⌃I
+            #
             r"⏎": "\r",  # ⌃M
+            # r"⌃⏎": "\r",  # ⌃M
+            r"⇧⏎": "\r",  # ⌃M
+            r"⌥⏎": "\r",  # ⌃M
+            # r"⌃⇧⏎": "\r",  # ⌃M
+            r"⌃⌥⏎": "\r",  # ⌃M
+            r"⌥⇧⏎": "\r",  # ⌃M
+            r"⌥⇧⌃⏎": "\r",  # ⌃M
+            #
             r"⎋": "\033",  # ⌃[
-            r"⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
+            r"⌃⎋": "\033",  # ⌃[
+            r"⇧⎋": "\033",  # ⌃[
+            r"⌥⎋": "\033",  # ⌃[
+            r"⌃⇧⎋": "\033",  # ⌃[
+            r"⌃⌥⎋": "\033",  # ⌃[
+            r"⌥⇧⎋": "\033",  # ⌃[
+            r"⌥⇧⌃⎋": "\033",  # ⌃[
+            #
             r"⌫": "\177",  # ⌃⇧?
+            r"⌃⌫": "\177",  # ⌃⇧?
+            r"⇧⌫": "\177",  # ⌃⇧?
+            r"⌥⌫": "\177",  # ⌃⇧?
+            r"⌃⇧⌫": "\177",  # ⌃⇧?
+            r"⌃⌥⌫": "\177",  # ⌃⇧?
+            r"⌥⇧⌫": "\177",  # ⌃⇧?
+            r"⌥⇧⌃⌫": "\177",  # ⌃⇧?
+            #
         }
 
         for k, v in d0.items():
             assert k not in decode_by_kseq.keys(), (k,)
             decode_by_kseq[k] = v
 
-        # Add the forms of Spacebar
+        # Add the forms of Spacebar and Tab
 
         d1 = {
+            #
+            r"⇥": "\t",  # ⌃I
+            r"⌃⇥": "\t",  # ⌃I
+            r"⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
+            r"⌥⇥": "\t",  # ⌃I
+            r"⌃⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
+            r"⌃⌥⇥": "\t",  # ⌃I
+            r"⌥⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
+            r"⌥⇧⌃⇥": "\033[" "Z",  # ⎋ [ ⇧Z
+            #
             r"␢": "\040",  # ⌃`
             r"⌃␢": "\000",  # ⌃⇧@
+            r"⇧␢": "\040",  # ⌃⇧`
             r"⌥␢": "\240",  # U+00A0 No-Break Space
+            r"⌃⇧␢": "\000",  # ⌃⇧@
+            r"⌃⌥␢": "\000",  # ⌃⇧@
+            r"⌥⇧␢": "\240",  # U+00A0 No-Break Space
+            r"⌥⇧⌃␢": "\000",  # ⌃⇧@
+            #
         }
 
         for k, v in d1.items():
@@ -2338,7 +2440,7 @@ class KeyboardDecoder:
             assert k not in decode_by_kseq.keys(), (k,)
             decode_by_kseq[k] = decode_by_kseq[v]
 
-        # Add the Basic Arrows and the Double-Key-Jam Arrows  # todo7:
+        # Add the Basic Arrows and the Double-Key-Jam Arrows  # todo6:
 
         d3 = {
             r"↑": "\033[" "A",  # ⎋[⇧A
@@ -3116,15 +3218,10 @@ if __name__ == "__main__":
     main()
 
 
-# todo8: --egg=turtle to echo the ← ↑ → ↓ ↖ ↗ ↘ ↙ etc as they come
-
-# todo8: take the ⌃ ⌥ ⇧ out of the Key Caps of the Shifted Games
-
+# todo6: --egg=turtle to echo the ← ↑ → ↓ ↖ ↗ ↘ ↙ etc as they come
 
 # todo9: --egg=keycaps 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
-
 # todo9: --egg=resize to fit the Terminal to the Gameboard and vice versa
-
 
 # todo9: add Fn Keycaps
 
@@ -3132,9 +3229,7 @@ if __name__ == "__main__":
 # todo9: add iTerm2 Keycaps
 # todo9: add Google Cloud Shell Keycaps
 
-
 # todo9: pick apart text key jams and unbracketed text paste
-
 
 # todo9: echo input well, like to show ⎋ [ ' 2 is two Frames:  ⎋[' and 2
 # todo9: show settings
