@@ -219,7 +219,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
                 quitting = True
                 break
 
-        sw.print_text()
+        sw.print()
 
         # todo1: solve ⇪⇥
         # todo1: solve ← ↑ → ↓
@@ -304,16 +304,16 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
                         width = len(shifters) + len(cap)
                         x -= len(shifters)
 
-                    sw.write_text(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
-                    sw.write_text(width * "@")
+                    sw.write_one_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
+                    sw.write_printable(width * "@")
 
                 if not hits:
                     unhit_kseqs.append([cap, kseq])
 
-        sw.write_text(f"\033[{row_y};{column_x}H")  # row-column-leap ⎋[⇧H
+        sw.write_one_control(f"\033[{row_y};{column_x}H")  # row-column-leap ⎋[⇧H
 
         if unhit_kseqs:
-            sw.print_text(unhit_kseqs, "not found")
+            sw.print(unhit_kseqs, "not found")
 
     def gameboard_draw(self, shifters: str) -> None:
         """Draw the Gameboard"""
@@ -333,7 +333,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         dedent = textwrap.dedent(KeyboardViewer.Keyboard).strip()
         splitlines = dedent.splitlines()
 
-        sw.print_text()
+        sw.print()
 
         for index, line in enumerate(splitlines):
             rindex = index - len(splitlines)
@@ -345,10 +345,10 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
                     text = text.replace("⇪⇥", "⇥ ")
                     text = text.replace("⇧← ↑ ⇧→ ↓", "  ← ↑ → ↓")
 
-            sw.print_text(text)
+            sw.print(text)
 
-        sw.print_text()
-        sw.print_text("Press ⌃C")
+        sw.print()
+        sw.print("Press ⌃C")
 
 
 #
@@ -392,18 +392,18 @@ class Loopbacker:
         tb.__enter__()
 
         if not flags.enter:
-            sw.write_text("\033[?2004h")  # paste-wrap
+            sw.write_one_control("\033[?2004h")  # paste-wrap
 
         if flags.scroll:
 
-            sw.write_text("\033[6n")
+            sw.write_one_control("\033[6n")
             kr.read_bytes()
 
             y = kr.row_y
             if y > 1:
-                sw.write_text(f"\033[{y - 1}S")  # ⎋[⇧S south-rows-insert
+                sw.write_one_control(f"\033[{y - 1}S")  # ⎋[⇧S south-rows-insert
 
-            sw.write_text("\033[?1049h")  # alt-screen ⎋[⇧?1049H
+            sw.write_one_control("\033[?1049h")  # alt-screen ⎋[⇧?1049H
 
         return self
 
@@ -415,19 +415,19 @@ class Loopbacker:
 
         if not flags.enter:
 
-            sw.write_text("\033[?2004l")  # paste-unwrap ⎋[?2004L
+            sw.write_one_control("\033[?2004l")  # paste-unwrap ⎋[?2004L
 
         if not flags._exit_:
 
-            sw.write_text("\033[m")  # plain ⎋[M vs other ⎋[ M
-            sw.write_text("\033[ q")  # cursor-unstyled ⎋[␢Q vs other ⎋[ Q
-            sw.write_text("\033[4l")  # replacing ⎋[4L vs ⎋[4H
-            sw.write_text("\033[?25h")  # cursor-show ⎋[⇧?25H vs ⎋[?25L
+            sw.write_one_control("\033[m")  # plain ⎋[M vs other ⎋[ M
+            sw.write_one_control("\033[ q")  # cursor-unstyled ⎋[␢Q vs other ⎋[ Q
+            sw.write_one_control("\033[4l")  # replacing ⎋[4L vs ⎋[4H
+            sw.write_one_control("\033[?25h")  # cursor-show ⎋[⇧?25H vs ⎋[?25L
 
-            sw.write_text("\033[6n")
+            sw.write_one_control("\033[6n")
             kr.read_bytes()
-            sw.write_text("\033[?1049l")  # main-screen ⎋[⇧?1049L vs ⎋[⇧?1049H
-            sw.write_text(f"\033[{kr.row_y};{kr.column_x}H")  # row-column-leap ⎋[⇧H
+            sw.write_one_control("\033[?1049l")  # main-screen ⎋[⇧?1049L vs ⎋[⇧?1049H
+            sw.write_one_control(f"\033[{kr.row_y};{kr.column_x}H")  # row-column-leap ⎋[⇧H
 
         tb.__exit__(*args)
 
@@ -439,13 +439,16 @@ class Loopbacker:
         kr = self.keyboard_reader
 
         assert ord("C") ^ 0x40 == ord("\003")
+        assert CUU_Y == "\033[" "{}" "A"
+        assert CUP_Y_X == "\033[" "{};{}H"
+        assert ED_PS == "\033[" "{}" "J"
         assert _MAX_PN_32100_ == 32100
 
         if not flags._repr_:
-            sw.print_text("Press ⌃C ", end="")
+            sw.print("Press ⌃C ", end="")
         else:
-            sw.print_text("Press ⌃C")
-            sw.write_text("\t\t")
+            sw.print("Press ⌃C")
+            sw.write_some_controls("\t", "\t")
 
         quitting = False
         while not quitting:
@@ -462,9 +465,9 @@ class Loopbacker:
                 break
 
         if not flags._exit_:
-            sw.write_text("\033[32100H")  # cursor-unstyled ⎋[32100⇧H
-            sw.write_text("\033[A")  # 1 ↑ ⎋[⇧A
-            sw.write_text("\033[J")  # after-erase ⎋[⇧J  # simpler than ⎋[0⇧J
+            sw.write_one_control("\033[32100H")  # cursor-unstyled ⎋[32100⇧H
+            sw.write_one_control("\033[A")  # 1 ↑ ⎋[⇧A
+            sw.write_one_control("\033[J")  # after-erase ⎋[⇧J  # simpler than ⎋[0⇧J
 
     def some_frames_loop_back(self, frames: tuple[bytes, ...]) -> None:
         """Collect Input Frames over time as a Screen Change Order"""
@@ -502,9 +505,10 @@ class Loopbacker:
             # Run the Order, after all of it arrives
 
             slow_kdecode = slow_kencode.decode()
+            slow_isprintable = slow_kdecode.isprintable()
 
-            if slow_kdecode.isprintable() and (not strong):
-                sw.write_text(kdecode)
+            if slow_isprintable and (not strong):
+                sw.write_printable(kdecode)
                 sco.clear_order()
                 continue
 
@@ -513,17 +517,20 @@ class Loopbacker:
 
             elif factor == -1:  # echoes and greatly details
                 self.frame_write_echo(frame)
-                sw.write_text(" ")
+                sw.write_printable(" ")
                 self.some_frames_print_repr(tuple([slow_kencode]))
 
             elif factor == 0:  # echoes and leaps and writes
                 self.frame_write_echo("⌃m".encode() if (frame == b"\r") else frame)  # ⌃M
-                sw.write_text(f"\033[{row_y};{column_x}H")
-                sw.write_text(slow_kdecode)
+                sw.write_one_control(f"\033[{row_y};{column_x}H")
+                if slow_isprintable:
+                    sw.write_printable(slow_kdecode)
+                else:
+                    sw.write_one_control(slow_kdecode)
 
             else:  # echoes and cooks and leaps and writes
                 self.frame_write_echo(frame)
-                sw.write_text(f"\033[{row_y};{column_x}H")
+                sw.write_one_control(f"\033[{row_y};{column_x}H")
                 kr.row_y = row_y
                 kr.column_x = column_x
                 for _ in range(factor):
@@ -540,11 +547,12 @@ class Loopbacker:
 
         frame = decode.encode()
         echo = kd.frame_to_echo(frame)
+        assert echo.isprintable(), (echo,)
 
         # If Frame is Printable
 
         if decode.isprintable():
-            sw.write_text(decode)
+            sw.write_printable(decode)
             return
 
         # If Frame has Keycaps
@@ -556,7 +564,7 @@ class Loopbacker:
 
         loopable_decodes = ("\0337", "\0338", "\033D", "\033E", "\033M")
         if decode in loopable_decodes:
-            sw.write_text(decode)
+            sw.write_one_control(decode)
             return
 
         # Block the heavy hammer of ⎋C and the complex hammer of ⎋L
@@ -576,14 +584,14 @@ class Loopbacker:
 
         if (marks == b"<m") and (len(ints) == 3):
             (b, x, y) = ints  # todo: bounds check on Click Release
-            sw.write_text(f"\033[{y};{x}H")
-            sw.write_text("@")  # '@' to make ⌥-Click's visible
+            sw.write_one_control(f"\033[{y};{x}H")
+            sw.write_printable("@")  # '@' to make ⌥-Click's visible
             return
 
         # Show a brief Repr of other Encodes
 
         if not intricate:
-            sw.write_text(echo)
+            sw.write_printable(echo)
             return
 
         # But do forward well-known Csi & Osc Byte Sequences arriving as multiple Frames
@@ -594,9 +602,9 @@ class Loopbacker:
         # Echo a blocked Sequence vertically
 
         for e in echo:
-            sw.write_text(e)
+            sw.write_printable(e)
             kr.row_y = min(kr.y_high, kr.row_y + 1)
-            sw.write_text(f"\033[{kr.row_y};{kr.column_x}H")
+            sw.write_one_control(f"\033[{kr.row_y};{kr.column_x}H")
 
     def csi_osc_cook_and_loop_back(self, decode: str) -> bool:
 
@@ -608,11 +616,11 @@ class Loopbacker:
         if decode.startswith("\033["):
 
             if decode[-1] in "@" "ABCDEFGHIJKLM" "P" "ST" "Z" "d" "f" "h" "lm" "q":
-                sw.write_text(decode)
+                sw.write_one_control(decode)
                 return True
 
             if decode[-1] in "nt":
-                sw.write_text(decode)
+                sw.write_one_control(decode)
                 return True
 
             # Emulate Columns Insert/ Delete by Csi
@@ -628,7 +636,7 @@ class Loopbacker:
 
         if decode.startswith("\033]"):
             if decode in ("\033]11;?\007", "\033]11;?\033\134"):
-                sw.write_text(decode)  # ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
+                sw.write_one_control(decode)  # ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
                 return True
 
             # todo: Accept only the Osc understood by our Class ScreenWriter
@@ -653,26 +661,26 @@ class Loopbacker:
         # Echo ⎋ Esc as such  # todo9: Accept the ⌃ ⌥ ⇧ Fn Shifting Keys into sco.kbf
 
         if kseq in ("⎋", "⎋⎋"):
-            sw.write_text(kseq)
+            sw.write_printable(kseq)
             return True
 
         # Loop back a few Key Chord Byte Sequences unchanged
 
         loopable_kseqs = ("⌃G", "⌃H", "⇥", "⌃J", "⌃K", "⇧⇥")
         if kseq in loopable_kseqs:
-            sw.write_text(decode)  # ⎋[⇧Z for ⇧⇥, etc
+            sw.write_one_control(decode)  # ⎋[⇧Z for ⇧⇥, etc
             return True
 
         # Loop back ⌃M ⏎ Return as CR LF
 
         if kseq == "⏎":
-            sw.write_text("\r\n")
+            sw.write_some_controls("\r", "\n")
             return True
 
         # Loop back ⌃⇧? ⌫ as Delete
 
         if kseq == "⌫":
-            sw.write_text("\033[D" "\033[P")
+            sw.write_some_controls("\033[D", "\033[P")
             return True
 
         # Loop back as Arrow, no matter the shifting Keys
@@ -683,9 +691,8 @@ class Loopbacker:
             arrows = tuple(_ for _ in ("←", "↑", "→", "↓") if _ in join)
             if len(arrows) == 1:
                 arrow = arrows[-1]
-                alt_text = kd.decode_by_kseq[arrow]
-
-                sw.write_text(alt_text)
+                arrow_control = kd.decode_by_kseq[arrow]
+                sw.write_one_control(arrow_control)
                 return True
 
         return False
@@ -719,11 +726,9 @@ class Loopbacker:
         #
 
         for y in range(Y1, y_high + 1):
-
-            sw.write_text(f"\033[{y}d")
-            sw.write_text(f"\033[{pn}P" if deleting else f"\033[{pn}@")
-
-        sw.write_text(f"\033[{row_y}d")
+            sw.write_one_control(f"\033[{y}d")
+            sw.write_one_control(f"\033[{pn}P" if deleting else f"\033[{pn}@")
+        sw.write_one_control(f"\033[{row_y}d")
 
         # Apple & Google lack ⎋['⇧} cols-insert
 
@@ -734,7 +739,7 @@ class Loopbacker:
         kd = self.keyboard_decoder
 
         echo = kd.frame_to_echo(frame)
-        sw.write_text(echo)
+        sw.write_printable(echo)
 
     def some_frames_print_repr(self, frames: tuple[bytes, ...]) -> None:
         """Print the Repr of each Frame, but mark the Frames as framed together"""
@@ -749,8 +754,8 @@ class Loopbacker:
             self.frames_write_one_repr(frames, frame_index=frame_index)
 
             y += 1  # todo: 'row_y > y_high' happens here  # todo: update Y X shadow
-            sw.write_text("\n")
-            sw.write_text(f"\033[{y};{x}H")
+            sw.write_one_control("\n")
+            sw.write_one_control(f"\033[{y};{x}H")
 
     def frames_write_one_repr(self, frames: tuple[bytes, ...], frame_index: int) -> None:
         """Write the Repr of one Frame, but mark the Frames as framed together"""
@@ -787,7 +792,7 @@ class Loopbacker:
         # Write the chosen details
 
         text = " ".join(str(_) for _ in printables)
-        sw.write_text(text)
+        sw.write_printable(text)
 
 
 @dataclasses.dataclass(order=True)  # , frozen=True)
@@ -1147,24 +1152,73 @@ class ScreenWriter:
     def __init__(self, terminal_boss: TerminalBoss) -> None:
         self.terminal_boss = terminal_boss
 
-    def print_text(self, *args: object, end: str | None = "\r\n") -> None:
+    def print(self, *args: object, end: str | None = "\r\n") -> None:
         """Answer the question of 'what is print?' here lately"""
 
         text = " ".join(str(_) for _ in args)
-        end_plus = "" if (end is None) else end
-        self.write_text(text + end_plus)
+
+        end_str = "" if (end is None) else end
+        if end_str:
+            assert not end_str.isprintable(), (end_str,)
+
+            # todo: tighter contract than the merely standard 'def print'
+
+        self.write_printable(text)  # may raise UnicodeEncodeError
+        self.write_some_controls(*end_str)  # may raise UnicodeEncodeError
+
+        # todo: one 'def print' per project is exactly enough?
 
         # .end=None here puns with .end="", same as it does in Python's .print
 
-    def write_text(self, text: str) -> None:
+        # presumes writes of arbitrary bytes will go to 'tb.write_some_bytes'
+        # does 'may raise UnicodeEncodeError' on purpose
+
+    def write_printable(self, text: str) -> None:
+        """Write the Byte Encodings of Printable Text without adding a Line-Break"""
+
+        assert text.isprintable(), (text,)
+        self.write(text)
+
+    def write_some_controls(self, *texts: str) -> None:
+        """Write the Byte Encodings of >= 0 Unprintable Control Texts"""
+
+        for text in texts:
+            self.write_one_control(text)
+
+        # may write zero controls
+
+    def write_one_control(self, text: str) -> None:
+        """Write the Byte Encodings of one Unprintable Control Text"""
+
+        assert not text.isprintable(), (text,)
+
+        encode = text.encode()
+        kbf = KeyByteFrame(encode)  # may raise UnicodeEncodeError
+        if encode == b"\033[M":
+            if not kbf.stash:
+                assert not kbf.closed, (kbf.closed, kbf)
+                kbf.close_frame()
+        assert (not kbf.printable) and kbf.closed, (
+            encode,
+            kbf,
+        )
+
+        self.write(text)
+
+        # presumes writes of arbitrary bytes will go to 'tb.write_some_bytes'
+        # does 'may raise UnicodeEncodeError' on purpose
+
+    def write(self, text: str) -> None:
         """Write the Byte Encodings of Text without adding a Line-Break"""
 
         tb = self.terminal_boss
         data = text.encode()  # may raise UnicodeEncodeError
         tb.write_some_bytes(data)
 
-        # does 'may raise UnicodeEncodeError' on purpose
+        # todo: one 'def write' per project is exactly enough?
+
         # presumes writes of arbitrary bytes will go to 'tb.write_some_bytes'
+        # does 'may raise UnicodeEncodeError' on purpose
 
 
 class KeyboardReader:
@@ -1236,6 +1290,8 @@ class KeyboardReader:
         marks: list[str] = list()
         after = b""
 
+        assert ArrowEncodes == (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
+
         if len(data) <= 3:
             return ("", data)
 
@@ -1262,6 +1318,8 @@ class KeyboardReader:
         x = self.column_x
         h = self.y_high
         w = self.x_wide
+
+        assert ArrowEncodes == (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
 
         o = (y, x, h, w, arrowheads)
 
@@ -1562,8 +1620,8 @@ class KeyByteFrame:
 
         return (marks, ints)
 
-        # (b"A", [])
-        # (b"H", [123, -1])
+        # (b"A", []) for "\033[A"
+        # (b"H", [123, -1]) for "\033[123;H"
 
     #
     # Take 1 Byte in and return 0 Bytes, else return 1..4 Bytes that don't fit
@@ -1948,16 +2006,18 @@ OSC = "\033]"  # 01/11 05/13 Operating System Command  # ⎋]
 ST = "\033\134"  # 01/11 05/12 String Terminator  # ⎋\
 
 
-ICH_X = "\033[" "{}" "@"  # Csi 04/06 [Insert] Cursor Horizontal [Pn] [Columns]
+ICH_X = "\033[" "{}" "@"  # Csi 04/00 [Insert] Cursor Horizontal [Pn] [Columns]
 
+CUU_Y = "\033[" "{}" "A"  # Csi 04/01 Cursor Up [Pn] [Rows]
 CUP_Y_X = "\033[" "{};{}H"  # Csi 04/08 [Choose] Cursor Position [Y and X]
-
-VPA_Y = "\033[" "{}" "d"  # Csi 04/10 Vertical Position Absolute [Row]
-
-DECIC_X = "\033[" "{}" "'}}"  # Csi 04/12 [DEC] Insert Column [Pn]
-DECDC_X = "\033[" "{}" "'~"  # Csi 04/12 [DEC] Delete Column [Pn]
-
+ED_PS = "\033[" "{}" "J"  # Csi 04/10 Erase Data [Ps]  # Ps 0 1 2 3
 DL_Y = "\033[" "{}M"  # Csi 04/13 Delete Line [Row]
+
+VPA_Y = "\033[" "{}" "d"  # Csi 06/04 Vertical Position Absolute [Row]
+
+DECIC_X = "\033[" "{}" "'}}"  # Csi 07/13 [DEC] Insert Column [Pn]
+DECDC_X = "\033[" "{}" "'~"  # Csi 07/14 [DEC] Delete Column [Pn]
+
 _CLICK3_ = "\033[M"  # ⎋[⇧M{b}{x}{y} Click Press/ Release
 
 
@@ -1999,8 +2059,9 @@ class KeyboardDecoder:
 
         kseqs = self.bytes_to_kseqs_if(frame)
         if kseqs:
-            s = kseqs[0]
-            return s  # ⌫  # ⇧⇥  # ⇥  # ⏎
+            echo = kseqs[0]
+            assert echo.isprintable(), (echo,)
+            return echo  # ⌫  # ⇧⇥  # ⇥  # ⏎
 
         # Show the unquoted Repr, if not decodable
 
@@ -2010,19 +2071,21 @@ class KeyboardDecoder:
             kdecode = ""
 
         if not kdecode:
-            s = repr(frame)[1:-1]
-            return s
+            echo = repr(frame)[1:-1]
+            assert echo.isprintable(), (echo,)
+            return echo
 
         # Show one Keycap per Character, if decodable
 
-        s = ""
+        echo = ""
         for decode in kdecode:
             encode = decode.encode()
             kseqs = self.bytes_to_kseqs_if(encode)
             kseq = kseqs[0] if kseqs else repr(decode)[1:-1]
-            s += kseq
+            echo += kseq
 
-        return s
+        assert echo.isprintable(), (echo,)
+        return echo
 
     def bytes_to_kseqs_if(self, data: bytes) -> tuple[str, ...]:
         """Speak of a Byte Encoding as a Sequence of Chords of Keycaps"""
@@ -2311,6 +2374,14 @@ class KeyboardDecoder:
             kseqs_by_decode[decode] = tuple(kseq_list)
 
 
+ArrowEncodes = (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
+
+UpwardsArrowEncode = b"\033[A"
+DownwardsArrowEncode = b"\033[B"
+RightwardsArrowEncode = b"\033[C"
+LeftwardsArrowEncode = b"\033[D"
+
+
 #
 # Try things
 #
@@ -2324,6 +2395,10 @@ def _try_lit_glass_() -> None:
 
 def _try_key_byte_frame_() -> None:
 
+    assert DL_Y == "\033[" "{}M"
+    assert _CLICK3_ == "\033[M"
+    assert UpwardsArrowEncode == b"\033[A"
+
     KeyByteFrame(b"")
 
     kbf = KeyByteFrame(b"\033[A")
@@ -2333,6 +2408,10 @@ def _try_key_byte_frame_() -> None:
     kbf = KeyByteFrame(b"\033\033[A")
     assert kbf.to_frame_bytes() == b"\033\033[A", (kbf,)
     assert kbf.closed, (kbf,)
+
+    kbf = KeyByteFrame(b"\033[M")
+    assert kbf.to_frame_bytes() == b"\033[M", (kbf,)
+    assert not kbf.closed, (kbf,)  # because could be ⎋[⇧M{b}{x}{y}
 
     kbf = KeyByteFrame(b"\033[Mabc")
     assert kbf.to_frame_bytes() == b"\033[Mabc", (kbf,)
