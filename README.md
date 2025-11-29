@@ -39,10 +39,10 @@ We decode what your terminal sends: instantly, simply, & correctly
    We frame your input instantly & simply & correctly by sending ⎋[5N DSR5 queries for ⎋[0N DSR0 replies. When you release the ⎋ Esc key, we know immediately. We don't wait and wonder
 
 4. **Double-character keystrokes work**  
-   Try ⌥E J on macOS. You get 'j́' (j with combining accent). Most terminal engines, including Emacs ⌃H K, then lose track, wrongly saying you pressed J without the ⌥E before that adds the aigu accent afterwards. We frame the 'j́' from ⌥E J and the 'J́' from ⌥E ⇧J correctly
+   Try ⌥E J on macOS. You get '**j́**' (j with combining accent). Most terminal engines, including Emacs ⌃H K, then lose track, wrongly saying you pressed J without the ⌥E before that adds the aigu accent afterwards. We frame the '**j́**' from ⌥E J and the '**J́**' from ⌥E ⇧J correctly
 
 5. **Double-wide characters work too**  
-   Characters like 😃 and 祝 and ￥ should take two columns, says Unicode. We make it so, at both odd and even columns. We don't chop double-wide characters in half
+   Characters like 😃 and **祝** and **￥** should take two columns, says Unicode. We make it so, at both odd and even columns. We don't chop double-wide characters in half
 
 6. **Free-form layout, cell by cell**  
    We give widgets their choice of screen cells and scrollback cells to write. We don't force them to clear and fill rectangular panes. We don't lock them out of adding rows to the scrollback. We do help them move, grow, shrink, hide away, and return to the screen. We help them share the screen well with other widgets, and share it well with the terminal apps you ran before calling us

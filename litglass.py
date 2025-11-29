@@ -208,12 +208,16 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         quitting = False
         while not quitting:
 
-            # Take Input
+            # Read Input
 
             tb.kbhit(timeout=None)
             frames = kr.read_byte_frames()
 
+            # Eval Input & print Output
+
             self.frames_write_keycaps_reply(frames, shifters)
+
+            # Quit at ⌃C
 
             if b"\003" in frames:
                 quitting = True
@@ -225,6 +229,41 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         # todo1: solve ← ↑ → ↓
         # todo1: toggle back out of @@@@@@@@@ or @@ or @
         # todo1: take mouse hits
+
+    def gameboard_draw(self, shifters: str) -> None:
+        """Draw the Gameboard"""
+
+        assert shifters in ("", "⇧"), (shifters,)
+        sw = self.loopbacker.screen_writer
+
+        if not shifters:
+            s = KeyboardViewer.Shifteds
+            trans = str.maketrans(s, len(s) * " ")
+        else:
+            assert shifters == "⇧", (shifters,)  # todo1: add ⎋ ⌃ ⌥ ⇧
+            s = KeyboardViewer.Plains
+            trans = str.maketrans(s, len(s) * "⇧")
+
+        dent = 4 * " "
+        dedent = textwrap.dedent(KeyboardViewer.Keyboard).strip()
+        splitlines = dedent.splitlines()
+
+        sw.print()
+
+        for index, line in enumerate(splitlines):
+            rindex = index - len(splitlines)
+
+            text = dent + line
+            if index and (rindex != -1):
+                text = text.translate(trans)
+                if shifters != "⇧":
+                    text = text.replace("⇪⇥", "⇥ ")
+                    text = text.replace("⇧← ↑ ⇧→ ↓", "  ← ↑ → ↓")
+
+            sw.print(text)
+
+        sw.print()
+        sw.print("Press ⌃C")
 
     def frames_write_keycaps_reply(self, frames: tuple[bytes, ...], shifters: str) -> None:
 
@@ -314,41 +353,6 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         if unhit_kseqs:
             sw.print(unhit_kseqs, "not found")
-
-    def gameboard_draw(self, shifters: str) -> None:
-        """Draw the Gameboard"""
-
-        assert shifters in ("", "⇧"), (shifters,)
-        sw = self.loopbacker.screen_writer
-
-        if not shifters:
-            s = KeyboardViewer.Shifteds
-            trans = str.maketrans(s, len(s) * " ")
-        else:
-            assert shifters == "⇧", (shifters,)  # todo1: add ⎋ ⌃ ⌥ ⇧
-            s = KeyboardViewer.Plains
-            trans = str.maketrans(s, len(s) * "⇧")
-
-        dent = 4 * " "
-        dedent = textwrap.dedent(KeyboardViewer.Keyboard).strip()
-        splitlines = dedent.splitlines()
-
-        sw.print()
-
-        for index, line in enumerate(splitlines):
-            rindex = index - len(splitlines)
-
-            text = dent + line
-            if index and (rindex != -1):
-                text = text.translate(trans)
-                if shifters != "⇧":
-                    text = text.replace("⇪⇥", "⇥ ")
-                    text = text.replace("⇧← ↑ ⇧→ ↓", "  ← ↑ → ↓")
-
-            sw.print(text)
-
-        sw.print()
-        sw.print("Press ⌃C")
 
 
 #
@@ -452,13 +456,20 @@ class Loopbacker:
 
         quitting = False
         while not quitting:
+
+            # Read Input
+
             tb.kbhit(timeout=None)
             frames = kr.read_byte_frames()
+
+            # Eval Input & print Output
 
             if not flags._repr_:
                 self.some_frames_loop_back(frames)
             else:
                 self.some_frames_print_repr(frames)
+
+            # Quit at ⌃C
 
             if b"\003" in frames:
                 quitting = True
@@ -899,13 +910,9 @@ class ScreenChangeOrder:
 
         # Quit now to grow some more, else fall through with a whole Frame
 
-        kencode = kbf.to_frame_bytes()  # no matter if .kbf.closed
+        kbf.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
 
-        if kencode == b"\033[M":  # takes the ⎋[⇧M DL_Y that isn't the ⎋[⇧M{b}{x}{y} _CLICK3_
-            if not kbf.stash:
-                assert not kbf.closed, (kbf.closed, kbf)
-                kbf.close_frame()
-
+        kencode = kbf.to_frame_bytes()
         if not kbf.closed:
             if not kbf.printable:
                 kencode = b""
@@ -1190,18 +1197,15 @@ class ScreenWriter:
     def write_one_control(self, text: str) -> None:
         """Write the Byte Encodings of one Unprintable Control Text"""
 
+        if not text:
+            return
+
         assert not text.isprintable(), (text,)
 
         encode = text.encode()
         kbf = KeyByteFrame(encode)  # may raise UnicodeEncodeError
-        if encode == b"\033[M":
-            if not kbf.stash:
-                assert not kbf.closed, (kbf.closed, kbf)
-                kbf.close_frame()
-        assert (not kbf.printable) and kbf.closed, (
-            encode,
-            kbf,
-        )
+        kbf.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
+        assert (not kbf.printable) and kbf.closed, (encode, kbf)
 
         self.write(text)
 
@@ -1571,13 +1575,37 @@ class KeyByteFrame:
 
         self.closed = False
 
-    def close_frame(self) -> None:
-        """Close if not closed already"""
+    def tilt_to_close_frame(self) -> None:
+        """Transform into a Closed DL_Y without explicit Pn, if it was _CLICK3_ and no Stash"""
 
+        printable = self.printable
+        head = self.head
+        neck = self.neck
+        backtail = self.backtail
         stash = self.stash
-        assert not stash, (stash,)
+        closed = self.closed
 
-        self.closed = True
+        assert _CLICK3_ == "\033[M"
+        assert DL_Y == "\033[" "{}M"
+
+        encode = self.to_frame_bytes()
+
+        if encode == b"\033[M":  # takes the ⎋[⇧M DL_Y that isn't the ⎋[⇧M{b}{x}{y} _CLICK3_
+            assert (not printable) and (not neck) and (not backtail), (head, self, encode)
+            assert head == b"\033[M", (head, self, encode)
+
+            if not stash:
+                assert head == b"\033[M", (head,)
+                assert not closed, (closed, self)
+
+                del head[len(b"\033[") :]
+                backtail.extend(b"M")
+
+                self.close_frame()
+
+        # todo: an awful lot of code here, for a dramatically simple idea?
+
+        # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
 
     def to_frame_bytes(self) -> bytes:
         """List the Bytes taken"""
@@ -1593,6 +1621,14 @@ class KeyByteFrame:
         join = bytes(printable + head + neck + backtail + stash)
 
         return join  # no matter if .closed or not
+
+    def close_frame(self) -> None:
+        """Close if not closed already"""
+
+        stash = self.stash
+        assert not stash, (stash,)
+
+        self.closed = True
 
     #
     # Pick apart a Esc Csi Sequence into its Marks and Ints
