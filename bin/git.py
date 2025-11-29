@@ -108,6 +108,7 @@ if shline.endswith(" ..."):  # ga, gcp, gg, ggl, grh
     required_args_usage = f"usage: {shverb} ..."
 
     shsuffix = " ..."
+
     arguable_shline_0 = shline.removesuffix(" ...")
 
     if not incoming_shargv[1:]:
@@ -121,9 +122,9 @@ elif shline.endswith(" [...]"):  # g, gd, gdno, gl, glf, glq, gls, glv, gno, gri
 
     arguable_shline_0 = shline.removesuffix(" [...]")
     if not incoming_shargv[1:]:
-        if shverb == "gcaf":
+        if shline == "git commit --all --fixup [...]":
             arguable_shline_0 += " HEAD"
-        elif arguable_shline_0.startswith("git log "):
+        elif shline.startswith("git log "):
             assert shverb in ("gl", "glq", "gls", "glv"), (shverb, arguable_shline_0)
             arguable_shline_0 += " -9"
 
@@ -131,7 +132,11 @@ else:  # gb, gcaa, gcam, gda, gdh, gf, grh1, grl, grv, gsis
     no_leading_pos_arg_usage = f"usage: {shverb}"
 
     shsuffix = ""  # always Empty Str here
+
     arguable_shline_0 = shline
+    if shline == "git reflog --date=relative --numstat":
+        assert shverb == "grl", (shverb, shline)
+        arguable_shline_0 += " -9"
 
     if incoming_shargv[1:]:
         if incoming_shargv[1].startswith("-"):
