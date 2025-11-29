@@ -309,8 +309,26 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         sw.print()
         for line in splitlines:
-            sw.write(dent + line)
+            text = dent + line + dent
+
+            if shifters != "⇧":
+
+                sw.write(text)
+
+            else:
+
+                splits = text.split("⇧")
+                for index, split in enumerate(splits):
+                    if index:
+                        sw.write_one_control("\033[7m")  # ⎋[7M style-reverse
+                        sw.write("⇧")
+                        sw.write_one_control("\033[m")  # ⎋[M style-plain
+                    sw.write(split)
+
+                # todo: can we more simply code this idea of highlighting the ⇧ Shift Lock?
+
             sw.write_one_control("\033[K")
+
             sw.write_some_controls(["\r", "\n"])
 
         # Print a Trailer in the far Southeast
@@ -459,14 +477,12 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
             width = len(cap)  # width 1 except for len('Spacebar')
 
-            sw.write_one_control("\033[1m")
+            sw.write_one_control("\033[1m")  # ⎋[1M style-bold
             sw.write_printable(width * "¤")
-            sw.write_one_control("\033[m")
+            sw.write_one_control("\033[m")  # ⎋[M style-plain
 
         if not hits:
             unhit_kseqs.append([cap, kseqs])
-
-    # todo5: show Shift Locked with Inverse Reverse Video
 
     # todo7: say three Chat Rows is plenty
     # todo7: scroll the Chat Rows up into the Screen Scrollback
@@ -729,7 +745,7 @@ class Loopbacker:
             self.frame_write_echo(b"\033[3J" b"\033[H" b"\033[2J")
             return
 
-        if decode == "\033L":  # ⎋L to ⎋[⇧H
+        if decode == "\033L":  # ⎋L terminal-confuse to ⎋[⇧H row-column-leap
             self.frame_write_echo(b"\033[H")
             return
 
@@ -1667,7 +1683,7 @@ class KeyboardReader:
         assert DSR6 == "\033[" "6n"
         assert CPR_Y_X == "\033[" "{};{}R"
 
-        tb.write_some_bytes(b"\033[6n")  # ⎋[6n
+        tb.write_some_bytes(b"\033[6n")  # ⎋[6n call for reply y x
         tb.kbhit(timeout=0e0)  # flushes after .write_some_bytes
 
         row_y = -1
@@ -2621,7 +2637,7 @@ class KeyboardDecoder:
 
         # Add the "Use Option as Meta key" of macOS Terminal
 
-        for code in range(0, 0x80):
+        for code in range(0, 0x7F + 1):
             if code not in (0, 0x1E):  # ⎋⌃␢ and ⎋⌃⇧@ and ⎋⌃⇧^ don't
                 decode = chr(code)
 
