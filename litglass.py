@@ -2927,8 +2927,6 @@ def _try_chop_() -> None:
         #
     ]
 
-    pairs = [(1e-4, "100e-6")]
-
     for f, lit in pairs:
 
         chop_f = chop(f)
