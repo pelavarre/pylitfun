@@ -18,7 +18,9 @@ examples:
   ./litglass.py --  # to run with defaults
   ./litglass.py --egg=enter  # to launch loop back with no setup
   ./litglass.py --egg=exit  # to quit loop back with no teardown
+  ./litglass.py --egg=logging  # write log lines into ./__pycache__/litglass.log
   ./litglass.py --egg=scroll  # to scroll into scrollback then launch in alt screen
+  ./litglass.py --egg=yolo  # a more explicit way to say run with defaults
 """
 
 # ./litglass.py --egg=clickarrows  # to loopback the ⌥-Click Arrows as they come in
@@ -41,6 +43,7 @@ import collections.abc  # .collections.abc is not .abc
 import dataclasses
 import difflib
 import itertools
+import logging
 import math
 import os
 import pdb
@@ -66,6 +69,8 @@ if not __debug__:
 
 default_eq_None = None  # spells out 'default=None' where Python forbids that
 
+logger = logging.getLogger(__name__)
+
 
 #
 # Choose a personality
@@ -76,28 +81,35 @@ default_eq_None = None  # spells out 'default=None' where Python forbids that
 class Flags:
     """Choose a personality"""
 
-    # Choose for you
+    # Choose for you:  flags.apple, flags.google, flags.terminal
 
-    apple: bool = sys.platform == "darwin"  # flags.apple
-    google: bool = bool(os.environ.get("CLOUD_SHELL", ""))  # flags.google
-    terminal: bool = os.environ.get("TERM_PROGRAM", "") == "Apple_Terminal"  # flags.terminal
+    apple: bool = sys.platform == "darwin"
+    google: bool = bool(os.environ.get("CLOUD_SHELL", ""))
+    terminal: bool = os.environ.get("TERM_PROGRAM", "") == "Apple_Terminal"
 
-    # Choose by --egg
+    # Choose by --egg:  flags.enter, flags._exit_, flags.logging, flags.scroll
 
-    enter: bool = False  # flags.enter  # launch loop back with no setup
-    _exit_: bool = False  # flags._exit_  # quit loop back with no teardown
-    scroll: bool = False  # flags.scroll  # launch below Scrollback
+    enter: bool = False  # launch loop back with no setup
+    _exit_: bool = False  # quit loop back with no teardown
+    logging: bool = False  # write log lines into ./__pycache__/litglass.log
+    scroll: bool = False  # launch below Scrollback
 
     # Choose by less celebrated --egg
+    #
+    #   flags.clickarrows, flags.clickruns,
+    #   flags.echo,
+    #   flags.keycaps,
+    #   flags.logging, flags._repr_, flags.sigint
+    #
 
-    clickarrows: bool = False  # flags.clickarrows  # loop back the ⌥-Click Arrows as they arrive
-    clickruns: bool = (
-        False  # flags.clickruns  # loop back the ⌥-Click Arrows as run-length compressed
-    )
-    echo: bool = False  # flags.echo  # echo the Control Sequences as they loopback
-    keycaps: bool = False  # flags.keycaps  # launch our keyboard-viewer of keycaps
-    _repr_: bool = False  # flags._repr_  # loop the Repr, not the Str
-    sigint: bool = False  # flags.sigint for ⌃C  # raise KeyboardInterrupt
+    clickarrows: bool = False  # loop back the ⌥-Click Arrows as they arrive
+    clickruns: bool = False  # loop back the ⌥-Click Arrows as run-length compressed
+    echo: bool = False  # echo the Control Sequences as they loopback
+    keycaps: bool = False  # launch our keyboard-viewer of keycaps
+    _repr_: bool = False  # loop the Repr, not the Str
+    sigint: bool = False  # for ⌃C to raise KeyboardInterrupt, for ⏎ to say ⌃J not ⌃M
+
+    # here we init flags.
 
 
 flags = Flags()
@@ -120,6 +132,15 @@ def main() -> None:
 
     parser = arg_doc_to_parser(__main__.__doc__ or "")
     shell_args_take_in(args=sys.argv[1:], parser=parser)
+
+    if flags.logging:  # writes into:  tail -F __pycache__/litglass.log
+        os.makedirs("__pycache__", exist_ok=True)
+        logging.basicConfig(filename="__pycache__/litglass.log", level=logging.INFO)
+        # default .logging drops .INFO, .DEBUG, .NOTSET as < 30 .WARNING
+
+    logger.info("")
+    logger.info("")
+    logger.info("launched")
 
     with Loopbacker() as lbr:
         kv = KeyboardViewer(lbr)
@@ -159,6 +180,7 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
         "enter",
         "exit",
         "keycaps",
+        "logging",
         "repr",
         "scroll",
         "sigint",
@@ -170,7 +192,7 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
         for egg in eggs:
             casefold = egg.casefold()
 
-            assert len(dash_dash_eggs) == 9, (len(dash_dash_eggs),)
+            assert len(dash_dash_eggs) == 10, (len(dash_dash_eggs),)
 
             assert os.path.commonprefix(["clickarrows", "clickruns"]) == "click"
             assert os.path.commonprefix(["echo", "enter"]) == "e"
@@ -192,6 +214,9 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
             elif "keycaps".startswith(casefold) and not "".startswith(casefold):
                 flags.keycaps = True
 
+            elif "logging".startswith(casefold) and not "".startswith(casefold):
+                flags.logging = True
+
             elif "repr".startswith(casefold) and not "".startswith(casefold):
                 flags._repr_ = True
 
@@ -199,6 +224,9 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
                 flags.scroll = True
             elif "sigint".startswith(casefold) and not "s".startswith(casefold):
                 flags.sigint = True
+
+            elif "yolo".startswith(casefold) and not "".startswith(casefold):
+                pass  # 'flags.yolo = True' doesn't exist by design
 
             else:
                 parser.parser.print_usage()
@@ -294,7 +322,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         # Place the Gameboard
 
-        (h, w, y, x) = kr.sample_hwyx()  # todo9: more automagic Cursor Y X Reads
+        (h, w, y, x, _) = kr.sample_hwyx()  # todo9: more automagic Cursor Y X Reads
 
         assert h >= high, (h, high)  # todo: negotiate Height more gracefully
         assert w >= wide, (w, wide)  # todo: negotiate Width more gracefully
@@ -643,7 +671,7 @@ class Loopbacker:
 
         if flags.scroll:
 
-            (h, w, y, x) = kr.sample_hwyx()  # todo9: more automagic Cursor Y X Reads
+            (h, w, y, x, _) = kr.sample_hwyx()  # todo9: more automagic Cursor Y X Reads
             if y > 1:
                 sw.write_control(f"\033[{y - 1}S")  # ⎋[⇧S south-rows-insert
 
@@ -711,6 +739,8 @@ class Loopbacker:
 
             # Eval Input and print Output
 
+            logger.info("")
+            logger.info(f"{frames=}")
             if not flags._repr_:
                 self.some_frames_loop_back(frames)
             else:
@@ -737,7 +767,7 @@ class Loopbacker:
         # Take in each Frame
 
         clearing_screen_order = False
-        for frame in frames:
+        for frame_index, frame in enumerate(frames):
             t1 = time.time()
 
             try:
@@ -758,72 +788,93 @@ class Loopbacker:
                 self.slow_time_time = time_time
 
             if not (sco.forceful or sco.intricate):
+                # logger.info(f"{sco.forceful=} {sco.intricate=}")
                 if flags.echo:
                     self.frame_write_echo(frame)
                     sw.write_control(f"\033[{y};{x}H")
                 self.kdecode_cook_and_loop_back(kdecode, intricate=False)
                 continue
 
-            (row_y, column_x, strong, factor, slow_kencode) = sco.compile_order()
+            slow_kencode = self.one_frame_run_order(frame, t1=t1)
+            if slow_kencode:
+                clearing_screen_order = True
 
-            if not slow_kencode:
-                self.frame_write_echo(frame)
-                continue
+                sco.yx = tuple()
+                kbf = sco.key_byte_frame
+                kbf.clear_frame()  # reruns Factor for remaining Frames
 
-            # Run the Order, after all of it arrives
-
-            clearing_screen_order = True
-
-            slow_kdecode = slow_kencode.decode()
-            slow_isprintable = slow_kdecode.isprintable()
-
-            if slow_isprintable and (not strong):
-
-                sw.write_printable(kdecode)
-
-            elif factor < -1:  # echoes without writing
-
-                self.frame_write_echo(frame)
-
-            elif factor == -1:  # echoes and greatly details
-
-                slow_frames = tuple([slow_kencode])
-                slow_t1t0 = t1 - self.slow_time_time
-
-                self.frame_write_echo(frame)
-
-                sw.write_printable(" ")
-                self.some_frames_print_repr(slow_frames, t1t0=slow_t1t0)
-
-            elif factor == 0:  # echoes and leaps and writes
-
-                self.frame_write_echo("⌃m".encode() if (frame == b"\r") else frame)  # ⌃M
-
-                sw.write_control(f"\033[{row_y};{column_x}H")
-                kr.row_y = row_y
-                kr.column_x = column_x
-
-                if slow_isprintable:
-                    sw.write_printable(slow_kdecode)
-                else:
-                    sw.write_control(slow_kdecode)
-
-            else:  # echoes and cooks and leaps and writes
-
-                self.frame_write_echo(frame)
-
-                sw.write_control(f"\033[{row_y};{column_x}H")
-                kr.row_y = row_y
-                kr.column_x = column_x
-
-                for _ in range(factor):
-                    self.kdecode_cook_and_loop_back(slow_kdecode, intricate=sco.intricate)
-
-            assert clearing_screen_order, (slow_kencode, factor)
-            sco.key_byte_frame.clear_frame()  # reruns Factor for remaining Frames
+                if frames[frame_index:][1:]:
+                    _ = kr.sample_hwyx()
+                    # logger.info(f"{kr.row_y=} {kr.column_x=}")
 
         if clearing_screen_order:
             sco.clear_order()
+
+    def one_frame_run_order(self, frame: bytes, t1: float) -> bytes:
+        # Run one Screen Change Order, after all of it arrives
+
+        sw = self.screen_writer
+        kr = self.keyboard_reader
+        sco = self.screen_change_order
+
+        assert sco.forceful or sco.intricate, (sco,)
+
+        (row_y, column_x, strong, factor, slow_kencode) = sco.compile_order()
+        # logger.info(f"{row_y=} {column_x=} {strong=} {factor=} {slow_kencode=}")
+
+        if not slow_kencode:
+            # logger.info(f"{slow_kencode=}")
+            self.frame_write_echo(frame)
+            return slow_kencode
+
+        slow_kdecode = slow_kencode.decode()
+        slow_isprintable = slow_kdecode.isprintable()
+
+        if slow_isprintable and (not strong):
+
+            # logger.info("SQUIRREL")
+            sw.write_printable(slow_kdecode)
+
+        elif factor < -1:  # echoes without writing
+
+            self.frame_write_echo(frame)
+
+        elif factor == -1:  # echoes and greatly details
+
+            slow_frames = tuple([slow_kencode])
+            slow_t1t0 = t1 - self.slow_time_time
+
+            self.frame_write_echo(frame)
+
+            sw.write_printable(" ")
+            self.some_frames_print_repr(slow_frames, t1t0=slow_t1t0)
+
+        elif factor == 0:  # echoes and leaps and writes
+
+            self.frame_write_echo("⌃m".encode() if (frame == b"\r") else frame)  # ⌃M
+
+            sw.write_control(f"\033[{row_y};{column_x}H")
+            kr.row_y = row_y
+            kr.column_x = column_x
+
+            if slow_isprintable:
+                sw.write_printable(slow_kdecode)
+            else:
+                sw.write_control(slow_kdecode)
+
+        else:  # echoes and cooks and leaps and writes
+
+            if flags.echo:
+                self.frame_write_echo(frame)
+
+            sw.write_control(f"\033[{row_y};{column_x}H")
+            kr.row_y = row_y
+            kr.column_x = column_x
+
+            for _ in range(factor):
+                self.kdecode_cook_and_loop_back(slow_kdecode, intricate=sco.intricate)
+
+        return slow_kencode
 
     def kdecode_cook_and_loop_back(self, decode: str, intricate: bool) -> None:
         """Interpret the Decode of the Frame, else echo it"""
@@ -898,9 +949,17 @@ class Loopbacker:
             sw.write_some_controls(controls)
             return
 
+        # Mark each Click Run Frame as intricate as multiple Frames for --egg=clickruns
+
+        bouncing = not intricate
+        if flags.clickruns:
+            if marks in (b"A", b"B", b"C", b"D"):
+                if len(ints) == 1:
+                    bouncing = False
+
         # Show a brief loud Repr of any Unknown Encode arriving as Input
 
-        if not intricate:
+        if bouncing:
             if echo != "⌃C":  # presumes ⌃C don't want this Echo here
                 sw.write_printable("<" + echo + ">")  # <⌃Y>
             return
@@ -927,11 +986,11 @@ class Loopbacker:
         if decode.startswith("\033["):
 
             if decode[-1] in "@" "ABCDEFGHIJKLM" "P" "ST" "Z" "d" "f" "h" "lm" "q":
-                sw.write_control(decode)
+                sw.write_control(decode)  # no limits on .marks and .ints
                 return True
 
             if decode[-1] in "nt":
-                sw.write_control(decode)
+                sw.write_control(decode)  # no limits on .marks and .ints
                 return True
 
             # Emulate Columns Insert/ Delete by Csi
@@ -1554,6 +1613,8 @@ class ScreenWriter:
     def write(self, text: str) -> None:
         """Write the Byte Encodings of Text without adding a Line-Break"""
 
+        logger.info(f"{text=}")
+
         tb = self.terminal_boss
         data = text.encode()  # may raise UnicodeEncodeError
         tb.write_some_bytes(data)
@@ -1853,7 +1914,7 @@ class KeyboardReader:
     # and update the H W Y X of this KeyboardReader
     #
 
-    def sample_hwyx(self) -> tuple[int, int, int, int]:
+    def sample_hwyx(self) -> tuple[int, int, int, int, bytes]:
 
         tb = self.terminal_boss
         sw = tb.screen_writer
@@ -1864,13 +1925,31 @@ class KeyboardReader:
         cpryx = self.read_bytes()
         (h, w, y, x) = (self.y_high, self.x_wide, self.row_y, self.column_x)
 
-        fm = re.fullmatch(rb"\033\[([0-9]+);([0-9]+)R", string=cpryx)  # ⎋[{y};{x}⇧R
-        assert fm, (fm, cpryx)
-        (yfm, xfm) = (int(fm.group(1)), int(fm.group(2)))
-        assert y == yfm, (y, yfm, cpryx)
-        assert x == xfm, (x, xfm, cpryx)
+        sm = re.search(rb"\033\[([0-9]+);([0-9]+)R$", string=cpryx)  # ⎋[{y};{x}⇧R
+        assert sm, (sm, cpryx)
 
-        return (h, w, y, x)
+        n = len(sm.group(0))
+        (ysm, xsm) = (int(sm.group(1)), int(sm.group(2)))
+
+        assert y == ysm, (y, ysm, cpryx)
+        assert x == xsm, (x, xsm, cpryx)
+
+        reads = cpryx[-n:]
+
+        # Move this KeyboardReader to this fresh H W Y X
+
+        assert h >= 5, (h,)  # todo: test of Terminals smaller than macOS Terminals
+        assert w >= 20, (w,)  # todo: test of 9 Columns x 2 Rows at macOS iTerm2
+
+        self.row_y = y
+        self.column_x = x
+
+        self.y_high = h
+        self.x_wide = w
+
+        # Succeed
+
+        return (h, w, y, x, reads)
 
     def read_bytes(self) -> bytes:
         """Frame the Bytes that share a Cursor Position Report"""
@@ -1881,25 +1960,27 @@ class KeyboardReader:
         # Read one Byte, then call for Cursor Position, then block till it comes
 
         (yx, reads) = self.read_yx_bytes()
-        (row_y, column_x) = yx
+        (y, x) = yx
 
         fd = fileno
-        (x_wide, y_high) = os.get_terminal_size(fd)
+        (w, h) = os.get_terminal_size(fd)
 
-        # Publish this fresh H W Y X sample separately
+        # Move this KeyboardReader to this fresh H W Y X
 
-        assert y_high >= 5, (y_high,)  # todo: test of Terminals smaller than macOS Terminals
-        assert x_wide >= 20, (x_wide,)  # todo: test of 9 Columns x 2 Rows at macOS iTerm2
+        assert h >= 5, (h,)  # todo: test of Terminals smaller than macOS Terminals
+        assert w >= 20, (w,)  # todo: test of 9 Columns x 2 Rows at macOS iTerm2
 
-        self.row_y = row_y
-        self.column_x = column_x
+        self.row_y = y
+        self.column_x = x
 
-        self.y_high = y_high
-        self.x_wide = x_wide
+        self.y_high = h
+        self.x_wide = w
 
         # Succeed
 
         return reads
+
+        # todo: one 'def read_bytes' per project is exactly enough?
 
     def read_yx_bytes(self) -> tuple[tuple[int, int], bytes]:
         """Read a Byte, call for Cursor Position, read Available Bytes till the Position comes"""
@@ -3527,6 +3608,7 @@ if __name__ == "__main__":
 
 
 # todo7: rename the ..._cook_and_loop_back
+# todo7: take --egg=sigint ⏎ arriving as ⌃J as \n but then leap back to X
 
 
 # todo9: add Fn Keycaps
@@ -3537,7 +3619,6 @@ if __name__ == "__main__":
 
 # todo9: take bracketed-paste as print vertically
 # todo9: take unbracketed-paste as print vertically to left of rightmost tracked chars
-# todo9: take --egg=sigint ⏎ arriving as ⌃J as \n but then leap back to X
 
 
 # todo9: --egg=keycaps 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
