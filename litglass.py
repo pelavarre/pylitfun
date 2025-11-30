@@ -411,7 +411,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
             sw.write(scrollable)  # todo9: .keycaps_print wider than screen
             sw.write_control("\033[K")  # row-tail-erase ⎋[⇧K
 
-            sw.write_control("\033[{32100}H")  # row-column-leap ⎋[⇧H
+            sw.write_control("\033[32100H")  # row-column-leap ⎋[⇧H
             sw.write_control("\n")
 
             sw.write_control(f"\033[{y - 1};{x}H")  # row-column-leap ⎋[⇧H
@@ -595,7 +595,7 @@ class Loopbacker:
         sw = self.screen_writer
         kr = self.keyboard_reader
 
-        assert DSR6 == "\033[" "6n"
+        assert SM_PS and SU_Y
 
         tb.__enter__()
 
@@ -618,7 +618,7 @@ class Loopbacker:
         sw = self.screen_writer
         kr = self.keyboard_reader
 
-        assert DSR6 == "\033[" "6n"
+        assert SM_PS and RM_PS and SGR_PS and DECSCUSR
 
         if not flags.enter:
 
@@ -782,13 +782,17 @@ class Loopbacker:
     def kdecode_cook_and_loop_back(self, decode: str, intricate: bool) -> None:
         """Interpret the Decode of the Frame, else echo it"""
 
+        frame = decode.encode()
+
         sw = self.screen_writer
         kr = self.keyboard_reader
-        kd = self.keyboard_decoder
 
-        frame = decode.encode()
+        kd = self.keyboard_decoder
         echo = kd.frame_to_echo(frame)
         assert echo.isprintable(), (echo,)
+
+        assert _NorthArrow_ and _SouthArrow_ and _EastArrow_ and _WestArrow_
+        assert _NorthwestArrow_ and _NortheastArrow_ and _SoutheastArrow_ and _SouthwestArrow_
 
         # If Frame is Printable
 
@@ -1219,7 +1223,7 @@ class ScreenChangeOrder:
         encode = decode.encode()
 
         kbf = self.key_byte_frame
-        assert _FACTOR_MARK_ == "\025"
+        assert _FactorMark_ == "\025"
 
         # Take Input after a Text Frame or Closed Frame as a new Order
 
@@ -1508,6 +1512,54 @@ class ScreenWriter:
         # does 'may raise UnicodeEncodeError' on purpose
 
 
+Y1 = 1  # min Y of Terminal Cursor
+X1 = 1  # min X of Terminal Cursor
+
+
+PS0 = 0  # default Csi Ps = 0 for some
+
+PN1 = 1  # default Csi Pn = 1 for others
+_MAX_PN_32100_ = 32100  # max Csi Pn = 32100 exceeds the x_wide x y_high of most Terminal Screens
+
+
+ICH_X = "\033[" "{}" "@"  # Csi 04/00 [Insert] Cursor Horizontal [Pn] [Columns]
+
+CUU_Y = "\033[" "{}" "A"  # Csi 04/01 Cursor Up [Pn] [Rows]
+CUP_Y_X = "\033[" "{};{}H"  # Csi 04/08 [Choose] Cursor Position [Y and X]
+ED_PS = "\033[" "{}" "J"  # CSI 04/10 Erase in Display  # 0 Tail # 1 Head # 2 Rows # 3 Scrollback
+EL_PS = "\033[" "{}" "K"  # CSI 04/11 Erase in Line [Row]  # 0 Tail # 1 Head # 2 Row
+IL_Y = "\033[" "{}" "L"  # Csi 04/12 Insert Line [Row]
+_CLICK3_ = "\033[M"  # ⎋[⇧M{b}{x}{y} Click Press/ Release
+DL_Y = "\033[" "{}M"  # Csi 04/13 Delete Line [Row]
+SU_Y = "\x1b" "[" "{}S"  # CSI 05/03 Scroll Up [Into Scrollback]
+
+VPA_Y = "\033[" "{}" "d"  # Csi 06/04 Vertical Position Absolute [Row]
+
+DECIC_X = "\033[" "{}" "'}}"  # Csi 07/13 [DEC] Insert Column [Pn]
+DECDC_X = "\033[" "{}" "'~"  # Csi 07/14 [DEC] Delete Column [Pn]
+
+
+SM_PS = "\033[" "{}" "h"  # CSI 06/08 4 Set Mode
+RM_PS = "\033[" "{}" "l"  # CSI 06/12 4 Reset Mode
+SGR_PS = "\033[" "{}" "m"  # CSI 06/13 Select Graphic Rendition [Text Style]
+DSR_PS = "\033[" "{}n"  # Csi 06/14 [Request] Device Status Report [Ps]
+DECSCUSR = "\033[" "{}" " q"  # CSI 06/15 [DEC] Set Cursor Style [Ps]  # Two Byte Backtail
+
+DSR6 = "\033[" "6n"  # Csi 06/14 [Request] Device Status Report  # Ps 6 Request CPR  # ⎋[6N
+CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R
+
+# ⎋[4H inserting  ⎋[4L replacing  ⎋[⇧?2004H paste-wrap  ⎋[⇧?2004L paste-unwrap
+# ⎋[?25H cursor-show  ⎋[?25L -hide  ⎋[6 Q -bar  ⎋[4 Q -skid  ⎋[ Q -unstyled
+
+# ⎋[1M bold  ⎋[4M underline  ⎋[7M reverse/inverse
+# ⎋[31M red  ⎋[32M green  ⎋[34M blue  ⎋[38;5;130M orange
+# ⎋[M plain  ⎋[⇧?1049H screen-alt  ⎋[⇧?1049L screen-main
+
+# ⎋[5N call for reply ⎋[0N
+# ⎋[6N call for reply ⎋[{y};{x}⇧R  ⎋[18T call for reply ⎋[8;{rows};{columns}T
+# ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
+
+
 class KeyboardReader:
     """Read Frames of Input from the Terminal Keyboard"""
 
@@ -1560,25 +1612,27 @@ class KeyboardReader:
     def _frames_compress_if_(self, frames: tuple[bytes, ...]) -> tuple[bytes, ...]:
         """Collapse two Frames to one, or don't"""
 
-        assert _NorthwestArrowEncode_ == "\033[↖".encode()  # ↖↗↘↙  #   # not yet standard
-        assert _NortheastArrowEncode_ == "\033[↗".encode()
-        assert _SoutheastArrowEncode_ == "\033[↘".encode()
-        assert _SouthwestArrowEncode_ == "\033[↙".encode()
+        assert _NorthArrow_ and _SouthArrow_ and _EastArrow_ and _WestArrow_
+        assert _NorthwestArrow_ and _NortheastArrow_ and _SoutheastArrow_ and _SouthwestArrow_
 
         # Convert a Double Key Jam of actual 4-way ←↑→↓ Arrows into 8-way ↖↗↘↙ Compass Arrows
 
+        classic_arrow_encodings = (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
+
         if len(frames) == 2:
-            if all((_ in ClassicArrowEncodes) for _ in frames):
+            if all((_ in classic_arrow_encodings) for _ in frames):
                 backtails = b"".join(sorted(_[-1:] for _ in frames))
 
-                if backtails == b"AD":
-                    return ("\033[↖".encode(),)  # not yet standard
-                elif backtails == b"AC":
+                if backtails == b"AD":  # _NorthArrow_ _WestArrow_
+                    return ("\033[↖".encode(),)
+                elif backtails == b"AC":  # _NorthArrow_ _EastArrow_
                     return ("\033[↗".encode(),)
-                elif backtails == b"BC":
+                elif backtails == b"BC":  # _SouthArrow_ _EastArrow_
                     return ("\033[↘".encode(),)
-                elif backtails == b"BD":
+                elif backtails == b"BD":  # _SouthArrow_ _WestArrow_
                     return ("\033[↙".encode(),)
+
+                # ⎋ [ ↖ ↗ ↘ ↙  # not yet standard
 
         # Else make no change
 
@@ -1606,7 +1660,7 @@ class KeyboardReader:
         marks: list[str] = list()
         after = b""
 
-        assert ClassicArrowEncodes == (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
+        assert ClassicArrows == ("\033[A", "\033[B", "\033[C", "\033[D")
 
         if len(data) <= (MAX_ARROW_KEY_JAM_2 * 3):
             return ("", data)
@@ -1635,10 +1689,7 @@ class KeyboardReader:
         h = self.y_high
         w = self.x_wide
 
-        assert _NorthArrowEncode_ == b"\033[A"
-        assert _SouthArrowEncode_ == b"\033[B"
-        assert _EastArrowEncode_ == b"\033[C"
-        assert _WestArrowEncode_ == b"\033[D"
+        assert _NorthArrow_ and _SouthArrow_ and _EastArrow_ and _WestArrow_
 
         o = (y, x, h, w, arrowheads)
 
@@ -1648,20 +1699,20 @@ class KeyboardReader:
                 x -= w
                 y += 1
 
-            if a == "A":
+            if a == "A":  # 'A' Arrowhead of ⎋[⇧A _NorthArrow_
 
                 y -= 1
 
-            elif a == "B":
+            elif a == "B":  # 'B' Arrowhead of ⎋[⇧B _SouthArrow_
 
                 y += 1
 
-            elif a == "C":
+            elif a == "C":  # 'C' Arrowhead of ⎋[⇧C _EastArrow_
 
                 x += 1
 
             else:
-                assert a == "D", (a,)
+                assert a == "D", (a,)  # 'D' Arrowhead of ⎋[⇧D _WestArrow_
 
                 x -= 1
                 if x < X1:
@@ -2359,16 +2410,7 @@ class KeyByteFrame:
     # todo: invent UTF-8'ish Encoding beyond 1..4 Bytes for Unicode Codes > 0x10_FFFF ?
 
 
-Y1 = 1  # min Y of Terminal Cursor
-X1 = 1  # min X of Terminal Cursor
-
-PN0 = 0  # default Csi Pn = 0 for some
-PN1 = 1  # default Csi Pn = 1 for others
-_MAX_PN_32100_ = 32100  # max Csi Pn = 32100 exceeds the x_wide x y_high of most Terminal Screens
-
 BEL = "\007"  # 00/07 Bell
-
-_FACTOR_MARK_ = "\025"  # 01/05 ⌃U Emacs Global-Map Universal-Argument
 
 ESC = "\033"  # 01/11 Escape ⎋
 
@@ -2376,28 +2418,10 @@ SS3 = "\033O"  # 01/11 04/15 Single Shift Three  # ⎋O
 CSI = "\033["  # 01/11 05/11 Control Sequence Introducer  # ⎋[
 OSC = "\033]"  # 01/11 05/13 Operating System Command  # ⎋]
 
+assert _CLICK3_ == "\033[M"
+assert DL_Y == "\033[" "{}M"
+
 ST = "\033\134"  # 01/11 05/12 String Terminator  # ⎋\
-
-
-ICH_X = "\033[" "{}" "@"  # Csi 04/00 [Insert] Cursor Horizontal [Pn] [Columns]
-
-CUU_Y = "\033[" "{}" "A"  # Csi 04/01 Cursor Up [Pn] [Rows]
-CUP_Y_X = "\033[" "{};{}H"  # Csi 04/08 [Choose] Cursor Position [Y and X]
-ED_PS = "\033[" "{}" "J"  # CSI 04/10 Erase in Display  # 0 Tail # 1 Head # 2 Rows # 3 Scrollback
-EL_PS = "\033[" "{}" "K"  # CSI 04/11 Erase in Line [Row]  # 0 Tail # 1 Head # 2 Row
-IL_Y = "\033[" "{}" "L"  # Csi 04/12 Insert Line [Row]
-DL_Y = "\033[" "{}M"  # Csi 04/13 Delete Line [Row]
-
-VPA_Y = "\033[" "{}" "d"  # Csi 06/04 Vertical Position Absolute [Row]
-
-DECIC_X = "\033[" "{}" "'}}"  # Csi 07/13 [DEC] Insert Column [Pn]
-DECDC_X = "\033[" "{}" "'~"  # Csi 07/14 [DEC] Delete Column [Pn]
-
-_CLICK3_ = "\033[M"  # ⎋[⇧M{b}{x}{y} Click Press/ Release
-
-
-DSR6 = "\033[" "6n"  # Csi 06/14 [Request] Device Status Report  # Ps 6 Request CPR  # ⎋[6N
-CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R
 
 
 #
@@ -2845,17 +2869,19 @@ class KeyboardDecoder:
         # no explicit mention of ÁÉÍJ́ÓÚ ÂÊÎÔÛ ÃÑÕ ÄËÏÖÜŸ ÀÈÌÒÙ
 
 
-ClassicArrowEncodes = (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
+_FactorMark_ = "\025"  # 01/05 ⌃U Emacs Global-Map Universal-Argument
 
-_NorthArrowEncode_ = b"\033[A"  # ←↑→↓ reordered as ↑↓→←
-_SouthArrowEncode_ = b"\033[B"
-_EastArrowEncode_ = b"\033[C"
-_WestArrowEncode_ = b"\033[D"
+ClassicArrows = ("\033[A", "\033[B", "\033[C", "\033[D")
 
-_NorthwestArrowEncode_ = "\033[↖".encode()  # ↖↗↘↙  #   # not yet standard
-_NortheastArrowEncode_ = "\033[↗".encode()
-_SoutheastArrowEncode_ = "\033[↘".encode()
-_SouthwestArrowEncode_ = "\033[↙".encode()
+_NorthArrow_ = "\033[A"  # ←↑→↓ reordered as ↑↓→←
+_SouthArrow_ = "\033[B"
+_EastArrow_ = "\033[C"
+_WestArrow_ = "\033[D"
+
+_NorthwestArrow_ = "\033[↖"  # ⎋ [ ↖↗↘↙  # not yet standard
+_NortheastArrow_ = "\033[↗"
+_SoutheastArrow_ = "\033[↘"
+_SouthwestArrow_ = "\033[↙"
 
 
 #
@@ -2867,9 +2893,9 @@ def _try_key_byte_frame_() -> None:
 
     assert DL_Y == "\033[" "{}M"
     assert _CLICK3_ == "\033[M"
-    assert _NorthArrowEncode_ == b"\033[A"
+    assert _NorthArrow_ == "\033[A"
     assert ST == "\033\134"
-    assert _NortheastArrowEncode_ == "\033[↗".encode()
+    assert _NortheastArrow_ == "\033[↗"
 
     # Do nothing with grace & elegance
 
