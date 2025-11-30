@@ -22,6 +22,7 @@ examples:
 """
 
 # ./litglass.py --egg=Keycaps  # to launch our keyboard-viewer of keycaps
+# ./litglass.py --egg=Echo  # to echo the Control Sequences as they run
 # ./litglass.py --egg=Repr  # to loop the Repr, not the Str
 # ./litglass.py --egg=SigInt  # for ⌃C to raise KeyboardInterrupt
 
@@ -80,6 +81,7 @@ class Flags:
     _exit_: bool = False  # --egg=exit  # flags._exit_ to quit loop back with no teardown
     scroll: bool = False  # --egg=scroll  # flags.scroll to launch below Scrollback
 
+    echo: bool = False  # --egg=Echo  # flags.echo to echo the Control Sequences as they run
     keycaps: bool = False  # --egg=Keycaps  # flags.keycaps to launch our keyboard-viewer of keycaps
     _repr_: bool = False  # --egg=Repr  # flags._repr_ to loop the Repr, not the Str
     sigint: bool = False  # --egg=Sigint  # flags.sigint for ⌃C to raise KeyboardInterrupt
@@ -147,14 +149,19 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
 
             assert len(celebrated_eggs) == 6
 
-            if "enter".startswith(casefold) and not "exit".startswith(casefold):
+            if "echo".startswith(casefold) and not "enter".startswith(casefold):
+                flags.echo = True
+            elif "enter".startswith(casefold) and not "exit".startswith(casefold):
                 flags.enter = True
             elif "exit".startswith(casefold) and not "enter".startswith(casefold):
                 flags._exit_ = True
+
             elif "keycaps".startswith(casefold) and not "".startswith(casefold):
                 flags.keycaps = True
+
             elif "repr".startswith(casefold) and not "".startswith(casefold):
                 flags._repr_ = True
+
             elif "scroll".startswith(casefold) and not "sigint".startswith(casefold):
                 flags.scroll = True
             elif "sigint".startswith(casefold) and not "scroll".startswith(casefold):
@@ -645,6 +652,8 @@ class Loopbacker:
                 self.frame_write_echo(frame)
                 continue
 
+            (y, x) = (kr.row_y, kr.column_x)
+
             # Take in the Frame by itself, while order incomplete
 
             time_time = sco.take_decode(kdecode, yx=(kr.row_y, kr.column_x))
@@ -652,6 +661,9 @@ class Loopbacker:
                 self.slow_time_time = time_time
 
             if not (sco.forceful or sco.intricate):
+                if flags.echo:
+                    self.frame_write_echo(frame)
+                    sw.write_one_control(f"\033[{y};{x}H")
                 self.kdecode_cook_and_loop_back(kdecode, intricate=False)
                 continue
 
@@ -741,12 +753,12 @@ class Loopbacker:
 
         # Block the heavy hammer of ⎋C and the complex hammer of ⎋L
 
-        if decode == "\033C":  # ⎋C to ⎋[3⇧J ⎋[⇧H ⎋[2⇧J screen-erase
-            self.frame_write_echo(b"\033[3J" b"\033[H" b"\033[2J")
+        if decode == "\033c":  # ⎋C to ⎋[3⇧J ⎋[⇧H ⎋[2⇧J screen-erase
+            sw.write_some_controls(["\033[3J", "\033[H", "\033[2J"])
             return
 
-        if decode == "\033L":  # ⎋L terminal-confuse to ⎋[⇧H row-column-leap
-            self.frame_write_echo(b"\033[H")
+        if decode == "\033l":  # ⎋L terminal-confuse to ⎋[⇧H row-column-leap
+            sw.write_one_control("\033[H")
             return
 
         # Leap the Cursor to the ⌥-Click  # todo9: also ⎋[⇧M Click Releases
@@ -758,6 +770,20 @@ class Loopbacker:
             (b, x, y) = ints  # todo: bounds check on Click Release
             sw.write_one_control(f"\033[{y};{x}H")
             sw.write_printable("@")  # '@' to make ⌥-Click's visible
+            return
+
+        # Leap the Cursor to the 8-way ↖↗↘↙ Compass Arrows
+
+        controls_by_marks = {
+            "↖".encode(): ["\033[A", "\033[D", "\033[D"],
+            "↗".encode(): ["\033[A", "\033[C", "\033[C"],
+            "↘".encode(): ["\033[B", "\033[C", "\033[C"],
+            "↙".encode(): ["\033[B", "\033[D", "\033[D"],
+        }
+
+        if marks in controls_by_marks.keys():
+            controls = controls_by_marks[marks]
+            sw.write_some_controls(controls)
             return
 
         # Show a brief Repr of other Encodes
@@ -866,6 +892,8 @@ class Loopbacker:
                 arrow_control = kd.decode_by_kseq[arrow]
                 sw.write_one_control(arrow_control)
                 return True
+
+        # Else don't loop back here
 
         return False
 
@@ -1463,6 +1491,35 @@ class KeyboardReader:
         frames = tuple(frame_list)
         assert frames, (frames,)
 
+        frames = self._frames_compress_if_(frames)
+
+        return frames
+
+    def _frames_compress_if_(self, frames: tuple[bytes, ...]) -> tuple[bytes, ...]:
+        """Collapse two Frames to one, or don't"""
+
+        assert _NorthwestArrowEncode_ == "\033[↖".encode()  # ↖↗↘↙  #   # not yet standard
+        assert _NortheastArrowEncode_ == "\033[↗".encode()
+        assert _SoutheastArrowEncode_ == "\033[↘".encode()
+        assert _SouthwestArrowEncode_ == "\033[↙".encode()
+
+        # Convert a Double Key Jam of actual 4-way ←↑→↓ Arrows into 8-way ↖↗↘↙ Compass Arrows
+
+        if len(frames) == 2:
+            if all((_ in ClassicArrowEncodes) for _ in frames):
+                backtails = b"".join(sorted(_[-1:] for _ in frames))
+
+                if backtails == b"AD":
+                    return ("\033[↖".encode(),)  # not yet standard
+                elif backtails == b"AC":
+                    return ("\033[↗".encode(),)
+                elif backtails == b"BC":
+                    return ("\033[↘".encode(),)
+                elif backtails == b"BD":
+                    return ("\033[↙".encode(),)
+
+        # Else make no change
+
         return frames
 
     def _read_click_release_frame_and_after_(self) -> tuple[bytes, bytes]:
@@ -1516,7 +1573,10 @@ class KeyboardReader:
         h = self.y_high
         w = self.x_wide
 
-        assert ClassicArrowEncodes == (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
+        assert _NorthArrowEncode_ == b"\033[A"
+        assert _SouthArrowEncode_ == b"\033[B"
+        assert _EastArrowEncode_ == b"\033[C"
+        assert _WestArrowEncode_ == b"\033[D"
 
         o = (y, x, h, w, arrowheads)
 
@@ -1568,11 +1628,6 @@ class KeyboardReader:
         assert KeyboardDecoder.OptionAccents == ("`", "´", "¨", "ˆ", "˜")
         assert KeyboardDecoder.OptionGraveGrave == "``"
 
-        assert _NorthWestArrowEncode_ == "\033[↖".encode()
-        assert _NorthEastArrowEncode_ == "\033[↗".encode()
-        assert _SouthEastArrowEncode_ == "\033[↘".encode()
-        assert _SouthWestArrowEncode_ == "\033[↙".encode()
-
         if not data:
             return (data, b"")
 
@@ -1593,10 +1648,6 @@ class KeyboardReader:
                 frame = decode[0].encode()
                 after = decode[1:].encode()
                 return (frame, after)
-
-        # Accept Double-Key-Jam's as 8-way Compass Arrows  # todo6:
-
-        pass
 
         # Split one Text or Control Frame off the Start of the Bytes
 
@@ -2475,13 +2526,20 @@ class KeyboardDecoder:
             assert k not in decode_by_kseq.keys(), (k,)
             decode_by_kseq[k] = decode_by_kseq[v]
 
-        # Add the Basic Arrows and the Double-Key-Jam Arrows  # todo6:
+        # Add the Basic Arrows and the Double-Key-Jam Arrows
 
         d3 = {
+            #
             r"↑": "\033[" "A",  # ⎋[⇧A
             r"↓": "\033[" "B",  # ⎋[⇧B
             r"→": "\033[" "C",  # ⎋[⇧C
             r"←": "\033[" "D",  # ⎋[⇧D
+            #
+            r"↖": "\033[" "↖",  # ⎋[↖    # not yet standard
+            r"↗": "\033[" "↗",  # ⎋[↗
+            r"↘": "\033[" "↘",  # ⎋[↘
+            r"↙": "\033[" "↙",  # ⎋[↙
+            #
         }
 
         for k, v in d3.items():
@@ -2681,15 +2739,15 @@ class KeyboardDecoder:
 
 ClassicArrowEncodes = (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
 
-UpwardsArrowEncode = b"\033[A"
-DownwardsArrowEncode = b"\033[B"
-RightwardsArrowEncode = b"\033[C"
-LeftwardsArrowEncode = b"\033[D"
+_NorthArrowEncode_ = b"\033[A"  # ←↑→↓ reordered as ↑↓→←
+_SouthArrowEncode_ = b"\033[B"
+_EastArrowEncode_ = b"\033[C"
+_WestArrowEncode_ = b"\033[D"
 
-_NorthWestArrowEncode_ = "\033[↖".encode()  # A W, W A
-_NorthEastArrowEncode_ = "\033[↗".encode()  # W D, D W
-_SouthEastArrowEncode_ = "\033[↘".encode()  # S D, D S
-_SouthWestArrowEncode_ = "\033[↙".encode()  # A S, S A
+_NorthwestArrowEncode_ = "\033[↖".encode()  # ↖↗↘↙  #   # not yet standard
+_NortheastArrowEncode_ = "\033[↗".encode()
+_SoutheastArrowEncode_ = "\033[↘".encode()
+_SouthwestArrowEncode_ = "\033[↙".encode()
 
 
 #
@@ -2701,8 +2759,9 @@ def _try_key_byte_frame_() -> None:
 
     assert DL_Y == "\033[" "{}M"
     assert _CLICK3_ == "\033[M"
-    assert UpwardsArrowEncode == b"\033[A"
+    assert _NorthArrowEncode_ == b"\033[A"
     assert ST == "\033\134"
+    assert _NortheastArrowEncode_ == "\033[↗".encode()
 
     # Do nothing with grace & elegance
 
@@ -2734,7 +2793,7 @@ def _try_key_byte_frame_() -> None:
 
     # Accept 8-way Compass Arrows, not just the 4-way Most Classic Arrows
 
-    kbf = KeyByteFrame("\033[↗".encode())
+    kbf = KeyByteFrame("\033[↗".encode())  # not yet standard
     assert kbf.to_frame_bytes() == "\033[↗".encode(), (kbf,)
     assert kbf.closed, (kbf,)
 
@@ -3252,8 +3311,6 @@ _ = """  # more famous Python Imports to run in place of our Code here
 if __name__ == "__main__":
     main()
 
-
-# todo5: --egg=pen to echo the ← ↑ → ↓ ↖ ↗ ↘ ↙ etc as they come
 
 # todo9: --egg=keycaps 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
 # todo9: --egg=resize to fit the Terminal to the Gameboard and vice versa
