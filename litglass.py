@@ -21,10 +21,12 @@ examples:
   ./litglass.py --egg=scroll  # to scroll into scrollback then launch in alt screen
 """
 
-# ./litglass.py --egg=Keycaps  # to launch our keyboard-viewer of keycaps
-# ./litglass.py --egg=Echo  # to echo the Control Sequences as they run
-# ./litglass.py --egg=Repr  # to loop the Repr, not the Str
-# ./litglass.py --egg=SigInt  # for ⌃C to raise KeyboardInterrupt
+# ./litglass.py --egg=clickarrows  # to loopback the ⌥-Click Arrows as they come in
+# ./litglass.py --egg=clickruns  # to loopback the ⌥-Click Arrows as run-length compressed
+# ./litglass.py --egg=echo  # to echo the Control Sequences as they run
+# ./litglass.py --egg=keycaps  # to launch our keyboard-viewer of keycaps
+# ./litglass.py --egg=repr  # to loop the Repr, not the Str
+# ./litglass.py --egg=sigint  # for ⌃C to raise KeyboardInterrupt
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
 
@@ -38,6 +40,7 @@ import collections
 import collections.abc  # .collections.abc is not .abc
 import dataclasses
 import difflib
+import itertools
 import math
 import os
 import pdb
@@ -73,18 +76,28 @@ default_eq_None = None  # spells out 'default=None' where Python forbids that
 class Flags:
     """Choose a personality"""
 
+    # Choose for you
+
     apple: bool = sys.platform == "darwin"  # flags.apple
     google: bool = bool(os.environ.get("CLOUD_SHELL", ""))  # flags.google
     terminal: bool = os.environ.get("TERM_PROGRAM", "") == "Apple_Terminal"  # flags.terminal
 
-    enter: bool = False  # --egg=enter  # flags.enter to launch loop back with no setup
-    _exit_: bool = False  # --egg=exit  # flags._exit_ to quit loop back with no teardown
-    scroll: bool = False  # --egg=scroll  # flags.scroll to launch below Scrollback
+    # Choose by --egg
 
-    echo: bool = False  # --egg=Echo  # flags.echo to echo the Control Sequences as they run
-    keycaps: bool = False  # --egg=Keycaps  # flags.keycaps to launch our keyboard-viewer of keycaps
-    _repr_: bool = False  # --egg=Repr  # flags._repr_ to loop the Repr, not the Str
-    sigint: bool = False  # --egg=Sigint  # flags.sigint for ⌃C to raise KeyboardInterrupt
+    enter: bool = False  # flags.enter  # launch loop back with no setup
+    _exit_: bool = False  # flags._exit_  # quit loop back with no teardown
+    scroll: bool = False  # flags.scroll  # launch below Scrollback
+
+    # Choose by less celebrated --egg
+
+    clickarrows: bool = False  # flags.clickarrows  # loop back the ⌥-Click Arrows as they arrive
+    clickruns: bool = (
+        False  # flags.clickruns  # loop back the ⌥-Click Arrows as run-length compressed
+    )
+    echo: bool = False  # flags.echo  # echo the Control Sequences as they loopback
+    keycaps: bool = False  # flags.keycaps  # launch our keyboard-viewer of keycaps
+    _repr_: bool = False  # flags._repr_  # loop the Repr, not the Str
+    sigint: bool = False  # flags.sigint for ⌃C  # raise KeyboardInterrupt
 
 
 flags = Flags()
@@ -139,7 +152,17 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
     ns_keys = list(vars(ns).keys())
     assert ns_keys == ["force", "eggs"], (ns_keys, ns, args)
 
-    celebrated_eggs = ["enter", "exit", "keycaps", "repr", "scroll", "sigint"]
+    dash_dash_eggs = [
+        "clickarrows",
+        "clickruns",
+        "echo",
+        "enter",
+        "exit",
+        "keycaps",
+        "repr",
+        "scroll",
+        "sigint",
+    ]
 
     ns_eggs = ns.eggs or list()
     for egg_arg in ns_eggs:
@@ -147,13 +170,23 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
         for egg in eggs:
             casefold = egg.casefold()
 
-            assert len(celebrated_eggs) == 6
+            assert len(dash_dash_eggs) == 9, (len(dash_dash_eggs),)
 
-            if "echo".startswith(casefold) and not "enter".startswith(casefold):
+            assert os.path.commonprefix(["clickarrows", "clickruns"]) == "click"
+            assert os.path.commonprefix(["echo", "enter"]) == "e"
+            assert os.path.commonprefix(["echo", "exit"]) == "e"
+            assert os.path.commonprefix(["scroll", "sigint"]) == "s"
+
+            if "clickarrows".startswith(casefold) and not "click".startswith(casefold):
+                flags.clickarrows = True
+            elif "clickruns".startswith(casefold) and not "click".startswith(casefold):
+                flags.clickruns = True
+
+            elif "echo".startswith(casefold) and not "e".startswith(casefold):
                 flags.echo = True
-            elif "enter".startswith(casefold) and not "exit".startswith(casefold):
+            elif "enter".startswith(casefold) and not "e".startswith(casefold):
                 flags.enter = True
-            elif "exit".startswith(casefold) and not "enter".startswith(casefold):
+            elif "exit".startswith(casefold) and not "e".startswith(casefold):
                 flags._exit_ = True
 
             elif "keycaps".startswith(casefold) and not "".startswith(casefold):
@@ -162,14 +195,14 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
             elif "repr".startswith(casefold) and not "".startswith(casefold):
                 flags._repr_ = True
 
-            elif "scroll".startswith(casefold) and not "sigint".startswith(casefold):
+            elif "scroll".startswith(casefold) and not "s".startswith(casefold):
                 flags.scroll = True
-            elif "sigint".startswith(casefold) and not "scroll".startswith(casefold):
+            elif "sigint".startswith(casefold) and not "s".startswith(casefold):
                 flags.sigint = True
 
             else:
                 parser.parser.print_usage()
-                print(f"don't choose {egg!r}, do choose from {celebrated_eggs}", file=sys.stderr)
+                print(f"don't choose {egg!r}, do choose from {dash_dash_eggs}", file=sys.stderr)
                 sys.exit(2)  # exits 2 for bad Arg
 
     sum = flags.keycaps + flags._repr_
@@ -246,7 +279,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         sw = lbr.screen_writer
         kr = lbr.keyboard_reader
 
-        assert ord("C") ^ 0x40 == ord("\003")
+        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
         assert DSR6 == "\033[" "6n"
 
         # Scroll to make Rows in the South, if need be, like after:  seq 987
@@ -357,7 +390,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         kr = lbr.keyboard_reader
         kd = lbr.keyboard_decoder
 
-        assert ord("C") ^ 0x40 == ord("\003")
+        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
         assert unicodedata.name("¤").title() == "Currency Sign".title()
 
         # Eval each Input Frame
@@ -574,6 +607,8 @@ class Loopbacker:
 
     def __init__(self) -> None:
 
+        assert DSR5 == "\033[" "5n"
+
         tb = TerminalBoss()
         kr = tb.keyboard_reader
         sw = tb.screen_writer
@@ -581,6 +616,7 @@ class Loopbacker:
         kd = KeyboardDecoder()
 
         sco = ScreenChangeOrder()
+        time_time = sco.take_decode("\033[5n", yx=(kr.row_y, kr.column_x))
 
         self.terminal_boss = tb
         self.screen_writer = sw
@@ -588,6 +624,9 @@ class Loopbacker:
 
         self.keyboard_decoder = kd
         self.screen_change_order = sco
+        self.slow_time_time = time_time
+
+        # todo: limit fanout of pretending ⎋[5N came as last Input before Launch
 
     def __enter__(self) -> Loopbacker:
 
@@ -618,7 +657,7 @@ class Loopbacker:
         sw = self.screen_writer
         kr = self.keyboard_reader
 
-        assert SM_PS and RM_PS and SGR_PS and DECSCUSR
+        assert SM_PS and RM_PS and SGR_PS and DECSCUSR_PS
 
         if not flags.enter:
 
@@ -645,7 +684,7 @@ class Loopbacker:
         sw = self.screen_writer
         kr = self.keyboard_reader
 
-        assert ord("C") ^ 0x40 == ord("\003")
+        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
         assert CUU_Y == "\033[" "{}" "A"
         assert CUP_Y_X == "\033[" "{};{}H"
         assert ED_PS == "\033[" "{}" "J"
@@ -697,6 +736,7 @@ class Loopbacker:
 
         # Take in each Frame
 
+        clearing_screen_order = False
         for frame in frames:
             t1 = time.time()
 
@@ -731,6 +771,8 @@ class Loopbacker:
                 continue
 
             # Run the Order, after all of it arrives
+
+            clearing_screen_order = True
 
             slow_kdecode = slow_kencode.decode()
             slow_isprintable = slow_kdecode.isprintable()
@@ -777,6 +819,10 @@ class Loopbacker:
                 for _ in range(factor):
                     self.kdecode_cook_and_loop_back(slow_kdecode, intricate=sco.intricate)
 
+            assert clearing_screen_order, (slow_kencode, factor)
+            sco.key_byte_frame.clear_frame()  # reruns Factor for remaining Frames
+
+        if clearing_screen_order:
             sco.clear_order()
 
     def kdecode_cook_and_loop_back(self, decode: str, intricate: bool) -> None:
@@ -852,10 +898,11 @@ class Loopbacker:
             sw.write_some_controls(controls)
             return
 
-        # Show a brief Repr of other Encodes
+        # Show a brief loud Repr of any Unknown Encode arriving as Input
 
         if not intricate:
-            sw.write_printable(echo)
+            if echo != "⌃C":  # presumes ⌃C don't want this Echo here
+                sw.write_printable("<" + echo + ">")  # <⌃Y>
             return
 
         # But do forward well-known Csi & Osc Byte Sequences arriving as multiple Frames
@@ -955,8 +1002,13 @@ class Loopbacker:
             arrows = tuple(_ for _ in ("←", "↑", "→", "↓") if _ in join)
             if len(arrows) == 1:
                 arrow = arrows[-1]
+                assert arrow in ("←", "↑", "→", "↓"), (arrow, join)
+
                 arrow_control = kd.decode_by_kseq[arrow]
                 sw.write_control(arrow_control)
+                if (arrow in ("←", "→")) and flags.echo:
+                    sw.write_control(arrow_control)
+
                 return True
 
         # Else don't loop back here
@@ -1543,10 +1595,10 @@ SM_PS = "\033[" "{}" "h"  # CSI 06/08 4 Set Mode
 RM_PS = "\033[" "{}" "l"  # CSI 06/12 4 Reset Mode
 SGR_PS = "\033[" "{}" "m"  # CSI 06/13 Select Graphic Rendition [Text Style]
 DSR_PS = "\033[" "{}n"  # Csi 06/14 [Request] Device Status Report [Ps]
-DECSCUSR = "\033[" "{}" " q"  # CSI 06/15 [DEC] Set Cursor Style [Ps]  # Two Byte Backtail
+DECSCUSR_PS = "\033[" "{}" " q"  # CSI 06/15 [DEC] Set Cursor Style [Ps]  # Two Byte Backtail
 
-DSR6 = "\033[" "6n"  # Csi 06/14 [Request] Device Status Report  # Ps 6 Request CPR  # ⎋[6N
-CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R
+DSR5 = "\033[" "5n"  # DSR_PS Ps 5 for DSR0
+DSR6 = "\033[" "6n"  # DSR_PS Ps 6 for CPR_Y_X
 
 # ⎋[4H inserting  ⎋[4L replacing  ⎋[⇧?2004H paste-wrap  ⎋[⇧?2004L paste-unwrap
 # ⎋[?25H cursor-show  ⎋[?25L -hide  ⎋[6 Q -bar  ⎋[4 Q -skid  ⎋[ Q -unstyled
@@ -1677,6 +1729,16 @@ class KeyboardReader:
 
             assert mark in ("A", "B", "C", "D"), (mark, few)
             marks.append(mark)
+
+        if flags.clickruns and marks:
+
+            runs = b"".join(
+                b"\033[%d%b" % (len(list(g)), k.encode()) for k, g in itertools.groupby(marks)
+            )
+
+            alt_data = runs + after
+
+            return ("", alt_data)
 
         arrowheads = "".join(marks)
         return (arrowheads, after)
@@ -1840,10 +1902,12 @@ class KeyboardReader:
         return reads
 
     def read_yx_bytes(self) -> tuple[tuple[int, int], bytes]:
-        """Read one Byte, then call for Cursor Position, then block till it comes"""
+        """Read a Byte, call for Cursor Position, read Available Bytes till the Position comes"""
 
         tb = self.terminal_boss
+        sw = tb.screen_writer
 
+        assert _NorthArrow_ and _SouthArrow_ and _EastArrow_ and _WestArrow_
         assert DSR6 == "\033[" "6n"
         assert CPR_Y_X == "\033[" "{};{}R"
 
@@ -1859,14 +1923,25 @@ class KeyboardReader:
             read = tb.read_one_byte()
             ba.extend(read)
 
-            if row_y < 0:
-                m = re.search(rb"\033\[([0-9]+);([0-9]+)R$", string=ba)  # ⎋[{y};{x}⇧R
-                if not m:
+            if flags.clickarrows:
+                sm = re.search(rb"(\033\[[ABCD])$", string=ba)  # ⎋[⇧A ⎋[⇧B ⎋[⇧C ⎋[⇧D
+                if sm:
+                    n = len(sm.group(0))
+
+                    control = sm.group(0).decode()
+                    del ba[-n:]
+
+                    sw.write_control(control)
                     continue
 
-                n = len(m.group(0))
-                row_y = int(m.group(1))
-                column_x = int(m.group(2))
+            if row_y < 0:
+                sm = re.search(rb"\033\[([0-9]+);([0-9]+)R$", string=ba)  # ⎋[{y};{x}⇧R
+                if not sm:
+                    continue
+
+                n = len(sm.group(0))
+                row_y = int(sm.group(1))
+                column_x = int(sm.group(2))
 
                 del ba[-n:]
 
@@ -2878,6 +2953,10 @@ _SouthArrow_ = "\033[B"
 _EastArrow_ = "\033[C"
 _WestArrow_ = "\033[D"
 
+CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R
+
+DSR0 = "\033[" "0n"  # DSR_PS Ps 0
+
 _NorthwestArrow_ = "\033[↖"  # ⎋ [ ↖↗↘↙  # not yet standard
 _NortheastArrow_ = "\033[↗"
 _SoutheastArrow_ = "\033[↘"
@@ -3368,11 +3447,12 @@ def _try_unicode_source_texts_() -> None:
     #
 
     #
-    # The Apple MacBook Keyboard doesn't send U+2196..U+2199 Diagonal Arrows as such
+    # The Apple MacBook Keyboard
     #
-    #   ↖ ↗ ↘ ↙
+    #   does send its ← ↑ → ↓ keys classically encoded as ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+    #   doesn't send its ↖ ↗ ↘ ↙ double key jams encoded as ⎋ [ U+2196..U+2199 Diagonal Arrows
     #
-    # June/1993 Unicode 1.1.0 gave us these four, among its U+2190 .. U+219F Symbols And Arrows
+    # June/1993 Unicode 1.1.0 gave us ↖ ↗ ↘ ↙, among its U+2190 .. U+219F Symbols And Arrows
     #
 
     #
@@ -3446,14 +3526,22 @@ if __name__ == "__main__":
     main()
 
 
-# todo9: --egg=keycaps 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
-# todo9: --egg=resize to fit the Terminal to the Gameboard and vice versa
+# todo7: rename the ..._cook_and_loop_back
+
 
 # todo9: add Fn Keycaps
-
 # todo9: drop Keycaps specific to macOS Terminal, when elsewhere
 # todo9: add iTerm2 Keycaps
 # todo9: add Google Cloud Shell Keycaps
+
+
+# todo9: take bracketed-paste as print vertically
+# todo9: take unbracketed-paste as print vertically to left of rightmost tracked chars
+# todo9: take --egg=sigint ⏎ arriving as ⌃J as \n but then leap back to X
+
+
+# todo9: --egg=keycaps 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
+# todo9: --egg=resize to fit the Terminal to the Gameboard and vice versa
 
 # todo9: pick apart text key jams and unbracketed text paste
 
