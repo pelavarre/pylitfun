@@ -29,25 +29,25 @@ And can we roll our eyes over the large ⎋ Esc key delays? Press and release Es
 
 We decode what your terminal sends: instantly, simply, & correctly
 
-1. **Shifted arrow keys work**  
+1. **Shifted arrow keys work** <br>
    ⇧←, ⌥↓, and ⇧Fn→ decode correctly, all the while terminals send ambiguous byte sequences. We don't invent key presses that didn't happen, and we don't lose the modifier keys that you did press
 
-2. **⌥-Click goes where you clicked it**  
+2. **⌥-Click goes where you clicked it** <br>
    ⌥-Click works even across wrapped lines and in a Google Cloud Shell. We accept ⎋[⇧C and ⎋[⇧D as meaning wrap-across-edge for ⌥-Click, not an error to beep over
 
-3. **Zero ⎋ Esc key delay**  
+3. **Zero ⎋ Esc key delay** <br>
    We frame your input instantly & simply & correctly by sending ⎋[5N DSR5 queries for ⎋[0N DSR0 replies. When you release the ⎋ Esc key, we know immediately. We don't wait and wonder
 
-4. **Double-character keystrokes work**  
+4. **Double-character keystrokes work** <br>
    Try ⌥E J on macOS. You get '**j́**' (j with combining accent). Many terminal engines, including Emacs ⌃H K, then lose track, wrongly saying you pressed J without the ⌥E before that adds the aigu accent afterwards. We frame the ije'**j́**' from ⌥E J and the '**J́**' from ⌥E ⇧J correctly
 
-5. **Double-wide characters work too**  
+5. **Double-wide characters work too** <br>
    Characters like 😃 and **웃** and **襾** and **祝** and **￥** should take two columns, says Unicode. We make it so, at both odd and even columns. We don't chop double-wide characters in half. And we let your Terminal itself decide the width of characters like **¤**
 
-6. **Double-key jams work when they exist**
+6. **Double-key jams work when they exist** <br>
    Try press and release of both W and D at once. You & I know that's an an W D ↗ Northeast double-key jam. But many terminal engines insist those are two separate keys, chopped off to mean first W ↑ North and then A ← West, or to mean first A ← West and then  W ↑ North, distinctly and jankily. We don't push this problem on you. We frame all four of the W D ↗ Northeast, the A W ↖ Northwest, the A S ↙ Southeast, and the S D ↘ Southwest, no problem, every so often as your Terminal does send them
 
-7. **Free-form layout, cell by cell**  
+7. **Free-form layout, cell by cell** <br>
    We give widgets their choice of screen cells and scrollback cells to write. We don't force them to clear and fill rectangular panes. We don't lock them out of adding rows to the scrollback. We do help them move, grow, shrink, hide away, and return to the screen. We help them share the screen well with other widgets, and share it well with the terminal apps you ran before calling us
 
 
@@ -112,9 +112,9 @@ no longer running only as full-screen apps
 
 ## Controls
 
-- **⌃C** to quit
-- **Fn F1** for help  
-- **⌥-Click** to move the cursor
+- **⌃C** to quit <br>
+- **Fn F1** for help <br>
+- **⌥-Click** to move the cursor <br>
 
 
 ## Setup by Platform
