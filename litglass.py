@@ -355,8 +355,8 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         sw.print()
 
-        # todo8: toggle back out of @@@@@@@@@ or @@ or @
-        # todo8: take mouse hits to the Keyboard viewed
+        # todo9: --egg=keycaps: toggle back out of @@@@@@@@@ or @@ or @
+        # todo9: --egg=keycaps: take mouse hits to the Keyboard viewed
 
     def keycaps_gameboard_draw(self) -> None:
         """Draw the Gameboard"""
@@ -497,7 +497,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         sw = lbr.screen_writer
         (board_y, board_x) = gameboard_yx
 
-        # Don't switch Tabs for ⌃ Control and ⌥ Option Keys  # todo8:
+        # Don't switch Tabs for ⌃ Control and ⌥ Option Keys  # todo9: --egg=keycaps: do
 
         if any((_ in kseq) for _ in "⌃⌥"):
             return
@@ -518,7 +518,6 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
                 kseqs_shifters = ""
             elif kseq in ("↑", "↓"):  # could be ⇧↑ ⇧↓
                 assert "⇧" in kseqs_join, (kseqs_join, kseq)
-                # self.keycaps_print("SQUIRREL", kseq)  # todo7: why doesn't this scroll well?
             elif "⇧" not in kseqs_join:
                 kseqs_shifters = ""
 
@@ -612,9 +611,9 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         if not hits:
             unhit_kseqs.append([cap, kseqs])
 
-    # todo8: restart in each Keyboard viewed
-    # todo8: save/ load progress in each Keyboard viewed
-    # todo8: celebrate near to winning, and celebrate winning
+    # todo9: --egg=keycaps: restart in each Keyboard viewed
+    # todo9: --egg=keycaps: save/ load progress in each Keyboard viewed
+    # todo9: --egg=keycaps: celebrate near to winning, and celebrate winning
 
 
 #
@@ -794,6 +793,8 @@ class Loopbacker:
                     sw.write_control(f"\033[{y};{x}H")
                 self.kdecode_cook_and_loop_back(kdecode, intricate=False)
                 continue
+
+                # todo9: Delete the repeat-count when not-echo'ing the Key Byte Frame
 
             slow_kencode = self.one_frame_run_order(frame, t1=t1)
             if slow_kencode:
@@ -1029,7 +1030,7 @@ class Loopbacker:
         sw = self.screen_writer
         kd = self.keyboard_decoder
 
-        # Echo ⎋ Esc as such  # todo9: Accept the ⌃ ⌥ ⇧ Fn Shifting Keys into sco.kbf
+        # Echo ⎋ Esc as such
 
         if kseq in ("⎋", "⎋⎋"):
             sw.write_printable(kseq)
@@ -1396,10 +1397,18 @@ class ScreenChangeOrder:
             if not decode.isspace():
                 if not kbf:
 
-                    if not ScreenChangeOrder.is_int_value_error(lit_plus + "0"):
-                        self.int_literal = lit_plus
+                    try:
 
+                        x = lit_plus + "0"
+                        base_eq_0 = 0
+                        _ = int(x, base_eq_0)
+
+                        self.int_literal = lit_plus
                         return time_time
+
+                    except ValueError:
+
+                        pass
 
         # Grow the Frame
 
@@ -1416,17 +1425,7 @@ class ScreenChangeOrder:
         time_time = self.clear_order()
         return time_time
 
-    @staticmethod
-    def is_int_value_error(x: str) -> bool:
-        """Say if is Int Literal"""
-
-        base_eq_0 = 0
-
-        try:
-            _ = int(x, base_eq_0)
-            return False
-        except ValueError:
-            return True
+        # todo9: Accept the shifting Symbols of ⎋ ⌃ ⌥ ⇧ ⌘ Fn into the Screen Change Order
 
 
 #
@@ -3624,22 +3623,20 @@ if __name__ == "__main__":
 # todo7: rename the ..._cook_and_loop_back
 
 
-# todo9: add Fn Keycaps
-# todo9: drop Keycaps specific to macOS Terminal, when elsewhere
-# todo9: add iTerm2 Keycaps
-# todo9: add Google Cloud Shell Keycaps
+# todo8: drop Keycaps specific to macOS Terminal, when elsewhere
+# todo8: add iTerm2 Keycaps
+# todo8: add Google Cloud Shell Keycaps
 
 
 # todo9: take bracketed-paste as print vertically
 # todo9: take unbracketed-paste as print vertically to left of rightmost tracked chars
 
 
-# todo9: --egg=keycaps 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
+# todo9: --egg=keycaps: add Keycaps of 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
 # todo9: --egg=resize to fit the Terminal to the Gameboard and vice versa
 
 # todo9: pick apart text key jams and unbracketed text paste
 
-# todo9: echo input well, like to show ⎋ [ ' 2 is two Frames:  ⎋[' and 2
 # todo9: show settings
 # todo9: place input echoes on the side
 # todo9: vs scroll while echo of ScreenChangeOrder's in the far Southeast

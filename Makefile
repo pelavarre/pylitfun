@@ -98,6 +98,10 @@ push:  # as in do push now, without rerunning any tests
 	git push
 
 
+sense: black flake8 mypy
+	:
+
+
 smoke: black flake8 mypy
 	:
 
