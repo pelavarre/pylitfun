@@ -1016,6 +1016,7 @@ class Loopbacker:
     def kseqs_cook_and_loop_back(self, decode: str, intricate: bool) -> bool:
         """Interpret the Keycaps of the Frame, else return False"""
 
+        kr = self.keyboard_reader
         kd = self.keyboard_decoder
 
         frame = decode.encode()
@@ -1036,12 +1037,25 @@ class Loopbacker:
 
         # Loop back a few Key Chord Byte Sequences unchanged
 
-        loopable_kseqs = ("⌃G", "⌃H", "⇥", "⌃J", "⌃K", "⇧⇥")
+        loopable_kseqs = ("⌃G", "⌃H", "⇥", "⌃K", "⇧⇥")
         if kseq in loopable_kseqs:
-            sw.write_control(decode)  # ⎋[⇧Z for ⇧⇥, etc
+            sw.write_control(decode)  # ⌃I for ⇥, ⎋[⇧Z for ⇧⇥, etc
+            return True
+        if kseq in ("⎋", "⎋⎋"):
+            sw.write_printable(kseq)
             return True
 
-        # Loop back ⌃M ⏎ Return as CR LF
+        # Loop back ⌃J encoding of ⏎ Return as ⌃J ⎋[ ⇧G column-leap
+
+        if kseq == "⌃J":
+            if not flags.sigint:
+                sw.write_control(decode)  # ⌃J for ⌃J
+            else:
+                x = kr.column_x
+                sw.write_some_controls(["\n", f"\033[{x}G"])  # "\n" lands as "\r\n"
+            return True
+
+        # Loop back ⌃M encoding of ⏎ Return as CR LF
 
         if kseq == "⏎":
             sw.write_some_controls(["\r", "\n"])
@@ -3608,7 +3622,6 @@ if __name__ == "__main__":
 
 
 # todo7: rename the ..._cook_and_loop_back
-# todo7: take --egg=sigint ⏎ arriving as ⌃J as \n but then leap back to X
 
 
 # todo9: add Fn Keycaps
