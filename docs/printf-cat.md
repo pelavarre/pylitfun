@@ -1,9 +1,9 @@
 # printf-cat
 
-You can just try things. Inside an actual Terminal, they do go more or less well
+Terminals got bugs
 
 
-## Terminal Things that go well
+## Terminal Tests that commonly go well
 
 
 ### The classic four Arrows in order
@@ -17,7 +17,7 @@ Press and release the ↑ ↓ → ← Arrow Keys in this order: Up, Down, Right,
     ^[[A ^[[B ^[[C ^[[D
 
 
-## Terminal Things that don't thing well
+## Terminal Tests that commonly go wrong
 
 
 ### The Shifted Arrow Key Chords
@@ -32,7 +32,7 @@ Hold down ⇧ Shift and press and release the → Right and ← Left Arrow Keys.
 
 But try your Google Cloud Shell inside macOS Safari, and it will tell you that you've pressed no keys at all. The different Terminals disagree over which Key Chords to say you have and haven't pressed
 
-Look closer next, and you'll see they also disagree over which Byte Encodings to send in, even when they do agree to say you have pressed a Key Chord. To see a broad sparkling variety of opinions, try a broad variety of Arrow Key Chords, such as these eight kinds
+Look closer next, and you'll see Terminals also disagree over which Byte Encodings to send in, even when they do agree to say you have pressed a Key Chord. To see a sparkling variety of opinions, try a broad variety of Arrow Key Chords, such as these eight kinds
 
 > ↑ ↓ → ← <br>
 > ⌃↑ ⌃↓ ⌃→ ⌃← <br>
@@ -71,7 +71,7 @@ Your ⌥-Click moves the Cursor back and forth inside a Screen Row, yes no probl
 
 But next try ⌥-Click to move into another Line. The Cursor leaps to the start or end of the Current Line, and the Terminal beeps. Oops
 
-What's happening inside is that Vim rejects ⎋[⇧C and ⎋[⇧D Byte Encodings of the → and ← arrows when they arrive at the start or end of a Vim Line.
+What's happening inside is that Vim rejects ⎋[⇧C and ⎋[⇧D Byte Encodings of the → and ← Arrow Keys when they arrive at the start or end of a Vim Line. But the macOS Terminal feels that sending one ⎋[⇧C or ⎋[⇧D per Column should mean move across a Row, especially the Rows above the last Row of a Wrapped Line. Oops
 
 And next try Emacs in place of Vim. Now the Cursor overshoots wildly. Sure it goes towards where you asked, but it keeps on going farther on its own, it doesn't stop
 
@@ -82,11 +82,11 @@ What's happening inside is that Emacs does accept ⎋[⇧C and ⎋[⇧D Byte Enc
 
 Try a different couple of places to look at EchoCtl encodings of Key Chords
 
-First inside the default ⎋[ ?1049L Main Screen
+First try the ⌥-Click inside the default ⎋[ ?1049L Main Screen
 
     cat - >/dev/null
 
-But then also inside the ⎋[ ?1049H Alt Screen
+But then also try the ⌥-Click inside the ⎋[ ?1049H Alt Screen
 
     printf '\033[''?1049h' && sleep 3.456 && printf '\033[''?1049l'
 
@@ -105,7 +105,17 @@ How about you?
 
 Got another Terminal bug you know?
 
-How about we celebrate them here, soon after we first meet them?
+Let's celebrate them here, soon after we first meet them?
+
+
+<!--
+
+You can show macOS Terminal asymmetrically only wraps ⎋[⇧D ← back into the start of a Wrapped Line, and doesn't also wrap ⎋[⇧C → into the end of a Wrapped Line, if you dig in so deep as to call
+
+> seq 99 |xargs <br>
+> python3 ./litglass.py --egg=clickruns <br>
+
+-->
 
 
 <!--
