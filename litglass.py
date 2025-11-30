@@ -332,14 +332,14 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
                 splits = text.split("⇧")
                 for index, split in enumerate(splits):
                     if index:
-                        sw.write_one_control("\033[7m")  # ⎋[7M style-reverse
+                        sw.write_control("\033[7m")  # ⎋[7M style-reverse
                         sw.write("⇧")
-                        sw.write_one_control("\033[m")  # ⎋[M style-plain
+                        sw.write_control("\033[m")  # ⎋[M style-plain
                     sw.write(split)
 
                 # todo: can we more simply code this idea of highlighting the ⇧ Shift Lock?
 
-            sw.write_one_control("\033[K")
+            sw.write_control("\033[K")
 
             sw.write_some_controls(["\r", "\n"])
 
@@ -376,7 +376,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
                 self.keycaps_switch_tab_if(kseqs)
                 self.keycaps_press_keys_if(kseqs, unhit_kseqs)
 
-        sw.write_one_control(f"\033[{row_y};{column_x}H")  # row-column-leap ⎋[⇧H
+        sw.write_control(f"\033[{row_y};{column_x}H")  # row-column-leap ⎋[⇧H
 
         if unhit_kseqs:
             if frames != (b"\003",):
@@ -403,25 +403,25 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
             y3 = y - 3
             scrollable = scrollables.pop(0)
 
-            sw.write_one_control(f"\033[{y3};{x}H")  # row-column-leap ⎋[⇧H
-            sw.write_one_control("\033[M")  # rows-delete ⎋[⇧M
+            sw.write_control(f"\033[{y3};{x}H")  # row-column-leap ⎋[⇧H
+            sw.write_control("\033[M")  # rows-delete ⎋[⇧M
 
-            sw.write_one_control("\033[H")  # row-column-leap ⎋[⇧H
-            sw.write_one_control("\033[L")  # rows-insert ⎋[⇧L
+            sw.write_control("\033[H")  # row-column-leap ⎋[⇧H
+            sw.write_control("\033[L")  # rows-insert ⎋[⇧L
             sw.write(scrollable)  # todo9: .keycaps_print wider than screen
-            sw.write_one_control("\033[K")  # row-tail-erase ⎋[⇧K
+            sw.write_control("\033[K")  # row-tail-erase ⎋[⇧K
 
-            sw.write_one_control("\033[32100H")  # row-column-leap ⎋[⇧H
-            sw.write_one_control("\n")
+            sw.write_control("\033[{32100}H")  # row-column-leap ⎋[⇧H
+            sw.write_control("\n")
 
-            sw.write_one_control(f"\033[{y - 1};{x}H")  # row-column-leap ⎋[⇧H
-            sw.write_one_control("\033[L")  # rows-insert ⎋[⇧L
+            sw.write_control(f"\033[{y - 1};{x}H")  # row-column-leap ⎋[⇧H
+            sw.write_control("\033[L")  # rows-insert ⎋[⇧L
 
         sw.write(text)  # todo9: .keycaps_print wider than screen
-        sw.write_one_control("\033[K")  # row-tail-erase ⎋[⇧K
+        sw.write_control("\033[K")  # row-tail-erase ⎋[⇧K
 
         scrollables.append(text)
-        sw.write_one_control(f"\033[{yn};{x}H")  # row-column-leap ⎋[⇧H
+        sw.write_control(f"\033[{yn};{x}H")  # row-column-leap ⎋[⇧H
 
     def keycaps_switch_tab_if(self, kseqs: tuple[str, ...]) -> None:
         """Switch to next Keyboard View when a Key is struck out there"""
@@ -469,7 +469,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         shifters = kseqs_shifters
         self.shifters = shifters
 
-        sw.write_one_control(f"\033[{board_y};{board_x}H")  # row-column-leap ⎋[⇧H
+        sw.write_control(f"\033[{board_y};{board_x}H")  # row-column-leap ⎋[⇧H
         self.keycaps_gameboard_draw()
 
     def keycaps_press_keys_if(self, kseqs: tuple[str, ...], unhit_kseqs: list[object]) -> None:
@@ -533,15 +533,15 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
             y = board_y + len(found_lines)
             x = board_x + len(dent) + len(found_lines[-1]) - 1
 
-            sw.write_one_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
+            sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
             # Wipe out this Keycap
 
             width = len(cap)  # width 1 except for len('Spacebar')
 
-            sw.write_one_control("\033[1m")  # ⎋[1M style-bold
+            sw.write_control("\033[1m")  # ⎋[1M style-bold
             sw.write_printable(width * "¤")
-            sw.write_one_control("\033[m")  # ⎋[M style-plain
+            sw.write_control("\033[m")  # ⎋[M style-plain
 
             # Wipe out only "F1" and not the "F1" in "F12", etc
 
@@ -600,15 +600,15 @@ class Loopbacker:
         tb.__enter__()
 
         if not flags.enter:
-            sw.write_one_control("\033[?2004h")  # paste-wrap
+            sw.write_control("\033[?2004h")  # paste-wrap
 
         if flags.scroll:
 
             (h, w, y, x) = kr.sample_hwyx()  # todo9: more automagic Cursor Y X Reads
             if y > 1:
-                sw.write_one_control(f"\033[{y - 1}S")  # ⎋[⇧S south-rows-insert
+                sw.write_control(f"\033[{y - 1}S")  # ⎋[⇧S south-rows-insert
 
-            sw.write_one_control("\033[?1049h")  # alt-screen ⎋[⇧?1049H
+            sw.write_control("\033[?1049h")  # alt-screen ⎋[⇧?1049H
 
         return self
 
@@ -622,19 +622,19 @@ class Loopbacker:
 
         if not flags.enter:
 
-            sw.write_one_control("\033[?2004l")  # paste-unwrap ⎋[?2004L
+            sw.write_control("\033[?2004l")  # paste-unwrap ⎋[?2004L
 
         if not flags._exit_:
 
-            sw.write_one_control("\033[m")  # plain ⎋[M vs other ⎋[ M
-            sw.write_one_control("\033[ q")  # cursor-unstyled ⎋[␢Q vs other ⎋[ Q
-            sw.write_one_control("\033[4l")  # replacing ⎋[4L vs ⎋[4H
-            sw.write_one_control("\033[?25h")  # cursor-show ⎋[⇧?25H vs ⎋[?25L
+            sw.write_control("\033[m")  # plain ⎋[M vs other ⎋[ M
+            sw.write_control("\033[ q")  # cursor-unstyled ⎋[␢Q vs other ⎋[ Q
+            sw.write_control("\033[4l")  # replacing ⎋[4L vs ⎋[4H
+            sw.write_control("\033[?25h")  # cursor-show ⎋[⇧?25H vs ⎋[?25L
 
-            sw.write_one_control("\033[6n")  # todo9: more automagic Cursor Y X Reads
+            sw.write_control("\033[6n")  # todo9: more automagic Cursor Y X Reads
             kr.read_bytes()
-            sw.write_one_control("\033[?1049l")  # main-screen ⎋[⇧?1049L vs ⎋[⇧?1049H
-            sw.write_one_control(f"\033[{kr.row_y};{kr.column_x}H")  # row-column-leap ⎋[⇧H
+            sw.write_control("\033[?1049l")  # main-screen ⎋[⇧?1049L vs ⎋[⇧?1049H
+            sw.write_control(f"\033[{kr.row_y};{kr.column_x}H")  # row-column-leap ⎋[⇧H
 
         tb.__exit__(*args)
 
@@ -684,9 +684,9 @@ class Loopbacker:
                 break
 
         if not flags._exit_:
-            sw.write_one_control("\033[32100H")  # cursor-unstyled ⎋[32100⇧H
-            sw.write_one_control("\033[A")  # 1 ↑ ⎋[⇧A
-            sw.write_one_control("\033[J")  # after-erase ⎋[⇧J  # simpler than ⎋[0⇧J
+            sw.write_control("\033[32100H")  # cursor-unstyled ⎋[32100⇧H
+            sw.write_control("\033[A")  # 1 ↑ ⎋[⇧A
+            sw.write_control("\033[J")  # after-erase ⎋[⇧J  # simpler than ⎋[0⇧J
 
     def some_frames_loop_back(self, frames: tuple[bytes, ...]) -> None:
         """Collect Input Frames over time as a Screen Change Order"""
@@ -720,7 +720,7 @@ class Loopbacker:
             if not (sco.forceful or sco.intricate):
                 if flags.echo:
                     self.frame_write_echo(frame)
-                    sw.write_one_control(f"\033[{y};{x}H")
+                    sw.write_control(f"\033[{y};{x}H")
                 self.kdecode_cook_and_loop_back(kdecode, intricate=False)
                 continue
 
@@ -757,20 +757,20 @@ class Loopbacker:
 
                 self.frame_write_echo("⌃m".encode() if (frame == b"\r") else frame)  # ⌃M
 
-                sw.write_one_control(f"\033[{row_y};{column_x}H")
+                sw.write_control(f"\033[{row_y};{column_x}H")
                 kr.row_y = row_y
                 kr.column_x = column_x
 
                 if slow_isprintable:
                     sw.write_printable(slow_kdecode)
                 else:
-                    sw.write_one_control(slow_kdecode)
+                    sw.write_control(slow_kdecode)
 
             else:  # echoes and cooks and leaps and writes
 
                 self.frame_write_echo(frame)
 
-                sw.write_one_control(f"\033[{row_y};{column_x}H")
+                sw.write_control(f"\033[{row_y};{column_x}H")
                 kr.row_y = row_y
                 kr.column_x = column_x
 
@@ -805,7 +805,7 @@ class Loopbacker:
 
         loopable_decodes = ("\0337", "\0338", "\033D", "\033E", "\033M")
         if decode in loopable_decodes:
-            sw.write_one_control(decode)
+            sw.write_control(decode)
             return
 
         # Block the heavy hammer of ⎋C and the complex hammer of ⎋L
@@ -820,7 +820,7 @@ class Loopbacker:
             # lots of Shell 'clear' get this wrong, including Oct/2024 Sequoia macOS 15
 
         if decode == "\033l":  # ⎋L terminal-confuse to ⎋[⇧H row-column-leap
-            sw.write_one_control("\033[H")
+            sw.write_control("\033[H")
             return
 
         # Leap the Cursor to the ⌥-Click  # todo9: also ⎋[⇧M Click Releases
@@ -830,7 +830,7 @@ class Loopbacker:
 
         if (marks == b"<m") and (len(ints) == 3):
             (b, x, y) = ints  # todo: bounds check on Click Release
-            sw.write_one_control(f"\033[{y};{x}H")
+            sw.write_control(f"\033[{y};{x}H")
             sw.write_printable("@")  # '@' to make ⌥-Click's visible
             return
 
@@ -864,7 +864,7 @@ class Loopbacker:
         for e in echo:
             sw.write_printable(e)
             kr.row_y = min(kr.y_high, kr.row_y + 1)
-            sw.write_one_control(f"\033[{kr.row_y};{kr.column_x}H")
+            sw.write_control(f"\033[{kr.row_y};{kr.column_x}H")
 
     def csi_osc_cook_and_loop_back(self, decode: str) -> bool:
 
@@ -876,11 +876,11 @@ class Loopbacker:
         if decode.startswith("\033["):
 
             if decode[-1] in "@" "ABCDEFGHIJKLM" "P" "ST" "Z" "d" "f" "h" "lm" "q":
-                sw.write_one_control(decode)
+                sw.write_control(decode)
                 return True
 
             if decode[-1] in "nt":
-                sw.write_one_control(decode)
+                sw.write_control(decode)
                 return True
 
             # Emulate Columns Insert/ Delete by Csi
@@ -896,7 +896,7 @@ class Loopbacker:
 
         if decode.startswith("\033]"):
             if decode in ("\033]11;?\007", "\033]11;?\033\134"):
-                sw.write_one_control(decode)  # ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
+                sw.write_control(decode)  # ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
                 return True
 
             # todo: Accept only the Osc understood by our Class ScreenWriter
@@ -928,7 +928,7 @@ class Loopbacker:
 
         loopable_kseqs = ("⌃G", "⌃H", "⇥", "⌃J", "⌃K", "⇧⇥")
         if kseq in loopable_kseqs:
-            sw.write_one_control(decode)  # ⎋[⇧Z for ⇧⇥, etc
+            sw.write_control(decode)  # ⎋[⇧Z for ⇧⇥, etc
             return True
 
         # Loop back ⌃M ⏎ Return as CR LF
@@ -952,7 +952,7 @@ class Loopbacker:
             if len(arrows) == 1:
                 arrow = arrows[-1]
                 arrow_control = kd.decode_by_kseq[arrow]
-                sw.write_one_control(arrow_control)
+                sw.write_control(arrow_control)
                 return True
 
         # Else don't loop back here
@@ -988,9 +988,9 @@ class Loopbacker:
         #
 
         for y in range(Y1, y_high + 1):
-            sw.write_one_control(f"\033[{y}d")
-            sw.write_one_control(f"\033[{pn}P" if deleting else f"\033[{pn}@")
-        sw.write_one_control(f"\033[{row_y}d")
+            sw.write_control(f"\033[{y}d")
+            sw.write_control(f"\033[{pn}P" if deleting else f"\033[{pn}@")
+        sw.write_control(f"\033[{row_y}d")
 
         # Apple & Google lack ⎋['⇧} cols-insert
 
@@ -1021,8 +1021,8 @@ class Loopbacker:
             frame_t1t0 = 0e0
             y += 1  # todo: 'row_y > y_high' happens here  # todo: update Y X shadow
 
-            sw.write_one_control("\n")
-            sw.write_one_control(f"\033[{y};{x}H")
+            sw.write_control("\n")
+            sw.write_control(f"\033[{y};{x}H")
 
     def frames_write_one_repr(
         self, frames: tuple[bytes, ...], frame_index: int, t1t0: float
@@ -1476,11 +1476,11 @@ class ScreenWriter:
         """Write the Byte Encodings of >= 0 Unprintable Control Texts"""
 
         for text in texts:
-            self.write_one_control(text)
+            self.write_control(text)
 
         # may write zero controls
 
-    def write_one_control(self, text: str) -> None:
+    def write_control(self, text: str) -> None:
         """Write the Byte Encodings of one Unprintable Control Text"""
 
         if not text:
@@ -1747,7 +1747,7 @@ class KeyboardReader:
 
         assert CPR_Y_X == "\033[" "{};{}R"
 
-        sw.write_one_control("\033[6n")
+        sw.write_control("\033[6n")
         cpryx = self.read_bytes()
         (h, w, y, x) = (self.y_high, self.x_wide, self.row_y, self.column_x)
 
@@ -2384,7 +2384,8 @@ ICH_X = "\033[" "{}" "@"  # Csi 04/00 [Insert] Cursor Horizontal [Pn] [Columns]
 CUU_Y = "\033[" "{}" "A"  # Csi 04/01 Cursor Up [Pn] [Rows]
 CUP_Y_X = "\033[" "{};{}H"  # Csi 04/08 [Choose] Cursor Position [Y and X]
 ED_PS = "\033[" "{}" "J"  # CSI 04/10 Erase in Display  # 0 Tail # 1 Head # 2 Rows # 3 Scrollback
-EL_PS = "\033[" "{}" "K"  # CSI 04/11 Erase in Line  # 0 Tail # 1 Head # 2 Row
+EL_PS = "\033[" "{}" "K"  # CSI 04/11 Erase in Line [Row]  # 0 Tail # 1 Head # 2 Row
+IL_Y = "\033[" "{}" "L"  # Csi 04/12 Insert Line [Row]
 DL_Y = "\033[" "{}M"  # Csi 04/13 Delete Line [Row]
 
 VPA_Y = "\033[" "{}" "d"  # Csi 06/04 Vertical Position Absolute [Row]
