@@ -320,12 +320,13 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         sw.print()
         for line in splitlines:
+
             text = dent + line + dent
+            if shifters == "⇧":
+                text = text.replace("F1 F2 F3 F4", "<> <> <> <>")
 
             if shifters != "⇧":
-
                 sw.write(text)
-
             else:
 
                 splits = text.split("⇧")
@@ -379,9 +380,9 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         if unhit_kseqs:
             if frames != (b"\003",):
-                self.keycaps_scroll_print(unhit_kseqs, "Keycap not found", frames)
+                self.keycaps_print(unhit_kseqs, "Keycap not found", frames)
 
-    def keycaps_scroll_print(self, *args: object) -> None:
+    def keycaps_print(self, *args: object) -> None:
 
         lbr = self.loopbacker  # todo9: layer KeyboardViewer over TerminalBoss?
         kr = lbr.keyboard_reader
@@ -407,7 +408,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
             sw.write_one_control("\033[H")  # row-column-leap ⎋[⇧H
             sw.write_one_control("\033[L")  # rows-insert ⎋[⇧L
-            sw.write(scrollable)  # todo9: .keycaps_scroll_print wider than screen
+            sw.write(scrollable)  # todo9: .keycaps_print wider than screen
             sw.write_one_control("\033[K")  # row-tail-erase ⎋[⇧K
 
             sw.write_one_control("\033[32100H")  # row-column-leap ⎋[⇧H
@@ -416,7 +417,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
             sw.write_one_control(f"\033[{y - 1};{x}H")  # row-column-leap ⎋[⇧H
             sw.write_one_control("\033[L")  # rows-insert ⎋[⇧L
 
-        sw.write(text)  # todo9: .keycaps_scroll_print wider than screen
+        sw.write(text)  # todo9: .keycaps_print wider than screen
         sw.write_one_control("\033[K")  # row-tail-erase ⎋[⇧K
 
         scrollables.append(text)
@@ -435,6 +436,11 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         sw = lbr.screen_writer
         (board_y, board_x) = gameboard_yx
 
+        # Don't switch Tabs for ⌃ Control and ⌥ Option Keys  # todo8:
+
+        if any((_ in kseq) for _ in "⌃⌥"):
+            return
+
         # Change Keyboard Choice, or don't
 
         kseqs_shifters = shifters
@@ -449,8 +455,9 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
             assert shifters == "⇧", (shifters,)
             if kseq in string.ascii_uppercase:
                 kseqs_shifters = ""
-            elif kseq in ("↑", "↓"):  # despite could be ⌥⇧↑ ⌥⇧↓
-                kseqs_shifters = ""
+            elif kseq in ("↑", "↓"):  # could be ⇧↑ ⇧↓
+                assert "⇧" in kseqs_join, (kseqs_join, kseq)
+                # self.keycaps_print("SQUIRREL", kseq)  # todo7: why doesn't this scroll well?
             elif "⇧" not in kseqs_join:
                 kseqs_shifters = ""
 
@@ -496,14 +503,17 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
             cap = "Spacebar"
         elif kseq in tuple(string.ascii_uppercase):
             cap = kseq.lower()
-        elif kseq == ("⇧" + kseq[-1]):
-            cap = kseq[-1]
+        elif kseq.startswith("⇧"):
+            cap = kseq.removeprefix("⇧")
 
         # Wipe out each Keycap when pressed
 
+        cap_is_esc = cap == "⎋"
+        cap_is_fn = cap.startswith("F") and cap.removeprefix("F")
+
         suffix_kseqs = ("␢", "←", "↑", "→", "↓", "⇧←", "⇧→")
         hittable = dedent if kseq in suffix_kseqs else removesuffix
-        find = len(splitlines[0]) if cap != "⎋" else -1
+        find = -1 if (cap_is_esc or cap_is_fn) else len(splitlines[0])
 
         hits = 0
         while True:
@@ -532,6 +542,11 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
             sw.write_one_control("\033[1m")  # ⎋[1M style-bold
             sw.write_printable(width * "¤")
             sw.write_one_control("\033[m")  # ⎋[M style-plain
+
+            # Wipe out only "F1" and not the "F1" in "F12", etc
+
+            if cap_is_fn:
+                break
 
         if not hits:
             unhit_kseqs.append([cap, kseqs])
@@ -795,9 +810,14 @@ class Loopbacker:
 
         # Block the heavy hammer of ⎋C and the complex hammer of ⎋L
 
-        if decode == "\033c":  # ⎋C to ⎋[3⇧J ⎋[⇧H ⎋[2⇧J screen-erase
-            sw.write_some_controls(["\033[3J", "\033[H", "\033[2J"])
+        if decode == "\033c":  # ⎋C to ⎋[⇧H ⎋[2⇧J ⎋[3⇧J screen/ scrollback erase
+            sw.write_some_controls(["\033[H", "\033[2J", "\033[3J"])
             return
+
+            # always works:  macOS ⌘K
+            # always works:  seq 987 && printf '\e[H''\e[2J''\e[3J'
+            # not so much:  seq 987 && printf '\e[3J''\e[H''\e[2J'
+            # lots of Shell 'clear' get this wrong, including Oct/2024 Sequoia macOS 15
 
         if decode == "\033l":  # ⎋L terminal-confuse to ⎋[⇧H row-column-leap
             sw.write_one_control("\033[H")
@@ -2613,6 +2633,51 @@ class KeyboardDecoder:
         }
 
         for k, v in d4.items():
+            assert k not in decode_by_kseq.keys(), (k,)
+            decode_by_kseq[k] = v
+
+        # Add the Fn Keys and the ⇧Fn keys
+
+        d5 = {
+            #
+            r"F1": "\033O" "P",  # ⎋OP
+            r"F2": "\033O" "Q",  # ⎋OQ
+            r"F3": "\033O" "R",  # ⎋OR
+            r"F4": "\033O" "S",  # ⎋OS
+            r"F5": "\033[" "15~",  # ⎋[15⇧~
+            r"F6": "\033[" "17~",  # ⎋[17⇧~
+            r"F7": "\033[" "18~",  # ⎋[18⇧~
+            r"F8": "\033[" "19~",  # ⎋[19⇧~
+            r"F9": "\033[" "20~",  # ⎋[20⇧~
+            r"F10": "\033[" "21~",  # ⎋[21⇧~
+            r"F11": "\033[" "23~",  # ⎋[23⇧~  # Apple takes F11
+            r"F12": "\033[" "24~",  # ⎋[24⇧~
+            #
+            # r"⇧F1": ...  # macOS Terminal defaults to block ⇧F1 ⇧F2 ⇧F3 ⇧F4
+            # r"⇧F2": ...
+            # r"⇧F3": ...
+            # r"⇧F4": ...
+            r"⇧F5": "\033[" "25~",  # ⎋[25⇧~
+            r"⇧F6": "\033[" "26~",  # ⎋[26⇧~
+            r"⇧F7": "\033[" "28~",  # ⎋[28⇧~
+            r"⇧F8": "\033[" "29~",  # ⎋[29⇧~
+            r"⇧F9": "\033[" "31~",  # ⎋[31⇧~
+            r"⇧F10": "\033[" "32~",  # ⎋[32⇧~
+            r"⇧F11": "\033[" "33~",  # ⎋[33⇧~
+            r"⇧F12": "\033[" "34~",  # ⎋[34⇧~
+        }
+
+        for k, v in d5.items():
+            assert k not in decode_by_kseq.keys(), (k,)
+            decode_by_kseq[k] = v
+
+        # Add more ⌃⌥⇧ Shiftings of Fn Keys
+
+        d6 = {
+            r"⌥F6": d5["F11"],
+        }
+
+        for k, v in d6.items():
             assert k not in decode_by_kseq.keys(), (k,)
             decode_by_kseq[k] = v
 
