@@ -112,9 +112,9 @@ def main() -> None:
         kv = KeyboardViewer(lbr)
 
         if flags.keycaps:
-            kv.trace_key_releases_till()
+            kv.keycaps_run_awhile()
         else:
-            lbr.loop_back_till()
+            lbr.loopbacker_run_awhile()
 
 
 def arg_doc_to_parser(doc: str) -> ArgDocParser:
@@ -199,6 +199,9 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
     loopbacker: Loopbacker
     gameboard_yx: tuple[int, ...]
     shifters: str  # todo: dump/ load Keycaps Games
+    scrollables: list[str]  # Rows printed
+
+    MAX_SCROLLABLES_3 = 3
 
     # Lay out 6 Rows per Keyboard  # todo: measure how high, don't guess
 
@@ -232,8 +235,9 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         self.loopbacker = loopbacker
         self.gameboard_yx = tuple()
         self.shifters = ""  # none of ⎋ ⌃ ⌥ ⇧
+        self.scrollables = list()
 
-    def trace_key_releases_till(self) -> None:
+    def keycaps_run_awhile(self) -> None:
         """Trace Key Releases till ⌃C"""
 
         lbr = self.loopbacker
@@ -375,7 +379,48 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         if unhit_kseqs:
             if frames != (b"\003",):
-                sw.print(unhit_kseqs, "Keycap not found", frames)
+                self.keycaps_scroll_print(unhit_kseqs, "Keycap not found", frames)
+
+    def keycaps_scroll_print(self, *args: object) -> None:
+
+        lbr = self.loopbacker  # todo9: layer KeyboardViewer over TerminalBoss?
+        kr = lbr.keyboard_reader
+        sw = lbr.screen_writer
+
+        scrollables = self.scrollables
+
+        assert KeyboardViewer.MAX_SCROLLABLES_3 == 3
+
+        text = " ".join(str(_) for _ in args)
+
+        (y, x) = (kr.row_y, kr.column_x)
+
+        yn = y + 1
+        if len(scrollables) >= 3:
+            yn = y
+
+            y3 = y - 3
+            scrollable = scrollables.pop(0)
+
+            sw.write_one_control(f"\033[{y3};{x}H")  # row-column-leap ⎋[⇧H
+            sw.write_one_control("\033[M")  # rows-delete ⎋[⇧M
+
+            sw.write_one_control("\033[H")  # row-column-leap ⎋[⇧H
+            sw.write_one_control("\033[L")  # rows-insert ⎋[⇧L
+            sw.write(scrollable)  # todo9: .keycaps_scroll_print wider than screen
+            sw.write_one_control("\033[K")  # row-tail-erase ⎋[⇧K
+
+            sw.write_one_control("\033[32100H")  # row-column-leap ⎋[⇧H
+            sw.write_one_control("\n")
+
+            sw.write_one_control(f"\033[{y - 1};{x}H")  # row-column-leap ⎋[⇧H
+            sw.write_one_control("\033[L")  # rows-insert ⎋[⇧L
+
+        sw.write(text)  # todo9: .keycaps_scroll_print wider than screen
+        sw.write_one_control("\033[K")  # row-tail-erase ⎋[⇧K
+
+        scrollables.append(text)
+        sw.write_one_control(f"\033[{yn};{x}H")  # row-column-leap ⎋[⇧H
 
     def keycaps_switch_tab_if(self, kseqs: tuple[str, ...]) -> None:
         """Switch to next Keyboard View when a Key is struck out there"""
@@ -491,9 +536,6 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         if not hits:
             unhit_kseqs.append([cap, kseqs])
 
-    # todo7: say three Chat Rows is plenty
-    # todo7: scroll the Chat Rows up into the Screen Scrollback
-
     # todo8: restart in each Keyboard viewed
     # todo8: save/ load progress in each Keyboard viewed
     # todo8: celebrate near to winning, and celebrate winning
@@ -581,7 +623,7 @@ class Loopbacker:
 
         tb.__exit__(*args)
 
-    def loop_back_till(self) -> None:
+    def loopbacker_run_awhile(self) -> None:
         """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
 
         tb = self.terminal_boss
