@@ -322,7 +322,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         # Place the Gameboard
 
-        (h, w, y, x, _) = kr.sample_hwyx()  # todo9: more automagic Cursor Y X Reads
+        (h, w, y, x) = kr.sample_hwyx()
 
         assert h >= high, (h, high)  # todo: negotiate Height more gracefully
         assert w >= wide, (w, wide)  # todo: negotiate Width more gracefully
@@ -670,7 +670,7 @@ class Loopbacker:
 
         if flags.scroll:
 
-            (h, w, y, x, _) = kr.sample_hwyx()  # todo9: more automagic Cursor Y X Reads
+            (h, w, y, x) = kr.sample_hwyx()
             if y > 1:
                 sw.write_control(f"\033[{y - 1}S")  # ⎋[⇧S south-rows-insert
 
@@ -697,10 +697,9 @@ class Loopbacker:
             sw.write_control("\033[4l")  # replacing ⎋[4L vs ⎋[4H
             sw.write_control("\033[?25h")  # cursor-show ⎋[⇧?25H vs ⎋[?25L
 
-            sw.write_control("\033[6n")  # todo9: more automagic Cursor Y X Reads
-            kr.read_bytes()
+            (h, w, y, x) = kr.sample_hwyx()
             sw.write_control("\033[?1049l")  # main-screen ⎋[⇧?1049L vs ⎋[⇧?1049H
-            sw.write_control(f"\033[{kr.row_y};{kr.column_x}H")  # row-column-leap ⎋[⇧H
+            sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
         tb.__exit__(*args)
 
@@ -787,7 +786,6 @@ class Loopbacker:
                 self.slow_time_time = time_time
 
             if not (sco.forceful or sco.intricate):
-                # logger.info(f"{sco.forceful=} {sco.intricate=}")
                 if flags.echo:
                     self.frame_write_echo(frame)
                     sw.write_control(f"\033[{y};{x}H")
@@ -806,7 +804,6 @@ class Loopbacker:
 
                 if frames[frame_index:][1:]:
                     _ = kr.sample_hwyx()
-                    # logger.info(f"{kr.row_y=} {kr.column_x=}")
 
         if clearing_screen_order:
             sco.clear_order()
@@ -821,10 +818,8 @@ class Loopbacker:
         assert sco.forceful or sco.intricate, (sco,)
 
         (row_y, column_x, strong, factor, slow_kencode) = sco.compile_order()
-        # logger.info(f"{row_y=} {column_x=} {strong=} {factor=} {slow_kencode=}")
 
         if not slow_kencode:
-            # logger.info(f"{slow_kencode=}")
             self.frame_write_echo(frame)
             return slow_kencode
 
@@ -833,7 +828,6 @@ class Loopbacker:
 
         if slow_isprintable and (not strong):
 
-            # logger.info("SQUIRREL")
             sw.write_printable(slow_kdecode)
 
         elif factor < -1:  # echoes without writing
@@ -957,6 +951,8 @@ class Loopbacker:
             if marks in (b"A", b"B", b"C", b"D"):
                 if len(ints) == 1:
                     bouncing = False
+
+                    # todo9: solve .clickruns as fully as not, across Wrapped Lines
 
         # Show a brief loud Repr of any Unknown Encode arriving as Input
 
@@ -1516,6 +1512,8 @@ class TerminalBoss:
     def __exit__(self, *args: object) -> None:
         r"""Restart line-buffering Input, restart taking \n Output as \r\n, etc"""
 
+        kr = self.keyboard_reader
+
         stdio = self.stdio
         fileno = self.fileno
         tcgetattr = self.tcgetattr
@@ -1524,6 +1522,12 @@ class TerminalBoss:
 
         if not tcgetattr:
             return
+
+        # Mention Input Bytes buffered and lost by an early Exit
+
+        reads_ahead = kr.reads_ahead
+        if reads_ahead:
+            logger.info(f"{reads_ahead=}")
 
         # Flush Output, drain Input, and change Input Mode
 
@@ -1540,6 +1544,8 @@ class TerminalBoss:
 
     def write_some_bytes(self, data: bytes) -> None:
         """Write zero or more Bytes"""
+
+        logger.info(f"{data=}")
 
         fileno = self.fileno
         fd = fileno
@@ -1697,6 +1703,8 @@ class KeyboardReader:
     row_y: int  # todo: row_y_column_x: tuple[int, ...] to be initially Empty Tuple
     column_x: int
 
+    reads_ahead: bytearray
+
     def __init__(self, terminal_boss: TerminalBoss) -> None:
 
         self.terminal_boss = terminal_boss
@@ -1705,6 +1713,8 @@ class KeyboardReader:
         self.column_x = -1
         self.y_high = -1
         self.x_wide = -1
+
+        self.reads_ahead = bytearray()
 
     #
     # Split the Input Bytes of a Cursor Position Report into >= 1 Frames,
@@ -1864,7 +1874,9 @@ class KeyboardReader:
             assert X1 <= x <= (w + 1), (y, x, h, w, o)
 
         if x > w:
+            logger.info(f"{h=} {w=} {y=} {x=}  # x > w")
             x -= 1
+            assert X1 <= x <= w, (y, x, h, w, o)
 
         f = int("0b01000", base=0)  # f = 0b⌃⌥⇧00
         option_mouse_release = f"\033[<{f};{x};{y}m".encode()
@@ -1927,45 +1939,87 @@ class KeyboardReader:
     # and update the H W Y X of this KeyboardReader
     #
 
-    def sample_hwyx(self) -> tuple[int, int, int, int, bytes]:
+    def sample_hwyx(self) -> tuple[int, int, int, int]:
+        """Take a fresh sample of Width x Height and Y X Cursor Position of this Terminal"""
 
         tb = self.terminal_boss
         sw = tb.screen_writer
+        reads_ahead = self.reads_ahead
 
         assert CPR_Y_X == "\033[" "{};{}R"
 
         sw.write_control("\033[6n")
-        cpryx = self.read_bytes()
+        yx_cpr = self.read_bytes()
         (h, w, y, x) = (self.y_high, self.x_wide, self.row_y, self.column_x)
 
-        sm = re.search(rb"\033\[([0-9]+);([0-9]+)R$", string=cpryx)  # ⎋[{y};{x}⇧R
-        assert sm, (sm, cpryx)
+        sm = re.search(rb"\033\[([0-9]+);([0-9]+)R$", string=yx_cpr)  # ⎋[{y};{x}⇧R
+        assert sm, (sm, yx_cpr)
 
         n = len(sm.group(0))
         (ysm, xsm) = (int(sm.group(1)), int(sm.group(2)))
 
-        assert y == ysm, (y, ysm, cpryx)
-        assert x == xsm, (x, xsm, cpryx)
+        assert y == ysm, (y, ysm, yx_cpr)
+        assert x == xsm, (x, xsm, yx_cpr)
 
-        reads = cpryx[-n:]
+        reads = yx_cpr[-n:]
+        if reads:
+            logger.info(f"{reads=}")
+            reads_ahead[0:0] = reads
 
         # Move this KeyboardReader to this fresh H W Y X
+
+        self.store_h_w_y_x(h, w=w, y=y, x=x)
+
+        # Succeed
+
+        return (h, w, y, x)
+
+    def read_bytes(self) -> bytes:
+        """Frame the Bytes that share a Cursor Position Report"""
+
+        # Take Input Bytes from Cache
+
+        reads_ahead = self.reads_ahead
+        if reads_ahead:
+            reads = bytes(reads_ahead)
+            reads_ahead.clear()
+            return reads
+
+        # Else take Input Bytes from Terminal
+
+        (hwyx, reads) = self.read_hwyx_bytes()
+        self.store_h_w_y_x(*hwyx)
+
+        return reads
+
+        # todo: one 'def read_bytes' per project is exactly enough?
+
+    def store_h_w_y_x(self, h: int, w: int, y: int, x: int) -> None:
+        """Limit & store the Height Width Y X of this Terminal"""
+
+        hw = (self.y_high, self.x_wide)
+        yx = (self.row_y, self.column_x)
+
+        if (h, w) != hw:
+            logger.info(f"to {w}x{h} from {self.x_wide}x{self.y_high}")
 
         assert h >= 5, (h,)  # todo: test of Terminals smaller than macOS Terminals
         assert w >= 20, (w,)  # todo: test of 9 Columns x 2 Rows at macOS iTerm2
 
-        self.row_y = y
-        self.column_x = x
-
         self.y_high = h
         self.x_wide = w
 
-        # Succeed
+        if (y, x) != yx:
+            logger.info(f"{y};{x}H")
 
-        return (h, w, y, x, reads)
+        assert Y1 <= y <= h, (y, h)
+        assert X1 <= x <= w, (x, w)
 
-    def read_bytes(self) -> bytes:
-        """Frame the Bytes that share a Cursor Position Report"""
+        self.row_y = y
+        self.column_x = x
+
+    def read_hwyx_bytes(self) -> tuple[tuple[int, int, int, int], bytes]:
+        """Read the Input Bytes and their Y X, then add their H W"""
 
         tb = self.terminal_boss
         fileno = tb.fileno
@@ -1975,28 +2029,19 @@ class KeyboardReader:
         (yx, reads) = self.read_yx_bytes()
         (y, x) = yx
 
+        # Sample H W just after the last Input Byte arrives
+
         fd = fileno
         (w, h) = os.get_terminal_size(fd)
 
-        # Move this KeyboardReader to this fresh H W Y X
-
-        assert h >= 5, (h,)  # todo: test of Terminals smaller than macOS Terminals
-        assert w >= 20, (w,)  # todo: test of 9 Columns x 2 Rows at macOS iTerm2
-
-        self.row_y = y
-        self.column_x = x
-
-        self.y_high = h
-        self.x_wide = w
-
         # Succeed
 
-        return reads
+        hwyx = (h, w, y, x)
 
-        # todo: one 'def read_bytes' per project is exactly enough?
+        return (hwyx, reads)
 
     def read_yx_bytes(self) -> tuple[tuple[int, int], bytes]:
-        """Read a Byte, call for Cursor Position, read Available Bytes till the Position comes"""
+        """Read 1 Byte, call for Cursor Y X Report, & read Available Bytes till the Report"""
 
         tb = self.terminal_boss
         sw = tb.screen_writer
@@ -2006,12 +2051,13 @@ class KeyboardReader:
         assert CPR_Y_X == "\033[" "{};{}R"
 
         tb.write_some_bytes(b"\033[6n")  # ⎋[6n call for reply y x
-        tb.kbhit(timeout=0e0)  # flushes after .write_some_bytes
+        tb.kbhit(timeout=0e0)  # flushes and blocks after .write_some_bytes
 
         row_y = -1
         column_x = -1
         ba = bytearray()
 
+        flags_lazy_kbhits = False  # truthy to show things
         while True:
 
             read = tb.read_one_byte()
@@ -2028,7 +2074,7 @@ class KeyboardReader:
                     sw.write_control(control)
                     continue
 
-            if row_y < 0:
+            if row_y < Y1:
                 sm = re.search(rb"\033\[([0-9]+);([0-9]+)R$", string=ba)  # ⎋[{y};{x}⇧R
                 if not sm:
                     continue
@@ -2039,14 +2085,32 @@ class KeyboardReader:
 
                 del ba[-n:]
 
-                if not ba:  # someone else wrote ⎋[6n earlier
-                    continue
+                assert row_y >= Y1, (row_y, column_x, ba)
+                assert column_x >= X1, (row_y, column_x, ba)
 
-            if not tb.kbhit(timeout=0e0):
+                if not ba:  # eats first ⎋[ ⇧R, when ⎋[6N written before Def Entry
+                    logger.info("not ba")
+                    continue  # doesn't eat second ⎋[ ⇧R, because .row_y >= Y1 by now
+
+                if flags_lazy_kbhits:
+                    break
+
+                    # Arrow Key Bursts split apart into frames if .flags_lazy_kbhits
+                    # Double Key Jams still often recur despite .flags_lazy_kbhits
+
+            if not tb.kbhit(timeout=0e0):  # blocks
                 break
 
-        yx = (row_y, column_x)
+        yx = (row_y, column_x)  # taken from first, when more left in .ba
         reads = bytes(ba)
+
+        if len(ba) < 20:
+            headtail = bytes(ba)
+            logger.info(f"ba={headtail!r} y={row_y} x={column_x}")
+        else:
+            head = bytes(ba[:10])
+            tail = bytes(ba[-10:])
+            logger.info(f"[:10]={head!r} [-10:]={tail!r} y={row_y} x={column_x}")
 
         return (yx, reads)
 
