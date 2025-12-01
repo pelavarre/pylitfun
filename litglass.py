@@ -146,9 +146,9 @@ def main() -> None:
         kv = KeyboardViewer(lbr)
 
         if flags.keycaps:
-            kv.keycaps_run_awhile()
+            kv.kv_run_awhile()
         else:
-            lbr.loopbacker_run_awhile()
+            lbr.lbr_run_awhile()
 
 
 def arg_doc_to_parser(doc: str) -> ArgDocParser:
@@ -298,7 +298,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         self.shifters = ""  # none of ⎋ ⌃ ⌥ ⇧
         self.scrollables = list()
 
-    def keycaps_run_awhile(self) -> None:
+    def kv_run_awhile(self) -> None:
         """Trace Key Releases till ⌃C"""
 
         lbr = self.loopbacker
@@ -331,7 +331,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         # Draw the Gameboard
 
-        self.keycaps_gameboard_draw()  # todo: draw well onto larger & smaller Screens
+        self.kv_gameboard_draw()  # todo: draw well onto larger & smaller Screens
 
         # Run till Quit
 
@@ -345,7 +345,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
             # Eval Input and print Output
 
-            self.keycaps_step_once(frames)
+            self.kv_step_once(frames)
 
             # Quit at ⌃C
 
@@ -358,7 +358,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         # todo9: --egg=keycaps: toggle back out of @@@@@@@@@ or @@ or @
         # todo9: --egg=keycaps: take mouse hits to the Keyboard viewed
 
-    def keycaps_gameboard_draw(self) -> None:
+    def kv_gameboard_draw(self) -> None:
         """Draw the Gameboard"""
 
         shifters = self.shifters
@@ -410,7 +410,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         sw.print("Press ⌃C")
         sw.print()
 
-    def keycaps_step_once(self, frames: tuple[bytes, ...]) -> None:
+    def kv_step_once(self, frames: tuple[bytes, ...]) -> None:
 
         lbr = self.loopbacker
         sw = lbr.screen_writer
@@ -434,16 +434,16 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
             if not kseqs:
                 unhit_kseqs.append([frame, kseqs])
             else:
-                self.keycaps_switch_tab_if(kseqs)
-                self.keycaps_press_keys_if(kseqs, unhit_kseqs)
+                self.kv_switch_tab_if(kseqs)
+                self.kv_press_keys_if(kseqs, unhit_kseqs)
 
         sw.write_control(f"\033[{row_y};{column_x}H")  # row-column-leap ⎋[⇧H
 
         if unhit_kseqs:
             if frames != (b"\003",):
-                self.keycaps_print(unhit_kseqs, "Keycap not found", frames)
+                self.kv_print(unhit_kseqs, "Keycap not found", frames)
 
-    def keycaps_print(self, *args: object) -> None:
+    def kv_print(self, *args: object) -> None:
 
         lbr = self.loopbacker  # todo9: layer KeyboardViewer over TerminalBoss?
         kr = lbr.keyboard_reader
@@ -469,7 +469,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
             sw.write_control("\033[H")  # row-column-leap ⎋[⇧H
             sw.write_control("\033[L")  # rows-insert ⎋[⇧L
-            sw.write(scrollable)  # todo9: .keycaps_print wider than screen
+            sw.write(scrollable)  # todo9: .kv_print wider than screen
             sw.write_control("\033[K")  # row-tail-erase ⎋[⇧K
 
             sw.write_control("\033[32100H")  # row-column-leap ⎋[⇧H
@@ -478,13 +478,13 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
             sw.write_control(f"\033[{y - 1};{x}H")  # row-column-leap ⎋[⇧H
             sw.write_control("\033[L")  # rows-insert ⎋[⇧L
 
-        sw.write(text)  # todo9: .keycaps_print wider than screen
+        sw.write(text)  # todo9: .kv_print wider than screen
         sw.write_control("\033[K")  # row-tail-erase ⎋[⇧K
 
         scrollables.append(text)
         sw.write_control(f"\033[{yn};{x}H")  # row-column-leap ⎋[⇧H
 
-    def keycaps_switch_tab_if(self, kseqs: tuple[str, ...]) -> None:
+    def kv_switch_tab_if(self, kseqs: tuple[str, ...]) -> None:
         """Switch to next Keyboard View when a Key is struck out there"""
 
         kseqs_join = "".join(kseqs)
@@ -530,9 +530,9 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         self.shifters = shifters
 
         sw.write_control(f"\033[{board_y};{board_x}H")  # row-column-leap ⎋[⇧H
-        self.keycaps_gameboard_draw()
+        self.kv_gameboard_draw()
 
-    def keycaps_press_keys_if(self, kseqs: tuple[str, ...], unhit_kseqs: list[object]) -> None:
+    def kv_press_keys_if(self, kseqs: tuple[str, ...], unhit_kseqs: list[object]) -> None:
         """Wipe out each Keycap when pressed"""
 
         assert kseqs, (kseqs,)
@@ -632,6 +632,10 @@ class Loopbacker:
     screen_change_order: ScreenChangeOrder
     slow_time_time: float  # .time.time() of last .screen_change_order.clear_order restart
 
+    #
+    # Init, enter, and exit
+    #
+
     def __init__(self) -> None:
 
         assert DSR5 == "\033[" "5n"
@@ -643,7 +647,7 @@ class Loopbacker:
         kd = KeyboardDecoder()
 
         sco = ScreenChangeOrder()
-        time_time = sco.take_decode("\033[5n", yx=(kr.row_y, kr.column_x))
+        time_time = sco.grow_order("\033[5n", yx=(kr.row_y, kr.column_x))
 
         self.terminal_boss = tb
         self.screen_writer = sw
@@ -703,7 +707,11 @@ class Loopbacker:
 
         tb.__exit__(*args)
 
-    def loopbacker_run_awhile(self) -> None:
+    #
+    # Run awhile
+    #
+
+    def lbr_run_awhile(self) -> None:
         """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
 
         tb = self.terminal_boss
@@ -716,11 +724,15 @@ class Loopbacker:
         assert ED_PS == "\033[" "{}" "J"
         assert _MAX_PN_32100_ == 32100
 
+        # Draw the Gameboard
+
         if not flags._repr_:
             sw.write("Press ⌃C ")
         else:
             sw.print("Press ⌃C")
             sw.write_some_controls(2 * ["\t"])
+
+        # Run till Quit
 
         quitting = False
         while not quitting:
@@ -739,10 +751,10 @@ class Loopbacker:
 
             logger.info("")
             logger.info(f"{frames=}")
-            if not flags._repr_:
-                self.some_frames_loop_back(frames)
+            if flags._repr_:
+                self.lbr_print_frame_per_row(frames, t1t0=t1t0)
             else:
-                self.some_frames_print_repr(frames, t1t0=t1t0)
+                self.lbr_step_once(frames)
 
             # Quit at ⌃C
 
@@ -755,7 +767,7 @@ class Loopbacker:
             sw.write_control("\033[A")  # 1 ↑ ⎋[⇧A
             sw.write_control("\033[J")  # after-erase ⎋[⇧J  # simpler than ⎋[0⇧J
 
-    def some_frames_loop_back(self, frames: tuple[bytes, ...]) -> None:
+    def lbr_step_once(self, frames: tuple[bytes, ...]) -> None:
         """Collect Input Frames over time as a Screen Change Order"""
 
         sw = self.screen_writer
@@ -766,7 +778,6 @@ class Loopbacker:
 
         clearing_screen_order = False
         for frame_index, frame in enumerate(frames):
-            t1 = time.time()
 
             try:
                 kdecode = frame.decode()
@@ -774,54 +785,63 @@ class Loopbacker:
                 kdecode = ""
 
             if not kdecode:
-                self.frame_write_echo(frame)
+                self.lbr_write_frame_echo(frame)
                 continue
 
             (y, x) = (kr.row_y, kr.column_x)
 
-            # Take in the Frame by itself, while order incomplete
+            # Take in the Frame by itself, while Order incomplete
 
-            time_time = sco.take_decode(kdecode, yx=(kr.row_y, kr.column_x))
+            time_time = sco.grow_order(kdecode, yx=(kr.row_y, kr.column_x))
             if time_time:
                 self.slow_time_time = time_time
 
-            if not (sco.forceful or sco.intricate):
+            if not (sco.forceful_order or sco.intricate_order):
                 if flags.echo:
-                    self.frame_write_echo(frame)
+                    self.lbr_write_frame_echo(frame)
                     sw.write_control(f"\033[{y};{x}H")
-                self.kdecode_cook_and_loop_back(kdecode, intricate=False)
+                self.lbr_kdecode_step_once(kdecode, intricate_order=False)
                 continue
 
                 # todo9: Delete the repeat-count when not-echo'ing the Key Byte Frame
 
-            slow_kencode = self.one_frame_run_order(frame, t1=t1)
-            if slow_kencode:
-                clearing_screen_order = True
+            compilation = sco.compile_order()
+            (row_y, column_x, strong, factor, slow_kencode) = compilation
 
-                sco.yx = tuple()
-                kbf = sco.key_byte_frame
-                kbf.clear_frame()  # reruns Factor for remaining Frames
+            if not slow_kencode:
+                self.lbr_write_frame_echo(frame)
+                break
 
-                if frames[frame_index:][1:]:
-                    _ = kr.sample_hwyx()
+            # Run this completed Order
+
+            self.lbr_sco_step_once(frame, compilation=compilation)
+
+            sco.yx = tuple()
+            kbf = sco.key_byte_frame
+            kbf.clear_frame()  # reruns Factor for remaining Frames
+
+            if frames[frame_index:][1:]:
+                _ = kr.sample_hwyx()
+
+            clearing_screen_order = True
 
         if clearing_screen_order:
             sco.clear_order()
 
-    def one_frame_run_order(self, frame: bytes, t1: float) -> bytes:
-        # Run one Screen Change Order, after all of it arrives
+    def lbr_sco_step_once(
+        self, frame: bytes, compilation: tuple[int, int, int, int, bytes]
+    ) -> bytes:
+        """Write the Frame if the Order is incomplete, else"""
+
+        (row_y, column_x, strong, factor, slow_kencode) = compilation
 
         sw = self.screen_writer
         kr = self.keyboard_reader
         sco = self.screen_change_order
 
-        assert sco.forceful or sco.intricate, (sco,)
+        assert sco.forceful_order or sco.intricate_order, (sco,)
 
-        (row_y, column_x, strong, factor, slow_kencode) = sco.compile_order()
-
-        if not slow_kencode:
-            self.frame_write_echo(frame)
-            return slow_kencode
+        # Write the Frame and grow the Order
 
         slow_kdecode = slow_kencode.decode()
         slow_isprintable = slow_kdecode.isprintable()
@@ -832,21 +852,23 @@ class Loopbacker:
 
         elif factor < -1:  # echoes without writing
 
-            self.frame_write_echo(frame)
+            self.lbr_write_frame_echo(frame)
 
         elif factor == -1:  # echoes and greatly details
 
             slow_frames = tuple([slow_kencode])
-            slow_t1t0 = t1 - self.slow_time_time
 
-            self.frame_write_echo(frame)
+            slow_t1 = time.time()
+            slow_t1t0 = slow_t1 - self.slow_time_time
+
+            self.lbr_write_frame_echo(frame)
 
             sw.write_printable(" ")
-            self.some_frames_print_repr(slow_frames, t1t0=slow_t1t0)
+            self.lbr_print_frame_per_row(slow_frames, t1t0=slow_t1t0)
 
         elif factor == 0:  # echoes and leaps and writes
 
-            self.frame_write_echo("⌃m".encode() if (frame == b"\r") else frame)  # ⌃M
+            self.lbr_write_frame_echo("⌃m".encode() if (frame == b"\r") else frame)  # ⌃M
 
             sw.write_control(f"\033[{row_y};{column_x}H")
             kr.row_y = row_y
@@ -859,20 +881,25 @@ class Loopbacker:
 
         else:  # echoes and cooks and leaps and writes
 
-            if flags.echo:
-                self.frame_write_echo(frame)
+            if sco.intricate_order or flags.echo:
+                self.lbr_write_frame_echo(frame)
 
             sw.write_control(f"\033[{row_y};{column_x}H")
             kr.row_y = row_y
             kr.column_x = column_x
 
             for _ in range(factor):
-                self.kdecode_cook_and_loop_back(slow_kdecode, intricate=sco.intricate)
+                self.lbr_kdecode_step_once(slow_kdecode, intricate_order=sco.intricate_order)
 
         return slow_kencode
 
-    def kdecode_cook_and_loop_back(self, decode: str, intricate: bool) -> None:
-        """Interpret the Decode of the Frame, else echo it"""
+    #
+    # Loop back a single Frame of decodable Input Bytes,
+    # having arrived all together or else slowly intricately built as a Screen Change Order
+    #
+
+    def lbr_kdecode_step_once(self, decode: str, intricate_order: bool) -> None:
+        """Loop back the Decode of the Frame, else echo it"""
 
         frame = decode.encode()
 
@@ -894,7 +921,7 @@ class Loopbacker:
 
         # If Frame has Keycaps
 
-        if self.kseqs_cook_and_loop_back(decode=decode, intricate=intricate):
+        if self.lbr_decode_kseqs_step_once_if(decode=decode, intricate_order=intricate_order):
             return
 
         # Loop back a few Esc Byte Sequences unchanged
@@ -944,74 +971,38 @@ class Loopbacker:
             sw.write_some_controls(controls)
             return
 
-        # Mark each Click Run Frame as intricate as multiple Frames for --egg=clickruns
+        # Show a brief loud Repr of any Unknown Encode arriving as Input
 
-        bouncing = not intricate
+        bouncing = not intricate_order
+
         if flags.clickruns:
             if marks in (b"A", b"B", b"C", b"D"):
                 if len(ints) == 1:
+
                     bouncing = False
 
-                    # todo9: solve .clickruns as fully as not, across Wrapped Lines
-
-        # Show a brief loud Repr of any Unknown Encode arriving as Input
+                    # todo9: solve .clickruns Frames as fully as not, across Wrapped Lines
 
         if bouncing:
+
             if echo != "⌃C":  # presumes ⌃C don't want this Echo here
                 sw.write_printable("<" + echo + ">")  # <⌃Y>
+
             return
 
-        # But do forward well-known Csi & Osc Byte Sequences arriving as multiple Frames
+        # Forward well-known Csi & Osc Byte Sequences arriving as multiple Frames,
+        # but echo a blocked Csi or Osc Sequence vertically
 
-        if self.csi_osc_cook_and_loop_back(decode=decode):
+        if self.lbr_csi_osc_step_once(decode):
             return
-
-        # Echo a blocked Sequence vertically
 
         for e in echo:
             sw.write_printable(e)
             kr.row_y = min(kr.y_high, kr.row_y + 1)
             sw.write_control(f"\033[{kr.row_y};{kr.column_x}H")
 
-    def csi_osc_cook_and_loop_back(self, decode: str) -> bool:
-
-        frame = decode.encode()
-        kbf = KeyByteFrame(frame)
-
-        sw = self.screen_writer
-
-        if decode.startswith("\033["):
-
-            if decode[-1] in "@" "ABCDEFGHIJKLM" "P" "ST" "Z" "d" "f" "h" "lm" "q":
-                sw.write_control(decode)  # no limits on .marks and .ints
-                return True
-
-            if decode[-1] in "nt":
-                sw.write_control(decode)  # no limits on .marks and .ints
-                return True
-
-            # Emulate Columns Insert/ Delete by Csi
-
-            if decode[-2:] in ("'}", "'~"):
-                (marks, ints) = kbf.to_csi_marks_ints_if()
-                if marks in (b"'}", b"'~"):
-                    if len(ints) <= 1:
-                        self.screen_columns_insert_delete(marks, ints=ints)
-                        return True
-
-            # todo: Accept only the Csi understood by our Class ScreenWriter
-
-        if decode.startswith("\033]"):
-            if decode in ("\033]11;?\007", "\033]11;?\033\134"):
-                sw.write_control(decode)  # ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
-                return True
-
-            # todo: Accept only the Osc understood by our Class ScreenWriter
-
-        return False
-
-    def kseqs_cook_and_loop_back(self, decode: str, intricate: bool) -> bool:
-        """Interpret the Keycaps of the Frame, else return False"""
+    def lbr_decode_kseqs_step_once_if(self, decode: str, intricate_order: bool) -> bool:
+        """Loop back the Keycaps of the Frame, else return False"""
 
         kr = self.keyboard_reader
         kd = self.keyboard_decoder
@@ -1067,7 +1058,7 @@ class Loopbacker:
         # Loop back as Arrow, no matter the shifting Keys
 
         join = str(kseqs)
-        if not intricate:
+        if not intricate_order:
 
             arrows = tuple(_ for _ in ("←", "↑", "→", "↓") if _ in join)
             if len(arrows) == 1:
@@ -1085,24 +1076,66 @@ class Loopbacker:
 
         return False
 
-    def screen_columns_insert_delete(self, marks: bytes, ints: tuple[int, ...]) -> None:
+    def lbr_csi_osc_step_once(self, decode: str) -> bool:
+
+        frame = decode.encode()
+        kbf = KeyByteFrame(frame)
+
+        sw = self.screen_writer
+
+        if decode.startswith("\033["):
+
+            if decode[-1] in "@" "ABCDEFGHIJKLM" "P" "ST" "Z" "d" "f" "h" "lm" "q":
+                sw.write_control(decode)  # no limits on .marks and .ints
+                return True
+
+            if decode[-1] in "nt":
+                sw.write_control(decode)  # no limits on .marks and .ints
+                return True
+
+            # Emulate Columns Insert/ Delete by Csi
+
+            if self._screen_columns_insert_delete_if_(decode, kbf=kbf):
+                return True
+
+            # todo: Accept only the Csi understood by our Class ScreenWriter
+
+        if decode.startswith("\033]"):
+            if decode in ("\033]11;?\007", "\033]11;?\033\134"):
+                sw.write_control(decode)  # ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
+                return True
+
+            # todo: Accept only the Osc understood by our Class ScreenWriter
+
+        return False
+
+    def _screen_columns_insert_delete_if_(self, decode: str, kbf: KeyByteFrame) -> bool:
         """Emulate Columns Insert/ Delete by Csi"""
-
-        assert marks in [b"'}", b"'~"], (marks,)
-        assert len(ints) <= 1, (ints,)
-
-        deleting = [b"'}", b"'~"].index(marks)
-
-        pn_int = ints[-1] if ints else PN1
-        pn = pn_int  # accepts pn = 0
-
-        #
 
         sw = self.screen_writer
 
         kr = self.keyboard_reader
         row_y = kr.row_y
         y_high = kr.y_high
+
+        #
+
+        if decode[-2:] not in ("'}", "'~"):
+            return False
+
+        (marks, ints) = kbf.to_csi_marks_ints_if()
+        if marks not in (b"'}", b"'~"):
+            return False
+
+        if len(ints) > 1:
+            return False
+
+        #
+
+        deleting = [b"'}", b"'~"].index(marks)
+
+        pn_int = ints[-1] if ints else PN1
+        pn = pn_int  # accepts pn = 0
 
         #
 
@@ -1118,9 +1151,15 @@ class Loopbacker:
             sw.write_control(f"\033[{pn}P" if deleting else f"\033[{pn}@")
         sw.write_control(f"\033[{row_y}d")
 
-        # Apple & Google lack ⎋['⇧} cols-insert
+        return True
 
-    def frame_write_echo(self, frame: bytes) -> None:
+        # macOS Terminal & macOS iTerm2 & Google Cloud Shell lack ⎋['⇧} cols-insert
+
+    #
+    # Form Repr's of Frames of Input Bytes
+    #
+
+    def lbr_write_frame_echo(self, frame: bytes) -> None:
         """Show a brief Repr of one Frame"""
 
         sw = self.screen_writer
@@ -1129,7 +1168,7 @@ class Loopbacker:
         echo = kd.frame_to_echo(frame)
         sw.write_printable(echo)
 
-    def some_frames_print_repr(self, frames: tuple[bytes, ...], t1t0: float) -> None:
+    def lbr_print_frame_per_row(self, frames: tuple[bytes, ...], t1t0: float) -> None:
         """Print the Repr of each Frame, but mark the Frames as framed together"""
 
         sw = self.screen_writer
@@ -1142,7 +1181,7 @@ class Loopbacker:
 
         for frame_index in range(len(frames)):
 
-            self.frames_write_one_repr(frames, frame_index=frame_index, t1t0=frame_t1t0)
+            self.lbr_write_frame(frames, frame_index=frame_index, t1t0=frame_t1t0)
 
             frame_t1t0 = 0e0
             y += 1  # todo: 'row_y > y_high' happens here  # todo: update Y X shadow
@@ -1150,9 +1189,7 @@ class Loopbacker:
             sw.write_control("\n")
             sw.write_control(f"\033[{y};{x}H")
 
-    def frames_write_one_repr(
-        self, frames: tuple[bytes, ...], frame_index: int, t1t0: float
-    ) -> None:
+    def lbr_write_frame(self, frames: tuple[bytes, ...], frame_index: int, t1t0: float) -> None:
         """Write the Repr of one Frame, but mark the Frames as framed together"""
 
         frame = frames[frame_index]
@@ -1225,7 +1262,7 @@ class ScreenChangeOrder:
     late_mark: str  # ''  # '\025' ⌃U
 
     key_byte_frame: KeyByteFrame
-    intricate: bool  # says if .key_byte_frame grown from multiple Inputs
+    intricate_order: bool  # says if .key_byte_frame grown from multiple Inputs
 
     #
     # Define Init, Bool, Str, & Clear
@@ -1250,7 +1287,7 @@ class ScreenChangeOrder:
         self.late_mark = ""
 
         kbf.clear_frame()
-        self.intricate = False
+        self.intricate_order = False
 
         return time_time
 
@@ -1260,7 +1297,7 @@ class ScreenChangeOrder:
         return truthy
 
     @property
-    def forceful(self) -> bool:
+    def forceful_order(self) -> bool:
         forceful = bool(self.early_mark or self.int_literal or self.late_mark)
         return forceful
 
@@ -1270,7 +1307,7 @@ class ScreenChangeOrder:
         int_literal = self.int_literal
         late_mark = self.late_mark
 
-        intricate = self.intricate
+        intricate_order = self.intricate_order
 
         kbf = self.key_byte_frame
         kencode = kbf.to_frame_bytes()
@@ -1278,7 +1315,7 @@ class ScreenChangeOrder:
         em = repr(early_mark)[1:-1]
         lm = repr(late_mark)[1:-1]
 
-        s = f"{em} {int_literal} {lm} {intricate} {kencode!r}"  # no .forceful
+        s = f"{em} {int_literal} {lm} {intricate_order} {kencode!r}"  # no .forceful_order
 
         return s
 
@@ -1338,7 +1375,7 @@ class ScreenChangeOrder:
     # Add on a next Input, else restart
     #
 
-    def take_decode(self, decode: str, yx: tuple[int, int]) -> float:
+    def grow_order(self, decode: str, yx: tuple[int, int]) -> float:
         """Add on a next Input, else restart"""
 
         assert decode, (decode,)
@@ -1412,7 +1449,7 @@ class ScreenChangeOrder:
         extras = kbf.take_kencode_if(encode)
         if not extras:
             if with_bool_kbf:
-                self.intricate = True
+                self.intricate_order = True
 
             return time_time
 
@@ -1563,6 +1600,8 @@ class TerminalBoss:
         assert len(read) == 1, (read,)  # todo: test os.read returns empty
 
         return read
+
+        # quite far away from KeyboardReader.read_bytes and .read_byte_frames
 
     def kbhit(self, timeout: float | None) -> bool:
         """Block till next Input Byte, else till Timeout, else till forever"""
@@ -1744,6 +1783,8 @@ class KeyboardReader:
         frames = self._frames_compress_if_(frames)
 
         return frames
+
+        # quite far away from TerminalBoss.read_one_byte
 
     def _frames_compress_if_(self, frames: tuple[bytes, ...]) -> tuple[bytes, ...]:
         """Collapse two Frames to one, or don't"""
@@ -1992,6 +2033,8 @@ class KeyboardReader:
 
         return reads
 
+        # quite far away from TerminalBoss.read_one_byte
+
         # todo: one 'def read_bytes' per project is exactly enough?
 
     def store_h_w_y_x(self, h: int, w: int, y: int, x: int) -> None:
@@ -2057,7 +2100,7 @@ class KeyboardReader:
         column_x = -1
         ba = bytearray()
 
-        flags_lazy_kbhits = False  # truthy to show things
+        flags_lazy_kbhits = False  # truthy to show more messy things
         while True:
 
             read = tb.read_one_byte()
