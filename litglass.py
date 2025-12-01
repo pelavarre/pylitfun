@@ -23,10 +23,12 @@ examples:
   ./litglass.py --egg=yolo  # a more explicit way to say run with defaults
 """
 
+# ./litglass.py --egg=echoes  # to echo the Control Sequences as they run
+# ./litglass.py --egg=keycaps  # to launch our keyboard-viewer of keycaps
+# ./litglass.py --egg=squares  # to launch our Squares Game
+
 # ./litglass.py --egg=clickarrows  # to loopback the ⌥-Click Arrows as they come in
 # ./litglass.py --egg=clickruns  # to loopback the ⌥-Click Arrows as run-length compressed
-# ./litglass.py --egg=echo  # to echo the Control Sequences as they run
-# ./litglass.py --egg=keycaps  # to launch our keyboard-viewer of keycaps
 # ./litglass.py --egg=repr  # to loop the Repr, not the Str
 # ./litglass.py --egg=sigint  # for ⌃C to raise KeyboardInterrupt
 
@@ -94,18 +96,23 @@ class Flags:
     logging: bool = False  # write log lines into ./__pycache__/litglass.log
     scroll: bool = False  # launch below Scrollback
 
-    # Choose by less celebrated --egg
+    # Choose by game --egg
+    #
+    #   flags.echoes, flags.keycaps, flags.squares
+    #
+
+    echoes: bool = False  # echo the Control Sequences as they loopback
+    keycaps: bool = False  # launch our Keyboard-Viewer of Leycaps
+    squares: bool = False  # launch our Squares Game
+
+    # Choose by tech --egg
     #
     #   flags.clickarrows, flags.clickruns,
-    #   flags.echo,
-    #   flags.keycaps,
     #   flags.logging, flags._repr_, flags.sigint
     #
 
     clickarrows: bool = False  # loop back the ⌥-Click Arrows as they arrive
     clickruns: bool = False  # loop back the ⌥-Click Arrows as run-length compressed
-    echo: bool = False  # echo the Control Sequences as they loopback
-    keycaps: bool = False  # launch our keyboard-viewer of keycaps
     _repr_: bool = False  # loop the Repr, not the Str
     sigint: bool = False  # for ⌃C to raise KeyboardInterrupt, for ⏎ to say ⌃J not ⌃M
 
@@ -143,10 +150,14 @@ def main() -> None:
     logger.info("launched")
 
     with Loopbacker() as lbr:
-        kv = KeyboardViewer(lbr)
+
+        kcg = KeycapsGame(lbr)
+        sqg = SquaresGame(lbr)
 
         if flags.keycaps:
-            kv.kv_run_awhile()
+            kcg.kc_run_awhile()
+        elif flags.squares:
+            sqg.sq_run_awhile()
         else:
             lbr.lbr_run_awhile()
 
@@ -173,67 +184,30 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
     ns_keys = list(vars(ns).keys())
     assert ns_keys == ["force", "eggs"], (ns_keys, ns, args)
 
-    dash_dash_eggs = [
-        "clickarrows",
-        "clickruns",
-        "echo",
-        "enter",
-        "exit",
-        "keycaps",
-        "logging",
-        "repr",
-        "scroll",
-        "sigint",
-    ]
+    dash_dash_eggs = list(vars(flags).keys())
+    dash_dash_eggs.remove("apple")
+    dash_dash_eggs.remove("google")
+    dash_dash_eggs.remove("terminal")
 
     ns_eggs = ns.eggs or list()
     for egg_arg in ns_eggs:
         eggs = egg_arg.split(",")
         for egg in eggs:
             casefold = egg.casefold()
+            strip = casefold.strip("_")
 
-            assert len(dash_dash_eggs) == 10, (len(dash_dash_eggs),)
+            m = list(_ for _ in dash_dash_eggs if _.strip("_").startswith(strip))
+            if len(m) != 1:
+                s = sorted(_.strip("_") for _ in dash_dash_eggs)
 
-            assert os.path.commonprefix(["clickarrows", "clickruns"]) == "click"
-            assert os.path.commonprefix(["echo", "enter"]) == "e"
-            assert os.path.commonprefix(["echo", "exit"]) == "e"
-            assert os.path.commonprefix(["scroll", "sigint"]) == "s"
-
-            if "clickarrows".startswith(casefold) and not "click".startswith(casefold):
-                flags.clickarrows = True
-            elif "clickruns".startswith(casefold) and not "click".startswith(casefold):
-                flags.clickruns = True
-
-            elif "echo".startswith(casefold) and not "e".startswith(casefold):
-                flags.echo = True
-            elif "enter".startswith(casefold) and not "e".startswith(casefold):
-                flags.enter = True
-            elif "exit".startswith(casefold) and not "e".startswith(casefold):
-                flags._exit_ = True
-
-            elif "keycaps".startswith(casefold) and not "".startswith(casefold):
-                flags.keycaps = True
-
-            elif "logging".startswith(casefold) and not "".startswith(casefold):
-                flags.logging = True
-
-            elif "repr".startswith(casefold) and not "".startswith(casefold):
-                flags._repr_ = True
-
-            elif "scroll".startswith(casefold) and not "s".startswith(casefold):
-                flags.scroll = True
-            elif "sigint".startswith(casefold) and not "s".startswith(casefold):
-                flags.sigint = True
-
-            elif "yolo".startswith(casefold) and not "".startswith(casefold):
-                pass  # 'flags.yolo = True' doesn't exist by design
-
-            else:
                 parser.parser.print_usage()
-                print(f"don't choose {egg!r}, do choose from {dash_dash_eggs}", file=sys.stderr)
+                print(f"don't choose {egg!r}, do choose from {s}", file=sys.stderr)
                 sys.exit(2)  # exits 2 for bad Arg
 
-    sum = flags.keycaps + flags._repr_
+            attr = m[-1]
+            setattr(flags, attr, True)
+
+    sum = flags.keycaps + flags._repr_ + flags.squares
     assert sum <= 1, (dict(_ for _ in vars(flags).items() if _[-1]),)
 
     if ns.force:
@@ -251,11 +225,32 @@ def _try_lit_glass_() -> None:
 
 
 #
-# Play --egg=Keycaps
+# Play for --egg=squares
 #
 
 
-class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
+class SquaresGame:
+    """Play for --egg=squares"""
+
+    loopbacker: Loopbacker
+
+    def __init__(self, loopbacker: Loopbacker) -> None:
+
+        self.loopbacker = loopbacker
+
+    def sq_run_awhile(self) -> None:
+        """Run till Quit"""
+
+        raise NotImplementedError("--egg=squares")
+
+
+#
+# Play for --egg=keycaps
+#
+
+
+class KeycapsGame:
+    """Play for --egg=keycaps"""
 
     loopbacker: Loopbacker
     gameboard_yx: tuple[int, ...]
@@ -298,7 +293,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         self.shifters = ""  # none of ⎋ ⌃ ⌥ ⇧
         self.scrollables = list()
 
-    def kv_run_awhile(self) -> None:
+    def kc_run_awhile(self) -> None:
         """Trace Key Releases till ⌃C"""
 
         lbr = self.loopbacker
@@ -331,7 +326,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
         # Draw the Gameboard
 
-        self.kv_gameboard_draw()  # todo: draw well onto larger & smaller Screens
+        self.kc_gameboard_draw()  # todo: draw well onto larger & smaller Screens
 
         # Run till Quit
 
@@ -345,7 +340,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
             # Eval Input and print Output
 
-            self.kv_step_once(frames)
+            self.kc_step_once(frames)
 
             # Quit at ⌃C
 
@@ -358,7 +353,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         # todo9: --egg=keycaps: toggle back out of @@@@@@@@@ or @@ or @
         # todo9: --egg=keycaps: take mouse hits to the Keyboard viewed
 
-    def kv_gameboard_draw(self) -> None:
+    def kc_gameboard_draw(self) -> None:
         """Draw the Gameboard"""
 
         shifters = self.shifters
@@ -410,7 +405,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         sw.print("Press ⌃C")
         sw.print()
 
-    def kv_step_once(self, frames: tuple[bytes, ...]) -> None:
+    def kc_step_once(self, frames: tuple[bytes, ...]) -> None:
 
         lbr = self.loopbacker
         sw = lbr.screen_writer
@@ -434,24 +429,24 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
             if not kseqs:
                 unhit_kseqs.append([frame, kseqs])
             else:
-                self.kv_switch_tab_if(kseqs)
-                self.kv_press_keys_if(kseqs, unhit_kseqs)
+                self.kc_switch_tab_if(kseqs)
+                self.kc_press_keys_if(kseqs, unhit_kseqs)
 
         sw.write_control(f"\033[{row_y};{column_x}H")  # row-column-leap ⎋[⇧H
 
         if unhit_kseqs:
             if frames != (b"\003",):
-                self.kv_print(unhit_kseqs, "Keycap not found", frames)
+                self.kc_print(unhit_kseqs, "Keycap not found", frames)
 
-    def kv_print(self, *args: object) -> None:
+    def kc_print(self, *args: object) -> None:
 
-        lbr = self.loopbacker  # todo9: layer KeyboardViewer over TerminalBoss?
+        lbr = self.loopbacker  # todo9: layer KeycapsGame over TerminalBoss?
         kr = lbr.keyboard_reader
         sw = lbr.screen_writer
 
         scrollables = self.scrollables
 
-        assert KeyboardViewer.MAX_SCROLLABLES_3 == 3
+        assert KeycapsGame.MAX_SCROLLABLES_3 == 3
 
         text = " ".join(str(_) for _ in args)
 
@@ -469,7 +464,7 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
 
             sw.write_control("\033[H")  # row-column-leap ⎋[⇧H
             sw.write_control("\033[L")  # rows-insert ⎋[⇧L
-            sw.write(scrollable)  # todo9: .kv_print wider than screen
+            sw.write(scrollable)  # todo9: .kc_print wider than screen
             sw.write_control("\033[K")  # row-tail-erase ⎋[⇧K
 
             sw.write_control("\033[32100H")  # row-column-leap ⎋[⇧H
@@ -478,13 +473,13 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
             sw.write_control(f"\033[{y - 1};{x}H")  # row-column-leap ⎋[⇧H
             sw.write_control("\033[L")  # rows-insert ⎋[⇧L
 
-        sw.write(text)  # todo9: .kv_print wider than screen
+        sw.write(text)  # todo9: .kc_print wider than screen
         sw.write_control("\033[K")  # row-tail-erase ⎋[⇧K
 
         scrollables.append(text)
         sw.write_control(f"\033[{yn};{x}H")  # row-column-leap ⎋[⇧H
 
-    def kv_switch_tab_if(self, kseqs: tuple[str, ...]) -> None:
+    def kc_switch_tab_if(self, kseqs: tuple[str, ...]) -> None:
         """Switch to next Keyboard View when a Key is struck out there"""
 
         kseqs_join = "".join(kseqs)
@@ -530,9 +525,9 @@ class KeyboardViewer:  # as if 'class KeyCaps' for --egg=keycaps
         self.shifters = shifters
 
         sw.write_control(f"\033[{board_y};{board_x}H")  # row-column-leap ⎋[⇧H
-        self.kv_gameboard_draw()
+        self.kc_gameboard_draw()
 
-    def kv_press_keys_if(self, kseqs: tuple[str, ...], unhit_kseqs: list[object]) -> None:
+    def kc_press_keys_if(self, kseqs: tuple[str, ...], unhit_kseqs: list[object]) -> None:
         """Wipe out each Keycap when pressed"""
 
         assert kseqs, (kseqs,)
@@ -797,7 +792,7 @@ class Loopbacker:
                 self.slow_time_time = time_time
 
             if not (sco.forceful_order or sco.intricate_order):
-                if flags.echo:
+                if flags.echoes:
                     self.lbr_write_frame_echo(frame)
                     sw.write_control(f"\033[{y};{x}H")
                 self.lbr_kdecode_step_once(kdecode, intricate_order=False)
@@ -881,7 +876,7 @@ class Loopbacker:
 
         else:  # echoes and cooks and leaps and writes
 
-            if sco.intricate_order or flags.echo:
+            if sco.intricate_order or flags.echoes:
                 self.lbr_write_frame_echo(frame)
 
             sw.write_control(f"\033[{row_y};{column_x}H")
@@ -1067,7 +1062,7 @@ class Loopbacker:
 
                 arrow_control = kd.decode_by_kseq[arrow]
                 sw.write_control(arrow_control)
-                if (arrow in ("←", "→")) and flags.echo:
+                if (arrow in ("←", "→")) and flags.echoes:
                     sw.write_control(arrow_control)
 
                 return True
@@ -3725,9 +3720,6 @@ _ = """  # more famous Python Imports to run in place of our Code here
 
 if __name__ == "__main__":
     main()
-
-
-# todo7: rename the ..._cook_and_loop_back
 
 
 # todo8: drop Keycaps specific to macOS Terminal, when elsewhere
