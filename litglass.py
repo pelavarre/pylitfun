@@ -49,6 +49,7 @@ import logging
 import math
 import os
 import pdb
+import random
 import re
 import select
 import signal
@@ -198,7 +199,10 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
 
             m = list(_ for _ in dash_dash_eggs if _.strip("_").startswith(strip))
             if len(m) != 1:
+
                 s = sorted(_.strip("_") for _ in dash_dash_eggs)
+                if len(m) > 1:
+                    s = sorted(m)
 
                 parser.parser.print_usage()
                 print(f"don't choose {egg!r}, do choose from {s}", file=sys.stderr)
@@ -233,15 +237,98 @@ class SquaresGame:
     """Play for --egg=squares"""
 
     loopbacker: Loopbacker
+    game_yx: tuple[int, ...]
+
+    Squares = "🟥 🟨 🟩 🟦 🟪"  # todo: more or less, and colorable U+2B24 ⬤
+    Squares = "".join(Squares.split())
 
     def __init__(self, loopbacker: Loopbacker) -> None:
 
         self.loopbacker = loopbacker
+        self.game_yx = tuple()
 
     def sq_run_awhile(self) -> None:
         """Run till Quit"""
 
-        raise NotImplementedError("--egg=squares")
+        lbr = self.loopbacker
+
+        tb = lbr.terminal_boss
+        sw = lbr.screen_writer
+        kr = lbr.keyboard_reader
+
+        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
+
+        # Draw the Gameboard
+
+        game_yx = self.sq_game_draw()
+        self.game_yx = game_yx  # replaces
+
+        # Run till Quit
+
+        quitting = False
+        while not quitting:
+
+            # Read Input
+
+            tb.kbhit(timeout=None)
+            frames = kr.read_byte_frames()
+
+            # Eval Input and print Output
+
+            self.sq_step_once(frames)
+
+            # Quit at ⌃C
+
+            if b"\003" in frames:
+                quitting = True
+                break
+
+        sw.print()
+
+    def sq_game_draw(self) -> tuple[int, int]:
+        """Draw the Gameboard, scrolling if need be"""
+
+        lbr = self.loopbacker
+        sw = lbr.screen_writer
+
+        squares = SquaresGame.Squares
+        dent = 4 * " "
+
+        sw.print()
+        sw.print()  # twice
+
+        for y in range(len(squares)):
+
+            sw.write(dent)
+            for x in range(len(squares)):
+                s = random.choice(squares)
+                sw.write_printable(s)
+            sw.write(dent)
+
+            sw.write_some_controls(["\r", "\n"])
+
+        sw.print(dent + "  ↓    ↓  " + dent)
+        sw.print()
+        sw.print()  # twice
+
+        sw.print("Press ⌃C")
+        sw.print()
+
+        # # Place the Gameboard
+
+        # (h, w, y, x) = kr.sample_hwyx()
+
+        # assert h >= high, (h, high)  # todo: negotiate Height more gracefully
+        # assert w >= wide, (w, wide)  # todo: negotiate Width more gracefully
+
+        return (-1, -1)
+
+        # todo7: log a rerunnable random seed
+
+    def sq_step_once(self, frames: tuple[bytes, ...]) -> None:
+        """Eval Input and print Output"""
+
+        return
 
 
 #
@@ -253,7 +340,7 @@ class KeycapsGame:
     """Play for --egg=keycaps"""
 
     loopbacker: Loopbacker
-    gameboard_yx: tuple[int, ...]
+    game_yx: tuple[int, ...]
     shifters: str  # todo: dump/ load Keycaps Games
     scrollables: list[str]  # Rows printed
 
@@ -289,7 +376,7 @@ class KeycapsGame:
     def __init__(self, loopbacker: Loopbacker) -> None:
 
         self.loopbacker = loopbacker
-        self.gameboard_yx = tuple()
+        self.game_yx = tuple()
         self.shifters = ""  # none of ⎋ ⌃ ⌥ ⇧
         self.scrollables = list()
 
@@ -303,30 +390,11 @@ class KeycapsGame:
         kr = lbr.keyboard_reader
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
-        assert DSR6 == "\033[" "6n"
 
-        # Scroll to make Rows in the South, if need be, like after:  seq 987
+        # Draw the Gameboard, scrolling if need be
 
-        sep = 1  # 1 in the North, 1 in the South, 1 between Board & Hello, 1 between Hello & Chat
-        high = sep + 6 + sep + 1 + sep + 3 + sep  # todo: measure how high, don't guess
-        wide = 4 + 48 + 4  # todo: measure how wide, don't guess
-
-        n = high - 1  # 1 Southernmost comes free by Convention
-        sw.write_some_controls(n * ["\n"])
-        sw.write_some_controls(n * ["\033[A"])
-
-        # Place the Gameboard
-
-        (h, w, y, x) = kr.sample_hwyx()
-
-        assert h >= high, (h, high)  # todo: negotiate Height more gracefully
-        assert w >= wide, (w, wide)  # todo: negotiate Width more gracefully
-
-        self.gameboard_yx = (y, x)  # replaces
-
-        # Draw the Gameboard
-
-        self.kc_gameboard_draw()  # todo: draw well onto larger & smaller Screens
+        game_yx = self.kc_game_draw()
+        self.game_yx = game_yx  # replaces
 
         # Run till Quit
 
@@ -353,8 +421,11 @@ class KeycapsGame:
         # todo9: --egg=keycaps: toggle back out of @@@@@@@@@ or @@ or @
         # todo9: --egg=keycaps: take mouse hits to the Keyboard viewed
 
-    def kc_gameboard_draw(self) -> None:
-        """Draw the Gameboard"""
+    def kc_game_draw(self) -> tuple[int, int]:
+        """Draw the Gameboard, scrolling if need be"""
+
+        lbr = self.loopbacker
+        kr = lbr.keyboard_reader
 
         shifters = self.shifters
         assert shifters in ("", "⇧"), (shifters,)
@@ -363,6 +434,23 @@ class KeycapsGame:
         sw = lbr.screen_writer
 
         assert EL_PS == "\033[" "{}" "K"
+
+        # Scroll to make Rows in the South, if need be, like after:  seq 987
+
+        sep = 1  # 1 in the North, 1 in the South, 1 between Board & Hello, 1 between Hello & Chat
+        high = sep + 6 + sep + 1 + sep + 3 + sep  # todo: measure how high, don't guess
+        wide = 4 + 48 + 4  # todo: measure how wide, don't guess
+
+        n = high - 1  # 1 Southernmost comes free by Convention
+        sw.write_some_controls(n * ["\n"])
+        sw.write_some_controls(n * ["\033[A"])
+
+        # Place the Gameboard
+
+        (h, w, y, x) = kr.sample_hwyx()
+
+        assert h >= high, (h, high)  # todo: negotiate Height more gracefully
+        assert w >= wide, (w, wide)  # todo: negotiate Width more gracefully
 
         # Form the Rows of the Gameboards
 
@@ -405,7 +493,14 @@ class KeycapsGame:
         sw.print("Press ⌃C")
         sw.print()
 
+        # Succeed
+
+        return (y, x)
+
+        # todo: .kc_game_draw well onto larger & smaller Screens
+
     def kc_step_once(self, frames: tuple[bytes, ...]) -> None:
+        """Eval Input and print Output"""
 
         lbr = self.loopbacker
         sw = lbr.screen_writer
@@ -486,11 +581,11 @@ class KeycapsGame:
         kseq = kseqs[0]
 
         lbr = self.loopbacker
-        gameboard_yx = self.gameboard_yx
+        game_yx = self.game_yx
         shifters = self.shifters
 
         sw = lbr.screen_writer
-        (board_y, board_x) = gameboard_yx
+        (game_y, game_x) = game_yx
 
         # Don't switch Tabs for ⌃ Control and ⌥ Option Keys  # todo9: --egg=keycaps: do
 
@@ -524,8 +619,8 @@ class KeycapsGame:
         shifters = kseqs_shifters
         self.shifters = shifters
 
-        sw.write_control(f"\033[{board_y};{board_x}H")  # row-column-leap ⎋[⇧H
-        self.kc_gameboard_draw()
+        sw.write_control(f"\033[{game_y};{game_x}H")  # row-column-leap ⎋[⇧H
+        self.kc_game_draw()
 
     def kc_press_keys_if(self, kseqs: tuple[str, ...], unhit_kseqs: list[object]) -> None:
         """Wipe out each Keycap when pressed"""
@@ -533,11 +628,11 @@ class KeycapsGame:
         assert kseqs, (kseqs,)
 
         lbr = self.loopbacker
-        gameboard_yx = self.gameboard_yx
+        game_yx = self.game_yx
         shifters = self.shifters
 
         sw = lbr.screen_writer
-        (board_y, board_x) = gameboard_yx
+        (game_y, game_x) = game_yx
 
         # Form the Rows of the Gameboards
 
@@ -585,8 +680,8 @@ class KeycapsGame:
 
             # Leap to this found Keycap
 
-            y = board_y + len(found_lines)
-            x = board_x + len(dent) + len(found_lines[-1]) - 1
+            y = game_y + len(found_lines)
+            x = game_x + len(dent) + len(found_lines[-1]) - 1
 
             sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
@@ -1982,6 +2077,7 @@ class KeyboardReader:
         sw = tb.screen_writer
         reads_ahead = self.reads_ahead
 
+        assert DSR6 == "\033[" "6n"
         assert CPR_Y_X == "\033[" "{};{}R"
 
         sw.write_control("\033[6n")
@@ -3613,7 +3709,19 @@ def excepthook(  # ) -> ...:
 def _try_unicode_source_texts_() -> None:
     """Explicitly don't limit our Source Text to US-Ascii"""
 
+    # not yet an official standard
+
     assert "" == "\uf8ff"  # U+F8FF  # last of U+E000 .. U+F8FF Private Use Area (PUA)
+
+    # bits from the 9 Comic Colors from Mar/2019 Unicode
+
+    assert unicodedata.name("🟥").title() == "Large Red Square"
+    assert unicodedata.name("🟦").title() == "Large Blue Square"
+    assert unicodedata.name("🟨").title() == "Large Yellow Square"
+    assert unicodedata.name("🟩").title() == "Large Green Square"
+    assert unicodedata.name("🟪").title() == "Large Purple Square"
+    assert unicodedata.name("🟧").title() == "Large Orange Square"
+    assert unicodedata.name("🟫").title() == "Large Brown Square"
 
     #
     # The Apple ⌥ Option/Alt Keys send lots of printable U+00A1 .. U+00FF
