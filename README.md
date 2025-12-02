@@ -184,6 +184,18 @@ Can we live within in these limits and still rewrite this text so well as to hop
 
 'The Comments are the first Issue Tracker'
 
+backport to Oct/2019 Python 3.8
+
+gl  # should be gl -1, till 'gl --' asks for more
+
+ga   # even with no args, should go ahead and mention the gcd
+
+gf --quiet  # could be my default for gf no args, take off the --quiet with args
+
+offer things not aliased, like gf could suggest:  git rebase
+
+gcam should pick up new Added Files into the wip
+
 p should mean print inside ~/bin/p
 
 ~/bin/c sh script of litshell.py

@@ -3,14 +3,14 @@
 """
 usage: git.py [--help] [--shfile SHFILE] [SHWORD ...]
 
-abbreviate the subcommands to call Git, but do show them
+abbreviate the subcommands to call Git, but do show them in full
 
 positional arguments:
-  SHWORD           option or positional argument of git
+  SHWORD           option or positional argument of Git
 
 options:
   --help           show this help message and exit (-h is for Git, not for Git·Py)
-  --shfile SHFILE  a filename as the git alias to decode (default: '/dev/null/g')
+  --shfile SHFILE  a filename as the Git alias to decode (default: '/dev/null/g')
 
 examples:
   gg -w gg ggl

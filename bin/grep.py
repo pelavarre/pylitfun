@@ -10,7 +10,7 @@ positional arguments:
 
 options:
   --help           show this help message and exit (-h is for Grep, not for Grep·Py)
-  --shfile SHFILE  which Grep Alias to decode
+  --shfile SHFILE  a filename as the Git alias to decode (default: '/dev/null/g')
 
 quirks:
   tunes to presume text, ignore case, and match >= 1 patterns (like for 2025, in place of 1973)
