@@ -41,49 +41,52 @@ assert int(0x80 + signal.SIGINT) == 130
 # Disclose nearly three dozen everyday Git Idioms
 
 ShlinePlusByShverb = {  # sorted by key
-    #
-    "g": "git checkout [...]",
+    # 0
+    "g": "git status --short [...]",
     "ga": "git add ...",
     "gb": "git branch --sort=committerdate",
     "gcaa": "git commit --all --amend",
     "gcaf": "git commit --all --fixup [...]",
-    #
+    # 5
     "gcam": "git commit --all -m wip",  # inverts : grh1 && git reset HEAD~1
     "gcl": "... && git clean -dffxq",
     "gcp": "git cherry-pick ...",
     "gd": "git diff --color-moved [...]",
     "gda": "git describe --always --dirty",
-    #
+    # 10
     "gdh": "git diff --color-moved HEAD~1",
     "gdno": "git diff --name-only [...]",
     "gf": "git fetch --prune --prune-tags --force",
     "gg/0": "git status",  # in Shell as 'gg' without Sh Args
     "gg/n": "git grep ...",  # -ai -e ... -e ...  # in Shell as 'gg' with Sh Args
-    #
+    # 15
     "ggl": "git grep -l ...",  # -ai -e ... -e ...
     "gl": "git log --pretty=fuller --no-decorate [...]",
     "glf": "git ls-files |grep [...]",  # |grep -ai -e ... -e ...
     "glq": "git log --oneline --no-decorate [...]",
     "gls": "git log --pretty=fuller --no-decorate --numstat [...]",
-    #
+    # 20
     "glv": "git log --oneline --decorate [...]",
     "gno": "git diff/show --pretty= --name-only",  # 'qdno' when truthy, else 'qspno'
     "grh": "git reset --hard ...",  # actual no args 'git reset hard' would mean to Head
     "grh1": "git reset HEAD~1",  # inverts : gcam && git commit --all -m wip
     "grhu": "... && git reset --hard @{upstream}",
-    #
+    # 25
     "gri": "git rebase -i [...]",
     "grias": "git rebase -i --autosquash [...]",
     "grl": "git reflog --date=relative --numstat",
     "grv": r"git remote -v |tr ' \t' '\n' |grep : |uniq |sed 's,^,git clone ,'",
     "gs": "git show --color-moved [...]",
-    #
+    # 30
     "gsis": "git status --ignored --short",
     "gspno": "git show --pretty= --name-only [...]",
-    #
+    # 32
 }
 
-# todo: something less ugly than "gg/0": and "gg/n":
+# no 'git checkout' on purpose:  without args it cancels cherry-pick and hides rebase
+
+# todo: add:  git checkout -, git push, git rebase, local/remote mkdir/rmdir of git branches, ...
+# todo: something less ugly than "gg/0": and "gg/n"?
 
 
 _a_ = list(ShlinePlusByShverb.keys())
@@ -103,6 +106,12 @@ def main() -> None:
 class GitGopher:
 
     def go_for_it(self) -> None:
+
+        # Fail if no Shell Args
+
+        if not sys.argv[1:]:
+            print("usage: git.py [--help] [--shfile SHFILE] [SHWORD ...]", file=sys.stderr)
+            sys.exit(2)  # exits 2 for bad args
 
         # Find the Shell Verb and the Shell Args after it
 

@@ -189,17 +189,17 @@ p should mean print inside ~/bin/p
 ~/bin/c sh script of litshell.py
    prompt before blocking till Tty Stdin Line complete
 
-~/bin/o sh script of litshell.py
-   o to run as spongeful = pbpaste |sponge |o |pbcopy
-   |o | to run as spongeless = |o| counting _.strip()'s
-   |o to run as spongeless = |o
-   o | to run as spongeless = pbpaste |o |
+~/bin/o sh script of litshell.py - counting _.strip()'s
+   |o| filter = |o|
+   |o filter & dump = |o
+   o| source & filter = pbpaste |o|
+   o source & filter & sink = pbpaste |o |pbcopy
 
 ~/bin/-1 sh script of litshell.py
-   -1 to run as spongeful = pbpaste >-1 && cat -1 |pbcopy
-   |-1 | to run as spongeful = >-1 && -1 |pbcopy && pbpaste
-   |-1 to run as spongeful = >-1 && -1 |pbcopy
-   -1 | to run as cat -1 |pbcopy && pbpaste
+   |-1| capture & re/publish & dump = >-1 && -1 |pbcopy && pbpaste
+   |-1 capture & publish & sink = >-1 && -1 |pbcopy
+   -1| publish & dump = cat -1 |pbcopy && pbpaste
+   -1 capture & publish = pbpaste >-1 && cat -1 |pbcopy
 
 Zsh ⌃U wrongly does row-erase, I want row-head-erase
 

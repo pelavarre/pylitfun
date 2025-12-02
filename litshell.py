@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 usage: from pylitfun import litshell
 """
@@ -6,6 +8,13 @@ usage: from pylitfun import litshell
 
 
 # -- intentionally left mostly blank, momentarily --
+
+
+import sys
+
+
+print(__file__)
+print(sys.argv)
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/litshell.py

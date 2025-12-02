@@ -51,16 +51,16 @@ help:
 
 
 bin:
-	@echo Press ⌃D to auth:  rm ~/bin/... of what we replace there ..
-	@cat - >/dev/null
+	# @echo Press ⌃D to auth:  rm ~/bin/... of what we replace there ..
+	# @cat - >/dev/null
 	:
 	rm -fr ~/bin/pylitfun/
-	echo bin/[a-z]* |(cd ~/ && xargs -n1 rm -fr)
+	echo bin/[-a-z]* |(cd ~/ && xargs -n1 rm -fr)
 	:
 	mkdir -p ~/bin/pylitfun/
 	cp -ip *.py ~/bin/pylitfun/.
 	:
-	cp -p bin/[a-z]* ~/bin/.
+	cp -p bin/[-a-z]* ~/bin/.
 	rm -fr ~/bin/pwnme
 	rm -fr ~/bin/pylitfun.py
 
