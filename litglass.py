@@ -323,6 +323,10 @@ class SquaresGame:
 
         return (-1, -1)
 
+        # todo6: store tiles in a [y][x]
+        # todo6: from the deepest, drop >= 3 in a row, >= 3 in a column
+        # todo6: find the ⌥-click on the board, drag perpendicular to gravity
+
         # todo7: log a rerunnable random seed
 
     def sq_step_once(self, frames: tuple[bytes, ...]) -> None:

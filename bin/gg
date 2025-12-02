@@ -1,2 +1,4 @@
 #!/bin/sh
+# git grep -ai -e ... -e ..., with args
+# git status, with no args
 g.py --shfile="$0" "$@"

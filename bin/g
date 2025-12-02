@@ -1,2 +1,3 @@
 #!/bin/sh
+# git checkout [...]
 g.py --shfile="$0" "$@"

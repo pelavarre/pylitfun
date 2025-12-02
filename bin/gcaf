@@ -1,2 +1,3 @@
 #!/bin/sh
+# git commit --all --fixup [...]
 g.py --shfile="$0" "$@"

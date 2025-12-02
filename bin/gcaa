@@ -1,2 +1,3 @@
 #!/bin/sh
+# git commit --all --amend
 g.py --shfile="$0" "$@"

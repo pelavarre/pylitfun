@@ -1,25 +1,27 @@
 #!/usr/bin/env python3
 
 """
-usage: git.py [--shfile=SHFILE] [SHWORD ...]
+usage: git.py [--help] [--shfile SHFILE] [SHWORD ...]
 
 abbreviate the subcommands to call Git, but do show them
 
 positional arguments:
-  SHWORD           option or positional argument of Git
+  SHWORD           option or positional argument of git
 
 options:
   --help           show this help message and exit (-h is for Git, not for Git·Py)
-  --shfile SHFILE  which Git Alias to decode
+  --shfile SHFILE  a filename as the git alias to decode (default: '/dev/null/g')
 
 examples:
-  gcaa
-  git.py --shfile=$HOME/bin/gcaa
-  : gcaa && git commit --all --amend
+  gg -w gg ggl
+  git.py --shfile=~/gg -w gg ggl
+  : gg ... && git grep -ai -w -e gg -e ggl
 """
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
 
+
+import __main__
 import difflib
 import os
 import pathlib
@@ -27,8 +29,7 @@ import shlex
 import signal
 import subprocess
 import sys
-
-from pylitfun import litshell
+import typing
 
 if not __debug__:
     raise NotImplementedError([__debug__])  # because 'python3 better than python3 -O'
@@ -37,282 +38,480 @@ if not __debug__:
 assert int(0x80 + signal.SIGINT) == 130
 
 
-# Define two dozen and more everyday Git Aliases
+# Disclose nearly three dozen everyday Git Idioms
 
-shline_by_shverb = {
+ShlinePlusByShverb = {  # sorted by key
+    #
     "g": "git checkout [...]",
     "ga": "git add ...",
     "gb": "git branch --sort=committerdate",
     "gcaa": "git commit --all --amend",
     "gcaf": "git commit --all --fixup [...]",
+    #
     "gcam": "git commit --all -m wip",  # inverts : grh1 && git reset HEAD~1
     "gcl": "... && git clean -dffxq",
     "gcp": "git cherry-pick ...",
     "gd": "git diff --color-moved [...]",
     "gda": "git describe --always --dirty",
+    #
     "gdh": "git diff --color-moved HEAD~1",
     "gdno": "git diff --name-only [...]",
     "gf": "git fetch --prune --prune-tags --force",
-    "gg": "git grep ...",  # -ai -e ... -e ...
-    "gg0": "git status",  # shown in the Shell as 'gg' without Sh Args
+    "gg/0": "git status",  # in Shell as 'gg' without Sh Args
+    "gg/n": "git grep ...",  # -ai -e ... -e ...  # in Shell as 'gg' with Sh Args
+    #
     "ggl": "git grep -l ...",  # -ai -e ... -e ...
     "gl": "git log --pretty=fuller --no-decorate [...]",
     "glf": "git ls-files |grep [...]",  # |grep -ai -e ... -e ...
     "glq": "git log --oneline --no-decorate [...]",
     "gls": "git log --pretty=fuller --no-decorate --numstat [...]",
+    #
     "glv": "git log --oneline --decorate [...]",
-    "gno": "git show --pretty= --name-only [...]",  # cuts back to truthy 'qdno' when available
+    "gno": "git diff/show --pretty= --name-only",  # 'qdno' when truthy, else 'qspno'
     "grh": "git reset --hard ...",  # actual no args 'git reset hard' would mean to Head
     "grh1": "git reset HEAD~1",  # inverts : gcam && git commit --all -m wip
     "grhu": "... && git reset --hard @{upstream}",
+    #
     "gri": "git rebase -i [...]",
     "grias": "git rebase -i --autosquash [...]",
     "grl": "git reflog --date=relative --numstat",
     "grv": r"git remote -v |tr ' \t' '\n' |grep : |uniq |sed 's,^,git clone ,'",
     "gs": "git show --color-moved [...]",
+    #
     "gsis": "git status --ignored --short",
     "gspno": "git show --pretty= --name-only [...]",
+    #
 }
 
-
-a = list(shline_by_shverb.keys())
-b = sorted(a)
-diffs = list(difflib.unified_diff(a=a, b=b, fromfile="a", tofile="b", lineterm=""))
-assert not diffs, (diffs,)
+# todo: something less ugly than "gg/0": and "gg/n":
 
 
-# Expand the Shell Verb as a Git Alias
-
-incoming_shargv = litshell.sys_argv_patch_shverb_if(default="g")
-
-shverb = incoming_shargv[0]
-if shverb == "gg":  # 'git status' without args, or 'git grep' with args
-    obvious_posargs = list(_ for _ in incoming_shargv[1:] if not _.startswith("-"))
-    if not obvious_posargs:
-        shverb = "gg0"
-
-        # accepts 'gg --ignored --short' is a kind of 'git status', not a 'git grep -ai -e'
+_a_ = list(ShlinePlusByShverb.keys())
+_b_ = sorted(_a_)
+_diffs_ = list(difflib.unified_diff(a=_a_, b=_b_, fromfile="a", tofile="b", lineterm=""))
+if _diffs_:
+    print("\n".join(_diffs_), file=sys.stderr)
+assert not _diffs_, (_diffs_,)
 
 
-git_shverbs = tuple(shline_by_shverb.keys())
-if shverb not in git_shverbs:
-    print(f"don't choose {shverb!r}, do choose from {list(git_shverbs)}", file=sys.stderr)
-    sys.exit(2)  # exits 2 for bad args
+def main() -> None:
+
+    gg = GitGopher()
+    gg.go_for_it()
 
 
-# Require Args, or allow Args, or reject Args
+class GitGopher:
 
-shline = shline_by_shverb[shverb]
+    def go_for_it(self) -> None:
 
-if shline.endswith(" ..."):  # ga, gcp, gg, ggl, grh
-    required_args_usage = f"usage: {shverb} ..."
+        # Find the Shell Verb and the Shell Args after it
 
-    shsuffix = " ..."
+        self.exit_if_dash_dash_help()
 
-    arguable_shline_0 = shline.removesuffix(" ...")
+        shfile_shargv = self.dash_dash_shfile_shargv(sys.argv, default="/dev/null/g")
 
-    if not incoming_shargv[1:]:
-        print(required_args_usage, file=sys.stderr)
-        sys.exit(2)  # exits 2 for bad args
+        shverb = os.path.basename(shfile_shargv[0])
+        assert shverb, (shfile_shargv, shverb)
+        shverb_shargv = (shverb, *shfile_shargv[1:])
 
-elif shline.endswith(" [...]"):  # g, gd, gdno, gl, glf, glq, gls, glv, gno, gri, grias, gs, gspno
-    optional_args_usage = f"usage: {shverb} [...]"  # also: gcaf
+        chosen_shverb = self.form_shverb_for_shargv(shverb_shargv)
+        chosen_shargv = (chosen_shverb, *shverb_shargv[1:])
 
-    shsuffix = " ..." if incoming_shargv[1:] else ""  # maybe Empty Str here
+        # Replace the Shell Verb with a Git Shell Line, and edit the Args
 
-    arguable_shline_0 = shline.removesuffix(" [...]")
-    if not incoming_shargv[1:]:
-        if shline == "git commit --all --fixup [...]":
-            arguable_shline_0 += " HEAD"
-        elif shline.startswith("git log "):
-            assert shverb in ("gl", "glq", "gls", "glv"), (shverb, arguable_shline_0)
-            arguable_shline_0 += " -9"
+        (found_shline, given_shsuffix) = self.form_shverb_shline(chosen_shargv)
+        grep_shargv = self.shargv_at_grep(chosen_shverb, shargv=chosen_shargv)
 
-else:  # gb, gcaa, gcam, gda, gdh, gf, grh1, grl, grv, gsis
-    no_leading_pos_arg_usage = f"usage: {shverb}"
+        # Choose to call Git through Shell or not
 
-    shsuffix = ""  # always Empty Str here
+        (shell, shell_shline) = self.form_shell_shline(
+            chosen_shverb, shline=found_shline, given_shsuffix=given_shsuffix
+        )
 
-    arguable_shline_0 = shline
-    if shline == "git reflog --date=relative --numstat":
-        assert shverb == "grl", (shverb, shline)
-        arguable_shline_0 += " -9"
+        # Take the Shell Pwd & Git Diff into account
 
-    if incoming_shargv[1:]:
-        if incoming_shargv[1].startswith("-"):
-            pass  # even when starts with "--" or "-"
+        gtop = self.find_git_top()
+
+        relpath = os.path.relpath(gtop)
+        if gtop != os.getcwd():
+            if chosen_shverb in ("ga", "gcl", "glf"):
+                print(f"# {chosen_shverb!r} not at:  cd {relpath}/", file=sys.stderr)
+
+        (diff_shverb, diff_shline) = self.shline_at_git_diff(chosen_shverb, shline=shell_shline)
+
+        diff_shargv = (diff_shverb, *grep_shargv[1:])
+
+        # Explicitly auth the especially destructive ops
+
+        (authed, taggable) = self.auth_git_shline(diff_shline)
+        run_shargv = shlex.split(authed) + list(diff_shargv[1:])
+
+        # Shove back on Python ShLex Quote fussily quoting mentions of HEAD~1 to no purpose
+
+        assert shlex.quote("HEAD~1") == "'HEAD~1'", (shlex.quote("HEAD~1"),)
+
+        def like_shlex_join(argv: typing.Iterable[str]) -> str:
+            return " ".join(("HEAD~1" if (_ == "HEAD~1") else shlex.quote(_)) for _ in argv)
+
+        # Loudly promise to call the Shell now
+
+        taggable_shargv = shlex.split(taggable) + list(diff_shargv[1:])
+        taggable_shline = like_shlex_join(taggable_shargv)
+
+        tagged_shverb = "gg" if diff_shverb in ("gg/0", "gg/n") else diff_shverb
+        tagged_shline = f": {tagged_shverb}{given_shsuffix} && {taggable_shline}"
+
+        print(tagged_shline, file=sys.stderr)  # prints its ":", not after a "+" or "|"
+
+        # Call the Shell now
+
+        run_shline_suffix = like_shlex_join(diff_shargv[1:])
+        run_shline = authed + " " + run_shline_suffix
+
+        if not shell:
+            git_run = subprocess.run(run_shargv)
         else:
-            print(no_leading_pos_arg_usage, file=sys.stderr)
+            git_run = subprocess.run(run_shline, shell=True)
+
+        if git_run.returncode:
+            print("+ exit", git_run.returncode, file=sys.stderr)
+
+            if diff_shverb == "gcaa":
+                self.rescue_git_commit_message(git_run.returncode)
+
+        # Exit happy or sad, same as the Shell
+
+        sys.exit(git_run.returncode)
+
+        # todo: shrink back down such voluminous expanded ShArgV as *.py
+        # todo: run without shell=True and without shlex.quote
+
+    def exit_if_dash_dash_help(self) -> None:
+        """Print the Doc and exit zero, if '--help' in the Shell Args"""
+
+        if "--help" in sys.argv[1:]:
+            print(__main__.__doc__, file=sys.stderr)
+            sys.exit(0)  # exits 0 after printing Help
+
+    def dash_dash_shfile_shargv(
+        self, sys_argv: typing.Iterable[str], default: str
+    ) -> tuple[str, ...]:
+        """Move the '--shfile FILE' into ArgV 0 when given as 1 or 2 Shell Args"""
+
+        tuple_sys_argv = tuple(sys_argv)
+        assert tuple_sys_argv, (tuple_sys_argv,)
+
+        # Fail if no Shell Args
+
+        default_shargv = (default, *tuple_sys_argv[1:])
+        if not tuple_sys_argv[1:]:
+            return default_shargv
+
+        # Fail if the '--shfile' option isn't the leading Shell Arg
+
+        sys_argv_1 = tuple_sys_argv[1]
+        (head, sep, tail) = sys_argv_1.partition("--shfile=")
+        if head or (not sep):
+            return default_shargv
+
+        # Fail if the '--shfile' option carries no Pathname
+
+        pathname = tail  # like from --shfile=/dev/null/g
+        shargv = (pathname, *tuple_sys_argv[2:])
+
+        if not tail:
+            if not tuple_sys_argv[2:]:
+                return default_shargv
+
+            sys_argv_2 = tuple_sys_argv[1]
+
+            pathname = sys_argv_2  # like from --shfile /dev/null/g
+            shargv = (pathname, *sys.argv[3:])
+
+        # Fail if the --shfile=Pathname carries no Basename
+
+        shverb = os.path.basename(pathname)
+        if not shverb:
+            return default_shargv
+
+        # Else succeed
+
+        return shargv
+
+    def form_shverb_for_shargv(self, shargv: tuple[str, ...]) -> str:
+        """Take the head of the Shell ArgV as the Shell Verb"""
+
+        shverb = shargv[0]
+
+        shline_plus_by_shverb = ShlinePlusByShverb
+        git_shverbs = tuple(shline_plus_by_shverb.keys())
+
+        # Take 'gg' as 'gg/n', except as 'gg/0' when no obvious Positional Arguments
+
+        alt_shverb = shverb
+        if shverb == "gg":  # 'git status' without args, or 'git grep' with args
+            alt_shverb = "gg/n"
+            obvious_posargs = list(_ for _ in shargv[1:] if not _.startswith("-"))
+            if not obvious_posargs:
+                alt_shverb = "gg/0"
+
+                # takes 'gg --ignored --short' is a kind of 'git status', not a 'git grep -ai -e'
+
+        # Reject the Shell Verb if it has no Git Alias Expansion here
+
+        if alt_shverb not in git_shverbs:
+            print(
+                f"don't choose {alt_shverb!r}, do choose from {list(git_shverbs)}", file=sys.stderr
+            )
             sys.exit(2)  # exits 2 for bad args
 
-        # accepts:  g -
-        # accepts:  g --
-        # accepts:  gdh -w
+        # Succeed
 
+        return alt_shverb
 
-# Choose to call Git through Shell, else directly
+    def form_shverb_shline(self, shargv: tuple[str, ...]) -> tuple[str, str]:
+        """Expand the Shell Verb as a Git Alias, with or without Args"""
 
-arguable_shline_1 = arguable_shline_0
-shell = False
+        shverb = shargv[0]
 
-if shverb == "grv":
-    assert " |" in arguable_shline_0, (arguable_shline_0,)
-    shell = True
+        shline_plus_by_shverb = ShlinePlusByShverb
+        shverb_shline_plus = shline_plus_by_shverb[shverb]
 
-elif shverb == "glf":
-    assert arguable_shline_0 == "git ls-files |grep"
-    if not incoming_shargv[1:]:
-        arguable_shline_1 = "git ls-files"
-    else:
-        assert " |" in arguable_shline_0, (arguable_shline_0,)
-        shell = True
+        # Require >= 1 Shell Args
 
-    # todo: learn to operate 'glf' and 'grv' without 'shell=True'
+        if shverb_shline_plus.endswith(" ..."):
+            assert not shverb_shline_plus.startswith("... && "), (shverb, shverb_shline_plus)
 
+            required_args_usage = f"usage: {shverb} ..."
 
-# Fail fast when called outside of a Git Clone
+            shline = shverb_shline_plus.removesuffix(" ...")
+            shsuffix = " ..."
 
-gpwd_shline = "git rev-parse --show-toplevel"
+            if not shargv[1:]:
+                print(required_args_usage, file=sys.stderr)
+                sys.exit(2)  # exits 2 for bad args
 
-gpwd_run = subprocess.run(
-    shlex.split(gpwd_shline),
-    stdin=None,
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE,  # small 2 Lines vs like 129 Lines from "git diff"
-)
+            return (shline, shsuffix)
 
-if gpwd_run.returncode:
-    print(f": gpwd && {gpwd_shline}", file=sys.stderr)
-    sys.stderr.write(gpwd_run.stdout.decode())  # written to Stderr, and commonly empty
-    sys.stderr.write(gpwd_run.stderr.decode())
-    print(f"+ exit {gpwd_run.returncode}", file=sys.stderr)
+            # ga, gcp, ggl, grh
 
-    sys.exit(gpwd_run.returncode)
+        # Accept >= 0 Shell Args, and sometimes add 1 Shell Arg
 
+        if shverb_shline_plus.endswith(" [...]"):
+            assert not shverb_shline_plus.startswith("... && "), (shverb, shverb_shline_plus)
 
-# Always notice when Git runs outside of the top-level Pwd of a Git Clone
+            # optional_args_usage = f"usage: {shverb} [...]"  # also: gcaf
 
-gpwd = gpwd_run.stdout.decode().rstrip()
-relpath = os.path.relpath(gpwd)
-if gpwd != os.getcwd():
+            shline = shverb_shline_plus.removesuffix(" [...]")
 
-    # Do mention Pwd not top-level when it commonly wildly distorts results
+            shsuffix = " ..."
+            if not shargv[1:]:
+                shsuffix = ""
 
-    if shverb in ("ga", "gcl", "glf"):
-        print(f"# {shverb!r} not at:  cd {relpath}/", file=sys.stderr)
+                if shverb_shline_plus == "git commit --all --fixup [...]":
+                    assert shverb in ("gcaf",), (shverb, shline)
+                    shline += " HEAD"
+                elif shverb_shline_plus.startswith("git log "):
+                    assert shverb in ("gl", "glq", "gls", "glv"), (shverb, shline)
+                    if shverb not in ("gls",):
+                        shline += " -9"
 
+            return (shline, shsuffix)
 
-# Sometimes list the Files involved in Git Diff
+            # g, gcaf, gd, gdno, gg, gl, glf, glq, gls, glv, gri, grias, gs, gspno
 
-gdno_shline = "git diff --name-only"
-gdno_run_stdout = b""
+        # Accept no Shell Args, else require first Shell Arg not obviously a Positional Arg
 
-if shverb in ("gcam", "gno"):
+        no_leading_pos_arg_usage = f"usage: {shverb}"
 
-    gdno_run = subprocess.run(
-        shlex.split(gdno_shline),
-        stdin=None,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+        shsuffix = ""
 
-    if gdno_run.returncode or gdno_run.stderr:
-        print(f": gdno && {gdno_shline} && ...", file=sys.stderr)
-        sys.stderr.write(gdno_run.stdout.decode())  # written to Stderr, and commonly empty
-        sys.stderr.write(gdno_run.stderr.decode())
-        print(f"+ exit {gdno_run.returncode}", file=sys.stderr)
+        shline = shverb_shline_plus
+        if shverb_shline_plus == "git reflog --date=relative --numstat":
+            assert shverb == "grl", (shverb, shline)
+            shline += " -9"
 
-        sys.exit(gdno_run.returncode)
+        if shargv[1:]:
+            if shargv[1].startswith("-"):
+                pass  # # accepts g -, g --, gdh -w, etc
+            else:
+                print(no_leading_pos_arg_usage, file=sys.stderr)
+                sys.exit(2)  # exits 2 for bad args
 
-    gdno_run_stdout = gdno_run.stdout
+        return (shline, shsuffix)
 
-# Expand 'gcam' and 'gno' differently while 'git diff --name-only' truthy
+        # gb, gcaa, gcam, gda, gdh, gf, gno, grh1, grhu, grl, grv, gsis
 
-expanded_shverb = shverb
-expanded_shline_n1 = arguable_shline_1
+    def form_shell_shline(self, shverb: str, shline: str, given_shsuffix: str) -> tuple[bool, str]:
+        """Choose to call Git by way of .shell=False or .shell=True"""
 
-if shverb == "gcam":
-    assert arguable_shline_1 == "git commit --all -m wip", (arguable_shline_1,)
+        if shverb == "glf":
+            assert shline == "git ls-files |grep"
+            if not given_shsuffix:
+                return (False, "git ls-files")
 
-    message = shlex.quote("wip -")
-    for line in gdno_run_stdout.decode().splitlines():
-        message += shlex.quote(" " + line)
+            assert " |" in shline, (shline,)
+            return (True, shline)
 
-    expanded_shline_n1 = "git commit --all -m " + message
+        if shverb == "grv":
+            assert " |" in shline, (shline,)
+            return (True, shline)
 
-elif shverb == "gno":
-    expanded_shverb = "gspno"
-    if not shsuffix:  # if no args taken
-        if gdno_run_stdout:
-            expanded_shverb = "gdno"
-            expanded_shline_n1 = gdno_shline
+        return (False, shline)
 
+        # todo: operate 'glf ...' and 'grv' without 'shell=True'
 
-# Pause for affirmation
+    def find_git_top(self) -> str:
+        """Find RealPath of the enclosing Git Clone, else complain & exit nonzero"""
 
-expanded_shline_0 = expanded_shline_n1
-taggable_shline_0 = expanded_shline_n1
+        gtop_shline = "git rev-parse --show-toplevel"
 
-if expanded_shline_n1.startswith("... && "):
-    expanded_shline_0 = expanded_shline_n1.removeprefix("... && ")
-    taggable_shline_0 = "echo Press ⌃D && cat - >/dev/null && " + expanded_shline_0
+        gtop_run = subprocess.run(
+            shlex.split(gtop_shline),
+            stdin=None,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,  # small 2 Lines here, vs like 129 Lines from "git diff"
+        )
 
-    print(f"Press ⌃D to auth:  {expanded_shline_0}", file=sys.stderr)
-    assert int(0x80 + signal.SIGINT) == 130
-    try:
-        sys.stdin.read()
-    except KeyboardInterrupt:
-        sys.exit(130)
+        # Exit nonzero and explain why, if Pwd not inside a Git Clone
 
+        if gtop_run.returncode:
 
-# Decorate the the incoming Sh ArgV extensively, for 'gg', 'ggl', and 'glf'
+            print(f": gtop && {gtop_shline}", file=sys.stderr)
+            sys.stderr.write(gtop_run.stdout.decode())  # written to Stderr, and commonly empty
+            sys.stderr.write(gtop_run.stderr.decode())
 
-expanded_shline_1 = expanded_shline_0
-taggable_shline_1 = taggable_shline_0
-shargv = tuple(incoming_shargv)  # because 'better copied than aliased'
+            print(f"+ exit {gtop_run.returncode}", file=sys.stderr)
 
-if not incoming_shargv[1:]:
-    assert shverb not in ("gg", "ggl"), (shverb, incoming_shargv)
-elif shverb in ("gg", "ggl"):
-    shargv = (shargv[0],) + litshell.grep_expand_ae_i(incoming_shargv[1:])
-elif shverb == "glf":
-    assert taggable_shline_0 == expanded_shline_n1, (taggable_shline_0, expanded_shline_n1)
-    grep_shargv_1 = litshell.grep_expand_ae_i(incoming_shargv[1:])
-    grep_shargv_1_join = " ".join(shlex.quote(_) for _ in grep_shargv_1[1:])
+            sys.exit(gtop_run.returncode)
 
-    expanded_shline_1 = expanded_shline_n1 + " " + grep_shargv_1_join
-    taggable_shline_1 = taggable_shline_0 + " " + grep_shargv_1_join
-    shargv = tuple()
+        # Exit nonzero and explain why, if Pwd not inside a Git Clone
 
-# Show the expansion of the Git Alias, on screen before running it
-# todo: Shrink back down such voluminous expanded ShArgV as *.py
+        gtop = gtop_run.stdout.decode().rstrip()
 
-shargv_join = " ".join(shlex.quote(_) for _ in shargv[1:])  # less quote marks than shlex.join
-tagged_shline = f": {expanded_shverb}{shsuffix} && {taggable_shline_1} {shargv_join}".rstrip()
-print(tagged_shline, file=sys.stderr)  # not ("+",  # not ("|" +
+        return gtop
 
+    def shline_at_git_diff(self, shverb: str, shline: str) -> tuple[str, str]:
+        """Change up 'gcam' and 'gno' when truthy 'git diff --name-only'"""
 
-# Run the expansion of the Git Alias
+        shline_plus_by_shverb = ShlinePlusByShverb
 
-shline = expanded_shline_1
-argv = shlex.split(expanded_shline_1) + list(shargv[1:])
+        # Require 'gno' to expand to precisely accurate copies of 'gdno' and 'gspno'
 
-if shell:
-    assert shverb != "gcaa", (shverb, shell, expanded_shline_1)
+        gdno_shline = shline_plus_by_shverb["gdno"].removesuffix(" [...]")
+        gspno_shline = shline_plus_by_shverb["gspno"].removesuffix(" [...]")
 
-    shline_run = subprocess.run(shline, shell=True)
-    if shline_run.returncode:
-        print("+ exit", shline_run.returncode, file=sys.stderr)
+        assert gdno_shline == "git diff --name-only"
+        assert gspno_shline == "git show --pretty= --name-only"
 
-    sys.exit(shline_run.returncode)
+        # Change nothing but 'gcam' or 'gno'
 
-argv_run = subprocess.run(argv)
-if argv_run.returncode:
-    print("+ exit", argv_run.returncode, file=sys.stderr)
+        if shverb not in ("gcam", "gno"):
+            return (shverb, shline)
 
-    # Help recover when 'git commit' loses its input file
+        # Try Git Diff once, and complain & exit nonzero if it fails
 
-    if shverb == "gcaa":
+        gdno_run = subprocess.run(
+            shlex.split(gdno_shline),
+            stdin=None,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        if gdno_run.returncode or gdno_run.stderr:
+            print(f": gdno && {gdno_shline} && : ...", file=sys.stderr)
+            sys.stderr.write(gdno_run.stdout.decode())  # written to Stderr, and commonly empty
+            sys.stderr.write(gdno_run.stderr.decode())
+            print(f"+ exit {gdno_run.returncode}", file=sys.stderr)
+
+            sys.exit(gdno_run.returncode)
+
+        gdno_run_stdout = gdno_run.stdout
+
+        # Plan for 'gno' to sum up the Git Diff if truthy, else to sum up the Git Show
+
+        if shverb == "gno":
+            assert shline == "git diff/show --pretty= --name-only", (shline,)
+
+            if gdno_run_stdout:
+
+                gdiff_shverb = "gdno"
+                gdiff_shline = gdno_shline
+
+                return (gdiff_shverb, gdiff_shline)
+
+            gdiff_shverb = "gspno"
+            gdiff_shline = gspno_shline
+
+            return (gdiff_shverb, gdiff_shline)
+
+        # Add each Git Diff Pathname into the Commit Message, for 'gcam'
+
+        assert shverb == "gcam", (shverb,)
+        assert shline == "git commit --all -m wip", (shline,)
+
+        if not gdno_run_stdout:
+            return (shverb, shline)
+
+        message = shlex.quote("wip -")
+        for line in gdno_run_stdout.decode().splitlines():
+            message += shlex.quote(" " + line)
+
+        gdiff_shline = "git commit --all -m " + message
+        return (shverb, gdiff_shline)
+
+    def shargv_at_grep(self, shverb: str, shargv: tuple[str, ...]) -> tuple[str, ...]:
+        """Tune Greps to presume text, ignore case, and match >= 1 patterns"""
+
+        if shverb not in ("gg/n", "ggl", "glf"):
+            return shargv
+
+        assert shargv[1:], (shargv[1:], shverb)
+
+        shargv = (shargv[0],) + self._shargs_grep_expand_ai_e_(shargv[1:])
+
+        return shargv
+
+    def _shargs_grep_expand_ai_e_(self, shargs: tuple[str, ...]) -> tuple[str, ...]:
+        """Tune to presume text, ignore case, and match >= 1 patterns"""
+
+        strs = list()
+        strs.append("-ai")  # -a = --text  # -i = --ignore-case
+        for i, arg in enumerate(shargs):
+            if arg == "--":
+                strs.extend(shargs[i:])
+                break
+            elif arg.startswith("-"):
+                strs.append(arg)
+            else:
+                strs.append("-e")
+                strs.append(arg)
+
+        argv = tuple(strs)
+        return argv
+
+    def auth_git_shline(self, shline: str) -> tuple[str, str]:
+        """Let Auth fail, else say which Shell Line to run and which Shell Line to trace"""
+
+        if not shline.startswith("... && "):
+            return (shline, shline)
+
+        authable = shline.removeprefix("... && ")
+        taggable = "echo Press ⌃D && cat - >/dev/null && " + authable
+
+        print(f"Press ⌃D to auth:  {authable}", file=sys.stderr)
+        assert int(0x80 + signal.SIGINT) == 130
+        try:
+            sys.stdin.read()
+        except KeyboardInterrupt:
+            sys.exit(130)
+
+        authed = authable
+        return (authed, taggable)
+
+    def rescue_git_commit_message(self, returncode: int) -> None:
+        """Help recover when 'git commit' loses its input file"""
+
         print("+ cat .git/COMMIT_EDITMSG", file=sys.stderr)
 
         path = pathlib.Path(".git/COMMIT_EDITMSG")
@@ -330,9 +529,18 @@ if argv_run.returncode:
         except KeyboardInterrupt:
             sys.exit(130)
 
-        print("+ exit", argv_run.returncode, file=sys.stderr)  # repeat from above
+        print("+ exit", returncode, file=sys.stderr)  # repeat after caller
 
-sys.exit(argv_run.returncode)
+        sys.exit(returncode)
+
+
+#
+# Run from the Shell Command Line, if not imported
+#
+
+
+if __name__ == "__main__":
+    main()
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/git.py

@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+"""
+usage: g.py ...
+
+call git.py in place of g.py, else call |grep.py in place of |g.py
+"""
+
+
 import signal
 import subprocess
 import sys

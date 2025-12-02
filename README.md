@@ -184,10 +184,27 @@ Can we live within in these limits and still rewrite this text so well as to hop
 
 'The Comments are the first Issue Tracker'
 
-'gcam alfa bravo' should mean:  git commit --all -m 'wip - alfa bravo'
+p should mean print inside ~/bin/p
 
-8th Game - **Smushup** - Arrow Pair to move 8 ways, and smush matching colors
-9th Game - **Muhnswuhper** - Minesweeper® style, but ...
+~/bin/c sh script of litshell.py
+   prompt before blocking till Tty Stdin Line complete
+
+~/bin/o sh script of litshell.py
+   o to run as spongeful = pbpaste |sponge |o |pbcopy
+   |o | to run as spongeless = |o| counting _.strip()'s
+   |o to run as spongeless = |o
+   o | to run as spongeless = pbpaste |o |
+
+~/bin/-1 sh script of litshell.py
+   -1 to run as spongeful = pbpaste >-1 && cat -1 |pbcopy
+   |-1 | to run as spongeful = >-1 && -1 |pbcopy && pbpaste
+   |-1 to run as spongeful = >-1 && -1 |pbcopy
+   -1 | to run as cat -1 |pbcopy && pbpaste
+
+Zsh ⌃U wrongly does row-erase, I want row-head-erase
+
+Game - **Smushup** - Arrow Pair to move 8 ways, and smush matching colors
+Game - **Muhnswuhper** - Minesweeper® style, but ...
 Single File Download & Run of the Python
 
 -->

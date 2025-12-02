@@ -51,14 +51,18 @@ help:
 
 
 bin:
-	rm -fr ~/bin/pwnme ~/bin/pylitfun.py
-	rm -fr ~/bin/pylitfun/
+	@echo Press ⌃D to auth:  rm ~/bin/... of what we replace there ..
+	@cat - >/dev/null
 	:
-	cp -p bin/[a-z]* ~/bin/.
+	rm -fr ~/bin/pylitfun/
+	echo bin/[a-z]* |(cd ~/ && xargs -n1 rm -fr)
+	:
 	mkdir -p ~/bin/pylitfun/
 	cp -ip *.py ~/bin/pylitfun/.
 	:
-	rm -fr ~/bin/pwnme ~/bin/pylitfun.py
+	cp -p bin/[a-z]* ~/bin/.
+	rm -fr ~/bin/pwnme
+	rm -fr ~/bin/pylitfun.py
 
 
 #

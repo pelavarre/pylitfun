@@ -1,2 +1,3 @@
 #!/bin/sh
+# ... && git clean -dffxq
 g.py --shfile="$0" "$@"

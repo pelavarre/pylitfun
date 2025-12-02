@@ -1,2 +1,3 @@
 #!/bin/sh
+# git show --color-moved [...]
 g.py --shfile="$0" "$@"

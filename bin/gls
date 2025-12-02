@@ -1,2 +1,3 @@
 #!/bin/sh
+# git log --pretty=fuller --no-decorate --numstat [...]
 g.py --shfile="$0" "$@"

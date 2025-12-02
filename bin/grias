@@ -1,2 +1,3 @@
 #!/bin/sh
+# git rebase -i --autosquash [...]
 g.py --shfile="$0" "$@"

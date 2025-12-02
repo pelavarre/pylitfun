@@ -1,2 +1,3 @@
 #!/bin/sh
+git cherry-pick ...
 g.py --shfile="$0" "$@"

@@ -24,39 +24,141 @@ examples:
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
 
 
+import __main__
+import os
 import shlex
 import subprocess
 import sys
-
-from pylitfun import litshell
+import typing
 
 if not __debug__:
     raise NotImplementedError([__debug__])  # because 'python3 better than python3 -O'
 
 
-shargv = litshell.sys_argv_patch_shverb_if(default="g")
-if shargv[0] != "g":
-    raise NotImplementedError(shargv)
+def main() -> None:
+
+    gg = GrepGopher()
+    gg.go_for_it()
 
 
-if not sys.argv[2:]:
-    print("usage: |grep.py SHWORD [SHWORD ...]", file=sys.stderr)
-    sys.exit(2)  # exits 2 for bad args
+class GrepGopher:
+
+    def go_for_it(self) -> None:
+
+        # Find the Shell Verb and the Shell Args after it
+
+        self.exit_if_dash_dash_help()
+
+        shfile_shargv = self.dash_dash_shfile_shargv(sys.argv, default="/dev/null/g")
+
+        shverb = os.path.basename(shfile_shargv[0])
+        assert shverb, (shfile_shargv, shverb)
+        shverb_shargv = (shverb, *shfile_shargv[1:])
+
+        if shverb_shargv[0] != "g":
+            raise NotImplementedError(shverb_shargv)
+
+        if not shverb_shargv[1:]:
+            print("usage: |grep.py SHWORD [SHWORD ...]", file=sys.stderr)
+            sys.exit(2)  # exits 2 for bad args
+
+        argv = list()
+        argv.append("grep")
+        argv.extend(self._shargs_grep_expand_ai_e_(shverb_shargv[1:]))
+
+        join = shlex.join(argv)
+        print("|" + join, file=sys.stderr)
+
+        run = subprocess.run(argv)
+        if run.returncode:
+            print("+ exit", run.returncode, file=sys.stderr)
+
+        sys.exit(run.returncode)
+
+    def exit_if_dash_dash_help(self) -> None:
+        """Print the Doc and exit zero, if '--help' in the Shell Args"""
+
+        if "--help" in sys.argv[1:]:
+            print(__main__.__doc__, file=sys.stderr)
+            sys.exit(0)  # exits 0 after printing Help
+
+        # todo: merge .exit_if_dash_dash_help with git.GitGopher
+
+    def dash_dash_shfile_shargv(
+        self, sys_argv: typing.Iterable[str], default: str
+    ) -> tuple[str, ...]:
+        """Move the '--shfile FILE' into ArgV 0 when given as 1 or 2 Shell Args"""
+
+        tuple_sys_argv = tuple(sys_argv)
+        assert tuple_sys_argv, (tuple_sys_argv,)
+
+        # Fail if no Shell Args
+
+        default_shargv = (default, *tuple_sys_argv[1:])
+        if not tuple_sys_argv[1:]:
+            return default_shargv
+
+        # Fail if the '--shfile' option isn't the leading Shell Arg
+
+        sys_argv_1 = tuple_sys_argv[1]
+        (head, sep, tail) = sys_argv_1.partition("--shfile=")
+        if head or (not sep):
+            return default_shargv
+
+        # Fail if the '--shfile' option carries no Pathname
+
+        pathname = tail  # like from --shfile=/dev/null/g
+        shargv = (pathname, *tuple_sys_argv[2:])
+
+        if not tail:
+            if not tuple_sys_argv[2:]:
+                return default_shargv
+
+            sys_argv_2 = tuple_sys_argv[1]
+
+            pathname = sys_argv_2  # like from --shfile /dev/null/g
+            shargv = (pathname, *sys.argv[3:])
+
+        # Fail if the --shfile=Pathname carries no Basename
+
+        shverb = os.path.basename(pathname)
+        if not shverb:
+            return default_shargv
+
+        # Else succeed
+
+        return shargv
+
+        # todo: merge .dash_dash_shfile_shargv with git.GitGopher
+
+    def _shargs_grep_expand_ai_e_(self, shargs: tuple[str, ...]) -> tuple[str, ...]:
+        """Tune to presume text, ignore case, and match >= 1 patterns"""
+
+        strs = list()
+        strs.append("-ai")  # -a = --text  # -i = --ignore-case
+        for i, arg in enumerate(shargs):
+            if arg == "--":
+                strs.extend(shargs[i:])
+                break
+            elif arg.startswith("-"):
+                strs.append(arg)
+            else:
+                strs.append("-e")
+                strs.append(arg)
+
+        argv = tuple(strs)
+        return argv
+
+        # todo: merge ._shargs_grep_expand_ai_e_ with git.GitGopher
 
 
-argv = list()
-argv.append("grep")
-argv.extend(litshell.grep_expand_ae_i(tuple(sys.argv[2:])))
-
-join = shlex.join(argv)
-print("|" + join, file=sys.stderr)
+#
+# Run from the Shell Command Line, if not imported
+#
 
 
-run = subprocess.run(argv)
-if run.returncode:
-    print("+ exit", run.returncode, file=sys.stderr)
-
-sys.exit(run.returncode)
+if __name__ == "__main__":
+    main()
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/grep.py
