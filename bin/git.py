@@ -291,61 +291,88 @@ class GitGopher:
         shverb_shline_plus = shline_plus_by_shverb[shverb]
 
         # Require >= 1 Shell Args
+        # or else:  Accept >= 0 Shell Args, and sometimes add 1 Shell Arg
+        # or else:  Accept no Shell Args, else require first Shell Arg not obviously a Positional Arg
 
         if shverb_shline_plus.endswith(" ..."):
-            assert not shverb_shline_plus.startswith("... && "), (shverb, shverb_shline_plus)
 
-            required_args_usage = f"usage: {shverb} ..."
+            (shline, shsuffix) = self._form_shline_required_args_(shverb, shverb_shline_plus, shargv)
 
-            shline = shverb_shline_plus.removesuffix(" ...")
-            shsuffix = " ..."
+        elif shverb_shline_plus.endswith(" [...]"):
 
-            if not shargv[1:]:
+            (shline, shsuffix) = self._form_shline_optional_args_(shverb, shverb_shline_plus, shargv)
 
-                if shverb in ("ga", "ggl"):
-                    gtop = self.find_git_top(default="")
-                    if gtop:
-                        if gtop != os.getcwd():
-                            print(f"# {shverb!r} not at:  cd {gtop}/", file=sys.stderr)
+        else:
 
-                print(required_args_usage, file=sys.stderr)
-                sys.exit(2)  # exits 2 for bad args
+            (shline, shsuffix) = self._form_shline_no_leading_pos_arg_(
+                shverb, shverb_shline_plus, shargv
+            )
 
-            return (shline, shsuffix)
+        return (shline, shsuffix)
 
-            # ga, gcp, ggl, grh
+    def _form_shline_required_args_(
+        self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...]
+    ) -> tuple[str, str]:
+        """Handle case where >= 1 Shell Args are required"""
 
-        # Accept >= 0 Shell Args, and sometimes add 1 Shell Arg
+        assert not shverb_shline_plus.startswith("... && "), (shverb, shverb_shline_plus)
 
-        if shverb_shline_plus.endswith(" [...]"):
-            assert not shverb_shline_plus.startswith("... && "), (shverb, shverb_shline_plus)
+        required_args_usage = f"usage: {shverb} ..."
 
-            # optional_args_usage = f"usage: {shverb} [...]"  # also: gcaf
+        shline = shverb_shline_plus.removesuffix(" ...")
+        shsuffix = " ..."
 
-            shline = shverb_shline_plus.removesuffix(" [...]")
+        if not shargv[1:]:
 
-            shsuffix = " ..."
-            if not shargv[1:]:
-                shsuffix = ""
+            if shverb in ("ga", "ggl"):
+                gtop = self.find_git_top(default="")
+                if gtop:
+                    if gtop != os.getcwd():
+                        print(f"# {shverb!r} not at:  cd {gtop}/", file=sys.stderr)
 
-                if shverb_shline_plus == "git commit --all --fixup [...]":
-                    assert shverb in ("gcaf",), (shverb, shline)
-                    shline += " HEAD"  # tilts into:  git commit --all --fixup HEAD
+            print(required_args_usage, file=sys.stderr)
+            sys.exit(2)  # exits 2 for bad args
 
-                elif shverb_shline_plus == "git log --pretty=fuller --no-decorate [...]":
-                    assert shverb == "gl", (shverb, shline)
-                    shline += " -1"  # tilts into:  gl -1
+        return (shline, shsuffix)
 
-                elif shverb_shline_plus.startswith("git log "):
-                    assert shverb in ("glq", "gls", "glv"), (shverb, shline)
-                    if shverb not in ("gls",):  # tilts into:  gls --
-                        shline += " -9"  # tilts into:  glq -9, glv -9
+        # ga, gcp, ggl, grh
 
-            return (shline, shsuffix)
+    def _form_shline_optional_args_(
+        self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...]
+    ) -> tuple[str, str]:
+        """Handle case where >= 0 Shell Args are accepted, and sometimes add 1 Shell Arg"""
 
-            # g, gcaf, gd, gdno, gg, gl, glf, glq, gls, glv, gri, grias, gs, gspno
+        assert not shverb_shline_plus.startswith("... && "), (shverb, shverb_shline_plus)
 
-        # Accept no Shell Args, else require first Shell Arg not obviously a Positional Arg
+        # optional_args_usage = f"usage: {shverb} [...]"  # also: gcaf
+
+        shline = shverb_shline_plus.removesuffix(" [...]")
+
+        shsuffix = " ..."
+        if not shargv[1:]:
+            shsuffix = ""
+
+            if shverb_shline_plus == "git commit --all --fixup [...]":
+                assert shverb in ("gcaf",), (shverb, shline)
+                shline += " HEAD"  # tilts into:  git commit --all --fixup HEAD
+
+            elif shverb_shline_plus == "git log --pretty=fuller --no-decorate [...]":
+                assert shverb == "gl", (shverb, shline)
+                shline += " -1"  # tilts into:  gl -1
+
+            elif shverb_shline_plus.startswith("git log "):
+                assert shverb in ("glq", "gls", "glv"), (shverb, shline)
+                if shverb not in ("gls",):  # tilts into:  gls --
+                    shline += " -9"  # tilts into:  glq -9, glv -9
+
+        return (shline, shsuffix)
+
+        # g, gcaf, gd, gdno, gg, gl, glf, glq, gls, glv, gri, grias, gs, gspno
+
+    def _form_shline_no_leading_pos_arg_(
+        self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...]
+    ) -> tuple[str, str]:
+        """Handle case where no Shell Args are accepted, or first Shell Arg must not be a Positional Arg"""
 
         no_leading_pos_arg_usage = f"usage: {shverb}"
 
