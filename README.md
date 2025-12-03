@@ -184,36 +184,32 @@ Can we live within in these limits and still rewrite this text so well as to hop
 
 'The Comments are the first Issue Tracker'
 
-backport to Oct/2019 Python 3.8
+know how
 
-gl  # should be gl -1, till 'gl --' asks for more
+   backport to Oct/2019 Python 3.8
 
-ga   # even with no args, should go ahead and mention the gcd
+   p should mean print inside ~/bin/p
 
-gf --quiet  # could be my default for gf no args, take off the --quiet with args
+   ~/bin/c sh script of litshell.py
+      prompt before blocking till Tty Stdin Line complete
 
-offer things not aliased, like gf could suggest:  git rebase
+   ~/bin/o sh script of litshell.py - counting _.strip()'s
+      |o| filter = |o|
+      |o filter & dump = |o
+      o| source & filter = pbpaste |o|
+      o source & filter & sink = pbpaste |o |pbcopy
 
-gcam should pick up new Added Files into the wip
+   ~/bin/-1 sh script of litshell.py
+      |-1| capture & re/publish & dump = >-1 && -1 |pbcopy && pbpaste
+      |-1 capture & publish & sink = >-1 && -1 |pbcopy
+      -1| publish & dump = cat -1 |pbcopy && pbpaste
+      -1 capture & publish = pbpaste >-1 && cat -1 |pbcopy
 
-p should mean print inside ~/bin/p
+dunno how
 
-~/bin/c sh script of litshell.py
-   prompt before blocking till Tty Stdin Line complete
+   gcam should pick up new Added Files into the wip
 
-~/bin/o sh script of litshell.py - counting _.strip()'s
-   |o| filter = |o|
-   |o filter & dump = |o
-   o| source & filter = pbpaste |o|
-   o source & filter & sink = pbpaste |o |pbcopy
-
-~/bin/-1 sh script of litshell.py
-   |-1| capture & re/publish & dump = >-1 && -1 |pbcopy && pbpaste
-   |-1 capture & publish & sink = >-1 && -1 |pbcopy
-   -1| publish & dump = cat -1 |pbcopy && pbpaste
-   -1 capture & publish = pbpaste >-1 && cat -1 |pbcopy
-
-Zsh ⌃U wrongly does row-erase, I want row-head-erase
+   Zsh ⌃U wrongly does row-erase, I want row-head-erase
 
 Game - **Smushup** - Arrow Pair to move 8 ways, and smush matching colors
 Game - **Muhnswuhper** - Minesweeper® style, but ...

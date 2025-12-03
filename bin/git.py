@@ -139,7 +139,7 @@ class GitGopher:
 
         # Take the Shell Pwd & Git Diff into account
 
-        gtop = self.find_git_top()
+        gtop = self.find_git_top(default=None)
 
         relpath = os.path.relpath(gtop)
         if gtop != os.getcwd():
@@ -187,6 +187,10 @@ class GitGopher:
 
             if diff_shverb == "gcaa":
                 self.rescue_git_commit_message(git_run.returncode)
+
+        if not git_run.returncode:
+            if diff_shverb == "gf":
+                print("# next:  git rebase", file=sys.stderr)
 
         # Exit happy or sad, same as the Shell
 
@@ -297,6 +301,13 @@ class GitGopher:
             shsuffix = " ..."
 
             if not shargv[1:]:
+
+                if shverb in ("ga", "ggl"):
+                    gtop = self.find_git_top(default="")
+                    if gtop:
+                        if gtop != os.getcwd():
+                            print(f"# {shverb!r} not at:  cd {gtop}/", file=sys.stderr)
+
                 print(required_args_usage, file=sys.stderr)
                 sys.exit(2)  # exits 2 for bad args
 
@@ -319,11 +330,16 @@ class GitGopher:
 
                 if shverb_shline_plus == "git commit --all --fixup [...]":
                     assert shverb in ("gcaf",), (shverb, shline)
-                    shline += " HEAD"
+                    shline += " HEAD"  # tilts into:  git commit --all --fixup HEAD
+
+                elif shverb_shline_plus == "git log --pretty=fuller --no-decorate [...]":
+                    assert shverb == "gl", (shverb, shline)
+                    shline += " -1"  # tilts into:  gl -1
+
                 elif shverb_shline_plus.startswith("git log "):
-                    assert shverb in ("gl", "glq", "gls", "glv"), (shverb, shline)
-                    if shverb not in ("gls",):
-                        shline += " -9"
+                    assert shverb in ("glq", "gls", "glv"), (shverb, shline)
+                    if shverb not in ("gls",):  # tilts into:  gls --
+                        shline += " -9"  # tilts into:  glq -9, glv -9
 
             return (shline, shsuffix)
 
@@ -336,13 +352,20 @@ class GitGopher:
         shsuffix = ""
 
         shline = shverb_shline_plus
-        if shverb_shline_plus == "git reflog --date=relative --numstat":
+
+        if shverb_shline_plus == "git fetch --prune --prune-tags --force":
+            assert shverb == "gf", (shverb, shline)
+            if not shargv[1:]:
+                shline += " --quiet"  # tilts into:  gf --quiet
+
+        elif shverb_shline_plus == "git reflog --date=relative --numstat":
             assert shverb == "grl", (shverb, shline)
-            shline += " -9"
+            if not shargv[1:]:
+                shline += " -9"
 
         if shargv[1:]:
             if shargv[1].startswith("-"):
-                pass  # # accepts g -, g --, gdh -w, etc
+                pass  # accepts g -, g --, gdh -w, etc
             else:
                 print(no_leading_pos_arg_usage, file=sys.stderr)
                 sys.exit(2)  # exits 2 for bad args
@@ -370,7 +393,7 @@ class GitGopher:
 
         # todo: operate 'glf ...' and 'grv' without 'shell=True'
 
-    def find_git_top(self) -> str:
+    def find_git_top(self, default: str | None) -> str:
         """Find RealPath of the enclosing Git Clone, else complain & exit nonzero"""
 
         gtop_shline = "git rev-parse --show-toplevel"
@@ -385,6 +408,8 @@ class GitGopher:
         # Exit nonzero and explain why, if Pwd not inside a Git Clone
 
         if gtop_run.returncode:
+            if default is not None:
+                return default
 
             print(f": gtop && {gtop_shline}", file=sys.stderr)
             sys.stderr.write(gtop_run.stdout.decode())  # written to Stderr, and commonly empty
