@@ -59,6 +59,8 @@ git clone https://github.com/pelavarre/pylitfun.git && cd pylitfun/
 which -a python3  # such as 2025/Oct Python 3.10
 
 python3 litglass.py --egg=yolo
+
+git log --oneline --no-decorate -1
 ```
 
 **Requirements**: Python and a Terminal <br>

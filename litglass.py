@@ -186,6 +186,7 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
     assert ns_keys == ["force", "eggs"], (ns_keys, ns, args)
 
     dash_dash_eggs = list(vars(flags).keys())
+    dash_dash_eggs.append("yolo")
     dash_dash_eggs.remove("apple")
     dash_dash_eggs.remove("google")
     dash_dash_eggs.remove("terminal")
