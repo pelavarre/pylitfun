@@ -129,7 +129,9 @@ no longer running only as full-screen apps
 
 **Web Browser**: Yes you do have a Linux in your Web Browser, like so =>
 
-Google Cloud Shell at [shell.cloud.google.com](https://shell.cloud.google.com/?show=terminal) comes free of charge, bundled with Gmail, except you do have to learn to ignore its silly prompts. It really does still work after you click "Reject" on its every ask to upsell you. It really does keep your saved games saved, when you close the Browser Tab and choose "Leave Page" in place of "Stay on Page". And you can accidentally click the wrong choice, no problem, for then they do give you your second chance to say No, No, please do stop asking me
+Google Cloud Shell at [shell.cloud.google.com](https://shell.cloud.google.com/?show=terminal) comes free of charge, bundled with Gmail, except you do have to learn to ignore its silly prompts
+
+It does hassle you with upsell nudges, but if you agree to the License once then you can Reject every Authorize thereafter and it runs fine. Plus if you hit Authorize by accident it gives you a second chance to say No. It keeps like 8GB of your saved games saved, even when you close the Browser Tab and choose "Leave Page" in place of "Stay on Page". And you can wrongly accidentally click the Authorize, no problem, for they do give you your second chance to say Reject
 
 
 ## Why This Repo Exists
@@ -187,14 +189,6 @@ Can we live within in these limits and still rewrite this text so well as to hop
 'The Comments are the first Issue Tracker'
 
 know how
-
-   revive --egg=keycaps
-
-   accept U+F8FF  as Printable Enough from ⌥⇧K
-
-   accept
-
-   backport to Oct/2019 Python 3.8
 
    p should mean print inside ~/bin/p
 

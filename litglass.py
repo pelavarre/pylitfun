@@ -15,12 +15,13 @@ quirks:
   quits when given ⌃C
 
 examples:
-  ./litglass.py --  # to run with defaults
-  ./litglass.py --egg=enter  # to launch loop back with no setup
-  ./litglass.py --egg=exit  # to quit loop back with no teardown
-  ./litglass.py --egg=logging  # write log lines into ./__pycache__/litglass.log
-  ./litglass.py --egg=scroll  # to scroll into scrollback then launch in alt screen
-  ./litglass.py --egg=yolo  # a more explicit way to say run with defaults
+  ./litglass.py --  # runs with defaults
+  ./litglass.py --egg=enter  # launches into loop back with no setup
+  ./litglass.py --egg=exit  # quits after loop back with no teardown
+  ./litglass.py --egg=help  # surfaces like two dozen easter eggs planted here
+  ./litglass.py --egg=logging  # writes log lines into ./__pycache__/litglass.log
+  ./litglass.py --egg=scroll  # scrolls into scrollback then launch in alt screen
+  ./litglass.py --egg=yolo  # runs with defaults, but more explicitly so
 """
 
 # ./litglass.py --egg=assert  # to assert False before doing much
@@ -45,6 +46,7 @@ import collections
 import collections.abc  # .collections.abc is not .abc
 import dataclasses
 import difflib
+import functools
 import itertools
 import logging
 import math
@@ -345,6 +347,9 @@ class SquaresGame:
     def sq_step_once(self, frames: tuple[bytes, ...]) -> None:
         """Eval Input and print Output"""
 
+        boxes = tuple(BytesBox(_) for _ in frames)
+        _ = boxes
+
         return
 
 
@@ -482,15 +487,15 @@ class KeycapsGame:
         sw.print()
         for line in splitlines:
 
-            text = dent + line + dent
+            printable = dent + line + dent
             if shifters == "⇧":
-                text = text.replace("F1 F2 F3 F4", "<> <> <> <>")
+                printable = printable.replace("F1 F2 F3 F4", "<> <> <> <>")
 
             if shifters != "⇧":
-                sw.write(text)
+                sw.write(printable)
             else:
 
-                splits = text.split("⇧")
+                splits = printable.split("⇧")
                 for index, split in enumerate(splits):
                     if index:
                         sw.write_control("\033[7m")  # ⎋[7M style-reverse
@@ -560,7 +565,7 @@ class KeycapsGame:
 
         assert KeycapsGame.MAX_SCROLLABLES_3 == 3
 
-        text = " ".join(str(_) for _ in args)
+        printable = " ".join(str(_) for _ in args)
 
         (y, x) = (kr.row_y, kr.column_x)
 
@@ -585,10 +590,10 @@ class KeycapsGame:
             sw.write_control(f"\033[{y - 1};{x}H")  # row-column-leap ⎋[⇧H
             sw.write_control("\033[L")  # rows-insert ⎋[⇧L
 
-        sw.write(text)  # todo9: .kc_print wider than screen
+        sw.write(printable)  # todo9: .kc_print wider than screen
         sw.write_control("\033[K")  # row-tail-erase ⎋[⇧K
 
-        scrollables.append(text)
+        scrollables.append(printable)
         sw.write_control(f"\033[{yn};{x}H")  # row-column-leap ⎋[⇧H
 
     def kc_switch_tab_if(self, kseqs: tuple[str, ...]) -> None:
@@ -737,7 +742,6 @@ class Loopbacker:
 
     keyboard_decoder: KeyboardDecoder
     screen_change_order: ScreenChangeOrder
-    slow_time_time: float  # .time.time() of last .screen_change_order.clear_order restart
 
     #
     # Init, enter, and exit
@@ -753,8 +757,9 @@ class Loopbacker:
 
         kd = KeyboardDecoder()
 
+        dsr5 = BytesBox(b"\033[5n")
         sco = ScreenChangeOrder()
-        time_time = sco.grow_order("\033[5n", yx=(kr.row_y, kr.column_x))
+        sco.grow_order(dsr5, yx=(kr.row_y, kr.column_x))
 
         self.terminal_boss = tb
         self.screen_writer = sw
@@ -762,7 +767,6 @@ class Loopbacker:
 
         self.keyboard_decoder = kd
         self.screen_change_order = sco
-        self.slow_time_time = time_time
 
         # todo: limit fanout of pretending ⎋[5N came as last Input before Launch
 
@@ -884,51 +888,53 @@ class Loopbacker:
 
         # Take in each Frame
 
+        boxes = tuple(BytesBox(_) for _ in frames)
+
         clearing_screen_order = False
-        for frame_index, frame in enumerate(frames):
+        for box_index, box in enumerate(boxes):
+            data = box.data
+            text = box.text
 
-            try:
-                kdecode = frame.decode()
-            except UnicodeDecodeError:
-                kdecode = ""
+            assert data, (data,)
 
-            if not kdecode:
-                self.lbr_write_frame_echo(frame)
+            if not text:
+                self.lbr_write_frame_echo(data)
                 continue
 
             (y, x) = (kr.row_y, kr.column_x)
 
             # Take in the Frame by itself, while Order incomplete
 
-            time_time = sco.grow_order(kdecode, yx=(kr.row_y, kr.column_x))
-            if time_time:
-                self.slow_time_time = time_time
+            sco.grow_order(box, yx=(kr.row_y, kr.column_x))
 
             if not (sco.forceful_order or sco.intricate_order):
+
                 if flags.echoes:
-                    self.lbr_write_frame_echo(frame)
+                    self.lbr_write_frame_echo(data)
                     sw.write_control(f"\033[{y};{x}H")
-                self.lbr_kdecode_step_once(kdecode, intricate_order=False)
+
+                self.lbr_box_step_once(box, intricate_order=False)
+
                 continue
 
                 # todo9: Delete the repeat-count when not-echo'ing the Key Byte Frame
 
             compilation = sco.compile_order()
-            (row_y, column_x, strong, factor, slow_kencode) = compilation
+            (row_y, column_x, strong, factor, sco_box) = compilation
 
-            if not slow_kencode:
-                self.lbr_write_frame_echo(frame)
+            if not sco_box:
+                self.lbr_write_frame_echo(data)
                 break
 
-            # Run this completed Order
+            # Run this Order as completed by this Frame
 
-            self.lbr_sco_step_once(frame, compilation=compilation)
+            self.lbr_sco_step_once(data, compilation=compilation)
 
             sco.yx = tuple()
             kbf = sco.key_byte_frame
             kbf.clear_frame()  # reruns Factor for remaining Frames
 
-            if frames[frame_index:][1:]:
+            if boxes[box_index:][1:]:
                 _ = kr.sample_hwyx()
 
             clearing_screen_order = True
@@ -937,11 +943,13 @@ class Loopbacker:
             sco.clear_order()
 
     def lbr_sco_step_once(
-        self, frame: bytes, compilation: tuple[int, int, int, int, bytes]
-    ) -> bytes:
-        """Write the Frame if the Order is incomplete, else"""
+        self, data: bytes, compilation: tuple[int, int, int, int, BytesBox]
+    ) -> None:
+        """Run this Order as completed by this Frame"""
 
-        (row_y, column_x, strong, factor, slow_kencode) = compilation
+        (row_y, column_x, strong, factor, sco_box) = compilation
+        sco_data = sco_box.data
+        sco_text = sco_box.text
 
         sw = self.screen_writer
         kr = self.keyboard_reader
@@ -951,71 +959,67 @@ class Loopbacker:
 
         # Write the Frame and grow the Order
 
-        slow_kdecode = slow_kencode.decode()
-        slow_isprintable = slow_kdecode.isprintable()
+        if sco_box.practically_printable and (not strong):
 
-        if slow_isprintable and (not strong):
-
-            sw.write_printable(slow_kdecode)
+            sw.write_printable(sco_text)
 
         elif factor < -1:  # echoes without writing
 
-            self.lbr_write_frame_echo(frame)
+            self.lbr_write_frame_echo(data)
 
         elif factor == -1:  # echoes and greatly details
 
-            slow_frames = tuple([slow_kencode])
+            frames = tuple([sco_data])
 
-            slow_t1 = time.time()
-            slow_t1t0 = slow_t1 - self.slow_time_time
+            t1 = time.time()
+            t1t0 = t1 - sco.time_time
 
-            self.lbr_write_frame_echo(frame)
+            self.lbr_write_frame_echo(data)
 
             sw.write_printable(" ")
-            self.lbr_print_frame_per_row(slow_frames, t1t0=slow_t1t0)
+            self.lbr_print_frame_per_row(frames, t1t0=t1t0)
 
         elif factor == 0:  # echoes and leaps and writes
 
-            self.lbr_write_frame_echo("⌃m".encode() if (frame == b"\r") else frame)  # ⌃M
+            self.lbr_write_frame_echo("⌃m".encode() if (data == b"\r") else data)  # ⌃M
 
             sw.write_control(f"\033[{row_y};{column_x}H")
             kr.row_y = row_y
             kr.column_x = column_x
 
-            if slow_isprintable:
-                sw.write_printable(slow_kdecode)
+            if sco_box.practically_printable:
+                sw.write_printable(sco_text)
             else:
-                sw.write_control(slow_kdecode)
+                sw.write_control(sco_text)
 
         else:  # echoes and cooks and leaps and writes
 
             if sco.intricate_order or flags.echoes:
-                self.lbr_write_frame_echo(frame)
+                self.lbr_write_frame_echo(data)
 
             sw.write_control(f"\033[{row_y};{column_x}H")
             kr.row_y = row_y
             kr.column_x = column_x
 
             for _ in range(factor):
-                self.lbr_kdecode_step_once(slow_kdecode, intricate_order=sco.intricate_order)
-
-        return slow_kencode
+                self.lbr_box_step_once(sco_box, intricate_order=sco.intricate_order)
 
     #
     # Loop back a single Frame of decodable Input Bytes,
     # having arrived all together or else slowly intricately built as a Screen Change Order
     #
 
-    def lbr_kdecode_step_once(self, decode: str, intricate_order: bool) -> None:
+    def lbr_box_step_once(self, box: BytesBox, intricate_order: bool) -> None:
         """Loop back the Decode of the Frame, else echo it"""
 
-        frame = decode.encode()
+        data = box.data
+        text = box.text
 
         sw = self.screen_writer
         kr = self.keyboard_reader
 
         kd = self.keyboard_decoder
-        echo = kd.frame_to_echo(frame)
+        echo = kd.frame_to_echo(data)
         assert echo.isprintable(), (echo,)
 
         assert _NorthArrow_ and _SouthArrow_ and _EastArrow_ and _WestArrow_
@@ -1023,25 +1027,25 @@ class Loopbacker:
 
         # If Frame is Printable
 
-        if decode.isprintable():
-            sw.write_printable(decode)
+        if box.practically_printable:
+            sw.write_printable(text)
             return
 
         # If Frame has Keycaps
 
-        if self.lbr_decode_kseqs_step_once_if(decode=decode, intricate_order=intricate_order):
+        if self.lbr_decode_kseqs_step_once_if(box, intricate_order=intricate_order):
             return
 
         # Loop back a few Esc Byte Sequences unchanged
 
-        loopable_decodes = ("\0337", "\0338", "\033D", "\033E", "\033M")
-        if decode in loopable_decodes:
-            sw.write_control(decode)
+        loopable_controls = ("\0337", "\0338", "\033D", "\033E", "\033M")
+        if text in loopable_controls:
+            sw.write_control(text)
             return
 
         # Block the heavy hammer of ⎋C and the complex hammer of ⎋L
 
-        if decode == "\033c":  # ⎋C to ⎋[⇧H ⎋[2⇧J ⎋[3⇧J screen/ scrollback erase
+        if text == "\033c":  # ⎋C to ⎋[⇧H ⎋[2⇧J ⎋[3⇧J screen/ scrollback erase
             sw.write_some_controls(["\033[H", "\033[2J", "\033[3J"])
             return
 
@@ -1050,13 +1054,13 @@ class Loopbacker:
             # not so much:  seq 987 && printf '\e[3J''\e[H''\e[2J'
             # lots of Shell 'clear' get this wrong, including Oct/2024 Sequoia macOS 15
 
-        if decode == "\033l":  # ⎋L terminal-confuse to ⎋[⇧H row-column-leap
+        if text == "\033l":  # ⎋L terminal-confuse to ⎋[⇧H row-column-leap
             sw.write_control("\033[H")
             return
 
         # Leap the Cursor to the ⌥-Click  # todo9: also ⎋[⇧M Click Releases
 
-        kbf = KeyByteFrame(frame)
+        kbf = KeyByteFrame(data)
         (marks, ints) = kbf.to_csi_marks_ints_if()
 
         if (marks == b"<m") and (len(ints) == 3):
@@ -1098,25 +1102,28 @@ class Loopbacker:
 
             return
 
-        # Forward well-known Csi & Osc Byte Sequences arriving as multiple Frames,
-        # but echo a blocked Csi or Osc Sequence vertically
+        # Loop back well-known Csi & Osc Byte Sequences
 
-        if self.lbr_csi_osc_step_once(decode):
+        if self._lbr_csi_osc_step_once_if_(box):
             return
+
+        # Else echo vertically
 
         for e in echo:
             sw.write_printable(e)
             kr.row_y = min(kr.y_high, kr.row_y + 1)
             sw.write_control(f"\033[{kr.row_y};{kr.column_x}H")
 
-    def lbr_decode_kseqs_step_once_if(self, decode: str, intricate_order: bool) -> bool:
+    def lbr_decode_kseqs_step_once_if(self, box: BytesBox, intricate_order: bool) -> bool:
         """Loop back the Keycaps of the Frame, else return False"""
+
+        data = box.data
+        text = box.text
 
         kr = self.keyboard_reader
         kd = self.keyboard_decoder
 
-        frame = decode.encode()
-        kseqs = kd.bytes_to_kseqs_if(frame)
+        kseqs = kd.bytes_to_kseqs_if(data)
         if not kseqs:
             return False
 
@@ -1125,7 +1132,7 @@ class Loopbacker:
         sw = self.screen_writer
         kd = self.keyboard_decoder
 
-        # Echo ⎋ Esc as such
+        # Echo ⎋ Esc and ⎋⎋ Esc Esc as such
 
         if kseq in ("⎋", "⎋⎋"):
             sw.write_printable(kseq)
@@ -1135,17 +1142,14 @@ class Loopbacker:
 
         loopable_kseqs = ("⌃G", "⌃H", "⇥", "⌃K", "⇧⇥")
         if kseq in loopable_kseqs:
-            sw.write_control(decode)  # ⌃I for ⇥, ⎋[⇧Z for ⇧⇥, etc
-            return True
-        if kseq in ("⎋", "⎋⎋"):
-            sw.write_printable(kseq)
+            sw.write_control(text)  # ⌃I for ⇥, ⎋[⇧Z for ⇧⇥, etc
             return True
 
         # Loop back ⌃J encoding of ⏎ Return as ⌃J ⎋[ ⇧G column-leap
 
         if kseq == "⌃J":
             if not flags.sigint:
-                sw.write_control(decode)  # ⌃J for ⌃J
+                sw.write_control(text)  # ⌃J for ⌃J
             else:
                 x = kr.column_x
                 sw.write_some_controls(["\n", f"\033[{x}G"])  # "\n" lands as "\r\n"
@@ -1184,40 +1188,59 @@ class Loopbacker:
 
         return False
 
-    def lbr_csi_osc_step_once(self, decode: str) -> bool:
+    def _lbr_csi_osc_step_once_if_(self, box: BytesBox) -> bool:
+        """Loop back well-known Csi & Osc Byte Sequences"""
 
-        frame = decode.encode()
-        kbf = KeyByteFrame(frame)
+        control = box.text
+        kbf = KeyByteFrame(box.data)
+
+        head = bytes(kbf.head)
+        neck = bytes(kbf.neck)
+        backtail = bytes(kbf.backtail)
 
         sw = self.screen_writer
 
-        if decode.startswith("\033["):
+        assert CSI == "\033["
+        assert OSC == "\033]"
 
-            if decode[-1] in "@" "ABCDEFGHIJKLM" "P" "ST" "Z" "d" "f" "h" "lm" "q":
-                sw.write_control(decode)  # no limits on .marks and .ints
-                return True
+        # Loop back well-known Csi Byte Sequences
 
-            if decode[-1] in "nt":
-                sw.write_control(decode)  # no limits on .marks and .ints
-                return True
+        if head == b"\033[M" and (not backtail):
+            assert not neck, (neck, head, backtail, kbf)
+            sw.write_control(control)
+            return True
+
+        if head == b"\033[":
+            if len(backtail) == 1:
+
+                if backtail in b"@" b"ABCDEFGHIJKLM" b"P" b"ST" b"Z" b"d" b"f" b"h" b"lm" b"q":
+                    sw.write_control(control)  # no limits on .marks and .ints
+                    return True
+
+                if backtail in b"nt":
+                    sw.write_control(control)  # no limits on .marks and .ints
+                    return True
 
             # Emulate Columns Insert/ Delete by Csi
 
-            if self._screen_columns_insert_delete_if_(decode, kbf=kbf):
+            if self._screen_columns_insert_delete_if_(kbf):
                 return True
 
             # todo: Accept only the Csi understood by our Class ScreenWriter
 
-        if decode.startswith("\033]"):
-            if decode in ("\033]11;?\007", "\033]11;?\033\134"):
-                sw.write_control(decode)  # ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
-                return True
+        # Loop back well-known Osc Byte Sequences
+
+        if head == b"\033]":
+            if backtail in (b"\007", b"\033\134"):
+                if neck == b"\033]11;?":  # ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
+                    sw.write_control(control)
+                    return True
 
             # todo: Accept only the Osc understood by our Class ScreenWriter
 
         return False
 
-    def _screen_columns_insert_delete_if_(self, decode: str, kbf: KeyByteFrame) -> bool:
+    def _screen_columns_insert_delete_if_(self, kbf: KeyByteFrame) -> bool:
         """Emulate Columns Insert/ Delete by Csi"""
 
         sw = self.screen_writer
@@ -1227,9 +1250,6 @@ class Loopbacker:
         y_high = kr.y_high
 
         #
-
-        if decode[-2:] not in ("'}", "'~"):
-            return False
 
         (marks, ints) = kbf.to_csi_marks_ints_if()
         if marks not in (b"'}", b"'~"):
@@ -1302,10 +1322,8 @@ class Loopbacker:
 
         frame = frames[frame_index]
 
-        try:
-            decode = frame.decode()
-        except UnicodeDecodeError:
-            decode = ""
+        box = BytesBox(frame)
+        text = box.text
 
         sw = self.screen_writer
         kd = self.keyboard_decoder
@@ -1326,11 +1344,11 @@ class Loopbacker:
         if alt_kseqs:
             printables.append(alt_kseqs[0])
 
-        if decode and decode.isprintable():
-            if decode == " ":
-                printables.append(repr(decode))
+        if text and text.isprintable():
+            if text == " ":
+                printables.append(repr(text))
             else:
-                printables.append(decode)
+                printables.append(text)
         else:
             printables.append(repr(frame))
 
@@ -1344,8 +1362,8 @@ class Loopbacker:
 
         # Print the chosen details
 
-        text = " ".join(str(_) for _ in printables)
-        sw.write_printable(text)
+        join = " ".join(str(_) for _ in printables)
+        sw.write_printable(join)
 
         self.t = time.time()
 
@@ -1363,6 +1381,8 @@ class Loopbacker:
 class ScreenChangeOrder:
     """Hold some Text, or one Control Sequence"""
 
+    time_time: float
+
     yx: tuple[int, ...]
 
     early_mark: str  # ''  # '\025' ⌃U
@@ -1379,14 +1399,11 @@ class ScreenChangeOrder:
     def __init__(self) -> None:
 
         self.key_byte_frame = KeyByteFrame(b"")
-
         self.clear_order()
 
-    def clear_order(self) -> float:
+    def clear_order(self) -> None:
 
-        time_time = time.time()
-
-        kbf = self.key_byte_frame
+        self.time_time = time.time()
 
         self.yx = tuple()
 
@@ -1394,10 +1411,10 @@ class ScreenChangeOrder:
         self.int_literal = ""
         self.late_mark = ""
 
+        kbf = self.key_byte_frame
         kbf.clear_frame()
-        self.intricate_order = False
 
-        return time_time
+        self.intricate_order = False
 
     def __bool__(self) -> bool:
 
@@ -1418,12 +1435,12 @@ class ScreenChangeOrder:
         intricate_order = self.intricate_order
 
         kbf = self.key_byte_frame
-        kencode = kbf.to_frame_bytes()
+        data = kbf.to_frame_bytes()
 
         em = repr(early_mark)[1:-1]
         lm = repr(late_mark)[1:-1]
 
-        s = f"{em} {int_literal} {lm} {intricate_order} {kencode!r}"  # no .forceful_order
+        s = f"{em} {int_literal} {lm} {intricate_order} {data!r}"  # no .forceful_order
 
         return s
 
@@ -1433,7 +1450,7 @@ class ScreenChangeOrder:
     # Say what to do and where
     #
 
-    def compile_order(self) -> tuple[int, int, int, int, bytes]:
+    def compile_order(self) -> tuple[int, int, int, int, BytesBox]:
         """Say where to run, what to run, and if strongly told to run it other than once"""
 
         yx = self.yx
@@ -1470,33 +1487,36 @@ class ScreenChangeOrder:
 
         kbf.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
 
-        kencode = kbf.to_frame_bytes()
+        data = kbf.to_frame_bytes()
         if not kbf.closed:
             if not kbf.printable:
-                kencode = b""
+                data = b""
+
+        box = BytesBox(data)
 
         # Succeed
 
-        return (row_y, column_x, strong, factor, kencode)
+        return (row_y, column_x, strong, factor, box)
 
     #
     # Add on a next Input, else restart
     #
 
-    def grow_order(self, decode: str, yx: tuple[int, int]) -> float:
+    def grow_order(self, box: BytesBox, yx: tuple[int, int]) -> None:
         """Add on a next Input, else restart"""
 
-        assert decode, (decode,)
-        encode = decode.encode()
+        data = box.data
+        text = box.text
+
+        assert data, (data,)
 
         kbf = self.key_byte_frame
         assert _FactorMark_ == "\025"
 
         # Take Input after a Text Frame or Closed Frame as a new Order
 
-        time_time = 0e0
         if kbf.printable or kbf.closed:
-            time_time = self.clear_order()
+            self.clear_order()
 
         # Place Output over top of first Input
 
@@ -1512,30 +1532,30 @@ class ScreenChangeOrder:
         # Take ⌃U as a thing to count in itself at first
         # Take one extra ⌃U later to end and strengthen the .int_literal
 
-        if decode == "\025":  # ⌃U
+        if text == "\025":  # ⌃U
 
             if (early_mark and late_mark) or kbf:
 
-                time_time = self.clear_order()
-                self.early_mark = decode
+                self.clear_order()
+                self.early_mark = text
 
             else:
 
                 if not early_mark:
-                    self.early_mark = decode
+                    self.early_mark = text
                 elif not int_literal:
-                    self.early_mark += decode
+                    self.early_mark += text
                 else:
-                    self.late_mark = decode
+                    self.late_mark = text
 
-            return time_time
+            return
 
         # Start or grow an Int Literal
 
-        lit_plus = int_literal + decode
+        lit_plus = int_literal + text
 
         if not late_mark:
-            if not decode.isspace():
+            if not text.isspace():
                 if not kbf:
 
                     try:
@@ -1545,7 +1565,7 @@ class ScreenChangeOrder:
                         _ = int(x, base_eq_0)
 
                         self.int_literal = lit_plus
-                        return time_time
+                        return
 
                     except ValueError:
 
@@ -1554,17 +1574,16 @@ class ScreenChangeOrder:
         # Grow the Frame
 
         with_bool_kbf = bool(kbf)
-        extras = kbf.take_kencode_if(encode)
+        extras = kbf.take_data_if(data)
         if not extras:
             if with_bool_kbf:
                 self.intricate_order = True
 
-            return time_time
+            return
 
         # Else start over  # like when reached by ⎋ [ ' 2
 
-        time_time = self.clear_order()
-        return time_time
+        self.clear_order()
 
         # todo9: Accept the shifting Symbols of ⎋ ⌃ ⌥ ⇧ ⌘ Fn into the Screen Change Order
 
@@ -1740,9 +1759,9 @@ class ScreenWriter:
     def print(self, *args: object) -> None:
         """Answer the question of 'what is print?' here lately"""
 
-        text = " ".join(str(_) for _ in args)
+        printable = " ".join(str(_) for _ in args)
 
-        self.write_printable(text)  # may raise UnicodeEncodeError on purpose
+        self.write_printable(printable)  # may raise UnicodeEncodeError
         self.write_some_controls(["\r", "\n"])
 
         # todo: one 'def print' per project is exactly enough?
@@ -1750,45 +1769,51 @@ class ScreenWriter:
     def write_printable(self, text: str) -> None:
         """Write the Byte Encodings of Printable Text without adding a Line-Break"""
 
-        assert text.isprintable(), (text,)
-        self.write(text)
+        printable = text  # alias
+
+        assert printable.isprintable(), (printable,)
+        self.write(printable)
 
     def write_some_controls(self, texts: typing.Iterable[str]) -> None:
         """Write the Byte Encodings of >= 0 Unprintable Control Texts"""
 
-        for text in texts:
-            self.write_control(text)
+        controls = texts  # alias
+
+        for control in controls:
+            self.write_control(control)
 
         # may write zero controls
 
     def write_control(self, text: str) -> None:
         """Write the Byte Encodings of one Unprintable Control Text"""
 
-        if not text:
+        control = text  # alias
+
+        if not control:
             return
 
-        assert not text.isprintable(), (text,)
+        assert not control.isprintable(), (control,)
 
-        encode = text.encode()
-        kbf = KeyByteFrame(encode)  # may raise UnicodeEncodeError on purpose
+        data = control.encode()
+        kbf = KeyByteFrame(data)  # may raise UnicodeEncodeError
         kbf.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
-        assert (not kbf.printable) and kbf.closed, (encode, kbf)
+        assert (not kbf.printable) and kbf.closed, (data, kbf)
 
-        self.write(text)
+        self.write(control)
+
+        # todo: can the assert is-control idea be spoken lots more simply?
 
     def write(self, text: str) -> None:
         """Write the Byte Encodings of Text without adding a Line-Break"""
 
-        logger.info(f"{text=}")
+        logger.info(f"{text=}")  # printable or control or a mix of both
 
         tb = self.terminal_boss
         data = text.encode()  # may raise UnicodeEncodeError
         tb.write_some_bytes(data)
 
         # todo: one 'def write' per project is exactly enough?
-
         # presumes writes of arbitrary bytes will go to 'tb.write_some_bytes'
-        # does 'may raise UnicodeEncodeError' on purpose
 
 
 Y1 = 1  # min Y of Terminal Cursor
@@ -1871,19 +1896,22 @@ class KeyboardReader:
     def read_byte_frames(self) -> tuple[bytes, ...]:
         """Read one Frame at a time, and help the Client ignore H W Y X"""
 
-        (click_release_frame, after) = self._read_click_release_frame_and_after_()
-
         frame_list = list()
-        if click_release_frame:
-            frame_list.append(click_release_frame)
 
-        while after:
-            (frame, next_after) = self._bytes_split_frame_(after)
-            assert frame, (frame, next_after, after)
-            assert (frame + next_after) == after, (frame, next_after, after)
+        (start, end) = self._read_click_release_frame_and_after_()
+        assert start or end, (start, end)
 
-            frame_list.append(frame)
-            after = next_after
+        if start:
+            frame_list.append(start)
+
+        data = end
+        while data:
+            (start, end) = self._bytes_split_frame_(data)
+            assert (start + end) == data, (start, end, data)
+            assert start, (start, end, data)
+
+            frame_list.append(start)
+            data = end
 
         frames = tuple(frame_list)
         assert frames, (frames,)
@@ -1926,35 +1954,35 @@ class KeyboardReader:
     def _read_click_release_frame_and_after_(self) -> tuple[bytes, bytes]:
         """Read Bytes, but split off a leading ⌥-Click if present"""
 
-        reads = self.read_bytes()
-        assert reads, (reads,)
+        data = self.read_bytes()
+        assert data, (data,)
 
-        (arrowheads, after) = self.bytes_split_arrowheads(reads)
-        assert arrowheads or after, (arrowheads, after, reads)
+        (arrowheads, end) = self.bytes_split_arrowheads(data)
+        assert arrowheads or end, (arrowheads, end, data)
 
-        click_release_frame = b""
+        frame = b""
         if arrowheads:
-            click_release_frame = self._arrowheads_to_frame_(arrowheads)
-            assert click_release_frame, (click_release_frame, arrowheads)
+            frame = self._arrowheads_to_frame_(arrowheads)
+            assert frame, (frame, arrowheads)
 
-        return (click_release_frame, after)
+        return (frame, end)
 
     def bytes_split_arrowheads(self, data: bytes) -> tuple[str, bytes]:
         """Split a Burst of Arrows into a Head of Arrows and a Tail of Bytes"""
 
         marks: list[str] = list()
-        after = b""
 
         assert ClassicArrows == ("\033[A", "\033[B", "\033[C", "\033[D")
 
         if len(data) <= (MAX_ARROW_KEY_JAM_2 * 3):
             return ("", data)
 
+        end = b""
         for i in range(0, len(data), 3):
             few = data[i:][:3]  # spans of 3 bytes, but maybe short at end
 
             if few not in (b"\033[A", b"\033[B", b"\033[C", b"\033[D"):
-                after = data[i:]
+                end = data[i:]
                 break
 
             ord_mark = few[-1]
@@ -1969,12 +1997,11 @@ class KeyboardReader:
                 b"\033[%d%b" % (len(list(g)), k.encode()) for k, g in itertools.groupby(marks)
             )
 
-            alt_data = runs + after
-
+            alt_data = runs + end
             return ("", alt_data)
 
         arrowheads = "".join(marks)
-        return (arrowheads, after)
+        return (arrowheads, end)
 
     def _arrowheads_to_frame_(self, arrowheads: str) -> bytes:
         """Convert a Burst of Arrows into a ⌥-Click Release"""
@@ -2028,9 +2055,9 @@ class KeyboardReader:
             assert X1 <= x <= w, (y, x, h, w, o)
 
         f = int("0b01000", base=0)  # f = 0b⌃⌥⇧00
-        option_mouse_release = f"\033[<{f};{x};{y}m".encode()
+        data = f"\033[<{f};{x};{y}m".encode()
 
-        return option_mouse_release  # lower 'm' for Release
+        return data  # lower 'm' for Release
 
     def _bytes_split_frame_(self, data: bytes) -> tuple[bytes, bytes]:
         """Split one Frame off the Start of the Bytes"""
@@ -2041,47 +2068,47 @@ class KeyboardReader:
         if not data:
             return (data, b"")
 
-        decode = KeyByteFrame.bytes_decode_if(data)
+        text = KeyByteFrame.bytes_decode_if(data)
 
         # Accept the b"``" as the Frame of ⌥⇧`
 
-        if len(decode) == 2:
-            if decode == "``":  # ⌥⇧` `
-                frame = data
-                after = b""
-                return (frame, after)
+        if len(text) == 2:
+            if text == "``":  # ⌥⇧` `
+                start = data
+                end = b""
+                return (start, end)
 
             # Split the ⌥ Accents arriving together with an Unaccented Decode
 
             accents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧` ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
-            if decode[0] in accents:
-                frame = decode[0].encode()
-                after = decode[1:].encode()
-                return (frame, after)
+            if text[0] in accents:
+                start = text[0].encode()
+                end = text[1:].encode()
+                return (start, end)
 
         # Split one Text or Control Frame off the Start of the Bytes
 
-        after = b""
+        end = b""
 
         kbf = KeyByteFrame(b"")
         for i in range(len(data)):
-            kbyte = data[i:][:1]
-            kbytes = data[i:][1:]
+            one_byte = data[i:][:1]
+            some_bytes = data[i:][1:]
 
-            extras = kbf.take_kbyte_if(kbyte)
+            extras = kbf.take_one_byte_if(one_byte)
             if extras:
-                assert kbf.closed, (kbf.closed, extras, kbyte, kbf)
-                after = extras + kbytes
+                assert kbf.closed, (kbf.closed, extras, one_byte, kbf)
+                end = extras + some_bytes
                 break
 
             if kbf.closed:
-                after = kbytes
+                end = some_bytes
                 break
 
-        frame = kbf.to_frame_bytes()
-        assert (frame + after) == data, (frame, after, data)
+        start = kbf.to_frame_bytes()
+        assert (start + end) == data, (start, end, data)
 
-        return (frame, after)
+        return (start, end)
 
     #
     # Frame the Input Bytes that share a Cursor Position Report,
@@ -2226,6 +2253,8 @@ class KeyboardReader:
                     sw.write_control(control)
                     continue
 
+                    # todo8: wrap the --egg=clickarrows ⎋[⇧C ⎋[⇧D across screen edges
+
             if row_y < Y1:
                 sm = re.search(rb"\033\[([0-9]+);([0-9]+)R$", string=ba)  # ⎋[{y};{x}⇧R
                 if not sm:
@@ -2320,7 +2349,7 @@ class KeyByteFrame:
         for i in range(len(data)):
             kbyte = data[i:][:1]
 
-            extras = self.take_kbyte_if(kbyte)
+            extras = self.take_one_byte_if(kbyte)
             if extras:
                 raise ValueError(extras, kbyte, self)
 
@@ -2361,11 +2390,11 @@ class KeyByteFrame:
         assert _CLICK3_ == "\033[M"
         assert DL_Y == "\033[" "{}M"
 
-        encode = self.to_frame_bytes()
+        data = self.to_frame_bytes()
 
-        if encode == b"\033[M":  # takes the ⎋[⇧M DL_Y that isn't the ⎋[⇧M{b}{x}{y} _CLICK3_
-            assert (not printable) and (not neck) and (not backtail), (head, self, encode)
-            assert head == b"\033[M", (head, self, encode)
+        if data == b"\033[M":  # takes the ⎋[⇧M DL_Y that isn't the ⎋[⇧M{b}{x}{y} _CLICK3_
+            assert (not printable) and (not neck) and (not backtail), (head, self, data)
+            assert head == b"\033[M", (head, self, data)
 
             if not stash:
                 assert head == b"\033[M", (head,)
@@ -2436,21 +2465,21 @@ class KeyByteFrame:
     # Take 1 Byte in and return 0 Bytes, else return 1..4 Bytes that don't fit
     #
 
-    def take_kencode_if(self, data: bytes) -> bytes:
+    def take_data_if(self, data: bytes) -> bytes:
         """Try to take X Bytes in and return 0 <= Y <= X Bytes that don't fit"""
 
         for index in range(len(data)):
             kbyte = data[index:][:1]
             kbytes = data[index:][1:]
 
-            extras = self.take_kbyte_if(kbyte)
+            extras = self.take_one_byte_if(kbyte)
             if extras:
                 extras_plus = extras + kbytes
                 return extras_plus
 
         return b""
 
-    def take_kbyte_if(self, data: bytes) -> bytes:
+    def take_one_byte_if(self, data: bytes) -> bytes:
         """Take 1 Byte in and return 0 Bytes, else return 1..4 Bytes that don't fit"""
 
         assert len(data) == 1, (data,)
@@ -2475,25 +2504,22 @@ class KeyByteFrame:
 
         # Hold 1..3 Bytes to decode later
 
-        encode = bytes(stash + kbyte)
-        try:
-            decode = encode.decode()
-        except UnicodeDecodeError:
-            decode = ""
+        data = bytes(stash + kbyte)
+        text = KeyByteFrame.bytes_decode_if(data)
 
-        if not decode:
-            if KeyByteFrame.bytes_to_later_decode_if(encode):
+        if not text:
+            if KeyByteFrame.bytes_to_later_decode_if(data):
                 stash.extend(kbyte)
                 return b""
 
-        assert len(decode) <= 1, (len(decode), decode, encode)
+        assert len(text) <= 1, (len(text), text, data)
 
         stash.clear()
 
         # Take the Bytes in before the first Head, or without ever a Head
 
         if not head:
-            extras = self._take_before_head_if_(encode, decode=decode)
+            extras = self._take_before_head_if_(data, text=text)
             return extras
 
         # Take later Bytes in differently, after starts with each kind of Head
@@ -2505,28 +2531,28 @@ class KeyByteFrame:
         undented_head = head[dent:]
 
         if undented_head == b"\033":
-            extras = self._take_after_esc_if_(encode)
+            extras = self._take_after_esc_if_(data)
             return extras
 
         elif undented_head == b"\033O":
-            extras = self._take_after_ss3_if_(encode)
+            extras = self._take_after_ss3_if_(data)
             return extras
 
         elif undented_head == b"\033[M":
-            extras = self._take_after_csi_m_if_(encode)
+            extras = self._take_after_csi_m_if_(data)
             return extras
 
         elif undented_head == b"\033[":
-            extras = self._take_after_csi_if_(encode, decode=decode)
+            extras = self._take_after_csi_if_(data, text=text)
             return extras
 
         elif undented_head == b"\033]":
-            extras = self._take_after_osc_if_(encode, decode=decode)
+            extras = self._take_after_osc_if_(data, text=text)
             return extras
 
         assert False, (head, head[dent:], dent, self)
 
-    def _take_before_head_if_(self, encode: bytes, decode: str) -> bytes:
+    def _take_before_head_if_(self, data: bytes, text: str) -> bytes:
         """Take 1..4 more Bytes in, before any Head, else return what doesn't fit"""
 
         printable = self.printable
@@ -2534,20 +2560,20 @@ class KeyByteFrame:
 
         # Take 1 Decoded Printable Char, without closing the Frame
 
-        if decode:
-            if decode.isprintable():
-                self.printable = printable + encode
+        if text:
+            if text.isprintable():
+                self.printable = printable + data
                 return b""
 
         # End a Text Frame before Unprintable or Undecodable Bytes
 
         if printable:
             self.close_frame()
-            return encode
+            return data
 
         # Take 1..4 Unprintable or Undecodable Bytes as Head
 
-        head.extend(encode)
+        head.extend(data)
         if head != b"\033":
             self.close_frame()
 
@@ -2572,39 +2598,39 @@ class KeyByteFrame:
         b"\033]",  # ⎋ OSC
     )
 
-    def _take_after_esc_if_(self, encode: bytes) -> bytes:
+    def _take_after_esc_if_(self, data: bytes) -> bytes:
         """Take 1..4 more Bytes in, after ⎋ Esc, else return what doesn't fit"""
 
         head = self.head
 
         # Take one of the ⎋ Esc Head's, without closing the Frame
 
-        head_plus = head + encode
+        head_plus = head + data
         if head_plus in KeyByteFrame.Headbook:
             lstrip = head_plus.lstrip(b"\033")
             assert len(lstrip) <= 1, (head_plus,)
 
-            head.extend(encode)
+            head.extend(data)
             return b""
 
             # doesn't take ⇧M after \⎋ [ here
 
         # Take ⎋ Esc as an Emacs Meta Byte before 1..4 Bytes
 
-        head.extend(encode)
+        head.extend(data)
         self.close_frame()
         return b""
 
-    def _take_after_ss3_if_(self, encode: bytes) -> bytes:
+    def _take_after_ss3_if_(self, data: bytes) -> bytes:
         """Take 1..4 more Bytes in, after ⎋O SS3, else return what doesn't fit"""
 
         head = self.head
 
-        head.extend(encode)
+        head.extend(data)
         self.close_frame()
         return b""
 
-    def _take_after_csi_m_if_(self, encode: bytes) -> bytes:
+    def _take_after_csi_m_if_(self, data: bytes) -> bytes:
         """Take 1..4 more Bytes in, after ⎋[⇧M, else return what doesn't fit"""
 
         head = self.head
@@ -2612,14 +2638,14 @@ class KeyByteFrame:
 
         # Take up to three B X Y Chars after the Head, if all printable
 
-        head_backtail_plus = bytes(head + backtail + encode)
+        head_backtail_plus = bytes(head + backtail + data)
         plus_later = KeyByteFrame.bytes_to_later_decode_if(head_backtail_plus)
-        assert not plus_later, (plus_later, head, backtail, encode)
+        assert not plus_later, (plus_later, head, backtail, data)
 
         plus_decode = KeyByteFrame.bytes_decode_if(head_backtail_plus)
         if plus_decode:
             if len(plus_decode) <= 6:
-                backtail.extend(encode)
+                backtail.extend(data)
                 if len(plus_decode) == 6:
                     self.close_frame()
                 return b""
@@ -2628,8 +2654,8 @@ class KeyByteFrame:
 
         fit = 6 - len(head + backtail)
         if fit > 0:
-            backtail.extend(encode[:fit])
-            extra = encode[fit:]
+            backtail.extend(data[:fit])
+            extra = data[fit:]
             if len(head_backtail_plus) >= 6:
                 self.close_frame()
             return extra  # maybe empty
@@ -2637,12 +2663,12 @@ class KeyByteFrame:
         # Close the ⎋[⇧M Frame after 6 Bytes or before
 
         self.close_frame()
-        return encode
+        return data
 
-    def _take_after_csi_if_(self, encode: bytes, decode: str) -> bytes:
+    def _take_after_csi_if_(self, data: bytes, text: str) -> bytes:
         """Take 1..4 more Bytes in, after ⎋[ CSI, else return what doesn't fit"""
 
-        code = ord(decode)
+        code = ord(text)
 
         head = self.head
         neck = self.neck
@@ -2653,50 +2679,50 @@ class KeyByteFrame:
         # Take the 3-Byte ⎋[⇧M Esc Head, without closing the Frame
 
         if (not neck) and (not backtail):
-            head_plus = head + encode
+            head_plus = head + data
             if head_plus in KeyByteFrame.Headbook:
                 assert head_plus == b"\033[M", (head_plus,)
-                head.extend(encode)
+                head.extend(data)
                 return b""
 
         # Grow the ⎋[ Csi Frame with 1 Decoded Printable Char
 
-        if decode and decode.isprintable():
-            assert code >= 0x20, (code, decode, encode)
+        if text and text.isprintable():
+            assert code >= 0x20, (code, text, data)
 
             # Grow the Neck until the Backtail starts
 
             if 0x30 <= code < 0x40:  # 16 Parameter Codes  # 0123456789:;<=>?
 
                 if not backtail:
-                    neck.extend(encode)
+                    neck.extend(data)
                     return b""
 
                 # Close before more Params, if Backtail has started
 
                 self.close_frame()
-                return encode
+                return data
 
             # Grow the Backtail
 
             if 0x20 <= code < 0x30:  # 16 Intermediate Codes  # ␢!"#$%&\'()*+,-./
-                backtail.extend(encode)
+                backtail.extend(data)
                 return b""
 
             # Close after a Csi Final Code, or after Printable Unicode
 
-            assert code >= 0x40, (code, decode, encode)  # 63 Final Codes  # @A Z[\\]^_`a z{|}~
+            assert code >= 0x40, (code, text, data)  # 63 Final Codes  # @A Z[\\]^_`a z{|}~
 
-            backtail.extend(encode)
+            backtail.extend(data)
             self.close_frame()
             return b""
 
         # Close the ⎋[ Csi Frame before Unprintable or Undecodable Bytes
 
         self.close_frame()
-        return encode
+        return data
 
-    def _take_after_osc_if_(self, encode: bytes, decode: str) -> bytes:
+    def _take_after_osc_if_(self, data: bytes, text: str) -> bytes:
         """Take 1..4 more Bytes in, after ⎋] OSC, else return what doesn't fit"""
 
         neck = self.neck
@@ -2708,25 +2734,25 @@ class KeyByteFrame:
         # Grow the ⎋] Osc Frame with 1 Decoded Printable Char
 
         if not backtail:
-            if decode and decode.isprintable():
-                neck.extend(encode)
+            if text and text.isprintable():
+                neck.extend(data)
                 return b""
 
         # Close the ⎋] Osc Frame with BEL or ST
 
-        if decode == "\007":
-            backtail.extend(encode)
+        if text == "\007":
+            backtail.extend(data)
             self.close_frame()
             return b""
 
         if not backtail:
-            if decode == "\033":
-                backtail.extend(encode)
+            if text == "\033":
+                backtail.extend(data)
                 return b""
 
         if backtail == b"\033":
-            if decode == "\134":
-                backtail.extend(encode)
+            if text == "\134":
+                backtail.extend(data)
                 self.close_frame()
                 return b""
 
@@ -2735,7 +2761,7 @@ class KeyByteFrame:
         # Close the ⎋] Osc Frame before Unprintable or Undecodable Bytes
 
         self.close_frame()
-        return encode
+        return data
 
     #
     # Work with Decodable and Undecodable Bytes
@@ -2746,8 +2772,8 @@ class KeyByteFrame:
         """Say if printable"""
 
         try:
-            decode = data.decode()
-            return decode  # returns first found
+            text = data.decode()
+            return text  # returns first found
         except UnicodeDecodeError:
             pass
 
@@ -2762,13 +2788,15 @@ class KeyByteFrame:
         endswiths = KeyByteFrame.Endswiths
 
         for endswith in endswiths:
-            encode = data + endswith
+            data_plus = data + endswith
+
             try:
-                decode = encode.decode()
-                assert len(decode) >= 1, (decode,)
-                return decode  # returns first found
+                text = data_plus.decode()
             except UnicodeDecodeError:
                 continue
+
+            assert len(text) >= 1, (text,)
+            return text  # returns first found
 
         return ""
 
@@ -2820,14 +2848,14 @@ class KeyboardDecoder:
     selves: list[KeyboardDecoder] = list()
 
     decode_by_kseq: dict[str, str]
-    kseqs_by_decode: dict[str, tuple[str, ...]]
+    kseqs_by_text: dict[str, tuple[str, ...]]
 
     def __init__(self) -> None:
 
         KeyboardDecoder.selves.append(self)
 
         self.decode_by_kseq = dict()
-        self.kseqs_by_decode = dict()
+        self.kseqs_by_text = dict()
 
         self._add_basic_kseqs_()
         self._invert_decode_by_kseq_()
@@ -2836,12 +2864,17 @@ class KeyboardDecoder:
     # Speak of a Byte Encoding as a Sequence of Chords of Keycaps
     #
 
-    def frame_to_echo(self, frame: bytes) -> str:
+    def frame_to_echo(self, data: bytes) -> str:
         """Form a brief Repr of one Input Frame"""
+
+        assert data, (data,)
+
+        box = BytesBox(data)
+        text = box.text
 
         # Show Keycaps, if available as ⌫ ⇧⇥ ⇥ etc, except show ⏎ as ⌃M
 
-        kseqs = self.bytes_to_kseqs_if(frame)
+        kseqs = self.bytes_to_kseqs_if(data)
         if kseqs:
             echo = kseqs[0]
             assert echo.isprintable(), (echo,)
@@ -2849,23 +2882,18 @@ class KeyboardDecoder:
 
         # Show the unquoted Repr, if not decodable
 
-        try:
-            kdecode = frame.decode()
-        except UnicodeDecodeError:
-            kdecode = ""
-
-        if not kdecode:
-            echo = repr(frame)[1:-1]
+        if not text:
+            echo = repr(data)[1:-1]
             assert echo.isprintable(), (echo,)
             return echo
 
         # Show one Keycap per Character, if decodable
 
         echo = ""
-        for decode in kdecode:
-            encode = decode.encode()
+        for t in text:
+            encode = t.encode()
             kseqs = self.bytes_to_kseqs_if(encode)
-            kseq = kseqs[0] if kseqs else repr(decode)[1:-1]
+            kseq = kseqs[0] if kseqs else repr(t)[1:-1]
             echo += kseq
 
         assert echo.isprintable(), (echo,)
@@ -2874,12 +2902,12 @@ class KeyboardDecoder:
     def bytes_to_kseqs_if(self, data: bytes) -> tuple[str, ...]:
         """Speak of a Byte Encoding as a Sequence of Chords of Keycaps"""
 
-        decode = data.decode()
+        text = data.decode()
 
-        kseqs_by_decode = self.kseqs_by_decode
+        kseqs_by_text = self.kseqs_by_text
 
-        if decode in kseqs_by_decode.keys():
-            kseqs = kseqs_by_decode.get(decode, tuple())
+        if text in kseqs_by_text.keys():
+            kseqs = kseqs_by_text.get(text, tuple())
             return kseqs
 
         return tuple()
@@ -2979,11 +3007,11 @@ class KeyboardDecoder:
         code = -1
         for kcap in kseq.split():
             code += 1
-            decode = chr(code)
+            text = chr(code)
 
             if kcap not in ("⌃`", "⌃⇧?"):
                 assert kcap not in decode_by_kseq.keys(), (kcap,)
-                decode_by_kseq[kcap] = decode
+                decode_by_kseq[kcap] = text
 
         # Add the aliases
 
@@ -3102,13 +3130,13 @@ class KeyboardDecoder:
         """Index the Keycap Sequences by their Decodes"""
 
         decode_by_kseq = self.decode_by_kseq
-        kseqs_by_decode = self.kseqs_by_decode
+        kseqs_by_text = self.kseqs_by_text
 
         # Index the Sequences collected by now
 
         d = collections.defaultdict(list)
-        for kseq, decode in decode_by_kseq.items():
-            d[decode].append(kseq)
+        for kseq, text in decode_by_kseq.items():
+            d[text].append(kseq)
 
         # Add the ⌥ variants of Non-Blank Printable US-Ascii
 
@@ -3141,18 +3169,18 @@ class KeyboardDecoder:
             assert option not in plain_printables, (option,)
 
             kseq = "⌥" + d[plain][0]
-            decode = option
+            text = option
 
             assert kseq not in decode_by_kseq.keys(), (kseq,)
-            decode_by_kseq[kseq] = decode
+            decode_by_kseq[kseq] = text
 
-            d[decode].append(kseq)
+            d[text].append(kseq)
 
             # ⌥Y comes through as the U+005C Reverse-Solidus, not U+00A5 ¥ Yen-Sign
 
         assert option_printables.count("¥") == 8  # ⌥␢ ⌥E ⌥I ⌥N ⌥U ⌥Y ⌥` ⌥⌫
 
-        option_kseq_by_decode = {  # upper "j́" is "J́" len 2 decode, led by plain U+004A 'J'
+        option_kseq_by_text = {  # upper "j́" is "J́" len 2 decode, led by plain U+004A 'J'
             # ⌥E
             "á": "⌥E A",  # ⌥⇧Y is Á is ⌥E ⇧A
             "é": "⌥E E",
@@ -3191,18 +3219,18 @@ class KeyboardDecoder:
             "`": "⌥⇧`",  # the U+0060 ` Grave Accent keycapped as ` and ⌥⇧`
         }
 
-        for decode, kseq in option_kseq_by_decode.items():
+        for text, kseq in option_kseq_by_text.items():
 
             if kseq in decode_by_kseq.keys():
-                assert decode_by_kseq[kseq] == decode, (decode_by_kseq[kseq], decode, kseq)
+                assert decode_by_kseq[kseq] == text, (decode_by_kseq[kseq], text, kseq)
             else:
-                decode_by_kseq[kseq] = decode
-                d[decode].append(kseq)
+                decode_by_kseq[kseq] = text
+                d[text].append(kseq)
 
             if " " in kseq:
                 ks = kseq[:-1] + "⇧" + kseq[-1:]
-                dc = decode.upper()  # 'Á' from 'á'
-                if dc != decode:
+                dc = text.upper()  # 'Á' from 'á'
+                if dc != text:
 
                     if ks in decode_by_kseq.keys():
                         assert decode_by_kseq[ks] == dc, (decode_by_kseq[ks], dc, ks)
@@ -3214,14 +3242,14 @@ class KeyboardDecoder:
 
         for code in range(0, 0x7F + 1):
             if code not in (0, 0x1E):  # ⎋⌃␢ and ⎋⌃⇧@ and ⎋⌃⇧^ don't
-                decode = chr(code)
+                text = chr(code)
 
-                kseqs = tuple(d[decode])
+                kseqs = tuple(d[text])
                 for kseq in kseqs:
                     assert " " not in kseq, (kseq,)
 
                     alt_kseq = "⎋" + kseq  # '⎋␢'
-                    alt_decode = "\033" + decode
+                    alt_decode = "\033" + text
 
                     assert alt_kseq not in decode_by_kseq.keys(), (alt_kseq,)
                     decode_by_kseq[alt_kseq] = alt_decode
@@ -3233,10 +3261,10 @@ class KeyboardDecoder:
         kseqs = ("⇧⇥", "↑", "↓", "→", "←")
         for kseq in kseqs:
             assert " " not in kseq, (kseq,)
-            decode = decode_by_kseq[kseq]
+            text = decode_by_kseq[kseq]
 
             alt_kseq = "⎋" + kseq  # '⎋␢'
-            alt_decode = "\033" + decode
+            alt_decode = "\033" + text
 
             assert alt_kseq not in decode_by_kseq.keys(), (alt_kseq,)
             decode_by_kseq[alt_kseq] = alt_decode
@@ -3247,9 +3275,9 @@ class KeyboardDecoder:
 
         # Convert to immutable Tuples from mutable Lists
 
-        for decode, kseq_list in d.items():
-            assert decode not in kseqs_by_decode, (decode, kseqs_by_decode[decode], kseq_list)
-            kseqs_by_decode[decode] = tuple(kseq_list)
+        for text, kseq_list in d.items():
+            assert text not in kseqs_by_text, (text, kseqs_by_text[text], kseq_list)
+            kseqs_by_text[text] = tuple(kseq_list)
 
         # no explicit mention of ÁÉÍJ́ÓÚ ÂÊÎÔÛ ÃÑÕ ÄËÏÖÜŸ ÀÈÌÒÙ
 
@@ -3563,6 +3591,49 @@ class ArgDocParser:
 
 
 #
+# Amp up Import BuiltIns Bytes
+#
+
+
+@dataclasses.dataclass(order=True, frozen=True)
+class BytesBox:
+
+    data: bytes
+
+    def __bool__(self) -> bool:
+        return bool(self.data)
+
+    @functools.cached_property
+    def text(self) -> str:
+        """The Text Decode of the Bytes, if decodable, else an Empty Str"""
+
+        try:
+            text = self.data.decode()
+            return text
+        except UnicodeDecodeError:
+            return ""
+
+    @functools.cached_property
+    def practically_printable(self) -> bool:
+        """Say if the Text exactly matches the Repr minus Quotes"""
+
+        data = self.data
+        text = self.text
+
+        if not data:
+            assert not text, (data, text)
+            return True
+
+        if not text:
+            return False
+
+        printable = text.isprintable()
+        return printable
+
+        # todo5: solve repr(box) to show each '' in the .text, stop substituing \uf8ff
+
+
+#
 # Amp up Import BuiltIns Float
 #
 
@@ -3679,10 +3750,10 @@ def excepthook(  # ) -> ...:
     """Run at Process Exit"""
 
     if exc_type is SystemExit:
-        assert sys.flags.interactive, (sys.flags.interactive, exc_type, exc_value)  # aka python3 -i
         return
 
-        # consciously doesn't call: with_excepthook(exc_type, exc_value, exc_traceback)
+        # consciously no traceback.print_exception
+        # happens without sys.flags.interactive when not called via sys.excepthook
 
     # Quit loudly for KeyboardInterrupt
 
@@ -3844,6 +3915,11 @@ _ = """  # more famous Python Imports to run in place of our Code here
 
 if __name__ == "__main__":
     main()
+
+
+# todo5: accept U+F8FF  as Printable Enough from ⌥⇧K
+# todo5: backport to Oct/2019 Python 3.8
+# todo5: revive --egg=keycaps
 
 
 # todo8: drop Keycaps specific to macOS Terminal, when elsewhere
