@@ -62,12 +62,12 @@ ShlinePlusByShverb = {  # sorted by key
     # 15
     "ggl": "git grep -l ...",  # -ai -e ... -e ...
     "gl": "git log --pretty=fuller --no-decorate [...]",
-    "glf": "git ls-files |grep [...]",  # |grep -ai -e ... -e ...
+    "glf": "git ls-files |grep ...",  # |grep -ai -e ... -e ...
     "glq": "git log --oneline --no-decorate [...]",
     "gls": "git log --pretty=fuller --no-decorate --numstat [...]",
     # 20
     "glv": "git log --oneline --decorate [...]",
-    "gno": "git diff/show --pretty= --name-only",  # 'qdno' when truthy, else 'qspno'
+    "gno": "git diff/show --pretty= --name-only [...]",  # 'qdno' when truthy, else 'qspno'
     "grh": "git reset --hard ...",  # actual no args 'git reset hard' would mean to Head
     "grh1": "git reset HEAD~1",  # inverts : gcam && git commit --all -m wip
     "grhu": "... && git reset --hard @{upstream}",
@@ -146,7 +146,9 @@ class GitGopher:
             if chosen_shverb in ("ga", "gcl", "glf"):
                 print(f"# {chosen_shverb!r} not at:  cd {relpath}/", file=sys.stderr)
 
-        (diff_shverb, diff_shline) = self.shline_at_git_diff(chosen_shverb, shline=shell_shline)
+        (diff_shverb, diff_shline) = self.shline_at_git_diff(
+            chosen_shverb, shline=shell_shline, grep_shargv=grep_shargv
+        )
 
         diff_shargv = (diff_shverb, *grep_shargv[1:])
 
@@ -308,6 +310,7 @@ class GitGopher:
                 shverb, shverb_shline_plus, shargv
             )
 
+        assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
     def _form_shline_required_args_(
@@ -322,6 +325,16 @@ class GitGopher:
         shline = shverb_shline_plus.removesuffix(" ...")
         shsuffix = " ..."
 
+        if shverb_shline_plus == "git ls-files |grep ...":
+            assert shverb == "glf", (shverb, shline)
+
+            if not shargv[1:]:
+                shline = "git ls-files"
+                shsuffix = ""
+
+                assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
+                return (shline, shsuffix)
+
         if not shargv[1:]:
 
             if shverb in ("ga", "ggl"):
@@ -333,9 +346,10 @@ class GitGopher:
             print(required_args_usage, file=sys.stderr)
             sys.exit(2)  # exits 2 for bad args
 
+        assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
-        # ga, gcp, ggl, grh
+        # ga, gcp, gg/n, ggl, glf, grh
 
     def _form_shline_optional_args_(
         self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...]
@@ -365,37 +379,48 @@ class GitGopher:
                 if shverb not in ("gls",):  # tilts into:  gls --
                     shline += " -9"  # tilts into:  glq -9, glv -9
 
+        assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
-        # g, gcaf, gd, gdno, gg, gl, glf, glq, gls, glv, gri, grias, gs, gspno
+        # g, gcaf, gd, gdno, gg/0, gl, glf, glq, gls, glv, gno, gri, grias, gs, gspno
 
     def _form_shline_no_leading_pos_arg_(
         self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...]
     ) -> tuple[str, str]:
         """Handle case where no Shell Args are accepted, or first Shell Arg must not be a Positional Arg"""
 
-        no_leading_pos_arg_usage = f"usage: {shverb}"
+        no_arg_usage = f"usage: {shverb}"
 
         shsuffix = ""
 
         shline = shverb_shline_plus
 
-        if shverb_shline_plus == "git fetch --prune --prune-tags --force":
-            assert shverb == "gf", (shverb, shline)
-            if not shargv[1:]:
+        # Fill out some default Options, when given no Shell Args
+
+        if not shargv[1:]:
+
+            if shverb_shline_plus == "git fetch --prune --prune-tags --force":
+                assert shverb == "gf", (shverb, shline)
                 shline += " --quiet"  # tilts into:  gf --quiet
 
-        elif shverb_shline_plus == "git reflog --date=relative --numstat":
-            assert shverb == "grl", (shverb, shline)
-            if not shargv[1:]:
+            elif shverb_shline_plus == "git reflog --date=relative --numstat":
+                assert shverb == "grl", (shverb, shline)
                 shline += " -9"
 
+        # Accept no Shell Args
+        # But if Shell Args, then require the first to be Not obviously Positional
+
         if shargv[1:]:
-            if shargv[1].startswith("-"):
-                pass  # accepts g -, g --, gdh -w, etc
-            else:
-                print(no_leading_pos_arg_usage, file=sys.stderr)
+            shargv1 = shargv[1]
+
+            leading_pos_arg = (shargv1 == "-") or (not shargv1.startswith("-"))
+            if leading_pos_arg or (shverb in ("grhu", "grv")):
+                print(no_arg_usage, file=sys.stderr)
                 sys.exit(2)  # exits 2 for bad args
+
+                # todo: grow 'grhu' and 'grv' to cope with adding on Shell Args
+
+            # accepts: gdh -w, gf --, grl --
 
         return (shline, shsuffix)
 
@@ -405,18 +430,28 @@ class GitGopher:
         """Choose to call Git by way of .shell=False or .shell=True"""
 
         if shverb == "glf":
-            assert shline == "git ls-files |grep"
             if not given_shsuffix:
-                return (False, "git ls-files")
+                assert shline == "git ls-files", (shline, shverb)
 
-            assert " |" in shline, (shline,)
-            return (True, shline)
+                shell = False
+                return (shell, "git ls-files")
+
+            assert shline == "git ls-files |grep", (shline, shverb)
+            assert " |" in shline, (shline, shverb)
+
+            shell = True
+            return (shell, shline)
 
         if shverb == "grv":
-            assert " |" in shline, (shline,)
+            assert " |" in shline, (shline, shverb)
+
+            shell = True
             return (True, shline)
 
-        return (False, shline)
+        assert " |" not in shline, (shline, shverb)
+
+        shell = False
+        return (shell, shline)
 
         # todo: operate 'glf ...' and 'grv' without 'shell=True'
 
@@ -452,7 +487,9 @@ class GitGopher:
 
         return gtop
 
-    def shline_at_git_diff(self, shverb: str, shline: str) -> tuple[str, str]:
+    def shline_at_git_diff(
+        self, shverb: str, shline: str, grep_shargv: tuple[str, ...]
+    ) -> tuple[str, str]:
         """Change up 'gcam' and 'gno' when truthy 'git diff --name-only'"""
 
         shline_plus_by_shverb = ShlinePlusByShverb
@@ -468,7 +505,15 @@ class GitGopher:
         # Change nothing but 'gcam' or 'gno'
 
         if shverb not in ("gcam", "gno"):
-            return (shverb, shline)
+            return (shverb, shline)  # no change
+
+        # Collapse a "gno" with Shell Options or Pos Args
+        # Collapse to one "gspno" with no "gdno" pre-check
+
+        if shverb == "gno":
+            assert shline == "git diff/show --pretty= --name-only", (shline,)
+            if grep_shargv[1:]:
+                return ("gspno", gspno_shline)  # this 'gno' is 'gspno'
 
         # Try Git Diff once, and complain & exit nonzero if it fails
 
@@ -501,10 +546,7 @@ class GitGopher:
 
                 return (gdiff_shverb, gdiff_shline)
 
-            gdiff_shverb = "gspno"
-            gdiff_shline = gspno_shline
-
-            return (gdiff_shverb, gdiff_shline)
+            return ("gspno", gspno_shline)  # this 'gno' is 'gspno'
 
         # Add each Git Diff Pathname into the Commit Message, for 'gcam'
 
@@ -512,19 +554,22 @@ class GitGopher:
         assert shline == "git commit --all -m wip", (shline,)
 
         if not gdno_run_stdout:
-            return (shverb, shline)
+            return (shverb, shline)  # no change
 
         message = shlex.quote("wip -")
         for line in gdno_run_stdout.decode().splitlines():
             message += shlex.quote(" " + line)
 
-        gdiff_shline = "git commit --all -m " + message
-        return (shverb, gdiff_shline)
+        gcam_shline_plus = "git commit --all -m " + message
+        return ("gcam", gcam_shline_plus)  # this 'gcam' knows its 'gdno'
 
     def shargv_at_grep(self, shverb: str, shargv: tuple[str, ...]) -> tuple[str, ...]:
         """Tune Greps to presume text, ignore case, and match >= 1 patterns"""
 
         if shverb not in ("gg/n", "ggl", "glf"):
+            return shargv
+
+        if (shverb == "glf") and not shargv[1:]:
             return shargv
 
         assert shargv[1:], (shargv[1:], shverb)

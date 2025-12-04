@@ -190,8 +190,6 @@ know how
 
    backport to Oct/2019 Python 3.8
 
-   gno with arg should mean gspno
-
    p should mean print inside ~/bin/p
 
    ~/bin/c sh script of litshell.py

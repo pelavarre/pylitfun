@@ -69,3 +69,7 @@ if True:
 # Promise the Linters we do nothing more with PyLitFun here
 
 _ = pylitfun
+
+
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/pylitfun.py
+# copied from:  git clone https://github.com/pelavarre/pylitfun.git
