@@ -188,6 +188,12 @@ Can we live within in these limits and still rewrite this text so well as to hop
 
 know how
 
+   revive --egg=keycaps
+
+   accept U+F8FF  as Printable Enough from ⌥⇧K
+
+   accept
+
    backport to Oct/2019 Python 3.8
 
    p should mean print inside ~/bin/p
@@ -211,7 +217,7 @@ dunno how
 
    gcam should pick up new Added Files into the wip
 
-   Zsh ⌃U wrongly does row-erase, I want row-head-erase
+   Zsh ⌃U wrongly does row-erase, I want the row-head-erase of ⎋[1⇧K
 
 Game - **Smushup** - Arrow Pair to move 8 ways, and smush matching colors
 Game - **Muhnswuhper** - Minesweeper® style, but ...

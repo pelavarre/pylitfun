@@ -23,6 +23,7 @@ examples:
   ./litglass.py --egg=yolo  # a more explicit way to say run with defaults
 """
 
+# ./litglass.py --egg=assert  # to assert False before doing much
 # ./litglass.py --egg=echoes  # to echo the Control Sequences as they run
 # ./litglass.py --egg=keycaps  # to launch our keyboard-viewer of keycaps
 # ./litglass.py --egg=squares  # to launch our Squares Game
@@ -58,6 +59,7 @@ import sys
 import termios
 import textwrap
 import time
+import traceback
 import tty
 import types
 import typing
@@ -102,6 +104,7 @@ class Flags:
     #   flags.echoes, flags.keycaps, flags.squares
     #
 
+    _assert_: bool = False  # assert False before doing much
     echoes: bool = False  # echo the Control Sequences as they loopback
     keycaps: bool = False  # launch our Keyboard-Viewer of Leycaps
     squares: bool = False  # launch our Squares Game
@@ -136,7 +139,14 @@ MAX_ARROW_KEY_JAM_2 = 2  # takes Key Jams larger than Double Arrow as ⌥-Click'
 def main() -> None:
     """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
 
-    sys.excepthook = excepthook
+    try:
+        try_main()
+    except BaseException:  # KeyboardInterrupt  # SystemExit
+        excepthook(*sys.exc_info())
+
+
+def try_main() -> None:
+    """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
 
     parser = arg_doc_to_parser(__main__.__doc__ or "")
     shell_args_take_in(args=sys.argv[1:], parser=parser)
@@ -151,6 +161,8 @@ def main() -> None:
     logger.info("launched")
 
     with Loopbacker() as lbr:
+        if flags._assert_:
+            assert False, "Asserting False before doing much"
 
         kcg = KeycapsGame(lbr)
         sqg = SquaresGame(lbr)
@@ -3650,13 +3662,7 @@ def _try_chop_() -> None:
 #
 # Amp up Import Traceback
 #
-# Especially when installed via:  sys.excepthook = excepthook
-#
 
-
-with_excepthook = sys.excepthook  # aliases old hook, and fails fast to chain hooks
-assert with_excepthook.__module__ == "sys", (with_excepthook.__module__,)
-assert with_excepthook.__name__ == "excepthook", (with_excepthook.__name__,)
 
 assert sys.__stderr__ is not None  # refuses to run headless
 with_stderr = sys.stderr
@@ -3666,13 +3672,11 @@ assert int(0x80 + signal.SIGINT) == 130  # discloses the Nonzero Exit Code for a
 
 
 def excepthook(  # ) -> ...:
-    exc_type: type[BaseException],
-    exc_value: BaseException,
-    exc_traceback: types.TracebackType | None,
+    exc_type: type[BaseException] | None,  # aka .type
+    exc_value: BaseException | None,  # aka .exc_obj aka .value
+    exc_traceback: types.TracebackType | None,  # aka .exc_tb aka .traceback aka .tb
 ) -> None:
     """Run at Process Exit"""
-
-    sys.excepthook = with_excepthook
 
     if exc_type is SystemExit:
         assert sys.flags.interactive, (sys.flags.interactive, exc_type, exc_value)  # aka python3 -i
@@ -3685,21 +3689,26 @@ def excepthook(  # ) -> ...:
     if exc_type is KeyboardInterrupt:
         pass
 
-    # Quit quickly quietly, if BdbQuit
+    # Quit quietly, early now, if BdbQuit
 
     if exc_type is bdb.BdbQuit:
         with_stderr.write("BdbQuit\n")
         sys.exit(130)  # 0x80 + signal.SIGINT  # same as for KeyboardInterrupt
 
-    # Print the Traceback, etc
+    # Print the usual 'Traceback (most recent call last):', & Traceback, & Assert
 
     print(file=with_stderr)
     print(file=with_stderr)  # twice
-    print("ExceptHook", file=with_stderr)
 
-    with_excepthook(exc_type, exc_value, exc_traceback)
+    traceback.print_exception(exc_type, value=exc_value, tb=exc_traceback, file=with_stderr)
+
+    print(file=with_stderr)
+    print(file=with_stderr)  # twice
 
     # Launch the Post-Mortem Debugger
+
+    if not hasattr(sys, "last_exc"):  # todo: figure out when this does and doesn't happen
+        sys.last_exc = exc_value  # ducks out of confusing pdb.pm()
 
     print(">" ">" "> pdb.pm()", file=with_stderr)  # (3 * ">") spelled unlike a Git Conflict
     pdb.pm()
