@@ -859,8 +859,9 @@ class Loopbacker:
 
         if not flags._exit_:
             sw.write_control("\033[32100H")  # cursor-unstyled ⎋[32100⇧H
-            sw.write_control("\033[A")  # 1 ↑ ⎋[⇧A
+            sw.write_control("\033[2A")  # 2 ↑ ⎋[2⇧A
             sw.write_control("\033[J")  # after-erase ⎋[⇧J  # simpler than ⎋[0⇧J
+            sw.print("bye for now")
 
     def lbr_step_once(self, frames: tuple[bytes, ...]) -> None:
         """Collect Input Frames over time as a Screen Change Order"""
