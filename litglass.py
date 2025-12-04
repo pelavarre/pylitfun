@@ -3708,7 +3708,8 @@ def excepthook(  # ) -> ...:
     # Launch the Post-Mortem Debugger
 
     if not hasattr(sys, "last_exc"):  # todo: figure out when this does and doesn't happen
-        sys.last_exc = exc_value  # ducks out of confusing pdb.pm()
+        if exc_value is not None:
+            sys.last_exc = exc_value  # ducks out of confusing pdb.pm()
 
     print(">" ">" "> pdb.pm()", file=with_stderr)  # (3 * ">") spelled unlike a Git Conflict
     pdb.pm()
