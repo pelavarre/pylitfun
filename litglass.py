@@ -284,6 +284,8 @@ class SquaresGame:
     game_yx: tuple[int, ...]
 
     Squares = "🟥 🟨 🟩 🟦 🟪"  # todo: more or less, and colorable U+2B24 ⬤
+    # Squares = "🟥 🟦 🟥 🟦 🟥"  # todo9: toggle this dev convenience off/on
+    # Squares = "🟦 🟦 🟦 🟦 🟦"  # todo9: toggle this dev convenience off/on
     Squares = "".join(Squares.split())
 
     def __init__(self, loopbacker: Loopbacker) -> None:
@@ -305,8 +307,11 @@ class SquaresGame:
         # Draw the Gameboard
 
         self.sq_game_form()
-        game_yx = self.sq_game_draw()
-        self.game_yx = game_yx  # replaces
+
+        (h, w, y, x) = kr.sample_hwyx()
+        self.game_yx = (y, x)  # replaces
+
+        self.sq_game_draw()
 
         # Run till Quit
 
@@ -320,7 +325,7 @@ class SquaresGame:
 
             # Eval Input and print Output
 
-            self.sq_step_once(frames)
+            self.sq_steps_because_frames(frames)
 
             # Quit at ⌃C
 
@@ -336,7 +341,6 @@ class SquaresGame:
         by_y_by_x = self.by_y_by_x
 
         squares = SquaresGame.Squares
-        dent = 4 * " "
 
         h = len(squares)
         w = len(squares)
@@ -346,31 +350,26 @@ class SquaresGame:
             by_x: dict[int, str] = dict()
             by_y_by_x[y] = by_x
 
-            x = -1
-
-            for t in dent:
-                x += 1
+            for x in range(w):
+                t = random.choice(squares)
                 by_x[x] = t
 
-            for _ in range(w):
-                s = random.choice(squares)
-                x += 1
-                by_x[x] = s
-
-            for t in dent:
-                x += 1
-                by_x[x] = t
-
-    def sq_game_draw(self) -> tuple[int, int]:
+    def sq_game_draw(self) -> None:
         """Draw the Gameboard, scrolling if need be"""
 
         by_y_by_x = self.by_y_by_x
+        game_yx = self.game_yx
 
         lbr = self.loopbacker
         sw = lbr.screen_writer
 
         squares = SquaresGame.Squares
         dent = 4 * " "
+
+        #
+
+        (y, x) = game_yx
+        sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
         sw.print()
         sw.print()  # twice
@@ -379,7 +378,7 @@ class SquaresGame:
         for y in range(h):
             by_x = by_y_by_x[y]
             y_text = "".join(by_x.values())
-            sw.write(y_text)
+            sw.write(dent + y_text + dent)
             sw.write_some_controls(["\r", "\n"])
 
         sw.print(dent + "  ↓    ↓  " + dent)
@@ -389,27 +388,139 @@ class SquaresGame:
         sw.print("Press ⌃C")
         sw.print()
 
-        # # Place the Gameboard
-
-        # (h, w, y, x) = kr.sample_hwyx()
-
-        # assert h >= high, (h, high)  # todo: negotiate Height more gracefully
-        # assert w >= wide, (w, wide)  # todo: negotiate Width more gracefully
-
-        return (-1, -1)
-
         # todo6: from the deepest, drop >= 3 in a row, >= 3 in a column
         # todo6: find the ⌥-click on the board, drag perpendicular to gravity
 
         # todo7: log a rerunnable random seed
 
-    def sq_step_once(self, frames: tuple[bytes, ...]) -> None:
-        """Eval Input and print Output"""
+    def sq_steps_because_frames(self, frames: tuple[bytes, ...]) -> None:
+        """Eval Frames of Input and print Output"""
 
         boxes = tuple(BytesBox(_) for _ in frames)
-        _ = boxes
+        for box in boxes:
+            self.sq_step_because_box(box)
 
-        return
+    def sq_step_because_box(self, box: BytesBox) -> None:
+        """Eval 1 Box of Input and print Output"""
+
+        by_y_by_x = self.by_y_by_x
+
+        # Move once per Key Release of Spacebar
+
+        if box.text != " ":
+            return
+
+        # Search at every Tile
+
+        y_high = len(by_y_by_x.keys())
+        for y in range(y_high - 1, -1, -1):
+            by_x = by_y_by_x[y]
+
+            x_wide = len(by_x.keys())
+            for x in range(x_wide - 1, -1, -1):
+
+                # Take 3-of-a-Kind in a Row
+
+                t = by_x[x]
+                assert t != " ", (t,)
+
+                m = t
+                for w in range(1, x_wide):
+                    xw = x - w
+                    if xw >= 0:
+                        tw = by_x[xw]
+
+                        if tw != t:
+                            break
+
+                        m = tw + m
+
+                wide = len(m)
+                if wide >= 3:
+                    logger.info(str([y, x, t, wide, m, "Row"]))
+
+                # wide = 0
+                if wide >= 3:
+                    self.crush_west_row(y, x=x, wide=wide)
+                    self.sq_game_draw()
+                    return
+
+                # Take 3-of-a-Kind in a Column
+
+                t = by_x[x]
+                assert t != " ", (t,)
+
+                m = t
+                for n in range(1, y_high):
+                    yn = y - n
+                    if yn >= 0:
+                        yn_by_x = by_y_by_x[yn]
+                        tn = yn_by_x[x]
+
+                        if tn != t:
+                            break
+
+                        m = tn + m
+
+                high = len(m)
+                if high >= 3:
+                    logger.info(str([y, x, t, high, m, "Column"]))
+
+                # high = 0
+                if high >= 3:
+                    self.crush_north_column(y, x=x, high=high)
+                    self.sq_game_draw()
+                    return
+
+        # Shrug off no move found  # todo6: don't
+
+        pass
+
+        # todo: collect all moves found, favour the largest
+
+    def crush_west_row(self, y: int, x: int, wide: int) -> None:
+        """Crush the Column out West"""
+
+        by_y_by_x = self.by_y_by_x
+
+        squares = SquaresGame.Squares
+
+        for ys in range(y, -1, -1):
+            ys_by_x = by_y_by_x[ys]
+            yn = ys - 1
+
+            if yn < 0:
+                for xw in range(x - wide + 1, x + 1):
+                    t = random.choice(squares)
+                    assert ys_by_x[xw] != " "
+                    ys_by_x[xw] = t
+
+            else:
+                yn_by_x = by_y_by_x[yn]
+                for xw in range(x - wide + 1, x + 1):
+                    assert ys_by_x[xw] != " "
+                    ys_by_x[xw] = yn_by_x[xw]
+
+    def crush_north_column(self, y: int, x: int, high: int) -> None:
+        """Crush the Column up North"""
+
+        by_y_by_x = self.by_y_by_x
+
+        squares = SquaresGame.Squares
+
+        for ys in range(y, -1, -1):
+            ys_by_x = by_y_by_x[ys]
+            yn = ys - high
+
+            if yn < 0:
+                t = random.choice(squares)
+                assert ys_by_x[x] != " "
+                ys_by_x[x] = t
+
+            else:
+                yn_by_x = by_y_by_x[yn]
+                assert ys_by_x[x] != " "
+                ys_by_x[x] = yn_by_x[x]
 
 
 #
