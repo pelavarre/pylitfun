@@ -29,6 +29,7 @@ examples:
 # ./litglass.py --egg=keycaps  # to launch our keyboard-viewer of keycaps
 # ./litglass.py --egg=squares  # to launch our Squares Game
 
+# ./litglass.py --egg=byteloop  # loop back without adding latencies
 # ./litglass.py --egg=clickarrows  # to loopback the ⌥-Click Arrows as they come in
 # ./litglass.py --egg=clickruns  # to loopback the ⌥-Click Arrows as run-length compressed
 # ./litglass.py --egg=repr  # to loop the Repr, not the Str
@@ -113,10 +114,11 @@ class Flags:
 
     # Choose by tech --egg
     #
-    #   flags.clickarrows, flags.clickruns,
+    #   flags.byteloop, flags.clickarrows, flags.clickruns,
     #   flags.logging, flags._repr_, flags.sigint
     #
 
+    byteloop: bool = False  # loop back without adding latencies
     clickarrows: bool = False  # loop back the ⌥-Click Arrows as they arrive
     clickruns: bool = False  # loop back the ⌥-Click Arrows as run-length compressed
     _repr_: bool = False  # loop the Repr, not the Str
@@ -163,7 +165,9 @@ def try_main() -> None:
         kcg = KeycapsGame(lbr)
         sqg = SquaresGame(lbr)
 
-        if flags.keycaps:
+        if flags.byteloop:
+            lbr.lbr_run_byteloop()
+        elif flags.keycaps:
             kcg.kc_run_awhile()
         elif flags.squares:
             sqg.sq_run_awhile()
@@ -244,7 +248,7 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
             attr = m[-1]
             setattr(flags, attr, True)
 
-    sum = flags.keycaps + flags._repr_ + flags.squares
+    sum = flags.byteloop + flags.keycaps + flags._repr_ + flags.squares
     assert sum <= 1, (dict(_ for _ in vars(flags).items() if _[-1]),)
 
     if ns.force:
@@ -871,6 +875,21 @@ class Loopbacker:
     # Run awhile
     #
 
+    def lbr_run_byteloop(self) -> None:
+        """Loop back without adding latencies"""
+
+        tb = self.terminal_boss
+        sw = self.screen_writer
+
+        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
+
+        sw.write("Press ⌃C")
+        while True:
+            data = tb.read_one_byte()
+            tb.write_some_bytes(data)
+            if data == b"\003":
+                break
+
     def lbr_run_awhile(self) -> None:
         """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
 
@@ -878,6 +897,7 @@ class Loopbacker:
         kr = self.keyboard_reader
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
+
         assert CUU_Y == "\033[" "{}" "A"
         assert CUP_Y_X == "\033[" "{};{}H"
         assert ED_PS == "\033[" "{}" "J"
@@ -885,11 +905,11 @@ class Loopbacker:
 
         # Draw the Gameboard
 
-        if not flags._repr_:
-            sw.write("Press ⌃C ")
-        else:
+        if flags._repr_:
             sw.print("Press ⌃C")
             sw.write_some_controls(2 * ["\t"])
+        else:
+            sw.write("Press ⌃C ")
 
         # Run till Quit
 
