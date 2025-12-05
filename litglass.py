@@ -679,7 +679,7 @@ class KeycapsGame:
         dedent = textwrap.dedent(keyboard).strip()
         splitlines = dedent.splitlines()
 
-        removesuffix = dedent.removesuffix(splitlines[-1])
+        removesuffix = str_removesuffix(dedent, suffix=splitlines[-1])
 
         # Visit each Keycap
 
@@ -693,12 +693,12 @@ class KeycapsGame:
         elif kseq in tuple(string.ascii_uppercase):
             cap = kseq.lower()
         elif kseq.startswith("⇧"):
-            cap = kseq.removeprefix("⇧")
+            cap = str_removeprefix(kseq, prefix="⇧")
 
         # Wipe out each Keycap when pressed
 
         cap_is_esc = cap == "⎋"
-        cap_is_fn = cap.startswith("F") and cap.removeprefix("F")
+        cap_is_fn = cap.startswith("F") and str_removeprefix(cap, prefix="F")
 
         suffix_kseqs = ("␢", "←", "↑", "→", "↓", "⇧←", "⇧→")
         hittable = dedent if kseq in suffix_kseqs else removesuffix
@@ -3707,11 +3707,11 @@ def _chop_nonnegative_(f: float) -> str:
     # Stand on the chosen Floor, but never say '.' nor '.0' nor '.00'
 
     dotted = triple[:span] + "." + triple[span:]
-    dotted = dotted.rstrip("0").rstrip(".")
+    dotted = dotted.rstrip("0").rstrip(".")  # lacks '.' if had only '.' or'.0' or '.00'
 
     # And never say 'e0' either
 
-    lit = f"{dotted}e{eng}".removesuffix("e0")  # may lack both '.' and 'e'
+    lit = str_removesuffix(f"{dotted}e{eng}", suffix="e0")  # may lack both '.' and 'e'
 
     # But never wander far
 
@@ -3759,6 +3759,29 @@ def _try_chop_() -> None:
         if f:
             chop_minus_f = chop(-f)
             assert chop_minus_f == (f"-{lit}"), (chop_f, lit, f"{f:.2e}", f)
+
+
+#
+# Amp up Import BuiltIns Str
+#
+
+
+def str_removeprefix(text: str, prefix: str) -> str:
+    """Remove a Prefix, if present"""
+
+    if text.startswith(prefix):
+        text = text[len(prefix) :]
+
+    return text
+
+
+def str_removesuffix(text: str, suffix: str) -> str:
+    """Remove a Suffix, if present"""
+
+    if text.endswith(suffix):
+        text = text[: -len(suffix)]
+
+    return text
 
 
 #
@@ -3946,9 +3969,6 @@ _ = """  # more famous Python Imports to run in place of our Code here
 
 if __name__ == "__main__":
     main()
-
-
-# todo5: backport to Oct/2019 Python 3.8
 
 
 # todo8: drop Keycaps specific to macOS Terminal, when elsewhere
