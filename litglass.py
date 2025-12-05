@@ -154,13 +154,7 @@ def try_main() -> None:
     shell_args_take_in(args=sys.argv[1:], parser=parser)
 
     if flags.logging:  # writes into:  tail -F __pycache__/litglass.log
-        os.makedirs("__pycache__", exist_ok=True)
-        logging.basicConfig(filename="__pycache__/litglass.log", level=logging.INFO)
-        # default .logging drops .INFO, .DEBUG, .NOTSET as < 30 .WARNING
-
-    logger.info("")
-    logger.info("")
-    logger.info("launched")
+        logging_resume()
 
     with Loopbacker() as lbr:
         if flags._assert_:
@@ -175,6 +169,30 @@ def try_main() -> None:
             sqg.sq_run_awhile()
         else:
             lbr.lbr_run_awhile()
+
+
+def logging_resume() -> None:
+    """Open up a new Logging Session at our .logger"""
+
+    os.makedirs("__pycache__", exist_ok=True)
+
+    logging.basicConfig(
+        filename="__pycache__/litglass.log",  # appends, doesn't restart
+        level=logging.INFO,  # .INFO and above
+        format="%(message)s",  # omits '%(levelname)s:%(name)s:'
+    )
+
+    logger.info("")
+    logger.info("")
+    logger.info("launched")
+    logger.info("")
+
+    #
+    # default Python .logging
+    #
+    #       drops many .INFO, .DEBUG, .NOTSET as < 30 .WARNING - # secretly, silently, uncountably
+    #       tags many lines at left with like 'INFO:__main__:'
+    #
 
 
 def arg_doc_to_parser(doc: str) -> ArgDocParser:
@@ -267,7 +285,6 @@ class SquaresGame:
 
         lbr = self.loopbacker
 
-        tb = lbr.terminal_boss
         sw = lbr.screen_writer
         kr = lbr.keyboard_reader
 
@@ -285,7 +302,7 @@ class SquaresGame:
 
             # Read Input
 
-            tb.kbhit(timeout=None)
+            kr.kbhit(timeout=None)
             frames = kr.read_byte_frames()
 
             # Eval Input and print Output
@@ -407,7 +424,6 @@ class KeycapsGame:
 
         lbr = self.loopbacker
 
-        tb = lbr.terminal_boss
         sw = lbr.screen_writer
         kr = lbr.keyboard_reader
 
@@ -425,7 +441,7 @@ class KeycapsGame:
 
             # Read Input
 
-            tb.kbhit(timeout=None)
+            kr.kbhit(timeout=None)
             frames = kr.read_byte_frames()
 
             # Eval Input and print Output
@@ -537,8 +553,7 @@ class KeycapsGame:
 
         unhit_kseqs: list[object] = list()
 
-        row_y = kr.row_y
-        column_x = kr.column_x
+        (h, w, y, x) = kr.sample_hwyx()
 
         for frame in frames:
             kseqs = kd.bytes_to_kseqs_if(frame)
@@ -549,7 +564,7 @@ class KeycapsGame:
                 self.kc_switch_tab_if(kseqs)
                 self.kc_press_keys_if(kseqs, unhit_kseqs)
 
-        sw.write_control(f"\033[{row_y};{column_x}H")  # row-column-leap ⎋[⇧H
+        sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
         if unhit_kseqs:
             if frames != (b"\003",):
@@ -673,6 +688,8 @@ class KeycapsGame:
         cap = kseq
         if kseq == "␢":
             cap = "Spacebar"
+        elif flags.sigint and (kseq == "⌃J"):
+            cap = "⏎"
         elif kseq in tuple(string.ascii_uppercase):
             cap = kseq.lower()
         elif kseq.startswith("⇧"):
@@ -825,7 +842,6 @@ class Loopbacker:
     def lbr_run_awhile(self) -> None:
         """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
 
-        tb = self.terminal_boss
         sw = self.screen_writer
         kr = self.keyboard_reader
 
@@ -852,7 +868,7 @@ class Loopbacker:
 
             t0 = time.time()
 
-            tb.kbhit(timeout=None)
+            kr.kbhit(timeout=None)
             frames = kr.read_byte_frames()
 
             t1 = time.time()
@@ -1709,7 +1725,7 @@ class TerminalBoss:
     def write_some_bytes(self, data: bytes) -> None:
         """Write zero or more Bytes"""
 
-        logger.info(f"{data=}")
+        # logger.info(f"{data=}")
 
         fileno = self.fileno
         fd = fileno
@@ -1730,7 +1746,7 @@ class TerminalBoss:
 
         # quite far away from KeyboardReader.read_bytes and .read_byte_frames
 
-    def kbhit(self, timeout: float | None) -> bool:
+    def stdio_select_select(self, timeout: float | None) -> bool:
         """Block till next Input Byte, else till Timeout, else till forever"""
 
         stdio = self.stdio
@@ -1738,7 +1754,7 @@ class TerminalBoss:
 
         assert self.tcgetattr, (self.tcgetattr,)
 
-        stdio.flush()  # before select.select of .kbhit
+        stdio.flush()  # before select.select of .stdio_select_select
         (r, w, x) = select.select([fileno], [], [], timeout)
 
         hit = fileno in r
@@ -1806,7 +1822,7 @@ class ScreenWriter:
     def write(self, text: str) -> None:
         """Write the Byte Encodings of Text without adding a Line-Break"""
 
-        logger.info(f"{text=}")  # printable or control or a mix of both
+        # logger.info(f"{text=}")  # printable or control or a mix of both
 
         tb = self.terminal_boss
         data = text.encode()  # may raise UnicodeEncodeError
@@ -1835,7 +1851,7 @@ EL_PS = "\033[" "{}" "K"  # CSI 04/11 Erase in Line [Row]  # 0 Tail # 1 Head # 2
 IL_Y = "\033[" "{}" "L"  # Csi 04/12 Insert Line [Row]
 _CLICK3_ = "\033[M"  # ⎋[⇧M{b}{x}{y} Click Press/ Release
 DL_Y = "\033[" "{}M"  # Csi 04/13 Delete Line [Row]
-SU_Y = "\x1b" "[" "{}S"  # CSI 05/03 Scroll Up [Into Scrollback]
+SU_Y = "\033[" "{}S"  # CSI 05/03 Scroll Up [Into Scrollback]
 
 VPA_Y = "\033[" "{}" "d"  # Csi 06/04 Vertical Position Absolute [Row]
 
@@ -1869,10 +1885,10 @@ class KeyboardReader:
 
     terminal_boss: TerminalBoss
 
-    y_high: int  # H W always positive after initial (-1, -1)
+    y_high: int  # H W always positive after initial (0, 0)
     x_wide: int
 
-    row_y: int  # todo: row_y_column_x: tuple[int, ...] to be initially Empty Tuple
+    row_y: int  # Y X always positive after initial (0, 0)
     column_x: int
 
     reads_ahead: bytearray
@@ -1881,10 +1897,10 @@ class KeyboardReader:
 
         self.terminal_boss = terminal_boss
 
-        self.row_y = -1
-        self.column_x = -1
-        self.y_high = -1
-        self.x_wide = -1
+        self.row_y = 0
+        self.column_x = 0
+        self.y_high = 0
+        self.x_wide = 0
 
         self.reads_ahead = bytearray()
 
@@ -2115,6 +2131,18 @@ class KeyboardReader:
     # and update the H W Y X of this KeyboardReader
     #
 
+    def kbhit(self, timeout: float | None = None) -> None:
+        """Block till next Input Byte, else till Timeout, else till forever"""
+
+        reads_ahead = self.reads_ahead
+        if reads_ahead:
+            return
+
+        tb = self.terminal_boss
+        tb.stdio_select_select(timeout=timeout)  # a la msvcrt.kbhit
+
+        # todo: one 'def kbhit' per project is exactly enough?
+
     def sample_hwyx(self) -> tuple[int, int, int, int]:
         """Take a fresh sample of Width x Height and Y X Cursor Position of this Terminal"""
 
@@ -2122,23 +2150,18 @@ class KeyboardReader:
         sw = tb.screen_writer
         reads_ahead = self.reads_ahead
 
-        assert DSR6 == "\033[" "6n"
-        assert CPR_Y_X == "\033[" "{};{}R"
+        assert DSR0 == "\033[" "0n"
+        assert DSR5 == "\033[" "5n"
 
-        sw.write_control("\033[6n")
+        sw.write_control("\033[5n")  # send ⎋[5N for reply ⎋[0n
         yx_cpr = self.read_bytes()
         (h, w, y, x) = (self.y_high, self.x_wide, self.row_y, self.column_x)
 
-        sm = re.search(rb"\033\[([0-9]+);([0-9]+)R$", string=yx_cpr)  # ⎋[{y};{x}⇧R
-        assert sm, (sm, yx_cpr)
+        end = b"\033[0n"
+        assert yx_cpr.endswith(end), (yx_cpr, end)
+        n = len(end)
 
-        n = len(sm.group(0))
-        (ysm, xsm) = (int(sm.group(1)), int(sm.group(2)))
-
-        assert y == ysm, (y, ysm, yx_cpr)
-        assert x == xsm, (x, xsm, yx_cpr)
-
-        reads = yx_cpr[-n:]
+        reads = yx_cpr[:-n]
         if reads:
             logger.info(f"{reads=}")
             reads_ahead[0:0] = reads
@@ -2189,7 +2212,7 @@ class KeyboardReader:
         self.x_wide = w
 
         if (y, x) != yx:
-            logger.info(f"{y};{x}H")
+            logger.info(f"at {y};{x}H")
 
         assert Y1 <= y <= h, (y, h)
         assert X1 <= x <= w, (x, w)
@@ -2230,7 +2253,7 @@ class KeyboardReader:
         assert CPR_Y_X == "\033[" "{};{}R"
 
         tb.write_some_bytes(b"\033[6n")  # ⎋[6n call for reply y x
-        tb.kbhit(timeout=0e0)  # flushes and blocks after .write_some_bytes
+        tb.stdio_select_select(timeout=0e0)  # flushes and blocks after .write_some_bytes
 
         row_y = -1
         column_x = -1
@@ -2279,7 +2302,7 @@ class KeyboardReader:
                     # Arrow Key Bursts split apart into frames if .flags_lazy_kbhits
                     # Double Key Jams still often recur despite .flags_lazy_kbhits
 
-            if not tb.kbhit(timeout=0e0):  # blocks
+            if not tb.stdio_select_select(timeout=0e0):  # blocks
                 break
 
         yx = (row_y, column_x)  # taken from first, when more left in .ba
@@ -2287,11 +2310,13 @@ class KeyboardReader:
 
         if len(ba) < 20:
             headtail = bytes(ba)
-            logger.info(f"ba={headtail!r} y={row_y} x={column_x}")
+            # logger.info(f"ba={headtail!r} y={row_y} x={column_x}")
+            _ = headtail
         else:
             head = bytes(ba[:10])
             tail = bytes(ba[-10:])
-            logger.info(f"[:10]={head!r} [-10:]={tail!r} y={row_y} x={column_x}")
+            _ = head, tail
+            # logger.info(f"[:10]={head!r} [-10:]={tail!r} y={row_y} x={column_x}")
 
         return (yx, reads)
 
