@@ -879,7 +879,7 @@ class Loopbacker:
             logger.info("")
             logger.info(f"{frames=}")
             if flags._repr_:
-                self.lbr_print_frame_per_row(frames, t1t0=t1t0)
+                self.lbr_print_repr_frame_per_row(frames, t1t0=t1t0)
             else:
                 self.lbr_step_once(frames)
 
@@ -993,7 +993,7 @@ class Loopbacker:
             self.lbr_write_frame_echo(data)
 
             sw.write_printable(" ")
-            self.lbr_print_frame_per_row(frames, t1t0=t1t0)
+            self.lbr_print_repr_frame_per_row(frames, t1t0=t1t0)
 
         elif factor == 0:  # echoes and leaps and writes
 
@@ -1312,7 +1312,7 @@ class Loopbacker:
         echo = kd.frame_to_echo(frame)
         sw.write_printable(echo)
 
-    def lbr_print_frame_per_row(self, frames: tuple[bytes, ...], t1t0: float) -> None:
+    def lbr_print_repr_frame_per_row(self, frames: tuple[bytes, ...], t1t0: float) -> None:
         """Print the Repr of each Frame, but mark the Frames as framed together"""
 
         sw = self.screen_writer
@@ -1325,7 +1325,7 @@ class Loopbacker:
 
         for frame_index in range(len(frames)):
 
-            self.lbr_write_frame(frames, frame_index=frame_index, t1t0=frame_t1t0)
+            self.lbr_print_one_repr_frame(frames, frame_index=frame_index, t1t0=frame_t1t0)
 
             frame_t1t0 = 0e0
             y += 1  # todo: 'row_y > y_high' happens here  # todo: update Y X shadow
@@ -1333,7 +1333,9 @@ class Loopbacker:
             sw.write_control("\n")
             sw.write_control(f"\033[{y};{x}H")
 
-    def lbr_write_frame(self, frames: tuple[bytes, ...], frame_index: int, t1t0: float) -> None:
+    def lbr_print_one_repr_frame(
+        self, frames: tuple[bytes, ...], frame_index: int, t1t0: float
+    ) -> None:
         """Write the Repr of one Frame, but mark the Frames as framed together"""
 
         frame = frames[frame_index]
@@ -1360,13 +1362,13 @@ class Loopbacker:
         if alt_kseqs:
             printables.append(alt_kseqs[0])
 
-        if text and text.isprintable():
+        if not box.practically_printable:
+            printables.append(repr(frame))
+        else:
             if text == " ":
                 printables.append(repr(text))
             else:
                 printables.append(text)
-        else:
-            printables.append(repr(frame))
 
         printables.append(chop(1000 * t1t0))
 
@@ -1787,8 +1789,11 @@ class ScreenWriter:
 
         printable = text  # alias
 
-        assert printable.isprintable(), (printable,)
+        assert printable.replace("", "-").isprintable(), (printable,)
+
         self.write(printable)
+
+        # todo: reduce the scatter in the distribution of '.replace("", "-").isprintable'
 
     def write_some_controls(self, texts: typing.Iterable[str]) -> None:
         """Write the Byte Encodings of >= 0 Unprintable Control Texts"""
@@ -3652,10 +3657,11 @@ class BytesBox:
         if not text:
             return False
 
-        printable = text.isprintable()
+        printable = text.replace("", "-").isprintable()
+
         return printable
 
-        # todo5: solve repr(box) to show each '' in the .text, stop substituing \uf8ff
+        # todo: reduce the scatter in the distribution of '.replace("", "-").isprintable'
 
 
 #
@@ -3942,9 +3948,7 @@ if __name__ == "__main__":
     main()
 
 
-# todo5: accept U+F8FF  as Printable Enough from ⌥⇧K
 # todo5: backport to Oct/2019 Python 3.8
-# todo5: revive --egg=keycaps
 
 
 # todo8: drop Keycaps specific to macOS Terminal, when elsewhere
