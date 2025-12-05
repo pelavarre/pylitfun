@@ -228,6 +228,8 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
     dash_dash_eggs.remove("terminal")
 
     ns_eggs = ns.eggs or list()
+
+    attr_list = list()
     for egg_arg in ns_eggs:
         eggs = egg_arg.split(",")
         for egg in eggs:
@@ -246,7 +248,11 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
                 sys.exit(2)  # exits 2 for bad Arg
 
             attr = m[-1]
+            attr_list.append(attr)
             setattr(flags, attr, True)
+
+    if attr_list != ns_eggs:
+        print(f"+ litglass.py --egg={','.join(attr_list)}")
 
     sum = flags.byteloop + flags.keycaps + flags._repr_ + flags.squares
     assert sum <= 1, (dict(_ for _ in vars(flags).items() if _[-1]),)
