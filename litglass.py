@@ -270,6 +270,7 @@ class SquaresGame:
     """Play for --egg=squares"""
 
     loopbacker: Loopbacker
+    by_y_by_x: dict[int, dict[int, str]]
     game_yx: tuple[int, ...]
 
     Squares = "🟥 🟨 🟩 🟦 🟪"  # todo: more or less, and colorable U+2B24 ⬤
@@ -278,6 +279,7 @@ class SquaresGame:
     def __init__(self, loopbacker: Loopbacker) -> None:
 
         self.loopbacker = loopbacker
+        self.by_y_by_x = dict()
         self.game_yx = tuple()
 
     def sq_run_awhile(self) -> None:
@@ -292,6 +294,7 @@ class SquaresGame:
 
         # Draw the Gameboard
 
+        self.sq_game_form()
         game_yx = self.sq_game_draw()
         self.game_yx = game_yx  # replaces
 
@@ -317,8 +320,41 @@ class SquaresGame:
 
         sw.print()
 
+    def sq_game_form(self) -> None:
+        """Fill the Board with Tiles"""
+
+        by_y_by_x = self.by_y_by_x
+
+        squares = SquaresGame.Squares
+        dent = 4 * " "
+
+        h = len(squares)
+        w = len(squares)
+
+        for y in range(h):
+
+            by_x: dict[int, str] = dict()
+            by_y_by_x[y] = by_x
+
+            x = -1
+
+            for t in dent:
+                x += 1
+                by_x[x] = t
+
+            for _ in range(w):
+                s = random.choice(squares)
+                x += 1
+                by_x[x] = s
+
+            for t in dent:
+                x += 1
+                by_x[x] = t
+
     def sq_game_draw(self) -> tuple[int, int]:
         """Draw the Gameboard, scrolling if need be"""
+
+        by_y_by_x = self.by_y_by_x
 
         lbr = self.loopbacker
         sw = lbr.screen_writer
@@ -329,14 +365,11 @@ class SquaresGame:
         sw.print()
         sw.print()  # twice
 
-        for y in range(len(squares)):
-
-            sw.write(dent)
-            for x in range(len(squares)):
-                s = random.choice(squares)
-                sw.write_printable(s)
-            sw.write(dent)
-
+        h = len(squares)
+        for y in range(h):
+            by_x = by_y_by_x[y]
+            y_text = "".join(by_x.values())
+            sw.write(y_text)
             sw.write_some_controls(["\r", "\n"])
 
         sw.print(dent + "  ↓    ↓  " + dent)
@@ -355,7 +388,6 @@ class SquaresGame:
 
         return (-1, -1)
 
-        # todo6: store tiles in a [y][x]
         # todo6: from the deepest, drop >= 3 in a row, >= 3 in a column
         # todo6: find the ⌥-click on the board, drag perpendicular to gravity
 
