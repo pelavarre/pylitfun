@@ -887,6 +887,8 @@ class Loopbacker:
         while True:
             data = tb.read_one_byte()
             tb.write_some_bytes(data)
+            if data == b"\r":  # rounds up ⌘V of \r to \r\n
+                tb.write_some_bytes(b"\n")
             if data == b"\003":
                 break
 
@@ -3884,9 +3886,17 @@ def excepthook(  # ) -> ...:
 
     # Launch the Post-Mortem Debugger
 
-    if not hasattr(sys, "last_exc"):  # todo: figure out when this does and doesn't happen
-        if exc_value is not None:
-            sys.last_exc = exc_value  # ducks out of confusing pdb.pm()
+    if exc_value is not None:
+        if not hasattr(sys, "last_exc"):
+            setattr(sys, "last_exc", exc_value)  # ducks out of confusing pdb.pm()
+
+            # todo: figure out when this does and doesn't happen
+
+    if exc_traceback is not None:
+        if not hasattr(sys, "last_traceback"):
+            setattr(sys, "last_traceback", exc_traceback)  # ducks out of confusing pdb.pm()
+
+            # todo: figure out when this does and doesn't happen
 
     print(">" ">" "> pdb.pm()", file=with_stderr)  # (3 * ">") spelled unlike a Git Conflict
     pdb.pm()
