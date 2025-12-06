@@ -49,6 +49,7 @@ ShlinePlusByShverb = {  # sorted by key
     "gcaf": "git commit --all --fixup [...]",
     # 5
     "gcam": "git commit --all -m wip",  # inverts : grh1 && git reset HEAD~1
+    "gcf": "git commit --fixup [...]",
     "gcl": "... && git clean -dffxq",
     "gcp": "git cherry-pick ...",
     "gd": "git diff --color-moved [...]",
@@ -199,7 +200,7 @@ class GitGopher:
         sys.exit(git_run.returncode)
 
         # todo: shrink back down such voluminous expanded ShArgV as *.py
-        # todo: run without shell=True and without shlex.quote
+        # todo: run without without shlex.quote
 
     def exit_if_dash_dash_help(self) -> None:
         """Print the Doc and exit zero, if '--help' in the Shell Args"""
@@ -358,8 +359,6 @@ class GitGopher:
 
         assert not shverb_shline_plus.startswith("... && "), (shverb, shverb_shline_plus)
 
-        # optional_args_usage = f"usage: {shverb} [...]"  # also: gcaf
-
         shline = shverb_shline_plus.removesuffix(" [...]")
 
         shsuffix = " ..."
@@ -369,6 +368,10 @@ class GitGopher:
             if shverb_shline_plus == "git commit --all --fixup [...]":
                 assert shverb in ("gcaf",), (shverb, shline)
                 shline += " HEAD"  # tilts into:  git commit --all --fixup HEAD
+
+            elif shverb_shline_plus == "git commit --fixup [...]":
+                assert shverb in ("gcf",), (shverb, shline)
+                shline += " HEAD"  # tilts into:  git commit --fixup HEAD
 
             elif shverb_shline_plus == "git log --pretty=fuller --no-decorate [...]":
                 assert shverb == "gl", (shverb, shline)
@@ -382,7 +385,7 @@ class GitGopher:
         assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
-        # g, gcaf, gd, gdno, gg/0, gl, glf, glq, gls, glv, gno, gri, grias, gs, gspno
+        # g, gcaf, gcf, gd, gdno, gg/0, gl, glf, glq, gls, glv, gno, gri, grias, gs, gspno
 
     def _form_shline_no_leading_pos_arg_(
         self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...]
@@ -414,11 +417,14 @@ class GitGopher:
             shargv1 = shargv[1]
 
             leading_pos_arg = (shargv1 == "-") or (not shargv1.startswith("-"))
-            if leading_pos_arg or (shverb in ("grhu", "grv")):
+
+            too_many_args = leading_pos_arg
+            if shverb in ("grhu", "grv"):
+                too_many_args = True
+
+            if too_many_args:
                 print(no_arg_usage, file=sys.stderr)
                 sys.exit(2)  # exits 2 for bad args
-
-                # todo: grow 'grhu' and 'grv' to cope with adding on Shell Args
 
             # accepts: gdh -w, gf --, grl --
 
