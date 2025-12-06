@@ -368,7 +368,11 @@ class SquaresGame:
     """Play for --egg=squares"""
 
     loopbacker: Loopbacker
+
     by_y_by_x: dict[int, dict[int, str]]
+    y_high: int  # H W positive after initial zero
+    x_wide: int
+
     game_yx: tuple[int, ...]
 
     Squares = "🟥 🟨 🟩 🟦 🟪"  # todo: more or less, and colorable U+2B24 ⬤
@@ -380,6 +384,8 @@ class SquaresGame:
 
         self.loopbacker = loopbacker
         self.by_y_by_x = dict()
+        self.y_high = 0
+        self.x_wide = 0
         self.game_yx = tuple()
 
     def sq_run_awhile(self) -> None:
@@ -394,11 +400,10 @@ class SquaresGame:
 
         # Draw the Gameboard
 
-        self.sq_game_form()
-
         (h, w, y, x) = kr.sample_hwyx()
         self.game_yx = (y, x)  # replaces
 
+        self.sq_game_form()
         self.sq_game_draw()
 
         # Run till Quit
@@ -433,8 +438,15 @@ class SquaresGame:
 
         squares = SquaresGame.Squares
 
+        #
+
         h = len(squares)
         w = len(squares)
+
+        self.y_high = h
+        self.x_wide = w
+
+        #
 
         for y in range(h):
 
@@ -492,80 +504,141 @@ class SquaresGame:
     def sq_step_because_box(self, box: BytesBox) -> None:
         """Eval 1 Box of Input and print Output"""
 
+        lbr = self.loopbacker
+        r = lbr.random_random
+
         by_y_by_x = self.by_y_by_x
+        y_high = len(by_y_by_x.keys())
+        x_wide = len(by_y_by_x[0].keys())  # todo: as if rectangular
+
+        squares = SquaresGame.Squares
 
         # Move once per Key Release of Spacebar
 
         if box.text != " ":
             return
 
-        # Search at every Tile
+        # Find and draw Collisions
 
-        y_high = len(by_y_by_x.keys())
-        for y in range(y_high - 1, -1, -1):
+        east_bars = self.find_east_bars()
+        south_poles = self.find_south_poles()
+
+        if east_bars or south_poles:
+            self.empty_east_bars(east_bars)
+            self.empty_south_poles(south_poles)
+            self.sq_game_draw()
+            return
+
+        # Across the South, fall from the North
+
+        falls = 0
+
+        for ys in range(y_high - 1, -1, -1):
+            yn = ys - 1
+            yn_by_x = dict() if (yn < 0) else by_y_by_x[yn]
+            for x in range(0, x_wide):
+                ys_by_x = by_y_by_x[ys]
+
+                ts = ys_by_x[x]
+                if ts == "⬜":
+                    tn = r.choice(squares) if (yn < 0) else yn_by_x[x]
+
+                    ys_by_x[x] = tn
+                    yn_by_x[x] = "⬜"
+
+                    falls += 1
+
+        if falls:
+            self.sq_game_draw()
+            return
+
+        # Cry over no change
+
+        logger.info("no move found")  # todo6: do something
+
+    def find_east_bars(self) -> list[tuple[int, int, int]]:
+        """Search each Row to find >= 3 Tiles together"""
+
+        by_y_by_x = self.by_y_by_x
+        y_high = self.y_high
+        x_wide = self.x_wide
+
+        east_bars = list()
+
+        for y in range(0, y_high):
+            for x in range(0, x_wide):
+                by_x = by_y_by_x[y]
+                t = by_x[x]
+
+                if t == "⬜":
+                    continue
+
+                east = "".join(by_x[_] for _ in range(x, x_wide))
+                wide = len(east) - len(east.lstrip(t))
+                if wide >= 3:
+                    east_bar = (y, x, wide)
+                    east_bars.append(east_bar)
+
+                    logger.info(str([y, x, wide, (wide * t), "East Bar"]))
+
+                    assert x_wide <= 5, (x_wide, wide, east_bar)
+                    break
+
+        return east_bars
+
+    def find_south_poles(self) -> list[tuple[int, int, int]]:
+        """Search each Column to find >= 3 Tiles together"""
+
+        by_y_by_x = self.by_y_by_x
+        y_high = self.y_high
+        x_wide = self.x_wide
+
+        south_poles = list()
+
+        for x in range(0, x_wide):
+            for y in range(0, y_high):
+                by_x = by_y_by_x[y]
+                t = by_x[x]
+
+                if t == "⬜":
+                    continue
+
+                south = "".join(by_y_by_x[_][x] for _ in range(y, y_high))
+                high = len(south) - len(south.lstrip(t))
+                if high >= 3:
+                    south_pole = (y, x, high)
+                    south_poles.append(south_pole)
+
+                    logger.info(str([y, x, high, (high * t), "South Pole"]))
+
+                    assert y_high <= 5, (y_high, high, south_pole)
+                    break
+
+        return south_poles
+
+    def empty_east_bars(self, east_bars: list[tuple[int, int, int]]) -> None:
+        """Erase each Cell of each East Bar"""
+
+        by_y_by_x = self.by_y_by_x
+
+        for east_bar in east_bars:
+            (y, x, wide) = east_bar
             by_x = by_y_by_x[y]
+            for xw in range(x, x + wide):
 
-            x_wide = len(by_x.keys())
-            for x in range(x_wide - 1, -1, -1):
+                by_x[xw] = "⬜"  # todo6: Darkmode
 
-                # Take 3-of-a-Kind in a Row
+    def empty_south_poles(self, south_poles: list[tuple[int, int, int]]) -> None:
+        """Erase each Cell of each South Pole"""
 
-                t = by_x[x]
-                assert t != " ", (t,)
+        by_y_by_x = self.by_y_by_x
 
-                m = t
-                for w in range(1, x_wide):
-                    xw = x - w
-                    if xw >= 0:
-                        tw = by_x[xw]
+        for south_pole in south_poles:
+            (y, x, high) = south_pole
+            for ys in range(y, y + high):
+                by_x = by_y_by_x[ys]
 
-                        if tw != t:
-                            break
-
-                        m = tw + m
-
-                wide = len(m)
-                if wide >= 3:
-                    logger.info(str([y, x, t, wide, m, "Row"]))
-
-                # wide = 0
-                if wide >= 3:
-                    self.crush_west_row(y, x=x, wide=wide)
-                    self.sq_game_draw()
-                    return
-
-                # Take 3-of-a-Kind in a Column
-
-                t = by_x[x]
-                assert t != " ", (t,)
-
-                m = t
-                for n in range(1, y_high):
-                    yn = y - n
-                    if yn >= 0:
-                        yn_by_x = by_y_by_x[yn]
-                        tn = yn_by_x[x]
-
-                        if tn != t:
-                            break
-
-                        m = tn + m
-
-                high = len(m)
-                if high >= 3:
-                    logger.info(str([y, x, t, high, m, "Column"]))
-
-                # high = 0
-                if high >= 3:
-                    self.crush_north_column(y, x=x, high=high)
-                    self.sq_game_draw()
-                    return
-
-        # Shrug off no move found  # todo6: don't
-
-        pass
-
-        # todo: collect all moves found, favour the largest
+                by_x[x] = "⬜"  # todo6: Darkmode
 
     def crush_west_row(self, y: int, x: int, wide: int) -> None:
         """Crush the Column out West"""
@@ -1374,8 +1447,8 @@ class Loopbacker:
             sw.write_some_controls(["\033[H", "\033[2J", "\033[3J"])
             return
 
-            # always works:  macOS ⌘K
-            # always works:  seq 987 && printf '\e[H''\e[2J''\e[3J'
+            # does work:  macOS ⌘K
+            # does work:  seq 987 && printf '\e[H''\e[2J''\e[3J'
             # not so much:  seq 987 && printf '\e[3J''\e[H''\e[2J'
             # lots of Shell 'clear' get this wrong, including Oct/2024 Sequoia macOS 15
 
@@ -2199,10 +2272,10 @@ class KeyboardReader:
 
     terminal_boss: TerminalBoss
 
-    y_high: int  # H W always positive after initial (0, 0)
+    y_high: int  # H W positive after initial zero
     x_wide: int
 
-    row_y: int  # Y X always positive after initial (0, 0)
+    row_y: int  # Y X positive after initial zero
     column_x: int
 
     reads_ahead: bytearray
@@ -2653,7 +2726,7 @@ class KeyboardReader:
     #
     #   mashing the ← ↑ → ↓ Arrow Keys sends 1..2 Arrows
     #   ⌥-Click sends 1 Burst of 1..Y Arrows
-    #   ⌥` sends b"``" always together
+    #   ⌥` sends b"``" as 1 Burst of 2 Seven-Bit US-Ascii Chars
     #
 
 
@@ -4171,15 +4244,20 @@ def _try_unicode_source_texts_() -> None:
 
     assert "" == "\uf8ff"  # U+F8FF  # last of U+E000 .. U+F8FF Private Use Area (PUA)
 
-    # bits from the 9 Comic Colors from Mar/2019 Unicode
+    # 2 Comic Colors from Apr/2008 Unicode 5.1
 
-    assert unicodedata.name("🟥").title() == "Large Red Square"
-    assert unicodedata.name("🟦").title() == "Large Blue Square"
-    assert unicodedata.name("🟨").title() == "Large Yellow Square"
-    assert unicodedata.name("🟩").title() == "Large Green Square"
-    assert unicodedata.name("🟪").title() == "Large Purple Square"
-    assert unicodedata.name("🟧").title() == "Large Orange Square"
-    assert unicodedata.name("🟫").title() == "Large Brown Square"
+    assert unicodedata.name("⬛").title() == "Black Large Square"  # U+2B1B
+    assert unicodedata.name("⬜").title() == "White Large Square"  # U+2B1C
+
+    # 7 Comic Colors from Mar/2019 Unicode 12.0
+
+    assert unicodedata.name("🟥").title() == "Large Red Square"  # U+1F7E5
+    assert unicodedata.name("🟦").title() == "Large Blue Square"  # U+1F7E6
+    assert unicodedata.name("🟨").title() == "Large Yellow Square"  # U+1F7E8
+    assert unicodedata.name("🟩").title() == "Large Green Square"  # U+1F7E9
+    assert unicodedata.name("🟪").title() == "Large Purple Square"  # U+1F7EA
+    assert unicodedata.name("🟧").title() == "Large Orange Square"  # U+1F7EB
+    assert unicodedata.name("🟫").title() == "Large Brown Square"  # U+1F7EB
 
     #
     # The Apple ⌥ Option/Alt Keys send lots of printable U+00A1 .. U+00FF
