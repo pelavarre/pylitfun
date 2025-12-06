@@ -505,8 +505,9 @@ class SquaresGame:
         sw.print("Press ⌃C")
         sw.print()
 
-        # todo6: rotate gravity to match arrow, and drag perpendicular to gravity
         # todo6: find the ⌥-click on the board
+
+        # todo7: rotate gravity to match arrow, and drag perpendicular to gravity
 
     def sq_steps_because_frames(self, frames: tuple[bytes, ...]) -> None:
         """Eval Frames of Input and print Output"""
@@ -544,11 +545,14 @@ class SquaresGame:
             self.sq_game_draw()
             return
 
+            # todo5: move all the 3 square arrows where they point
+            # todo6: game trophies of first finding each kind of move
+
         # Shuffle Columns or Rows
 
         self.strikes += 1
         if self.strikes <= 3:
-            self.rows_shuffle()  # todo6: only while gravity pulls South
+            self.rows_shuffle()  # todo7: only while gravity pulls South
         else:
             self.strikes = 0
             self.columns_shuffle()
@@ -625,7 +629,7 @@ class SquaresGame:
             by_x = by_y_by_x[y]
             for xw in range(x, x + wide):
 
-                by_x[xw] = "⬜"  # todo6: Darkmode
+                by_x[xw] = "⬜"  # todo5: Darkmode
 
     def empty_south_poles(self, south_poles: list[tuple[int, int, int]]) -> None:
         """Erase each Cell of each South Pole"""
@@ -637,7 +641,7 @@ class SquaresGame:
             for ys in range(y, y + high):
                 by_x = by_y_by_x[ys]
 
-                by_x[x] = "⬜"  # todo6: Darkmode
+                by_x[x] = "⬜"  # todo5: Darkmode
 
     def fall_south_into_empty_cells(self) -> int:
         """Across the South, fall from the North"""
@@ -662,7 +666,7 @@ class SquaresGame:
 
             # Walk always from West to East, even though East to West would work just as well
 
-            ys_falls = dict()
+            ys_falls: dict[int, str] = dict()
             falls_by_y_by_x[ys] = ys_falls
 
             for x in range(0, x_wide):
@@ -1449,7 +1453,6 @@ class Loopbacker:
         text = box.text
 
         sw = self.screen_writer
-        kr = self.keyboard_reader
 
         kd = self.keyboard_decoder
         echo = kd.frame_to_echo(data)
@@ -1540,10 +1543,21 @@ class Loopbacker:
         if self._lbr_csi_osc_step_once_if_(box):
             return
 
-        # Else echo vertically
+        # Else echo vertically down southward
+
+        self.lbr_write_echo_southward(echo)
+
+    def lbr_write_echo_southward(self, echo: str) -> None:
+
+        sw = self.screen_writer
+        kr = self.keyboard_reader
 
         for e in echo:
+
             sw.write_printable(e)
+            if kr.row_y >= kr.y_high:
+                sw.write_control("\n")
+
             kr.row_y = min(kr.y_high, kr.row_y + 1)
             sw.write_control(f"\033[{kr.row_y};{kr.column_x}H")
 
@@ -1663,11 +1677,21 @@ class Loopbacker:
 
         # Loop back well-known Osc Byte Sequences
 
+        osc_necks = [b"", b"10;?", b"11;?", b"12;", b"112"]
+        if flags.google:
+            osc_necks.remove(b"12;")  # crashes 6/Dec/2025 Google Cloud Terminals
+
         if head == b"\033]":
             if backtail in (b"\007", b"\033\134"):
-                if neck == b"\033]11;?":  # ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
+                if neck in osc_necks:  # .neck == f"{Ps};{Pt}".encode()
                     sw.write_control(control)
                     return True
+
+                    # Osc 10;⇧? sends for Color ⎋]10;RGB⇧:{r}/{g}/{b}⌃G
+                    # Osc 11;⇧? sends for Backlight ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
+                    # Osc 12;⇧? and Osc 112;⇧? change and revert Cursor Color
+
+                    # Osc without Ps without Pt does almost no harm
 
             # todo: Accept only the Osc understood by our Class ScreenWriter
 
@@ -2293,13 +2317,15 @@ DSR6 = "\033[" "6n"  # DSR_PS Ps 6 for CPR_Y_X
 # ⎋[4H inserting  ⎋[4L replacing  ⎋[⇧?2004H paste-wrap  ⎋[⇧?2004L paste-unwrap
 # ⎋[?25H cursor-show  ⎋[?25L -hide  ⎋[6 Q -bar  ⎋[4 Q -skid  ⎋[ Q -unstyled
 
-# ⎋[1M bold  ⎋[4M underline  ⎋[7M reverse/inverse
-# ⎋[31M red  ⎋[32M green  ⎋[34M blue  ⎋[38;5;130M orange
+# ⎋[1M bold  ⎋[4M underline  ⎋[7M reverse/inverse  ⎋[103M backlight yellow
+# ⎋[31M red  ⎋[32M green  ⎋[34M blue  ⎋[38;5;130M orange  ⎋[48;5;130M same back
 # ⎋[M plain  ⎋[⇧?1049H screen-alt  ⎋[⇧?1049L screen-main
 
-# ⎋[5N call for reply ⎋[0N
-# ⎋[6N call for reply ⎋[{y};{x}⇧R  ⎋[18T call for reply ⎋[8;{rows};{columns}T
-# ⎋]11;⇧?⌃G call for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
+# ⎋[5N send for reply ⎋[0N
+# ⎋[6N send for reply ⎋[{y};{x}⇧R  ⎋[18T send for reply ⎋[8;{rows};{columns}T
+# ⎋]11;⇧?⌃G send for {r}/{g}/{b}  # 11 Backlight  # 10 Color
+
+# <!-- todo: Say more of Osc Ps 12 112, esp Ps 12 crashes of Terminal Tabs at Google Cloud Shell -->
 
 
 class KeyboardReader:
@@ -2648,7 +2674,7 @@ class KeyboardReader:
         tb = self.terminal_boss
         fileno = tb.fileno
 
-        # Read one Byte, then call for Cursor Position, then block till it comes
+        # Read one Byte, then send for Y X Cursor Position, then block till it comes
 
         (yx, reads) = self.read_yx_bytes()
         (y, x) = yx
@@ -2665,7 +2691,7 @@ class KeyboardReader:
         return (hwyx, reads)
 
     def read_yx_bytes(self) -> tuple[tuple[int, int], bytes]:
-        """Read 1 Byte, call for Cursor Y X Report, & read Available Bytes till the Report"""
+        """Read 1 Byte, send for Cursor Y X Position, & read Available Bytes till the Report"""
 
         tb = self.terminal_boss
         sw = tb.screen_writer
@@ -2674,7 +2700,7 @@ class KeyboardReader:
         assert DSR6 == "\033[" "6n"
         assert CPR_Y_X == "\033[" "{};{}R"
 
-        tb.write_some_bytes(b"\033[6n")  # ⎋[6n call for reply y x
+        tb.write_some_bytes(b"\033[6n")  # ⎋[6n send for reply Y X
         tb.stdio_select_select(timeout=0e0)  # flushes and blocks after .write_some_bytes
 
         row_y = -1
@@ -4284,7 +4310,7 @@ def _try_unicode_source_texts_() -> None:
     assert unicodedata.name("⬛").title() == "Black Large Square"  # U+2B1B
     assert unicodedata.name("⬜").title() == "White Large Square"  # U+2B1C
 
-    # 7 Comic Colors from Mar/2019 Unicode 12.0
+    # 7 Comic Colors from Mar/2019 Unicode 12.0  # todo5: --egg=colors for these 555 Color Codes
 
     assert unicodedata.name("🟥").title() == "Large Red Square"  # U+1F7E5
     assert unicodedata.name("🟦").title() == "Large Blue Square"  # U+1F7E6
@@ -4331,17 +4357,32 @@ def _try_unicode_source_texts_() -> None:
     #
 
     #
-    # Here in 2025 we're running no Tests of Unicode U+FB01 and U+FB02
+    # We run no Tests of Unicode U+FB01 and U+FB02, not here in 2025
     #
     #   ﬁ ﬂ
     #
-    # And no Tests of Unicode U+0131 .. U+25CA
+    # We run no Tests of Unicode U+0131 .. U+25CA
     #
     #   ıŒœŸƒˆˇ˘˙˚˛˜˝́Ωπ–—‘’‚“”„†‡•…‰‹›⁄€™←↑→↓⇥⇧⇪∂∆∏∑√∞∫≈≠≤≥⌃⌘⌥⌫⎋⏎␢◊
     #
-    # And no Tests of Unicode U+00A1 .. U+00F8
+    # We run no Tests of Unicode U+00A1 .. U+00F8
     #
     #   ¡¢£¥§¨©ª«¬®¯°±´µ¶·¸º»¿Çßç÷ø
+    #
+
+    #
+    # macOS Terminal Themes  # todo5: survey Color & Highlight via Osc 10 11
+    #
+    #   Basic
+    #   Grass
+    #   Homebrew
+    #   Man Page
+    #   Novel
+    #   Ocean
+    #   Pro
+    #   Red Sands
+    #   Silver Aerogel
+    #   Solid Colors
     #
 
 

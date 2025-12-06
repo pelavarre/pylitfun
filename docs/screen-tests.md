@@ -45,19 +45,22 @@ The famous Csi ⎋[ Outputs are ⎋[ ⇧ @ ABCDEFGHIJKLM P ST Z and ⎋[ D F H L
     ⎋[4H inserting  ⎋[4L replacing  ⎋[⇧?2004H paste-wrap  ⎋[⇧?2004L paste-unwrap
     ⎋[?25H cursor-show  ⎋[?25L -hide  ⎋[6 Q -bar  ⎋[4 Q -skid  ⎋[ Q -unstyled
 
-    ⎋[1M bold  ⎋[4M underline  ⎋[7M reverse/inverse
-    ⎋[31M red  ⎋[32M green  ⎋[34M blue  ⎋[38;5;130M orange
+    ⎋[1M bold  ⎋[4M underline  ⎋[7M reverse/inverse  ⎋[103M backlight yellow
+    ⎋[31M red  ⎋[32M green  ⎋[34M blue  ⎋[38;5;130M orange  ⎋[48;5;130M same back
     ⎋[M plain  ⎋[⇧?1049H screen-alt  ⎋[⇧?1049L screen-main
 
 The famous Csi ⎋[ and Osc ⎋] Output Calls and Reply Inputs are
 
     ⎋[5N send for reply ⎋[0N
     ⎋[6N send for reply ⎋[{y};{x}⇧R  ⎋[18T send for reply ⎋[8;{rows};{columns}T
-    ⎋]11;⇧?⌃G send for ⎋]11;RGB⇧:{r}/{g}/{b}⌃G
+    ⎋]11;⇧?⌃G send for {r}/{g}/{b}  # 11 Backlight  # 10 Color
 
 The famous Csi ⎋[ Inputs, apart from the Reply Inputs, are
 
     ⎋[>{f};{x};{y}⇧M press  ⎋[>{f};{x};{y}M release  ⎋[⇧M{b}{x}{y} press/release
+
+<!-- todo: Say more of Osc Ps 12 112, esp Ps 12 crashes of Terminal Tabs at Google Cloud Shell -->
+
 
 ## Results
 
