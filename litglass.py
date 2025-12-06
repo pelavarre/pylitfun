@@ -244,7 +244,7 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
     return ns
 
 
-def shell_args_take_in_eggs(eggs: list[str] | None, print_usage: typing.Callable) -> None:
+def shell_args_take_in_eggs(eggs: list[str] | None, print_usage: typing.Callable[[], None]) -> None:
     """Take in the Shell --egg=EGG's"""
 
     hints = eggs or list()
@@ -336,7 +336,7 @@ def seed_to_sharg_near_naive(seed: str, naive: dt.datetime) -> str:
     t = dt.datetime.fromisoformat(seed)
 
     if (t.year, t.month, t.day) != (naive.year, naive.month, naive.day):
-        sharg = f"--seed=" + shlex.quote(seed)
+        sharg = "--seed=" + shlex.quote(seed)
         return sharg
 
     if t.second:
@@ -504,15 +504,6 @@ class SquaresGame:
     def sq_step_because_box(self, box: BytesBox) -> None:
         """Eval 1 Box of Input and print Output"""
 
-        lbr = self.loopbacker
-        r = lbr.random_random
-
-        by_y_by_x = self.by_y_by_x
-        y_high = len(by_y_by_x.keys())
-        x_wide = len(by_y_by_x[0].keys())  # todo: as if rectangular
-
-        squares = SquaresGame.Squares
-
         # Move once per Key Release of Spacebar
 
         if box.text != " ":
@@ -531,30 +522,16 @@ class SquaresGame:
 
         # Across the South, fall from the North
 
-        falls = 0
-
-        for ys in range(y_high - 1, -1, -1):
-            yn = ys - 1
-            yn_by_x = dict() if (yn < 0) else by_y_by_x[yn]
-            for x in range(0, x_wide):
-                ys_by_x = by_y_by_x[ys]
-
-                ts = ys_by_x[x]
-                if ts == "⬜":
-                    tn = r.choice(squares) if (yn < 0) else yn_by_x[x]
-
-                    ys_by_x[x] = tn
-                    yn_by_x[x] = "⬜"
-
-                    falls += 1
+        falls = self.fall_south_into_empties()
 
         if falls:
             self.sq_game_draw()
             return
 
-        # Cry over no change
+        # Shuffle Columns or Rows
 
-        logger.info("no move found")  # todo6: do something
+        self.rows_shuffle()  # todo6: only while gravity pulls South
+        self.sq_game_draw()
 
     def find_east_bars(self) -> list[tuple[int, int, int]]:
         """Search each Row to find >= 3 Tiles together"""
@@ -640,89 +617,96 @@ class SquaresGame:
 
                 by_x[x] = "⬜"  # todo6: Darkmode
 
-    def crush_west_row(self, y: int, x: int, wide: int) -> None:
-        """Crush the Column out West"""
+    def fall_south_into_empties(self) -> int:
+        """Move each Cell south into Empties, or draw from Random Ether"""
 
         lbr = self.loopbacker
         r = lbr.random_random
 
         by_y_by_x = self.by_y_by_x
+        y_high = self.y_high
+        x_wide = self.x_wide
 
         squares = SquaresGame.Squares
 
         #
 
-        y_by_x = by_y_by_x[y]
+        falls = 0
 
-        tt = list()
-        for xw in range(x - wide + 1, x + 1):
-            fewer = list(squares)
-            fewer.remove(y_by_x[xw])
-            t = r.choice(fewer)
-            tt.append(t)
-
-        #
-
-        for ys in range(y, -1, -1):
-            ys_by_x = by_y_by_x[ys]
+        for ys in range(y_high - 1, -1, -1):
             yn = ys - 1
+            yn_by_x = dict() if (yn < 0) else by_y_by_x[yn]
+            for x in range(0, x_wide):
+                ys_by_x = by_y_by_x[ys]
 
-            if yn < 0:
-                for xw in range(x - wide + 1, x + 1):
-                    t = tt.pop()
-                    assert ys_by_x[xw] != " "
-                    ys_by_x[xw] = t
+                ts = ys_by_x[x]
+                if ts == "⬜":
+                    tn = r.choice(squares) if (yn < 0) else yn_by_x[x]
 
-            else:
-                yn_by_x = by_y_by_x[yn]
-                for xw in range(x - wide + 1, x + 1):
-                    assert ys_by_x[xw] != " "
-                    ys_by_x[xw] = yn_by_x[xw]
+                    ys_by_x[x] = tn
+                    yn_by_x[x] = "⬜"
 
-        assert not tt, (tt,)
+                    falls += 1
 
-    def crush_north_column(self, y: int, x: int, high: int) -> None:
-        """Crush the Column up North"""
+        return falls
+
+    def columns_shuffle(self) -> None:
+        """Shuffle the Columns"""
 
         lbr = self.loopbacker
         r = lbr.random_random
 
         by_y_by_x = self.by_y_by_x
+        y_high = self.y_high
+        x_wide = self.x_wide
 
-        squares = SquaresGame.Squares
+        x_list = list(range(x_wide))
 
-        #
+        t_list = list()
+        for x in x_list:
+            for y in range(y_high):
+                by_x = by_y_by_x[y]
+                t = by_x[x]
+                t_list.append(t)
 
-        tt = list()
-        for ys in range(y, -1, -1):
-            ys_by_x = by_y_by_x[ys]
-            yn = ys - high
+        x2_list = list(x_list)
+        while x2_list == x_list:
+            logger.info("columns_shuffle")
+            r.shuffle(x2_list)
 
-            if yn < 0:
-                fewer = list(squares)
-                fewer.remove(ys_by_x[x])
-                t = r.choice(fewer)
-                tt.append(t)
+        for x2 in x2_list:
+            for y in range(y_high):
+                by_x2 = by_y_by_x[y]
+                by_x2[x2] = t_list.pop(0)
 
-        #
+    def rows_shuffle(self) -> None:
+        """Shuffle the Rows"""
 
-        for ys in range(y, -1, -1):
-            ys_by_x = by_y_by_x[ys]
-            yn = ys - high
+        lbr = self.loopbacker
+        r = lbr.random_random
 
-            if yn < 0:
-                t = tt.pop()
-                assert ys_by_x[x] != " "
-                ys_by_x[x] = t
+        by_y_by_x = self.by_y_by_x
+        y_high = self.y_high
+        x_wide = self.x_wide
 
-            else:
-                yn_by_x = by_y_by_x[yn]
-                assert ys_by_x[x] != " "
-                ys_by_x[x] = yn_by_x[x]
+        y_list = list(range(y_high))
 
-        assert not tt, (tt,)
+        t_list = list()
+        for y in y_list:
+            for x in range(x_wide):
+                by_x = by_y_by_x[y]
+                t = by_x[x]
+                t_list.append(t)
 
-    # todo6: move by just 1 Tile per Space, but remember move in progress
+        y2_list = list(y_list)
+        while y2_list == y_list:
+            logger.info("rows_shuffle")
+            r.shuffle(y2_list)
+
+        for y2 in y2_list:
+            for x in range(x_wide):
+                by2_x = by_y_by_x[y2]
+                by2_x[x] = t_list.pop(0)
 
 
 #
