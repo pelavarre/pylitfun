@@ -72,6 +72,8 @@ ShlinePlusByShverb = {  # sorted by key
     #
 }
 
+# todo: echo $PATH |i :
+
 
 _a_ = list(ShlinePlusByShverb.keys())
 _b_ = sorted(_a_)

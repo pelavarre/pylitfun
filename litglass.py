@@ -99,6 +99,8 @@ class Flags:
     google: bool = bool(os.environ.get("CLOUD_SHELL", ""))
     terminal: bool = os.environ.get("TERM_PROGRAM", "") == "Apple_Terminal"
 
+    # todo: barefoot:  #  for when Rows not-hidden beneath a Southern Keyboard
+
     # Choose by --egg:  flags.enter, flags._exit_, flags.logging, flags.scrollback
 
     enter: bool = False  # launch loop back with no setup
@@ -489,8 +491,10 @@ class SquaresGame:
         h = len(squares)
         for y in range(h):
             by_x = by_y_by_x[y]
+
             y_text = "".join(by_x.values())
-            sw.write(dent + y_text + dent)
+            self.sq_sw_write(dent + y_text + dent)
+
             sw.write_some_controls(["\r", "\n"])
 
         # Draw the Southern Decor and the Southern Border
@@ -508,6 +512,46 @@ class SquaresGame:
         # todo6: find the ⌥-click on the board
 
         # todo7: rotate gravity to match arrow, and drag perpendicular to gravity
+
+    def sq_sw_write(self, text: str) -> None:
+        """Write the Byte Encodings of Text without adding a Line-Break"""
+
+        sw = self.loopbacker.screen_writer
+
+        if not flags.google:
+            sw.write(text)
+            return
+
+        eaws = sorted(set(unicodedata.east_asian_width(_) for _ in text))
+        if "W" not in eaws:
+            sw.write(text)
+            return
+
+        int_by_str = {
+            #
+            "Ambiguous"[0]: 1,  # ¡ ¤ § ® Ø ß ± ¶ ↖ ↗ ↘ ↙ € Ω Ⅷ
+            "Narrow"[:2]: 1,  # ¢ and £ and the Printable US Ascii
+            "Neutral"[0]: 1,  # © « µ » ñ
+            #
+            "Halfwidth"[0]: 1,  # Hangul, Katakana, & Halfwidth ￭ ￮
+            "Fullwidth"[0]: 2,  # ０ ９ Ａ Ｚ ￥ ￦  # U+3000 Ideographic Space
+            "Wide"[0]: 2,  # ☕ ☰ ♿ 🌅 🌐 💾 💿 🔍 🔰 😃 🛼
+            #
+            # also Wide are ♿ ⚪⚫ ⬛⬜ 🔰 🔴🔵 😃 🛼 🟠🟡🟢🟣🟤 🟥🟦🟧🟨🟩🟪🟫
+            #
+        }
+
+        sw.write_control("\r")
+        x = 0
+        for t in text:
+            sw.write(t)
+
+            eaw = unicodedata.east_asian_width(t)
+            xe = int_by_str[eaw]
+            x += xe
+
+            sw.write_control("\r")
+            sw.write_control(f"\033[{x}C")
 
     def sq_steps_because_frames(self, frames: tuple[bytes, ...]) -> None:
         """Eval Frames of Input and print Output"""
