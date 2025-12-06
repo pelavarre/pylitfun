@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 r"""
-usage: litglass.py [-h] [-f] [--egg EGG]
+usage: litglass.py [-h] [-f] [--seed SEED] [--egg EGG]
 
 loop Input back to Output, to Screen from Touch/ Mouse/ Key
 
 options:
   -h, --help   show this help message and exit
   -f, --force  ask fewer questions (like do run slow self-test's)
+  --seed SEED  a chosen seed for pseudorandom choices (like to replay a game)
   --egg EGG    a hint of how to behave, such as 'repr' or 'sigint'
 
 quirks:
@@ -19,21 +20,22 @@ examples:
   ./litglass.py --egg=enter  # launches into loop back with no setup
   ./litglass.py --egg=exit  # quits after loop back with no teardown
   ./litglass.py --egg=help  # surfaces like two dozen easter eggs planted here
-  ./litglass.py --egg=logging  # writes log lines into ./__pycache__/litglass.log
-  ./litglass.py --egg=scroll  # scrolls into scrollback then launch in alt screen
+  ./litglass.py --egg=scrollback  # scrolls into scrollback then launch in alt screen
   ./litglass.py --egg=yolo  # runs with defaults, but more explicitly so
 """
 
-# ./litglass.py --egg=assert  # to assert False before doing much
-# ./litglass.py --egg=echoes  # to echo the Control Sequences as they run
-# ./litglass.py --egg=keycaps  # to launch our keyboard-viewer of keycaps
-# ./litglass.py --egg=squares  # to launch our Squares Game
+# ./litglass.py --egg=logging  # writes log lines into ./__pycache__/litglass.log
 
-# ./litglass.py --egg=byteloop  # loop back without adding latencies
 # ./litglass.py --egg=clickarrows  # to loopback the ⌥-Click Arrows as they come in
 # ./litglass.py --egg=clickruns  # to loopback the ⌥-Click Arrows as run-length compressed
-# ./litglass.py --egg=repr  # to loop the Repr, not the Str
 # ./litglass.py --egg=sigint  # for ⌃C to raise KeyboardInterrupt
+
+# ./litglass.py --egg=assert  # to assert False before doing much
+# ./litglass.py --egg=byteloop  # loop back without adding latencies
+# ./litglass.py --egg=echoes  # to echo the Control Sequences as they run
+# ./litglass.py --egg=keycaps  # to launch our keyboard-viewer of keycaps
+# ./litglass.py --egg=repr  # to loop the Repr, not the Str
+# ./litglass.py --egg=squares  # to launch our Squares Game
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
 
@@ -46,6 +48,7 @@ import bdb
 import collections
 import collections.abc  # .collections.abc is not .abc
 import dataclasses
+import datetime as dt
 import difflib
 import functools
 import itertools
@@ -56,6 +59,7 @@ import pdb
 import random
 import re
 import select
+import shlex
 import signal
 import string
 import sys
@@ -95,36 +99,34 @@ class Flags:
     google: bool = bool(os.environ.get("CLOUD_SHELL", ""))
     terminal: bool = os.environ.get("TERM_PROGRAM", "") == "Apple_Terminal"
 
-    # Choose by --egg:  flags.enter, flags._exit_, flags.logging, flags.scroll
+    # Choose by --egg:  flags.enter, flags._exit_, flags.logging, flags.scrollback
 
     enter: bool = False  # launch loop back with no setup
     _exit_: bool = False  # quit loop back with no teardown
     logging: bool = False  # write log lines into ./__pycache__/litglass.log
-    scroll: bool = False  # launch below Scrollback
-
-    # Choose by game --egg
-    #
-    #   flags.echoes, flags.keycaps, flags.squares
-    #
-
-    _assert_: bool = False  # assert False before doing much
-    echoes: bool = False  # echo the Control Sequences as they loopback
-    keycaps: bool = False  # launch our Keyboard-Viewer of Leycaps
-    squares: bool = False  # launch our Squares Game
+    scrollback: bool = False  # launch below Scrollback
 
     # Choose by tech --egg
     #
-    #   flags.byteloop, flags.clickarrows, flags.clickruns,
-    #   flags.logging, flags._repr_, flags.sigint
+    #   flags.clickarrows, flags.clickruns, flags.sigint
     #
 
-    byteloop: bool = False  # loop back without adding latencies
     clickarrows: bool = False  # loop back the ⌥-Click Arrows as they arrive
     clickruns: bool = False  # loop back the ⌥-Click Arrows as run-length compressed
-    _repr_: bool = False  # loop the Repr, not the Str
     sigint: bool = False  # for ⌃C to raise KeyboardInterrupt, for ⏎ to say ⌃J not ⌃M
 
-    # here we init flags.
+    # Choose by game --egg
+    #
+    #   flags.assert, flags.byteloop, flags.echoes, flags.keycaps, flags._repr_
+    #   flags.squares
+    #
+
+    _assert_: bool = False  # assert False before doing much
+    byteloop: bool = False  # loop back without adding latencies
+    echoes: bool = False  # echo the Control Sequences as they loopback
+    keycaps: bool = False  # launch our Keyboard-Viewer of Leycaps
+    _repr_: bool = False  # loop the Repr, not the Str
+    squares: bool = False  # launch our Squares Game
 
 
 flags = Flags()
@@ -152,13 +154,18 @@ def main() -> None:
 def try_main() -> None:
     """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
 
+    naive = dt.datetime.now()
+
     parser = arg_doc_to_parser(__main__.__doc__ or "")
-    shell_args_take_in(args=sys.argv[1:], parser=parser)
+    ns = shell_args_take_in(args=sys.argv[1:], parser=parser)
 
     if flags.logging:  # writes into:  tail -F __pycache__/litglass.log
         logging_resume()
 
-    with Loopbacker() as lbr:
+    seed = shell_args_take_in_seed(ns.seed, naive=naive)
+    seed_replay(seed, naive=naive)
+
+    with Loopbacker(seed) as lbr:
         if flags._assert_:
             assert False, "Asserting False before doing much"
 
@@ -204,10 +211,12 @@ def arg_doc_to_parser(doc: str) -> ArgDocParser:
 
     parser = ArgDocParser(doc, add_help=True)
 
-    egg_help = "a hint of how to behave, such as 'repr' or 'sigint'"
     force_help = "ask fewer questions (like do run slow self-test's)"
+    seed_help = "a chosen seed for pseudorandom choices (like to replay a game)"
+    egg_help = "a hint of how to behave, such as 'repr' or 'sigint'"
 
     parser.add_argument("-f", "--force", action="count", help=force_help)
+    parser.add_argument("--seed", dest="seed", help=seed_help)
     parser.add_argument("--egg", dest="eggs", metavar="EGG", action="append", help=egg_help)
 
     return parser
@@ -217,50 +226,129 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
     """Take in the Shell Command-Line Args"""
 
     ns = parser.parse_args_if(args)  # often prints help & exits zero
+    print_usage = parser.parser.print_usage
 
     ns_keys = list(vars(ns).keys())
-    assert ns_keys == ["force", "eggs"], (ns_keys, ns, args)
+    assert ns_keys == ["force", "seed", "eggs"], (ns_keys, ns, args)
 
-    dash_dash_eggs = list(vars(flags).keys())
-    dash_dash_eggs.append("yolo")
-    dash_dash_eggs.remove("apple")
-    dash_dash_eggs.remove("google")
-    dash_dash_eggs.remove("terminal")
+    shell_args_take_in_eggs(ns.eggs, print_usage=print_usage)
 
-    ns_eggs = ns.eggs or list()
-
-    attr_list = list()
-    for egg_arg in ns_eggs:
-        eggs = egg_arg.split(",")
-        for egg in eggs:
-            casefold = egg.casefold()
-            strip = casefold.strip("_")
-
-            m = list(_ for _ in dash_dash_eggs if _.strip("_").startswith(strip))
-            if len(m) != 1:
-
-                s = sorted(_.strip("_") for _ in dash_dash_eggs)
-                if len(m) > 1:
-                    s = sorted(m)
-
-                parser.parser.print_usage()
-                print(f"don't choose {egg!r}, do choose from {s}", file=sys.stderr)
-                sys.exit(2)  # exits 2 for bad Arg
-
-            attr = m[-1]
-            attr_list.append(attr)
-            setattr(flags, attr, True)
-
-    if attr_list != ns_eggs:
-        print(f"+ litglass.py --egg={','.join(attr_list)}")
-
-    sum = flags.byteloop + flags.keycaps + flags._repr_ + flags.squares
-    assert sum <= 1, (dict(_ for _ in vars(flags).items() if _[-1]),)
+    games = flags.byteloop + flags.echoes + flags.keycaps + flags._repr_ + flags.squares
+    assert games <= 1, (dict(_ for _ in vars(flags).items() if _[-1]),)
+    if games:
+        flags.logging = True
 
     if ns.force:
         _try_lit_glass_()
 
     return ns
+
+
+def shell_args_take_in_eggs(eggs: list[str] | None, print_usage: typing.Callable) -> None:
+    """Take in the Shell --egg=EGG's"""
+
+    hints = eggs or list()
+
+    # Find the Eggs
+
+    dash_dash_eggs = list(vars(flags).keys())
+
+    dash_dash_eggs.append("yolo")
+
+    dash_dash_eggs.remove("apple")
+    dash_dash_eggs.remove("google")
+    dash_dash_eggs.remove("terminal")
+
+    # Choose some Eggs or none
+
+    corrections = 0
+    attr_list = list()
+    for hint in hints:
+        splits = hint.split(",")
+        for split in splits:
+            casefold = split.casefold()
+            strip = casefold.strip("_")
+
+            matches = list(_ for _ in dash_dash_eggs if _.strip("_").startswith(strip))
+            if len(matches) != 1:
+
+                s = sorted(_.strip("_") for _ in dash_dash_eggs)
+                if len(matches) > 1:
+                    s = sorted(matches)
+
+                print_usage()
+                print(f"don't choose {split!r}, do choose from {s}", file=sys.stderr)
+                sys.exit(2)  # exits 2 for bad Arg
+
+            copies = list(_ for _ in dash_dash_eggs if _.strip("_") == split)
+            if copies != matches:
+                corrections += 1
+
+            attr = matches[-1]
+            setattr(flags, attr, True)
+
+            attr_list.append(attr)
+
+    if corrections:
+        print(f"+ litglass.py --egg={','.join(attr_list)}")
+
+
+def shell_args_take_in_seed(seed: str | None, naive: dt.datetime) -> str:
+    """Take in the last Shell --seed=SEED"""
+
+    strftime = naive.strftime("%Y-%m-%d %H:%M:%S")
+    if not seed:
+        return strftime
+
+    if re.fullmatch(r"[0-9]+(:[0-9]+)?(:[0-9]+)?", string=seed):
+
+        splits = seed.split(":")
+
+        ints = tuple(int(_) for _ in splits)
+        if len(splits) == 1:
+            ints = (naive.hour, ints[0], 0)  # --seed=MM
+        elif len(splits) == 2:
+            ints = (ints[0], ints[1], 0)  # --seed=HH:MM
+        else:
+            assert len(splits) == 3, (splits, ints)
+
+        t = naive.replace(hour=ints[0], minute=ints[1], second=ints[2])
+        strftime = t.strftime("%Y-%m-%d %H:%M:%S")
+
+        return strftime
+
+    return seed
+
+
+def seed_replay(seed: str, naive: dt.datetime) -> None:
+    """Log restarting/ starting from --seed=SEED"""
+
+    t = dt.datetime.fromisoformat(seed)
+    strftime = t.strftime("%Y-%m-%d %H:%M:%S")
+
+    sharg = seed_to_sharg_near_naive(seed, naive=naive)
+    logger.info(f"{sharg} --seed={strftime!r}")  # '--seed=19:42 ...'
+
+
+def seed_to_sharg_near_naive(seed: str, naive: dt.datetime) -> str:
+    """Quote back one Shell --seed=SEED"""
+
+    t = dt.datetime.fromisoformat(seed)
+
+    if (t.year, t.month, t.day) != (naive.year, naive.month, naive.day):
+        sharg = f"--seed=" + shlex.quote(seed)
+        return sharg
+
+    if t.second:
+        sharg = t.strftime("--seed=%H:%M:%S")  # '--seed=19:42:56'
+        return sharg
+
+    if t.hour != naive.hour:
+        sharg = t.strftime("--seed=%H:%M")  # '--seed=19:42'
+        return sharg
+
+    sharg = t.strftime(f"--seed={t.minute}")  # '--seed=9'
+    return sharg
 
 
 def _try_lit_glass_() -> None:
@@ -338,6 +426,9 @@ class SquaresGame:
     def sq_game_form(self) -> None:
         """Fill the Board with Tiles"""
 
+        lbr = self.loopbacker
+        r = lbr.random_random
+
         by_y_by_x = self.by_y_by_x
 
         squares = SquaresGame.Squares
@@ -351,7 +442,7 @@ class SquaresGame:
             by_y_by_x[y] = by_x
 
             for x in range(w):
-                t = random.choice(squares)
+                t = r.choice(squares)
                 by_x[x] = t
 
     def sq_game_draw(self) -> None:
@@ -388,10 +479,8 @@ class SquaresGame:
         sw.print("Press ⌃C")
         sw.print()
 
-        # todo6: from the deepest, drop >= 3 in a row, >= 3 in a column
-        # todo6: find the ⌥-click on the board, drag perpendicular to gravity
-
-        # todo7: log a rerunnable random seed
+        # todo6: rotate gravity to match arrow, and drag perpendicular to gravity
+        # todo6: find the ⌥-click on the board
 
     def sq_steps_because_frames(self, frames: tuple[bytes, ...]) -> None:
         """Eval Frames of Input and print Output"""
@@ -481,9 +570,25 @@ class SquaresGame:
     def crush_west_row(self, y: int, x: int, wide: int) -> None:
         """Crush the Column out West"""
 
+        lbr = self.loopbacker
+        r = lbr.random_random
+
         by_y_by_x = self.by_y_by_x
 
         squares = SquaresGame.Squares
+
+        #
+
+        y_by_x = by_y_by_x[y]
+
+        tt = list()
+        for xw in range(x - wide + 1, x + 1):
+            fewer = list(squares)
+            fewer.remove(y_by_x[xw])
+            t = r.choice(fewer)
+            tt.append(t)
+
+        #
 
         for ys in range(y, -1, -1):
             ys_by_x = by_y_by_x[ys]
@@ -491,7 +596,7 @@ class SquaresGame:
 
             if yn < 0:
                 for xw in range(x - wide + 1, x + 1):
-                    t = random.choice(squares)
+                    t = tt.pop()
                     assert ys_by_x[xw] != " "
                     ys_by_x[xw] = t
 
@@ -501,19 +606,39 @@ class SquaresGame:
                     assert ys_by_x[xw] != " "
                     ys_by_x[xw] = yn_by_x[xw]
 
+        assert not tt, (tt,)
+
     def crush_north_column(self, y: int, x: int, high: int) -> None:
         """Crush the Column up North"""
+
+        lbr = self.loopbacker
+        r = lbr.random_random
 
         by_y_by_x = self.by_y_by_x
 
         squares = SquaresGame.Squares
+
+        #
+
+        tt = list()
+        for ys in range(y, -1, -1):
+            ys_by_x = by_y_by_x[ys]
+            yn = ys - high
+
+            if yn < 0:
+                fewer = list(squares)
+                fewer.remove(ys_by_x[x])
+                t = r.choice(fewer)
+                tt.append(t)
+
+        #
 
         for ys in range(y, -1, -1):
             ys_by_x = by_y_by_x[ys]
             yn = ys - high
 
             if yn < 0:
-                t = random.choice(squares)
+                t = tt.pop()
                 assert ys_by_x[x] != " "
                 ys_by_x[x] = t
 
@@ -521,6 +646,10 @@ class SquaresGame:
                 yn_by_x = by_y_by_x[yn]
                 assert ys_by_x[x] != " "
                 ys_by_x[x] = yn_by_x[x]
+
+        assert not tt, (tt,)
+
+    # todo6: move by just 1 Tile per Space, but remember move in progress
 
 
 #
@@ -913,13 +1042,17 @@ class Loopbacker:
     keyboard_decoder: KeyboardDecoder
     screen_change_order: ScreenChangeOrder
 
+    random_random: random.Random
+
     #
     # Init, enter, and exit
     #
 
-    def __init__(self) -> None:
+    def __init__(self, seed: str) -> None:
 
         assert DSR5 == "\033[" "5n"
+
+        #
 
         tb = TerminalBoss()
         kr = tb.keyboard_reader
@@ -931,12 +1064,17 @@ class Loopbacker:
         sco = ScreenChangeOrder()
         sco.grow_order(dsr5, yx=(kr.row_y, kr.column_x))
 
+        r = random.Random(seed)
+
+        #
+
         self.terminal_boss = tb
         self.screen_writer = sw
         self.keyboard_reader = kr
 
         self.keyboard_decoder = kd
         self.screen_change_order = sco
+        self.random_random = r
 
         # todo: limit fanout of pretending ⎋[5N came as last Input before Launch
 
@@ -953,7 +1091,7 @@ class Loopbacker:
         if not flags.enter:
             sw.write_control("\033[?2004h")  # paste-wrap
 
-        if flags.scroll:
+        if flags.scrollback:
 
             (h, w, y, x) = kr.sample_hwyx()
             if y > 1:
