@@ -375,9 +375,9 @@ class SquaresGame:
 
     game_yx: tuple[int, ...]
 
-    Squares = "🟥 🟨 🟩 🟦 🟪"  # todo: more or less, and colorable U+2B24 ⬤
-    # Squares = "🟥 🟦 🟥 🟦 🟥"  # todo9: toggle this dev convenience off/on
-    # Squares = "🟦 🟦 🟦 🟦 🟦"  # todo9: toggle this dev convenience off/on
+    strikes: int
+
+    Squares = "🟥 🟨 🟩 🟦 🟪"
     Squares = "".join(Squares.split())
 
     def __init__(self, loopbacker: Loopbacker) -> None:
@@ -387,6 +387,7 @@ class SquaresGame:
         self.y_high = 0
         self.x_wide = 0
         self.game_yx = tuple()
+        self.strikes = 0
 
     def sq_run_awhile(self) -> None:
         """Run till Quit"""
@@ -410,6 +411,8 @@ class SquaresGame:
 
         quitting = False
         while not quitting:
+            logger.info("")
+            logger.info("...")
 
             # Read Input
 
@@ -460,6 +463,8 @@ class SquaresGame:
     def sq_game_draw(self) -> None:
         """Draw the Gameboard, scrolling if need be"""
 
+        # Enter
+
         by_y_by_x = self.by_y_by_x
         game_yx = self.game_yx
 
@@ -469,13 +474,17 @@ class SquaresGame:
         squares = SquaresGame.Squares
         dent = 4 * " "
 
-        #
+        # Place the Gameboard
 
         (y, x) = game_yx
         sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
+        # Draw the Northern Border
+
         sw.print()
         sw.print()  # twice
+
+        # Draw the Board itself, between its West and East Borders
 
         h = len(squares)
         for y in range(h):
@@ -484,9 +493,14 @@ class SquaresGame:
             sw.write(dent + y_text + dent)
             sw.write_some_controls(["\r", "\n"])
 
+        # Draw the Southern Decor and the Southern Border
+
         sw.print(dent + "  ↓    ↓  " + dent)
+
         sw.print()
         sw.print()  # twice
+
+        # Draw the Chat
 
         sw.print("Press ⌃C")
         sw.print()
@@ -517,20 +531,28 @@ class SquaresGame:
         if east_bars or south_poles:
             self.empty_east_bars(east_bars)
             self.empty_south_poles(south_poles)
+            self.strikes = 0
             self.sq_game_draw()
             return
 
         # Across the South, fall from the North
 
-        falls = self.fall_south_into_empties()
+        falls = self.fall_south_into_empty_cells()
 
         if falls:
+            self.strikes = 0
             self.sq_game_draw()
             return
 
         # Shuffle Columns or Rows
 
-        self.rows_shuffle()  # todo6: only while gravity pulls South
+        self.strikes += 1
+        if self.strikes <= 3:
+            self.rows_shuffle()  # todo6: only while gravity pulls South
+        else:
+            self.strikes = 0
+            self.columns_shuffle()
+
         self.sq_game_draw()
 
     def find_east_bars(self) -> list[tuple[int, int, int]]:
@@ -617,8 +639,8 @@ class SquaresGame:
 
                 by_x[x] = "⬜"  # todo6: Darkmode
 
-    def fall_south_into_empties(self) -> int:
-        """Move each Cell south into Empties, or draw from Random Ether"""
+    def fall_south_into_empty_cells(self) -> int:
+        """Across the South, fall from the North"""
 
         lbr = self.loopbacker
         r = lbr.random_random
@@ -629,24 +651,49 @@ class SquaresGame:
 
         squares = SquaresGame.Squares
 
-        #
+        # Walk from South to North to find each Empty Cell
+
+        falls_by_y_by_x: dict[int, dict[int, str]] = dict()
 
         falls = 0
-
-        for ys in range(y_high - 1, -1, -1):
+        for ys in reversed(range(y_high)):
             yn = ys - 1
             yn_by_x = dict() if (yn < 0) else by_y_by_x[yn]
+
+            # Walk always from West to East, even though East to West would work just as well
+
+            ys_falls = dict()
+            falls_by_y_by_x[ys] = ys_falls
+
             for x in range(0, x_wide):
                 ys_by_x = by_y_by_x[ys]
 
                 ts = ys_by_x[x]
-                if ts == "⬜":
-                    tn = r.choice(squares) if (yn < 0) else yn_by_x[x]
+                if ts != "⬜":
+                    ys_falls[x] = "⬜"
+                    continue
 
-                    ys_by_x[x] = tn
-                    yn_by_x[x] = "⬜"
+                # Pull from Above, else from the Void
 
-                    falls += 1
+                tn = r.choice(squares) if (yn < 0) else yn_by_x[x]
+                ys_falls[x] = tn
+
+                ys_by_x[x] = tn
+                yn_by_x[x] = "⬜"
+
+                falls += 1
+
+        # Log the Falls, but from North to South
+
+        for ys in range(y_high):
+            ys_falls = falls_by_y_by_x[ys]
+            ys_text = "".join(ys_falls.values())
+
+            if "⬜" in ys_text:
+                if ys_text.rstrip("⬜"):
+                    logger.info(str([ys, ys_text, "Falls"]))
+
+        # Succeed, or fail
 
         return falls
 
@@ -707,6 +754,10 @@ class SquaresGame:
             for x in range(x_wide):
                 by2_x = by_y_by_x[y2]
                 by2_x[x] = t_list.pop(0)
+
+    # todo: more Squares, less Squares, colorable
+    # todo: colorable single-wide █ ██ Full-Block U+2588
+    # todo: colorable double-wide ⬤ Black-Large-Circle U+2B24
 
 
 #
