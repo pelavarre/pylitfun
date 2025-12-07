@@ -434,6 +434,8 @@ class SquaresGame:
 
         sw.print()
 
+        # todo4: Squares Tab to run over Shuffles
+
     def sq_game_form(self) -> None:
         """Fill the Board with Tiles"""
 
@@ -492,10 +494,8 @@ class SquaresGame:
         h = len(squares)
         for y in range(h):
             by_x = by_y_by_x[y]
-
             y_text = "".join(by_x.values())
-            sw.write(dent + y_text + dent)
-
+            sw.write_printable(dent + y_text + dent)
             sw.write_some_controls(["\r", "\n"])
 
         # Draw the Southern Decor and the Southern Border
@@ -531,19 +531,19 @@ class SquaresGame:
 
         # Find and draw Collisions
 
-        east_bars = self.find_east_bars()
-        south_poles = self.find_south_poles()
+        east_bars = self.sq_find_east_bars()
+        south_poles = self.sq_find_south_poles()
 
         if east_bars or south_poles:
-            self.empty_east_bars(east_bars)
-            self.empty_south_poles(south_poles)
+            self.sq_empty_east_bars(east_bars)
+            self.sq_empty_south_poles(south_poles)
             self.strikes = 0
             self.sq_game_draw()
             return
 
         # Across the South, fall from the North
 
-        falls = self.fall_south_into_empty_cells()
+        falls = self.sq_fall_south_into_empty_cells()
 
         if falls:
             self.strikes = 0
@@ -557,14 +557,14 @@ class SquaresGame:
 
         self.strikes += 1
         if self.strikes <= 3:
-            self.rows_shuffle()  # todo7: only while gravity pulls South
+            self.sq_rows_shuffle()  # todo7: only while gravity pulls South
         else:
             self.strikes = 0
-            self.columns_shuffle()
+            self.sq_columns_shuffle()
 
         self.sq_game_draw()
 
-    def find_east_bars(self) -> list[tuple[int, int, int]]:
+    def sq_find_east_bars(self) -> list[tuple[int, int, int]]:
         """Search each Row to find >= 3 Tiles together"""
 
         by_y_by_x = self.by_y_by_x
@@ -594,7 +594,7 @@ class SquaresGame:
 
         return east_bars
 
-    def find_south_poles(self) -> list[tuple[int, int, int]]:
+    def sq_find_south_poles(self) -> list[tuple[int, int, int]]:
         """Search each Column to find >= 3 Tiles together"""
 
         by_y_by_x = self.by_y_by_x
@@ -624,7 +624,7 @@ class SquaresGame:
 
         return south_poles
 
-    def empty_east_bars(self, east_bars: list[tuple[int, int, int]]) -> None:
+    def sq_empty_east_bars(self, east_bars: list[tuple[int, int, int]]) -> None:
         """Erase each Cell of each East Bar"""
 
         by_y_by_x = self.by_y_by_x
@@ -636,7 +636,7 @@ class SquaresGame:
 
                 by_x[xw] = "⬜"  # todo5: Darkmode
 
-    def empty_south_poles(self, south_poles: list[tuple[int, int, int]]) -> None:
+    def sq_empty_south_poles(self, south_poles: list[tuple[int, int, int]]) -> None:
         """Erase each Cell of each South Pole"""
 
         by_y_by_x = self.by_y_by_x
@@ -648,7 +648,7 @@ class SquaresGame:
 
                 by_x[x] = "⬜"  # todo5: Darkmode
 
-    def fall_south_into_empty_cells(self) -> int:
+    def sq_fall_south_into_empty_cells(self) -> int:
         """Across the South, fall from the North"""
 
         lbr = self.loopbacker
@@ -706,7 +706,7 @@ class SquaresGame:
 
         return falls
 
-    def columns_shuffle(self) -> None:
+    def sq_columns_shuffle(self) -> None:
         """Shuffle the Columns"""
 
         lbr = self.loopbacker
@@ -735,7 +735,7 @@ class SquaresGame:
                 by_x2 = by_y_by_x[y]
                 by_x2[x2] = t_list.pop(0)
 
-    def rows_shuffle(self) -> None:
+    def sq_rows_shuffle(self) -> None:
         """Shuffle the Rows"""
 
         lbr = self.loopbacker
@@ -1401,7 +1401,7 @@ class Loopbacker:
 
         # Write the Frame and grow the Order
 
-        if sco_box.practically_printable and (not strong):
+        if sco_box.nearly_printable and (not strong):
 
             sw.write_printable(sco_text)
 
@@ -1429,7 +1429,7 @@ class Loopbacker:
             kr.row_y = row_y
             kr.column_x = column_x
 
-            if sco_box.practically_printable:
+            if sco_box.nearly_printable:
                 sw.write_printable(sco_text)
             else:
                 sw.write_control(sco_text)
@@ -1468,7 +1468,7 @@ class Loopbacker:
 
         # If Frame is Printable
 
-        if box.practically_printable:
+        if box.nearly_printable:
             sw.write_printable(text)
             return
 
@@ -1545,7 +1545,7 @@ class Loopbacker:
 
         # Loop back well-known Csi & Osc Byte Sequences
 
-        if self._lbr_csi_osc_step_once_if_(box):
+        if self.lbr_csi_osc_step_once_if(box):
             return
 
         # Else echo vertically down southward
@@ -1640,7 +1640,7 @@ class Loopbacker:
 
         return False
 
-    def _lbr_csi_osc_step_once_if_(self, box: BytesBox) -> bool:
+    def lbr_csi_osc_step_once_if(self, box: BytesBox) -> bool:
         """Loop back well-known Csi & Osc Byte Sequences"""
 
         control = box.text
@@ -1808,7 +1808,7 @@ class Loopbacker:
         if alt_kseqs:
             printables.append(alt_kseqs[0])
 
-        if not box.practically_printable:
+        if not box.nearly_printable:
             printables.append(repr(frame))
         else:
             if text == " ":
@@ -2192,7 +2192,7 @@ class TerminalBoss:
 
         return read
 
-        # quite far away from KeyboardReader.read_bytes and .read_byte_frames
+        # way far away from KeyboardReader.read_bytes and .read_byte_frames
 
     def stdio_select_select(self, timeout: float | None) -> bool:
         """Block till next Input Byte, else till Timeout, else till forever"""
@@ -2242,7 +2242,7 @@ class ScreenWriter:
         # Trust the Terminal to write well
 
         if not flags.google:
-            self.write(printable)
+            self._write_encode_(printable)
             return
 
         # Else trust the Terminal to write all but Fullwidth & Wide well
@@ -2250,13 +2250,13 @@ class ScreenWriter:
         eaws_set = set(unicodedata.east_asian_width(_) for _ in printable)
         if "Fullwidth"[0] not in eaws_set:
             if "Wide"[0] not in eaws_set:
-                self.write(printable)
+                self._write_encode_(printable)
                 return
 
         # Else trust the Terminal to write well, except to stop the Cursor at X + 1, not at X + 2
 
         for t in text:
-            self.write(t)
+            self._write_encode_(t)
             eaw = unicodedata.east_asian_width(t)
             if eaw in ("Fullwidth"[0], "Wide"[0]):
                 self.write_control("\033[C")
@@ -2300,11 +2300,11 @@ class ScreenWriter:
         kbf.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
         assert (not kbf.printable) and kbf.closed, (data, kbf)
 
-        self.write(control)
+        self._write_encode_(control)
 
         # todo: can the assert is-control idea be spoken lots more simply?
 
-    def write(self, text: str) -> None:
+    def _write_encode_(self, text: str) -> None:
         """Write the Byte Encodings of Text without adding a Line-Break"""
 
         # logger.info(f"{text=}")  # printable or control or a mix of both
@@ -2312,9 +2312,6 @@ class ScreenWriter:
         tb = self.terminal_boss
         data = text.encode()  # may raise UnicodeEncodeError
         tb.write_some_bytes(data)
-
-        # todo: one 'def write' per project is exactly enough?
-        # presumes writes of arbitrary bytes will go to 'tb.write_some_bytes'
 
 
 Y1 = 1  # min Y of Terminal Cursor
@@ -2425,7 +2422,8 @@ class KeyboardReader:
 
         return frames
 
-        # quite far away from TerminalBoss.read_one_byte
+        # todo: keep 'def read_byte_frames' paired up with 'def kbhit'
+        # way far away from TerminalBoss.read_one_byte
 
     def _frames_compress_if_(self, frames: tuple[bytes, ...]) -> tuple[bytes, ...]:
         """Collapse two Frames to one, or don't"""
@@ -2462,7 +2460,7 @@ class KeyboardReader:
         data = self.read_bytes()
         assert data, (data,)
 
-        (arrowheads, end) = self.bytes_split_arrowheads(data)
+        (arrowheads, end) = self._bytes_split_arrowheads_(data)
         assert arrowheads or end, (arrowheads, end, data)
 
         frame = b""
@@ -2472,7 +2470,7 @@ class KeyboardReader:
 
         return (frame, end)
 
-    def bytes_split_arrowheads(self, data: bytes) -> tuple[str, bytes]:
+    def _bytes_split_arrowheads_(self, data: bytes) -> tuple[str, bytes]:
         """Split a Burst of Arrows into a Head of Arrows and a Tail of Bytes"""
 
         marks: list[str] = list()
@@ -2631,6 +2629,7 @@ class KeyboardReader:
         tb.stdio_select_select(timeout=timeout)  # a la msvcrt.kbhit
 
         # todo: one 'def kbhit' per project is exactly enough?
+        # todo: keep 'def kbhit' paired up with 'def read_bytes' and 'def read_byte_frames'
 
     def sample_hwyx(self) -> tuple[int, int, int, int]:
         """Take a fresh sample of Width x Height and Y X Cursor Position of this Terminal"""
@@ -2657,16 +2656,16 @@ class KeyboardReader:
 
         # Move this KeyboardReader to this fresh H W Y X
 
-        self.store_h_w_y_x(h, w=w, y=y, x=x)
+        self._store_h_w_y_x_(h, w=w, y=y, x=x)
 
         # Succeed
 
         return (h, w, y, x)
 
     def read_bytes(self) -> bytes:
-        """Frame the Bytes that share a Cursor Position Report"""
+        """Take Input Bytes from Cache, else from Terminal"""
 
-        # Take Input Bytes from Cache
+        # Take all the Input Bytes from Cache at once
 
         reads_ahead = self.reads_ahead
         if reads_ahead:
@@ -2674,18 +2673,19 @@ class KeyboardReader:
             reads_ahead.clear()
             return reads
 
-        # Else take Input Bytes from Terminal
+        # Else take a Cursor Position Frame of Input Bytes from Terminal
 
-        (hwyx, reads) = self.read_hwyx_bytes()
-        self.store_h_w_y_x(*hwyx)
+        (hwyx, reads) = self._read_hwyx_bytes_()
+        self._store_h_w_y_x_(*hwyx)
 
         return reads
 
-        # quite far away from TerminalBoss.read_one_byte
+        # todo: keep 'def read_bytes' paired up with 'def kbhit'
+        # way far away from TerminalBoss.read_one_byte
 
         # todo: one 'def read_bytes' per project is exactly enough?
 
-    def store_h_w_y_x(self, h: int, w: int, y: int, x: int) -> None:
+    def _store_h_w_y_x_(self, h: int, w: int, y: int, x: int) -> None:
         """Limit & store the Height Width Y X of this Terminal"""
 
         hw = (self.y_high, self.x_wide)
@@ -2709,7 +2709,7 @@ class KeyboardReader:
         self.row_y = y
         self.column_x = x
 
-    def read_hwyx_bytes(self) -> tuple[tuple[int, int, int, int], bytes]:
+    def _read_hwyx_bytes_(self) -> tuple[tuple[int, int, int, int], bytes]:
         """Read the Input Bytes and their Y X, then add their H W"""
 
         tb = self.terminal_boss
@@ -2717,7 +2717,7 @@ class KeyboardReader:
 
         # Read one Byte, then send for Y X Cursor Position, then block till it comes
 
-        (yx, reads) = self.read_yx_bytes()
+        (yx, reads) = self._read_yx_bytes_()
         (y, x) = yx
 
         # Sample H W just after the last Input Byte arrives
@@ -2731,7 +2731,7 @@ class KeyboardReader:
 
         return (hwyx, reads)
 
-    def read_yx_bytes(self) -> tuple[tuple[int, int], bytes]:
+    def _read_yx_bytes_(self) -> tuple[tuple[int, int], bytes]:
         """Read 1 Byte, send for Cursor Y X Position, & read Available Bytes till the Report"""
 
         tb = self.terminal_boss
@@ -4128,7 +4128,7 @@ class BytesBox:
             return ""
 
     @functools.cached_property
-    def practically_printable(self) -> bool:
+    def nearly_printable(self) -> bool:
         """Say if the Text exactly matches the Repr minus Quotes"""
 
         data = self.data
@@ -4351,7 +4351,7 @@ def _try_unicode_source_texts_() -> None:
     assert unicodedata.name("⬛").title() == "Black Large Square"  # U+2B1B
     assert unicodedata.name("⬜").title() == "White Large Square"  # U+2B1C
 
-    # 7 Comic Colors from Mar/2019 Unicode 12.0  # todo5: --egg=colors for these 555 Color Codes
+    # 7 Comic Colors from Mar/2019 Unicode 12.0  # todo4: --egg=colors for these 555 Color Codes
 
     assert unicodedata.name("🟥").title() == "Large Red Square"  # U+1F7E5
     assert unicodedata.name("🟦").title() == "Large Blue Square"  # U+1F7E6
