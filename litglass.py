@@ -32,6 +32,7 @@ examples:
 
 # ./litglass.py --egg=assert  # to assert False before doing much
 # ./litglass.py --egg=byteloop  # loop back without adding latencies
+# ./litglass.py --egg=color-picker  # to launch our Color Picker Game
 # ./litglass.py --egg=echoes  # to echo the Control Sequences as they run
 # ./litglass.py --egg=keycaps  # to launch our keyboard-viewer of keycaps
 # ./litglass.py --egg=repr  # to loop the Repr, not the Str
@@ -126,12 +127,13 @@ class Flags:
 
     # Choose by game --egg
     #
-    #   flags.assert, flags.byteloop, flags.echoes, flags.keycaps, flags._repr_
-    #   flags.squares
+    #   flags._assert_, flags.byteloop, flags.color_picker, flags.echoes, flags.keycaps,
+    #   flags._repr_, flags.squares
     #
 
     _assert_: bool = False  # assert False before doing much
     byteloop: bool = False  # loop back without adding latencies
+    color_picker: bool = False  # show Color choices and tweak them
     echoes: bool = False  # echo the Control Sequences as they loopback
     keycaps: bool = False  # launch our Keyboard-Viewer of Leycaps
     _repr_: bool = False  # loop the Repr, not the Str
@@ -178,11 +180,14 @@ def try_main() -> None:
         if flags._assert_:
             assert False, "Asserting False before doing much"
 
+        cpg = ColorPickerGame(lbr)
         kcg = KeycapsGame(lbr)
         sqg = SquaresGame(lbr)
 
         if flags.byteloop:
             lbr.lbr_run_byteloop()
+        elif flags.color_picker:
+            cpg.cp_run_awhile()
         elif flags.keycaps:
             kcg.kc_run_awhile()
         elif flags.squares:
@@ -242,7 +247,9 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
 
     shell_args_take_in_eggs(ns.eggs, print_usage=print_usage)
 
-    games = flags.byteloop + flags.echoes + flags.keycaps + flags._repr_ + flags.squares
+    games = flags._assert_ + flags.byteloop + flags.color_picker + flags.echoes + flags.keycaps
+    games += flags._repr_ + flags.squares
+
     assert games <= 1, (dict(_ for _ in vars(flags).items() if _[-1]),)
     if games:
         flags.logging = True
@@ -268,11 +275,12 @@ def shell_args_take_in_eggs(eggs: list[str] | None, print_usage: typing.Callable
     attr_list = list()
     for hint in hints:
         splits = hint.split(",")
-        for split in splits:
-            casefold = split.casefold()
-            strip = casefold.strip("_")
+        for split in splits:  # to one egg from several joined across comma separators
+            casefold = split.casefold()  # to folded case from unfolded case
+            strip = casefold.strip("_")  # to plain word from enclosed in skid marks
+            replace = strip.replace("-", "_")  # to skidded from snake case
 
-            matches = list(_ for _ in dash_dash_eggs if _.strip("_").startswith(strip))
+            matches = list(_ for _ in dash_dash_eggs if _.strip("_").startswith(replace))
             if len(matches) != 1:
 
                 s = sorted(_.strip("_") for _ in dash_dash_eggs)
@@ -363,6 +371,72 @@ def _try_lit_glass_() -> None:
 
 
 #
+# Play for --egg=color-picker
+#
+
+
+class ColorPickerGame:
+    """Play for --egg=color-picker"""
+
+    loopbacker: Loopbacker
+
+    def __init__(self, loopbacker: Loopbacker) -> None:
+        self.loopbacker = loopbacker
+
+    def cp_run_awhile(self) -> None:
+        """Trace Key Releases till ⌃C"""
+
+        lbr = self.loopbacker
+
+        sw = lbr.screen_writer
+        kr = lbr.keyboard_reader
+
+        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
+
+        # Draw the Gameboard, scrolling if need be
+
+        self.cp_game_draw()
+
+        # Run till Quit
+
+        quitting = False
+        while not quitting:
+
+            # Read Input
+
+            kr.kbhit(timeout=None)
+            frames = kr.read_byte_frames()
+
+            # Eval Input and print Output
+
+            self.cp_step_once(frames)
+
+            # Quit at ⌃C
+
+            if b"\003" in frames:
+                quitting = True
+                break
+
+        sw.print()
+
+    def cp_game_draw(self) -> None:
+        """Draw the Gameboard, scrolling if need be"""
+
+        lbr = self.loopbacker
+        sw = lbr.screen_writer
+
+        # Draw the Chat
+
+        sw.print()
+        sw.print("Press ⌃C")
+
+    def cp_step_once(self, frames: tuple[bytes, ...]) -> None:
+        """Eval Input and print Output"""
+
+        pass
+
+
+#
 # Play for --egg=squares
 #
 
@@ -434,7 +508,10 @@ class SquaresGame:
 
         sw.print()
 
-        # todo4: Squares Tab to run over Shuffles
+        # todo4: declare a Loss at all Rows have no 3, all Columns have no 3
+        # todo4: self.sq_find_bars_and_poles_shuffled_or_not()
+
+        # todo4: ⇥ autoruns Shuffles till one is about to work, then stops there
 
     def sq_game_form(self) -> None:
         """Fill the Board with Tiles"""
@@ -2269,7 +2346,7 @@ class ScreenWriter:
 
         # "Halfwidth"[0]  # Hangul, Katakana, & Halfwidth ￭ ￮
         # "Fullwidth"[0]  # ０ ９ Ａ Ｚ ￥ ￦  # U+3000 Ideographic Space
-        # "Wide"[0]: 2  # ☕ ☰ ♿ 🌅 🌐 💾 💿 🔍 🔰 😃 🛼
+        # "Wide"[0]  # ☕ ☰ ♿ 🌅 🌐 💾 💿 🔍 🔰 😃 🛼
 
         # also Wide are ♿ ⚪⚫ ⬛⬜ 🔰 🔴🔵 😃 🛼 🟠🟡🟢🟣🟤 🟥🟦🟧🟨🟩🟪🟫
 
