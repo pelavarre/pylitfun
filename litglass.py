@@ -380,8 +380,25 @@ class ColorPickerGame:
 
     loopbacker: Loopbacker
 
+    game_yx: tuple[int, ...]
+
+    red: int  # 0..5
+    green: int  # 0..5
+    blue: int  # 0..5
+
+    focus_int: int  # 0, 1, or 2
+
     def __init__(self, loopbacker: Loopbacker) -> None:
+
         self.loopbacker = loopbacker
+
+        self.game_yx = tuple()
+
+        self.red = 2
+        self.green = 3
+        self.blue = 2
+
+        self.focus_int = 1  # 1 is middle
 
     def cp_run_awhile(self) -> None:
         """Trace Key Releases till ⌃C"""
@@ -393,7 +410,10 @@ class ColorPickerGame:
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
 
-        # Draw the Gameboard, scrolling if need be
+        # Place & draw the Gameboard, scrolling if need be
+
+        (h, w, y, x) = kr.sample_hwyx()
+        self.game_yx = (y, x)  # replaces
 
         self.cp_game_draw()
 
@@ -425,15 +445,132 @@ class ColorPickerGame:
         lbr = self.loopbacker
         sw = lbr.screen_writer
 
-        # Draw the Chat
+        game_yx = self.game_yx
+
+        r = self.red
+        g = self.green
+        b = self.blue
+
+        focus_int = self.focus_int
+
+        assert CUF_X == "\033[" "{}" "C"
+        assert SGR_PS == "\033[" "{}" "m"
+
+        dent = 4 * " "
+
+        # Find the present Color
+
+        ps = 0o20 + (r * 36) + (g * 6) + b
+
+        # Place the board
+
+        (y, x) = game_yx
+        sw.write_control(f"\033[{y};{x}H")
+
+        # Draw the Board
 
         sw.print()
+        sw.print()  # twice
+
+        ns = 3 * len("5 ") * " "
+        i = focus_int * len("5 ")
+        j = i + len("5 ")
+
+        gap = len("rgb color ") * " "
+        n = ns[:i] + "↑ " + ns[j:]
+        s = ns[:i] + "↓ " + ns[j:]
+
+        sw.print(dent + gap + n + dent)
+        sw.print()
+        sw.print(dent + f"rgb color {r} {g} {b} is {ps=}" + dent)
+        sw.print()
+        sw.print(dent + gap + s + dent)
+
+        sw.print()
+        sw.print()  # twice
+
+        sw.write_control(f"\033[38;5;{ps}m")
+
+        for _ in range(3):
+
+            sw.write_printable(dent)  # todo7: split controls from printables
+            sw.write_printable("█")
+            sw.write_control("\033[2C")
+            sw.write_printable("██")
+            sw.write_control("\033[2C")
+            sw.write_printable("███")
+            sw.write_control("\033[2C")
+            sw.write_printable("██")
+            sw.write_control("\033[2C")
+            sw.write_printable("█")
+            sw.write_printable(dent)
+            sw.write_some_controls(["\r", "\n"])
+
+            # sw.print(dent + "███  ██  █  █  ██  ███" + dent)
+
+        sw.write_control("\033[m")
+
+        sw.print()
+
+        # Draw the Chat
+
         sw.print("Press ⌃C")
+        sw.print()
 
     def cp_step_once(self, frames: tuple[bytes, ...]) -> None:
         """Eval Input and print Output"""
 
-        pass
+        lbr = self.loopbacker
+        kd = lbr.keyboard_decoder
+
+        # Take all plain unmarked classic Arrows here, and nothing else
+
+        note_to_self = True
+        for frame in frames:
+            kseqs = kd.bytes_to_kseqs_if(frame)
+            kseq = kseqs[0] if kseqs else ""
+            if kseq not in ("←", "↑", "→", "↓"):
+                note_to_self = False
+                break
+
+        if note_to_self:
+            for frame in frames:
+                self.cp_step_one_arrow_once(frame)
+            self.cp_game_draw()
+            return
+
+        # Else fall back onto the enclosing Loopbacker
+
+        lbr.lbr_step_once(frames)
+
+    def cp_step_one_arrow_once(self, frame: bytes) -> None:
+        """Eval one Arrow in the Frame"""
+
+        r = self.red
+        g = self.green
+        b = self.blue
+
+        focus_int = self.focus_int
+
+        lbr = self.loopbacker
+        kd = lbr.keyboard_decoder
+        kseqs = kd.bytes_to_kseqs_if(frame)
+        kseq = kseqs[0] if kseqs else ""
+
+        assert kseq in ("←", "↑", "→", "↓"), (kseq,)
+
+        if kseq == "←":
+            self.focus_int = (focus_int - 1) % 3
+        elif kseq == "→":
+            self.focus_int = (focus_int + 1) % 3
+        else:
+            diff = -1 if (kseq == "↓") else 1
+            if focus_int == 0:
+                self.red = min(max(0, r + diff), 5)
+            elif focus_int == 1:
+                self.green = min(max(0, g + diff), 5)
+            else:
+                self.blue = min(max(0, b + diff), 5)
 
 
 #
@@ -1282,8 +1419,8 @@ class Loopbacker:
 
         tb.__enter__()
 
-        if not flags.enter:
-            sw.write_control("\033[?2004h")  # paste-wrap
+        # if not flags.enter:  # todo8:
+        #     sw.write_control("\033[?2004h")  # paste-wrap
 
         if flags.scrollback:
 
@@ -1303,9 +1440,9 @@ class Loopbacker:
 
         assert SM_PS and RM_PS and SGR_PS and DECSCUSR_PS
 
-        if not flags.enter:
+        # if not flags.enter:  # todo8:
 
-            sw.write_control("\033[?2004l")  # paste-unwrap ⎋[?2004L
+        #     sw.write_control("\033[?2004l")  # paste-unwrap ⎋[?2004L
 
         if not flags._exit_:
 
@@ -4425,18 +4562,18 @@ def _try_unicode_source_texts_() -> None:
 
     # 2 Comic Colors from Apr/2008 Unicode 5.1
 
-    assert unicodedata.name("⬛").title() == "Black Large Square"  # U+2B1B
-    assert unicodedata.name("⬜").title() == "White Large Square"  # U+2B1C
+    assert unicodedata.name("⬛").title() == "Black Large Square"  # U+2B1B  # 000 16
+    assert unicodedata.name("⬜").title() == "White Large Square"  # U+2B1C  # 444 188
 
-    # 7 Comic Colors from Mar/2019 Unicode 12.0  # todo4: --egg=colors for these 555 Color Codes
+    # 7 Comic Colors from Mar/2019 Unicode 12.0
 
-    assert unicodedata.name("🟥").title() == "Large Red Square"  # U+1F7E5
-    assert unicodedata.name("🟦").title() == "Large Blue Square"  # U+1F7E6
-    assert unicodedata.name("🟨").title() == "Large Yellow Square"  # U+1F7E8
-    assert unicodedata.name("🟩").title() == "Large Green Square"  # U+1F7E9
-    assert unicodedata.name("🟪").title() == "Large Purple Square"  # U+1F7EA
-    assert unicodedata.name("🟧").title() == "Large Orange Square"  # U+1F7EB
-    assert unicodedata.name("🟫").title() == "Large Brown Square"  # U+1F7EB
+    assert unicodedata.name("🟥").title() == "Large Red Square"  # U+1F7E5  # 500 196
+    assert unicodedata.name("🟦").title() == "Large Blue Square"  # U+1F7E6  # 015 27
+    assert unicodedata.name("🟨").title() == "Large Yellow Square"  # U+1F7E8  # 430 178
+    assert unicodedata.name("🟩").title() == "Large Green Square"  # U+1F7E9  # 020 28
+    assert unicodedata.name("🟪").title() == "Large Purple Square"  # U+1F7EA  # 205 93
+    assert unicodedata.name("🟧").title() == "Large Orange Square"  # U+1F7EB  # 520 208
+    assert unicodedata.name("🟫").title() == "Large Brown Square"  # U+1F7EB  # 100 52
 
     #
     # The Apple ⌥ Option/Alt Keys send lots of printable U+00A1 .. U+00FF
@@ -4475,9 +4612,9 @@ def _try_unicode_source_texts_() -> None:
     #
 
     #
-    # We run no Tests of Unicode U+FB01 and U+FB02, not here in 2025
+    # We run no Tests of Unicode U+2588, U+FB01, & U+FB02, not here in 2025
     #
-    #   ﬁ ﬂ
+    #   █ ██ ﬁ ﬂ
     #
     # We run no Tests of Unicode U+0131 .. U+25CA
     #
