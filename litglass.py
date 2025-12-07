@@ -89,14 +89,21 @@ logger = logging.getLogger(__name__)
 #
 
 
+_os_environ_get_cloud_shell_ = os.environ.get("CLOUD_SHELL", "")
+
+
 @dataclasses.dataclass(order=True)  # , frozen=True)
 class Flags:
     """Choose a personality"""
 
-    # Choose for you:  flags.apple, flags.google, flags.terminal
+    # Choose for you or by --egg:  flags.yolo
+
+    yolo: bool = True  # placeholder, means almost nothing
+
+    # Choose for you or by --egg:  flags.apple, flags.google, flags.terminal
 
     apple: bool = sys.platform == "darwin"
-    google: bool = bool(os.environ.get("CLOUD_SHELL", ""))
+    google: bool = bool(_os_environ_get_cloud_shell_)
     terminal: bool = os.environ.get("TERM_PROGRAM", "") == "Apple_Terminal"
 
     # todo: barefoot:  #  for when Rows not-hidden beneath a Southern Keyboard
@@ -254,12 +261,6 @@ def shell_args_take_in_eggs(eggs: list[str] | None, print_usage: typing.Callable
     # Find the Eggs
 
     dash_dash_eggs = list(vars(flags).keys())
-
-    dash_dash_eggs.append("yolo")
-
-    dash_dash_eggs.remove("apple")
-    dash_dash_eggs.remove("google")
-    dash_dash_eggs.remove("terminal")
 
     # Choose some Eggs or none
 
@@ -493,7 +494,7 @@ class SquaresGame:
             by_x = by_y_by_x[y]
 
             y_text = "".join(by_x.values())
-            self.sq_sw_write(dent + y_text + dent)
+            sw.write(dent + y_text + dent)
 
             sw.write_some_controls(["\r", "\n"])
 
@@ -512,46 +513,6 @@ class SquaresGame:
         # todo6: find the ⌥-click on the board
 
         # todo7: rotate gravity to match arrow, and drag perpendicular to gravity
-
-    def sq_sw_write(self, text: str) -> None:
-        """Write the Byte Encodings of Text without adding a Line-Break"""
-
-        sw = self.loopbacker.screen_writer
-
-        if not flags.google:
-            sw.write(text)
-            return
-
-        eaws = sorted(set(unicodedata.east_asian_width(_) for _ in text))
-        if "W" not in eaws:
-            sw.write(text)
-            return
-
-        int_by_str = {
-            #
-            "Ambiguous"[0]: 1,  # ¡ ¤ § ® Ø ß ± ¶ ↖ ↗ ↘ ↙ € Ω Ⅷ
-            "Narrow"[:2]: 1,  # ¢ and £ and the Printable US Ascii
-            "Neutral"[0]: 1,  # © « µ » ñ
-            #
-            "Halfwidth"[0]: 1,  # Hangul, Katakana, & Halfwidth ￭ ￮
-            "Fullwidth"[0]: 2,  # ０ ９ Ａ Ｚ ￥ ￦  # U+3000 Ideographic Space
-            "Wide"[0]: 2,  # ☕ ☰ ♿ 🌅 🌐 💾 💿 🔍 🔰 😃 🛼
-            #
-            # also Wide are ♿ ⚪⚫ ⬛⬜ 🔰 🔴🔵 😃 🛼 🟠🟡🟢🟣🟤 🟥🟦🟧🟨🟩🟪🟫
-            #
-        }
-
-        sw.write_control("\r")
-        x = 0
-        for t in text:
-            sw.write(t)
-
-            eaw = unicodedata.east_asian_width(t)
-            xe = int_by_str[eaw]
-            x += xe
-
-            sw.write_control("\r")
-            sw.write_control(f"\033[{x}C")
 
     def sq_steps_because_frames(self, frames: tuple[bytes, ...]) -> None:
         """Eval Frames of Input and print Output"""
@@ -946,16 +907,16 @@ class KeycapsGame:
                 printable = printable.replace("F1 F2 F3 F4", "<> <> <> <>")
 
             if shifters != "⇧":
-                sw.write(printable)
+                sw.write_printable(printable)
             else:
 
                 splits = printable.split("⇧")
                 for index, split in enumerate(splits):
                     if index:
                         sw.write_control("\033[7m")  # ⎋[7M style-reverse
-                        sw.write("⇧")
+                        sw.write_printable("⇧")
                         sw.write_control("\033[m")  # ⎋[M style-plain
-                    sw.write(split)
+                    sw.write_printable(split)
 
                 # todo: can we more simply code this idea of highlighting the ⇧ Shift Lock?
 
@@ -1034,7 +995,7 @@ class KeycapsGame:
 
             sw.write_control("\033[H")  # row-column-leap ⎋[⇧H
             sw.write_control("\033[L")  # rows-insert ⎋[⇧L
-            sw.write(scrollable)  # todo9: .kc_print wider than screen
+            sw.write_printable(scrollable)  # todo9: .kc_print wider than screen
             sw.write_control("\033[K")  # row-tail-erase ⎋[⇧K
 
             sw.write_control("\033[32100H")  # row-column-leap ⎋[⇧H
@@ -1043,7 +1004,7 @@ class KeycapsGame:
             sw.write_control(f"\033[{y - 1};{x}H")  # row-column-leap ⎋[⇧H
             sw.write_control("\033[L")  # rows-insert ⎋[⇧L
 
-        sw.write(printable)  # todo9: .kc_print wider than screen
+        sw.write_printable(printable)  # todo9: .kc_print wider than screen
         sw.write_control("\033[K")  # row-tail-erase ⎋[⇧K
 
         scrollables.append(printable)
@@ -1294,7 +1255,7 @@ class Loopbacker:
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
 
-        sw.write("Press ⌃C")
+        sw.write_printable("Press ⌃C")
         while True:
             data = tb.read_one_byte()
             tb.write_some_bytes(data)
@@ -1322,7 +1283,7 @@ class Loopbacker:
             sw.print("Press ⌃C")
             sw.write_some_controls(2 * ["\t"])
         else:
-            sw.write("Press ⌃C ")
+            sw.write_printable("Press ⌃C ")
 
         # Run till Quit
 
@@ -2273,12 +2234,46 @@ class ScreenWriter:
         """Write the Byte Encodings of Printable Text without adding a Line-Break"""
 
         printable = text  # alias
-
         assert printable.replace("", "-").isprintable(), (printable,)
 
-        self.write(printable)
+        assert CUF_X == "\033[" "{}" "C"
+        assert CUB_X == "\033[" "{}" "D"
 
-        # todo: reduce the scatter in the distribution of '.replace("", "-").isprintable'
+        # Trust the Terminal to write well
+
+        if not flags.google:
+            self.write(printable)
+            return
+
+        # Else trust the Terminal to write all but Fullwidth & Wide well
+
+        eaws_set = set(unicodedata.east_asian_width(_) for _ in printable)
+        if "Fullwidth"[0] not in eaws_set:
+            if "Wide"[0] not in eaws_set:
+                self.write(printable)
+                return
+
+        # Else trust the Terminal to write well, except to stop the Cursor at X + 1, not at X + 2
+
+        for t in text:
+            self.write(t)
+            eaw = unicodedata.east_asian_width(t)
+            if eaw in ("Fullwidth"[0], "Wide"[0]):
+                self.write_control("\033[C")
+                if not _os_environ_get_cloud_shell_:  # separate from .flags.google
+                    self.write_control("\033[D")
+
+        # "Ambiguous"[0]  # ¡ ¤ § ® Ø ß ± ¶ ↖ ↗ ↘ ↙ € Ω Ⅷ 
+        # "Narrow"[:2]  # ¢ and £ and the Printable US Ascii
+        # "Neutral"[0]  # © « µ » ñ
+
+        # "Halfwidth"[0]  # Hangul, Katakana, & Halfwidth ￭ ￮
+        # "Fullwidth"[0]  # ０ ９ Ａ Ｚ ￥ ￦  # U+3000 Ideographic Space
+        # "Wide"[0]: 2  # ☕ ☰ ♿ 🌅 🌐 💾 💿 🔍 🔰 😃 🛼
+
+        # also Wide are ♿ ⚪⚫ ⬛⬜ 🔰 🔴🔵 😃 🛼 🟠🟡🟢🟣🟤 🟥🟦🟧🟨🟩🟪🟫
+
+        # todo: shrink the distribution of '.replace("", "-").isprintable'
 
     def write_some_controls(self, texts: typing.Iterable[str]) -> None:
         """Write the Byte Encodings of >= 0 Unprintable Control Texts"""
@@ -2335,6 +2330,8 @@ _MAX_PN_32100_ = 32100  # max Csi Pn = 32100 exceeds the x_wide x y_high of most
 ICH_X = "\033[" "{}" "@"  # Csi 04/00 [Insert] Cursor Horizontal [Pn] [Columns]
 
 CUU_Y = "\033[" "{}" "A"  # Csi 04/01 Cursor Up [Pn] [Rows]
+CUF_X = "\033[" "{}" "C"  # Csi 04/03 Cursor Forward [Pn] [Columns]
+CUB_X = "\033[" "{}" "D"  # Csi 04/04 Cursor Backward [Pn] [Columns]
 CUP_Y_X = "\033[" "{};{}H"  # Csi 04/08 [Choose] Cursor Position [Y and X]
 ED_PS = "\033[" "{}" "J"  # CSI 04/10 Erase in Display  # 0 Tail # 1 Head # 2 Rows # 3 Scrollback
 EL_PS = "\033[" "{}" "K"  # CSI 04/11 Erase in Line [Row]  # 0 Tail # 1 Head # 2 Row
@@ -4148,7 +4145,7 @@ class BytesBox:
 
         return printable
 
-        # todo: reduce the scatter in the distribution of '.replace("", "-").isprintable'
+        # todo: shrink the distribution of '.replace("", "-").isprintable'
 
 
 #
