@@ -998,8 +998,7 @@ class SquaresGame:
 
         # Run till Quit
 
-        quitting = False
-        while not quitting:
+        while True:
             logger.info("")
             logger.info("...")
 
@@ -1012,18 +1011,30 @@ class SquaresGame:
 
             self.sq_steps_because_frames(frames)
 
+            # Quit at can't move
+
+            if not self.sq_find_moves():
+                break
+
             # Quit at ⌃C
 
             if b"\003" in frames:
-                quitting = True
                 break
 
-        sw.print()
+        sw.write_control("\033[2A")
+        sw.write_printable("🏆")
+        sw.write_control("\033[K")
+        sw.write_some_controls(["\r", "\n"])
 
-        # todo4: declare a Loss at all Rows have no 3, all Columns have no 3
-        # todo4: self.sq_find_bars_and_poles_shuffled_or_not()
+        sw.print()
+        sw.print()  # twice
+
+        # todo4: bias the Row from above to reward Column Shuffle of middle
+        # todo4: bias the Column from above to reward Row Shuffle of middle
 
         # todo4: ⇥ autoruns Shuffles till one is about to work, then stops there
+
+        # todo4: seq 99 && @ --seed='2025-12-08 08:01:46' --egg=squares
 
     def sq_game_form(self) -> None:
         """Fill the Board with Tiles"""
@@ -1096,7 +1107,7 @@ class SquaresGame:
 
         # Draw the Chat
 
-        sw.print("Press ⌃C")
+        sw.print("Press ⌃C")  # todo5: overwrite with "Press Spacebar"
         sw.print()
 
         # todo6: find the ⌥-click on the board
@@ -1352,6 +1363,46 @@ class SquaresGame:
             for x in range(x_wide):
                 by2_x = by_y_by_x[y2]
                 by2_x[x] = t_list.pop(0)
+
+    def sq_find_moves(self) -> bool:
+        """Say if progress is possible"""
+
+        by_y_by_x = self.by_y_by_x
+        y_high = self.y_high
+        x_wide = self.x_wide
+
+        # Search all Column Shuffles to pick out >= 3 in a Row
+
+        for y in range(y_high):
+            by_x = by_y_by_x[y]
+            y_cells = list(by_x[x] for x in range(x_wide))
+            count_by_cell = collections.Counter(y_cells)
+
+            hope = max(count_by_cell.values())
+            if hope >= 3:
+                return True
+
+        # Search all Row Shuffles to pick out >= 3 in a Column
+
+        for x in range(x_wide):
+            x_cells = list(by_y_by_x[y][x] for y in range(y_high))
+            count_by_cell = collections.Counter(x_cells)
+
+            hope = max(count_by_cell.values())
+            if hope >= 3:
+                return True
+
+        # Search all Cells to pick out a Fall of Cells in progress
+
+        for y in range(y_high):
+            for x in range(x_wide):
+                cell = by_y_by_x[y][x]
+                if cell == "⬜":
+                    return True
+
+        # Else give up
+
+        return False
 
     # todo: more Squares, less Squares, colorable
     # todo: colorable single-wide █ ██ Full-Block U+2588

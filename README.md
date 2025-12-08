@@ -190,6 +190,8 @@ Can we live within in these limits and still rewrite this text so well as to hop
 
 know how
 
+   v| should cope, not yammer of 'Vim: Warning: Output is not to a terminal'
+
    p should mean print inside ~/bin/p
 
    ~/bin/c sh script of litshell.py
