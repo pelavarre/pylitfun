@@ -1638,8 +1638,8 @@ class Loopbacker:
             self.lbr_sco_step_once(data, compilation=compilation)
 
             sco.yx = tuple()
-            kbf = sco.key_byte_frame
-            kbf.clear_frame()  # reruns Factor for remaining Frames
+            f = sco.key_byte_frame
+            f.clear_frame()  # reruns Factor for remaining Frames
 
             if boxes[box_index:][1:]:
                 _ = kr.sample_hwyx()
@@ -1766,8 +1766,8 @@ class Loopbacker:
 
         # Leap the Cursor to the ⌥-Click  # todo9: also ⎋[⇧M Click Releases
 
-        kbf = KeyByteFrame(data)
-        (marks, ints) = kbf.to_csi_marks_ints_if()
+        f = KeyByteFrame(data)
+        (marks, ints) = f.to_csi_marks_ints_if()
 
         if (marks == b"<m") and (len(ints) == 3):
             (b, x, y) = ints  # todo: bounds check on Click Release
@@ -1909,11 +1909,11 @@ class Loopbacker:
         """Loop back well-known Csi & Osc Byte Sequences"""
 
         control = box.text
-        kbf = KeyByteFrame(box.data)
+        f = KeyByteFrame(box.data)
 
-        head = bytes(kbf.head)
-        neck = bytes(kbf.neck)
-        backtail = bytes(kbf.backtail)
+        head = bytes(f.head)
+        neck = bytes(f.neck)
+        backtail = bytes(f.backtail)
 
         sw = self.screen_writer
 
@@ -1923,7 +1923,7 @@ class Loopbacker:
         # Loop back well-known Csi Byte Sequences
 
         if head == b"\033[M" and (not backtail):
-            assert not neck, (neck, head, backtail, kbf)
+            assert not neck, (neck, head, backtail, f)
             sw.write_control(control)
             return True
 
@@ -1940,7 +1940,7 @@ class Loopbacker:
 
             # Emulate Columns Insert/ Delete by Csi
 
-            if self._screen_columns_insert_delete_if_(kbf):
+            if self._screen_columns_insert_delete_if_(f):
                 return True
 
             # todo: Accept only the Csi understood by our Class ScreenWriter
@@ -1967,7 +1967,7 @@ class Loopbacker:
 
         return False
 
-    def _screen_columns_insert_delete_if_(self, kbf: KeyByteFrame) -> bool:
+    def _screen_columns_insert_delete_if_(self, f: KeyByteFrame) -> bool:
         """Emulate Columns Insert/ Delete by Csi"""
 
         sw = self.screen_writer
@@ -1978,7 +1978,7 @@ class Loopbacker:
 
         #
 
-        (marks, ints) = kbf.to_csi_marks_ints_if()
+        (marks, ints) = f.to_csi_marks_ints_if()
         if marks not in (b"'}", b"'~"):
             return False
 
@@ -2140,8 +2140,8 @@ class ScreenChangeOrder:
         self.int_literal = ""
         self.late_mark = ""
 
-        kbf = self.key_byte_frame
-        kbf.clear_frame()
+        f = self.key_byte_frame
+        f.clear_frame()
 
         self.intricate_order = False
 
@@ -2163,8 +2163,8 @@ class ScreenChangeOrder:
 
         intricate_order = self.intricate_order
 
-        kbf = self.key_byte_frame
-        data = kbf.to_frame_bytes()
+        f = self.key_byte_frame
+        data = f.to_frame_bytes()
 
         em = repr(early_mark)[1:-1]
         lm = repr(late_mark)[1:-1]
@@ -2188,7 +2188,7 @@ class ScreenChangeOrder:
         int_literal = self.int_literal
         late_mark = self.late_mark
 
-        kbf = self.key_byte_frame
+        f = self.key_byte_frame
 
         assert DL_Y == "\033[" "{}M"
         assert _CLICK3_ == "\033[M"
@@ -2214,11 +2214,11 @@ class ScreenChangeOrder:
 
         # Quit now to grow some more, else fall through with a whole Frame
 
-        kbf.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
+        f.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
 
-        data = kbf.to_frame_bytes()
-        if not kbf.closed:
-            if not kbf.printable:
+        data = f.to_frame_bytes()
+        if not f.closed:
+            if not f.printable:
                 data = b""
 
         box = BytesBox(data)
@@ -2239,12 +2239,12 @@ class ScreenChangeOrder:
 
         assert data, (data,)
 
-        kbf = self.key_byte_frame
+        f = self.key_byte_frame
         assert _FactorMark_ == "\025"
 
         # Take Input after a Text Frame or Closed Frame as a new Order
 
-        if kbf.printable or kbf.closed:
+        if f.printable or f.closed:
             self.clear_order()
 
         # Place Output over top of first Input
@@ -2263,7 +2263,7 @@ class ScreenChangeOrder:
 
         if text == "\025":  # ⌃U
 
-            if (early_mark and late_mark) or kbf:
+            if (early_mark and late_mark) or f:
 
                 self.clear_order()
                 self.early_mark = text
@@ -2285,7 +2285,7 @@ class ScreenChangeOrder:
 
         if not late_mark:
             if not text.isspace():
-                if not kbf:
+                if not f:
 
                     try:
 
@@ -2302,10 +2302,10 @@ class ScreenChangeOrder:
 
         # Grow the Frame
 
-        with_bool_kbf = bool(kbf)
-        extras = kbf.take_data_if(data)
+        with_bool_f = bool(f)
+        extras = f.take_data_if(data)
         if not extras:
-            if with_bool_kbf:
+            if with_bool_f:
                 self.intricate_order = True
 
             return
@@ -2561,9 +2561,9 @@ class ScreenWriter:
         assert not control.isprintable(), (control,)
 
         data = control.encode()
-        kbf = KeyByteFrame(data)  # may raise UnicodeEncodeError
-        kbf.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
-        assert (not kbf.printable) and kbf.closed, (data, kbf)
+        f = KeyByteFrame(data)  # may raise UnicodeEncodeError
+        f.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
+        assert (not f.printable) and f.closed, (data, f)
 
         self._write_encode_(control)
 
@@ -2858,22 +2858,22 @@ class KeyboardReader:
 
         end = b""
 
-        kbf = KeyByteFrame(b"")
+        f = KeyByteFrame(b"")
         for i in range(len(data)):
             one_byte = data[i:][:1]
             some_bytes = data[i:][1:]
 
-            extras = kbf.take_one_byte_if(one_byte)
+            extras = f.take_one_byte_if(one_byte)
             if extras:
-                assert kbf.closed, (kbf.closed, extras, one_byte, kbf)
+                assert f.closed, (f.closed, extras, one_byte, f)
                 end = extras + some_bytes
                 break
 
-            if kbf.closed:
+            if f.closed:
                 end = some_bytes
                 break
 
-        start = kbf.to_frame_bytes()
+        start = f.to_frame_bytes()
         assert (start + end) == data, (start, end, data)
 
         return (start, end)
@@ -4099,39 +4099,39 @@ def _try_key_byte_frame_() -> None:
 
     # Speak well of ↑ and ⎋↑
 
-    kbf = KeyByteFrame(b"\033[A")
-    assert kbf.to_frame_bytes() == b"\033[A", (kbf,)
-    assert kbf.closed, (kbf,)
+    f = KeyByteFrame(b"\033[A")
+    assert f.to_frame_bytes() == b"\033[A", (f,)
+    assert f.closed, (f,)
 
-    kbf = KeyByteFrame(b"\033\033[A")
-    assert kbf.to_frame_bytes() == b"\033\033[A", (kbf,)
-    assert kbf.closed, (kbf,)
+    f = KeyByteFrame(b"\033\033[A")
+    assert f.to_frame_bytes() == b"\033\033[A", (f,)
+    assert f.closed, (f,)
 
     # Dance well with the _CLICK3_ clash into DL_Y without Pn
 
-    kbf = KeyByteFrame(b"\033[M")
-    assert kbf.to_frame_bytes() == b"\033[M", (kbf,)
-    assert not kbf.closed, (kbf,)  # because could be ⎋[⇧M{b}{x}{y}
+    f = KeyByteFrame(b"\033[M")
+    assert f.to_frame_bytes() == b"\033[M", (f,)
+    assert not f.closed, (f,)  # because could be ⎋[⇧M{b}{x}{y}
 
-    kbf = KeyByteFrame(b"\033[Mabc")
-    assert kbf.to_frame_bytes() == b"\033[Mabc", (kbf,)
-    assert kbf.closed, (kbf,)
+    f = KeyByteFrame(b"\033[Mabc")
+    assert f.to_frame_bytes() == b"\033[Mabc", (f,)
+    assert f.closed, (f,)
 
-    kbf = KeyByteFrame(b"\033[Mab\xff")
-    assert kbf.to_frame_bytes() == b"\033[Mab\xff", (kbf,)
-    assert kbf.closed, (kbf,)
+    f = KeyByteFrame(b"\033[Mab\xff")
+    assert f.to_frame_bytes() == b"\033[Mab\xff", (f,)
+    assert f.closed, (f,)
 
     # Accept 8-way Compass Arrows, not just the 4-way Most Classic Arrows
 
-    kbf = KeyByteFrame("\033[↗".encode())  # not yet standard
-    assert kbf.to_frame_bytes() == "\033[↗".encode(), (kbf,)
-    assert kbf.closed, (kbf,)
+    f = KeyByteFrame("\033[↗".encode())  # not yet standard
+    assert f.to_frame_bytes() == "\033[↗".encode(), (f,)
+    assert f.closed, (f,)
 
     # Accept the ⎋\ String Terminator (ST) to close an ⎋] Osc Frame
 
-    kbf = KeyByteFrame(b"\033]11;?\033\\")
-    assert kbf.to_frame_bytes() == b"\033]11;?\033\\", (kbf,)
-    assert kbf.closed, (kbf,)
+    f = KeyByteFrame(b"\033]11;?\033\\")
+    assert f.to_frame_bytes() == b"\033]11;?\033\\", (f,)
+    assert f.closed, (f,)
 
     #
     # todo: port in more KeyByteFrame tests from ._try_key_pack_ of
