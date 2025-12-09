@@ -97,26 +97,37 @@ _os_environ_get_cloud_shell_ = os.environ.get("CLOUD_SHELL", "")
 class Flags:
     """Choose a personality"""
 
-    # Choose for you or by --egg:  flags.yolo
+    # Always truthy:  flags.yolo
 
     yolo: bool = True  # placeholder, means almost nothing
 
-    # Choose for you or by --egg:  flags.apple, flags.google, flags.terminal
+    # Chosen for you or by --egg:  flags.apple, flags.google, flags.terminal
 
     apple: bool = sys.platform == "darwin"
     google: bool = bool(_os_environ_get_cloud_shell_)
     terminal: bool = os.environ.get("TERM_PROGRAM", "") == "Apple_Terminal"
 
-    # todo: barefoot:  #  for when Rows not-hidden beneath a Southern Keyboard
+    mobile: bool = False  # truthy for < 30x30 Columns x Rows discovered
 
-    # Choose by --egg:  flags.enter, flags._exit_, flags.logging, flags.scrollback
+    # todo: barefoot:  #  for when Rows not-hidden beneath a Southern Keyboard
+    # todo: portrait:  #  for when lots more Rows than Columns
+    # todo: landscape:  #  for when lots more Columns than Row
+    # todo: darkmode:  #  for when low low Luminance as uncolored backlight
+    # todo: lightmode:  #  for when high high Luminance as uncolored backlight
+
+    #
+    # Chosen by big tech --egg, or not
+    #
+    #   flags.enter, flags._exit_, flags.logging, flags.scrollback
+    #
 
     enter: bool = False  # launch loop back with no setup
     _exit_: bool = False  # quit loop back with no teardown
     logging: bool = False  # write log lines into ./__pycache__/litglass.log
     scrollback: bool = False  # launch below Scrollback
 
-    # Choose by tech --egg
+    #
+    # Chosen by small tech --egg, or not
     #
     #   flags.clickarrows, flags.clickruns, flags.sigint
     #
@@ -125,7 +136,8 @@ class Flags:
     clickruns: bool = False  # loop back the ⌥-Click Arrows as run-length compressed
     sigint: bool = False  # for ⌃C to raise KeyboardInterrupt, for ⏎ to say ⌃J not ⌃M
 
-    # Choose by game --egg
+    #
+    # Chosen by game --egg, or not
     #
     #   flags._assert_, flags.byteloop, flags.color_picker, flags.echoes, flags.keycaps,
     #   flags._repr_, flags.squares
@@ -138,6 +150,30 @@ class Flags:
     keycaps: bool = False  # launch our Keyboard-Viewer of Leycaps
     _repr_: bool = False  # loop the Repr, not the Str
     squares: bool = False  # launch our Squares Game
+
+    @property
+    def games(self) -> int:
+        """Count the Games Chosen"""
+
+        games = 0
+
+        games += self._assert_
+        games += self.byteloop
+        games += self.color_picker
+        games += self.echoes
+        games += self.keycaps
+        games += self._repr_
+        games += self.squares
+
+        if games > 1:
+            print(
+                "Choose at most one of:"
+                "  assert, byteloop, color-picker, echoes, keycaps, repr, squares",
+                file=sys.stderr,
+            )
+            sys.exit(2)  # exits 2 for bad Args
+
+        return games
 
 
 flags = Flags()
@@ -177,6 +213,7 @@ def try_main() -> None:
     seed_replay(seed, naive=naive)
 
     with Loopbacker(seed) as lbr:
+        logger.info(f"{flags=}")
         if flags._assert_:
             assert False, "Asserting False before doing much"
 
@@ -247,10 +284,7 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
 
     shell_args_take_in_eggs(ns.eggs, print_usage=print_usage)
 
-    games = flags._assert_ + flags.byteloop + flags.color_picker + flags.echoes + flags.keycaps
-    games += flags._repr_ + flags.squares
-
-    assert games <= 1, (dict(_ for _ in vars(flags).items() if _[-1]),)
+    games = flags.games
     if games:
         flags.logging = True
 
@@ -1121,13 +1155,25 @@ class SquaresGame:
         for box in boxes:
             self.sq_step_because_box(box)
 
-    def sq_step_because_box(self, box: BytesBox) -> None:
+    def sq_step_because_box(self, box: BytesBox) -> bool:
         """Eval 1 Box of Input and print Output"""
 
-        # Move once per Key Release of Spacebar
+        f = KeyByteFrame(box.data)
+        (marks, ints) = f.to_csi_marks_ints_if()
 
-        if box.text != " ":
-            return
+        # Take some and not all of Tap, Mouse Release/ Press, Key Release
+
+        if marks == b"<M":  # discards Mouse Press
+            return True
+
+        if box.text == " ":  # takes ␢ Spacebar
+            pass
+        elif marks == b"<M":  # takes Mouse Press
+            return True  # and discards it
+        elif marks == b"<m":  # takes Mouse Release
+            pass
+        else:
+            return False
 
         # Find and draw Collisions
 
@@ -1139,7 +1185,7 @@ class SquaresGame:
             self.sq_empty_south_poles(south_poles)
             self.strikes = 0
             self.sq_game_draw()
-            return
+            return True
 
         # Across the South, fall from the North
 
@@ -1148,7 +1194,7 @@ class SquaresGame:
         if falls:
             self.strikes = 0
             self.sq_game_draw()
-            return
+            return True
 
             # todo5: move all the 3 square arrows where they point
             # todo6: game trophies of first finding each kind of move
@@ -1163,6 +1209,8 @@ class SquaresGame:
             self.sq_columns_shuffle()
 
         self.sq_game_draw()
+
+        return True
 
     def sq_find_east_bars(self) -> list[tuple[int, int, int]]:
         """Search each Row to find >= 3 Tiles together"""
@@ -1470,16 +1518,25 @@ class Loopbacker:
 
         tb.__enter__()
 
-        # if not flags.enter:  # todo8:
-        #     sw.write_control("\033[?2004h")  # paste-wrap
-
-        if flags.scrollback:
+        if flags.scrollback or ((not flags.enter) and (not flags._exit_)):
 
             (h, w, y, x) = kr.sample_hwyx()
-            if y > 1:
-                sw.write_control(f"\033[{y - 1}S")  # ⎋[⇧S south-rows-insert
 
-            sw.write_control("\033[?1049h")  # alt-screen ⎋[⇧?1049H
+            if flags.games:
+                if (h * w) < (30 * 30):
+                    flags.mobile = True
+
+            if flags.scrollback:
+                if y > 1:
+                    sw.write_control(f"\033[{y - 1}S")  # ⎋[⇧S south-rows-insert
+                if (not flags.enter) and (not flags._exit_):
+                    sw.write_control("\033[?1049h")  # alt-screen ⎋[⇧?1049H
+
+        if flags.mobile:
+            if not flags.enter:
+                sw.write_control("\033[?1006;1000h")  # sgr-mouse-take
+
+            # sw.write_control("\033[?2004h")  # paste-wrap  # todo8:
 
         return self
 
@@ -1490,6 +1547,10 @@ class Loopbacker:
         kr = self.keyboard_reader
 
         assert SM_PS and RM_PS and SGR_PS and DECSCUSR_PS
+
+        if not flags.enter:
+            if flags.mobile:
+                sw.write_control("\033[?1006;1000l")  # mouse-give
 
         # if not flags.enter:  # todo8:
 
