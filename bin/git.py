@@ -130,7 +130,7 @@ class GitGopher:
         # Replace the Shell Verb with a Git Shell Line, and edit the Args
 
         (found_shline, given_shsuffix) = self.form_shverb_shline(chosen_shargv)
-        grep_shargv = self.shargv_at_grep(chosen_shverb, shargv=chosen_shargv)
+        tweaked_shargv = self.shargv_tweak_up(chosen_shverb, shargv=chosen_shargv)
 
         # Choose to call Git through Shell or not
 
@@ -148,15 +148,14 @@ class GitGopher:
                 print(f"# {chosen_shverb!r} not at:  cd {relpath}/", file=sys.stderr)
 
         (diff_shverb, diff_shline) = self.shline_at_git_diff(
-            chosen_shverb, shline=shell_shline, grep_shargv=grep_shargv
+            chosen_shverb, shline=shell_shline, tweaked_shargv=tweaked_shargv
         )
 
-        diff_shargv = (diff_shverb, *grep_shargv[1:])
+        diff_shargv = (diff_shverb, *tweaked_shargv[1:])
 
         # Explicitly auth the especially destructive ops
 
         (authed, taggable) = self.auth_git_shline(diff_shline)
-        run_shargv = shlex.split(authed) + list(diff_shargv[1:])
 
         # Shove back on Python ShLex Quote fussily quoting mentions of HEAD~1 to no purpose
 
@@ -164,6 +163,11 @@ class GitGopher:
 
         def like_shlex_join(argv: typing.Iterable[str]) -> str:
             return " ".join(("HEAD~1" if (_ == "HEAD~1") else shlex.quote(_)) for _ in argv)
+
+        run_shline_suffix = like_shlex_join(diff_shargv[1:])
+        run_shline = authed + " " + run_shline_suffix
+
+        run_shargv = shlex.split(authed) + list(diff_shargv[1:])
 
         # Loudly promise to call the Shell now
 
@@ -176,9 +180,6 @@ class GitGopher:
         print(tagged_shline, file=sys.stderr)  # prints its ":", not after a "+" or "|"
 
         # Call the Shell now
-
-        run_shline_suffix = like_shlex_join(diff_shargv[1:])
-        run_shline = authed + " " + run_shline_suffix
 
         if not shell:
             git_run = subprocess.run(run_shargv)
@@ -494,7 +495,7 @@ class GitGopher:
         return gtop
 
     def shline_at_git_diff(
-        self, shverb: str, shline: str, grep_shargv: tuple[str, ...]
+        self, shverb: str, shline: str, tweaked_shargv: tuple[str, ...]
     ) -> tuple[str, str]:
         """Change up 'gcam' and 'gno' when truthy 'git diff --name-only'"""
 
@@ -518,7 +519,7 @@ class GitGopher:
 
         if shverb == "gno":
             assert shline == "git diff/show --pretty= --name-only", (shline,)
-            if grep_shargv[1:]:
+            if tweaked_shargv[1:]:
                 return ("gspno", gspno_shline)  # this 'gno' is 'gspno'
 
         # Try Git Diff once, and complain & exit nonzero if it fails
@@ -569,8 +570,26 @@ class GitGopher:
         gcam_shline_plus = "git commit --all -m " + message
         return ("gcam", gcam_shline_plus)  # this 'gcam' knows its 'gdno'
 
-    def shargv_at_grep(self, shverb: str, shargv: tuple[str, ...]) -> tuple[str, ...]:
+    def shargv_tweak_up(self, shverb: str, shargv: tuple[str, ...]) -> tuple[str, ...]:
         """Tune Greps to presume text, ignore case, and match >= 1 patterns"""
+
+        shline_plus_by_shverb = ShlinePlusByShverb
+        shline_plus = shline_plus_by_shverb[shverb]
+
+        # Tweak 'grias 3' up into 'gri HEAD~3', etc
+
+        if shverb in ("gri", "grias"):
+            assert shline_plus.startswith("git rebase -i "), (shline_plus, shverb)
+
+            if len(shargv) == (1 + 1):
+                sharg = shargv[-1]
+                if sharg in list("123456789"):
+                    tweaked_shargv = shargv[:1] + ("HEAD~" + sharg,)
+                    return tweaked_shargv
+        
+        assert not shline_plus.startswith("git rebase -i "), (shline_plus, shverb)
+
+        # Convert to '|grep -ai -e ... -e ...' and fall through, else don't
 
         if shverb not in ("gg/n", "ggl", "glf"):
             return shargv
@@ -581,6 +600,8 @@ class GitGopher:
         assert shargv[1:], (shargv[1:], shverb)
 
         shargv = (shargv[0],) + self._shargs_grep_expand_ai_e_(shargv[1:])
+
+        # Success
 
         return shargv
 
