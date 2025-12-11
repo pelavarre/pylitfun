@@ -159,20 +159,18 @@ class GitGopher:
 
         # Shove back on Python ShLex Quote fussily quoting mentions of HEAD~1 to no purpose
 
-        assert shlex.quote("HEAD~1") == "'HEAD~1'", (shlex.quote("HEAD~1"),)
-
         def like_shlex_join(argv: typing.Iterable[str]) -> str:
             return " ".join(("HEAD~1" if (_ == "HEAD~1") else shlex.quote(_)) for _ in argv)
 
-        run_shline_suffix = like_shlex_join(diff_shargv[1:])
-        run_shline = authed + " " + run_shline_suffix
+        assert shlex.quote("HEAD~1") == "'HEAD~1'", (shlex.quote("HEAD~1"),)
 
+        run_shline = authed + " " + like_shlex_join(diff_shargv[1:])
         run_shargv = shlex.split(authed) + list(diff_shargv[1:])
 
         # Loudly promise to call the Shell now
 
-        taggable_shargv = shlex.split(taggable) + list(diff_shargv[1:])
-        taggable_shline = like_shlex_join(taggable_shargv)
+        taggable_shline = taggable + like_shlex_join(diff_shargv[1:])
+        taggable_shline = taggable_shline.rstrip()
 
         tagged_shverb = "gg" if diff_shverb in ("gg/0", "gg/n") else diff_shverb
         tagged_shline = f": {tagged_shverb}{given_shsuffix} && {taggable_shline}"
@@ -576,7 +574,7 @@ class GitGopher:
         shline_plus_by_shverb = ShlinePlusByShverb
         shline_plus = shline_plus_by_shverb[shverb]
 
-        # Tweak 'grias 3' up into 'gri HEAD~3', etc
+        # Tweak 'grias 3' up into 'grias HEAD~3', etc
 
         if shverb in ("gri", "grias"):
             assert shline_plus.startswith("git rebase -i "), (shline_plus, shverb)
@@ -586,7 +584,7 @@ class GitGopher:
                 if sharg in list("123456789"):
                     tweaked_shargv = shargv[:1] + ("HEAD~" + sharg,)
                     return tweaked_shargv
-        
+
         assert not shline_plus.startswith("git rebase -i "), (shline_plus, shverb)
 
         # Convert to '|grep -ai -e ... -e ...' and fall through, else don't
