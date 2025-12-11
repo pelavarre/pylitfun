@@ -134,6 +134,8 @@ class Flags:
 
     clickarrows: bool = False  # loop back the ⌥-Click Arrows as they arrive
     clickruns: bool = False  # loop back the ⌥-Click Arrows as run-length compressed
+    darkmode: bool = False  # for low low Luminance as uncolored backlight
+    lightmode: bool = False  # for high high Luminance as uncolored backlight
     sigint: bool = False  # for ⌃C to raise KeyboardInterrupt, for ⏎ to say ⌃J not ⌃M
 
     #
@@ -210,10 +212,10 @@ def try_main() -> None:
         logging_resume()
 
     seed = shell_args_take_in_seed(ns.seed, naive=naive)
-    seed_replay(seed, naive=naive)
 
     with Loopbacker(seed) as lbr:
-        logger.info(f"{flags=}")
+        logger_info_replay(seed, naive=naive)
+
         if flags._assert_:
             assert False, "Asserting False before doing much"
 
@@ -365,14 +367,32 @@ def shell_args_take_in_seed(seed: str | None, naive: dt.datetime) -> str:
     return seed
 
 
-def seed_replay(seed: str, naive: dt.datetime) -> None:
+def logger_info_replay(seed: str, naive: dt.datetime) -> None:
     """Log restarting/ starting from --seed=SEED"""
 
     t = dt.datetime.fromisoformat(seed)
     strftime = t.strftime("%Y-%m-%d %H:%M:%S")
 
+    shargs = list()
+
     sharg = seed_to_sharg_near_naive(seed, naive=naive)
-    logger.info(f"{sharg} --seed={strftime!r}")  # '--seed=19:42 ...'
+    shargs.append(sharg)
+    shargs.append(f"--seed={strftime!r}")
+
+    d = dict(vars(flags))
+
+    items = sorted(_ for _ in d.items() if _[-1])
+    if items[1:]:
+        del d["yolo"]
+        items = sorted(_ for _ in d.items() if _[-1])
+
+    for option, value in items:
+        _option_ = option.replace("_", "-")
+        if value:
+            shargs.append(f"--egg={_option_}")
+
+    join = " ".join(shargs)
+    logger.info(f"python3 litglass.py {join}")
 
 
 def seed_to_sharg_near_naive(seed: str, naive: dt.datetime) -> str:
@@ -1163,9 +1183,6 @@ class SquaresGame:
 
         # Take some and not all of Tap, Mouse Release/ Press, Key Release
 
-        if marks == b"<M":  # discards Mouse Press
-            return True
-
         if box.text == " ":  # takes ␢ Spacebar
             pass
         elif marks == b"<M":  # takes Mouse Press
@@ -1472,6 +1489,7 @@ class Loopbacker:
     keyboard_decoder: KeyboardDecoder
     screen_change_order: ScreenChangeOrder
 
+    seed: str
     random_random: random.Random
 
     #
@@ -1504,6 +1522,7 @@ class Loopbacker:
 
         self.keyboard_decoder = kd
         self.screen_change_order = sco
+        self.seed = seed
         self.random_random = r
 
         # todo: limit fanout of pretending ⎋[5N came as last Input before Launch
@@ -1525,6 +1544,14 @@ class Loopbacker:
             if flags.games:
                 if (h * w) < (30 * 30):
                     flags.mobile = True
+
+            if flags.games:
+                luminance = 0.5
+                # luminance = kr.sample_luminance()
+                if (luminance < -0.75) or (luminance > 0.75):
+                    flags.lightmode = True
+                elif (luminance >= -0.25) and (luminance <= 0.25):
+                    flags.darkmode = True
 
             if flags.scrollback:
                 if y > 1:
@@ -2008,9 +2035,9 @@ class Loopbacker:
 
         # Loop back well-known Osc Byte Sequences
 
-        osc_necks = [b"", b"10;?", b"11;?", b"12;", b"112"]
+        osc_necks = [b"", b"10;?", b"11;?", b"12;?", b"12", b"112"]
         if flags.google:
-            osc_necks.remove(b"12;")  # crashes 6/Dec/2025 Google Cloud Terminals
+            osc_necks.remove(b"12")  # crashes 6/Dec/2025 Google Cloud Terminals
 
         if head == b"\033]":
             if backtail in (b"\007", b"\033\134"):
@@ -2481,7 +2508,7 @@ class TerminalBoss:
 
         reads_ahead = kr.reads_ahead
         if reads_ahead:
-            logger.info(f"{reads_ahead=}")
+            logger.info(f"{reads_ahead=} {fileno=}")
 
         # Flush Output, drain Input, and change Input Mode
 
@@ -2957,6 +2984,71 @@ class KeyboardReader:
         # todo: one 'def kbhit' per project is exactly enough?
         # todo: keep 'def kbhit' paired up with 'def read_bytes' and 'def read_byte_frames'
 
+    def sample_luminance(self) -> float:
+        """Choose Darkmode & Lightmode by Backlight else by Color"""
+
+        tb = self.terminal_boss
+        sw = tb.screen_writer
+        reads_ahead = self.reads_ahead
+
+        # Sends ⎋]10;⇧?⌃G for reply ⎋]10;RGB⇧:{r}/{g}/{b}\007 for 10, 11, and 12
+
+        for osc in (10, 11, 12):  # 10 Color  # 11 Backlight  # 12 Cursor
+
+            dsr5 = "\033[5n"
+            sw.write_control(dsr5)
+
+            osc_control = f"\033]{osc};?\007"
+            sw.write_control(osc_control)
+
+            reads_endswith_rgb = self.read_bytes()
+            (reads, rgb) = self._bytes_split_osc_rgb_ints_(reads_endswith_rgb, osc=osc)
+
+            if rgb:
+                rep_rgb = "(" + ", ".join(f"0x{_:04X}" for _ in rgb) + ")"
+                logger.info(f"{osc=} rgb={rep_rgb}")
+
+            if reads:
+                m = re.search(rb"\033\[0n$", string=reads)
+                if m:
+                    logger.info(f"took {m.group(0)!r}")  # for Dsr 0 before Osc 10 11 12
+
+                    n = len(m.group(0))
+                    reads = reads[:-n]
+
+            if reads:
+                logger.info(f"{reads=} {osc_control=}")
+                reads_ahead.extend(reads)
+
+        # Succeed
+
+        return 0.0
+
+    def _bytes_split_osc_rgb_ints_(self, data: bytes, osc: int) -> tuple[bytes, tuple[int, ...]]:
+        """Split the Osc Byte Sequence off the end"""
+
+        encode = str(osc).encode()
+        m = re.search(
+            rb"\033]" + encode + rb";rgb:([0-9a-f]+)/([0-9a-f]+)/([0-9a-f]+)(\007|\033\134)$",
+            string=data,
+        )
+
+        startswith = data
+        int_list = list()
+
+        if m:
+            logger.info(f"took {m.group(0)!r}")  # for Osc 10 11 12
+
+            n = len(m.group(0))
+            startswith = data[:-n]
+
+            for g in range(1, 3 + 1):
+                i = int(m.group(g), base=0x10)
+                assert 0 <= i <= 0xFFFF, (i, m.group(g), data)
+                int_list.append(i)
+
+        return (startswith, tuple(int_list))
+
     def sample_hwyx(self) -> tuple[int, int, int, int]:
         """Take a fresh sample of Width x Height and Y X Cursor Position of this Terminal"""
 
@@ -2967,18 +3059,20 @@ class KeyboardReader:
         assert DSR0 == "\033[" "0n"
         assert DSR5 == "\033[" "5n"
 
-        sw.write_control("\033[5n")  # send ⎋[5N for reply ⎋[0n
-        yx_cpr = self.read_bytes()
+        sw.write_control("\033[5n")  # sends ⎋[5N for reply ⎋[0N
+        dsr0_bytes = self.read_bytes()
         (h, w, y, x) = (self.y_high, self.x_wide, self.row_y, self.column_x)
 
-        end = b"\033[0n"
-        assert yx_cpr.endswith(end), (yx_cpr, end)
-        n = len(end)
+        dsr0 = b"\033[0n"
+        assert dsr0_bytes.endswith(dsr0), (dsr0_bytes, dsr0)
+        # logger.info(f"took {dsr0}")
 
-        reads = yx_cpr[:-n]
+        n = len(dsr0)
+        reads = dsr0_bytes[:-n]
+
         if reads:
-            logger.info(f"{reads=}")
-            reads_ahead[0:0] = reads
+            logger.info(f"{reads=} {dsr0=}")
+            reads_ahead.extend(reads)
 
         # Move this KeyboardReader to this fresh H W Y X
 
@@ -2995,8 +3089,11 @@ class KeyboardReader:
 
         reads_ahead = self.reads_ahead
         if reads_ahead:
+            logger.info(f"{reads_ahead=}")
+
             reads = bytes(reads_ahead)
             reads_ahead.clear()
+
             return reads
 
         # Else take a Cursor Position Frame of Input Bytes from Terminal
@@ -3014,20 +3111,11 @@ class KeyboardReader:
     def _store_h_w_y_x_(self, h: int, w: int, y: int, x: int) -> None:
         """Limit & store the Height Width Y X of this Terminal"""
 
-        hw = (self.y_high, self.x_wide)
-        yx = (self.row_y, self.column_x)
-
-        if (h, w) != hw:
-            logger.info(f"to {w}x{h} from {self.x_wide}x{self.y_high}")
-
         assert h >= 5, (h,)  # todo: test of Terminals smaller than macOS Terminals
         assert w >= 20, (w,)  # todo: test of 9 Columns x 2 Rows at macOS iTerm2
 
         self.y_high = h
         self.x_wide = w
-
-        if (y, x) != yx:
-            logger.info(f"at {y};{x}H")
 
         assert Y1 <= y <= h, (y, h)
         assert X1 <= x <= w, (x, w)
@@ -3050,6 +3138,8 @@ class KeyboardReader:
 
         fd = fileno
         (w, h) = os.get_terminal_size(fd)
+        if (h, w) != (self.y_high, self.x_wide):
+            logger.info(f"took ⎋[8;{h};{w}T")
 
         # Succeed
 
@@ -3083,6 +3173,7 @@ class KeyboardReader:
             if flags.clickarrows:
                 sm = re.search(rb"(\033\[[ABCD])$", string=ba)  # ⎋[⇧A ⎋[⇧B ⎋[⇧C ⎋[⇧D
                 if sm:
+                    logger.info(f"took {sm.group(0)!r}")  # for flags.clickarrows
                     n = len(sm.group(0))
 
                     control = sm.group(0).decode()
@@ -3103,13 +3194,14 @@ class KeyboardReader:
                 column_x = int(sm.group(2))
 
                 del ba[-n:]
+                if (row_y, column_x) != (self.row_y, self.column_x):
+                    logger.info(f"took ⎋[{row_y};{column_x}⇧R")
 
                 assert row_y >= Y1, (row_y, column_x, ba)
                 assert column_x >= X1, (row_y, column_x, ba)
 
                 if not ba:  # eats first ⎋[ ⇧R, when ⎋[6N written before Def Entry
-                    logger.info("not ba")
-                    continue  # doesn't eat second ⎋[ ⇧R, because .row_y >= Y1 by now
+                    continue  # doesn't eat second ⎋[ ⇧R, because .row_y >= Y1 by then
 
                 if flags_lazy_kbhits:
                     break

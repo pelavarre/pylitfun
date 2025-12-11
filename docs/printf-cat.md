@@ -60,7 +60,7 @@ As for ⇧Fn→ Right and ⇧Fn← Left, iTerm2 will tell you that these are Key
 
     ^[[1;2F ^[[1;2H
 
-And Google Cloud Shell is up contradicting them both. It will say that you've pressed no keys at all, when you have pressed ⇧Fn and an Arrow Key 
+And Google Cloud Shell is up contradicting them both. It will say that you've pressed no keys at all, when you have pressed ⇧Fn and an Arrow Key
 
 
 ### The ⌥-Click across Lines of Vim or Emacs
@@ -114,6 +114,115 @@ You can show macOS Terminal asymmetrically only wraps ⎋[⇧D ← back into the
 
 > seq 99 |xargs <br>
 > python3 ./litglass.py --egg=clickruns <br>
+
+-->
+
+
+<!--
+
+macOS iTerm2 Terminal Theme
+
+    sampled in Darkmode at Dec/2025 Build 3.6.6
+
+    % printf '\033]10;?\007' && cat - >/dev/null && printf '\033]11;?\007' && cat - >/dev/null && printf '\033]12;?\007' && cat - >/dev/null
+    ^[]10;rgb:dcaa/dcab/dcaa^[\
+    ^[]11;rgb:158e/193a/1e75^[\
+    ^[]12;rgb:fffd/fffe/fffe^[\
+    %
+
+    sampled in Lightmode at Dec/2025 Build 3.6.6
+
+    % printf '\033]10;?\007' && cat - >/dev/null && printf '\033]11;?\007' && cat - >/dev/null && printf '\033]12;?\007' && cat - >/dev/null
+    ^[]10;rgb:1010/1010/1010^[\
+    ^[]11;rgb:fae0/fae0/fae0^[\
+    ^[]12;rgb:0000/0000/0000^[\
+    %
+
+Apple macOS Terminal Themes
+
+    sampled in Darkmode at Oct/2024 Sequoia macOS 15, patched up to 15.7.2 build 24G325
+
+    % # Basic
+    % printf '\033]10;?\007' && cat - >/dev/null && printf '\033]11;?\007' && cat - >/dev/null && printf '\033]12;?\007' && cat - >/dev/null
+    ^[]10;rgb:ffff/ffff/ffff^G
+    ^[]11;rgb:2020/2020/2020^G
+    ^[]12;rgb:9282/9282/9282^G
+    %
+
+    sampled in Lightmode at Oct/2024 Sequoia macOS 15, patched up to 15.7.2 build 24G325
+
+    % # Basic
+    % printf '\033]10;?\007' && cat - >/dev/null && printf '\033]11;?\007' && cat - >/dev/null && printf '\033]12;?\007' && cat - >/dev/null
+    ^[]10;rgb:0000/0000/0000^G
+    ^[]11;rgb:ffff/ffff/ffff^G
+    ^[]12;rgb:9dd1/9dd1/9dd1^G
+    %
+
+    % # Grass
+    % printf '\033]10;?\007' && cat - >/dev/null && printf '\033]11;?\007' && cat - >/dev/null && printf '\033]12;?\007' && cat - >/dev/null
+    ^[]10;rgb:ffff/f0f0/a5a5^G
+    ^[]11;rgb:1313/7777/3d3d^G
+    ^[]12;rgb:8e8e/2828/0000^G
+    %
+
+    % # Homebrew
+    % printf '\033]10;?\007' && cat - >/dev/null && printf '\033]11;?\007' && cat - >/dev/null && printf '\033]12;?\007' && cat - >/dev/null
+    ^[]10;rgb:2828/fefe/1414^G
+    ^[]11;rgb:0000/0000/0000^G
+    ^[]12;rgb:3838/fefe/2727^G
+    %
+
+    % # Man Page
+    % printf '\033]10;?\007' && cat - >/dev/null && printf '\033]11;?\007' && cat - >/dev/null && printf '\033]12;?\007' && cat - >/dev/null
+    ^[]10;rgb:0000/0000/0000^G
+    ^[]11;rgb:fefe/f4f4/9c9c^G
+    ^[]12;rgb:9dd1/9dd1/9dd1^G
+    %
+
+    % # Novel
+    % printf '\033]10;?\007' && cat - >/dev/null && printf '\033]11;?\007' && cat - >/dev/null && printf '\033]12;?\007' && cat - >/dev/null
+    ^[]10;rgb:4d23/2efb/2d4b^G
+    ^[]11;rgb:dfff/dba4/c3ff^G
+    ^[]12;rgb:3a3a/2323/2222^G
+    %
+
+    % # Ocean
+    % printf '\033]10;?\007' && cat - >/dev/null && printf '\033]11;?\007' && cat - >/dev/null && printf '\033]12;?\007' && cat - >/dev/null
+    ^[]10;rgb:ffff/ffff/ffff^G
+    ^[]11;rgb:2b5f/66a6/c977^G
+    ^[]12;rgb:9dd1/9dd1/9dd1^G
+    %
+
+    % # Pro
+    % printf '\033]10;?\007' && cat - >/dev/null && printf '\033]11;?\007' && cat - >/dev/null && printf '\033]12;?\007' && cat - >/dev/null
+    ^[]10;rgb:f54f/f54f/f54f^G^D
+    ^[]11;rgb:0000/0000/0000^G
+    ^[]12;rgb:600f/600f/600f^G
+    %
+
+    % # Red Sands
+    % printf '\033]10;?\007' && cat - >/dev/null && printf '\033]11;?\007' && cat - >/dev/null && printf '\033]12;?\007' && cat - >/dev/null
+    ^[]10;rgb:d7d7/c9c9/a7a7^G
+    ^[]11;rgb:8eac/34e2/276e^G
+    ^[]12;rgb:ffff/ffff/ffff^G
+    %
+
+    % # Silver Aerogel
+    % printf '\033]10;?\007' && cat - >/dev/null && printf '\033]11;?\007' && cat - >/dev/null && printf '\033]12;?\007' && cat - >/dev/null
+    ^[]10;rgb:0000/0000/0000^G
+    ^[]11;rgb:9282/9282/9282^G
+    ^[]12;rgb:e101/e101/e101^G
+    %
+
+    % # Solid Colors
+    % printf '\033]11;?\007' && cat - >/dev/null
+    ^[]11;rgb:ffff/ffff/ffff^G
+    %
+    % printf '\033]10;?\007' && cat - >/dev/null && printf '\033]11;?\007' && cat - >/dev/null && printf '\033]12;?\007' && cat - >/dev/null
+    ^[]10;rgb:0000/0000/0000^G
+    ^[]11;rgb:ffff/ffff/ffff^G
+    ^[]12;rgb:cb95/cb95/cb95^G
+    %
 
 -->
 
