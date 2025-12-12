@@ -3030,9 +3030,11 @@ class KeyboardReader:
         dark = light = False
 
         if 11 in rgb_by_osc.keys():
-            (r, g, b) = rgb_by_osc[11]
-            if (r + g + b) < 30_000:  # todo9: less simple Terminal Luminance models
-                dark = True
+            rgb = rgb_by_osc[11]
+            if rgb:
+                (r, g, b) = rhb
+                if (r + g + b) < 30_000:  # todo9: less simple Terminal Luminance models
+                    dark = True
 
         # Succeed
 
