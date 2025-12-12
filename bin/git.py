@@ -585,6 +585,8 @@ class GitGopher:
                     tweaked_shargv = shargv[:1] + ("HEAD~" + sharg,)
                     return tweaked_shargv
 
+            return shargv
+
         assert not shline_plus.startswith("git rebase -i "), (shline_plus, shverb)
 
         # Convert to '|grep -ai -e ... -e ...' and fall through, else don't
