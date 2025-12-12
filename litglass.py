@@ -1088,7 +1088,7 @@ class SquaresGame:
 
         # todo4: ⇥ autoruns Shuffles till one is about to work, then stops there
 
-        # todo4: seq 99 && @ --seed='2025-12-08 08:01:46' --egg=squares
+        # todo4: too fast quit @ seq 99 && @ --seed='2025-12-08 08:01:46' --egg=squares
 
     def sq_game_form(self) -> None:
         """Fill the Board with Tiles"""
@@ -1148,7 +1148,11 @@ class SquaresGame:
         h = len(squares)
         for y in range(h):
             by_x = by_y_by_x[y]
+
             y_text = "".join(by_x.values())
+            if flags.darkmode:
+                y_text = y_text.replace("⬜", "⬛")
+
             sw.write_printable(dent + y_text + dent)
             sw.write_some_controls(["\r", "\n"])
 
@@ -1299,7 +1303,7 @@ class SquaresGame:
             by_x = by_y_by_x[y]
             for xw in range(x, x + wide):
 
-                by_x[xw] = "⬜"  # todo5: Darkmode
+                by_x[xw] = "⬜"
 
     def sq_empty_south_poles(self, south_poles: list[tuple[int, int, int]]) -> None:
         """Erase each Cell of each South Pole"""
@@ -1311,7 +1315,7 @@ class SquaresGame:
             for ys in range(y, y + high):
                 by_x = by_y_by_x[ys]
 
-                by_x[x] = "⬜"  # todo5: Darkmode
+                by_x[x] = "⬜"
 
     def sq_fall_south_into_empty_cells(self) -> int:
         """Across the South, fall from the North"""
@@ -1546,12 +1550,11 @@ class Loopbacker:
                     flags.mobile = True
 
             if flags.games:
-                luminance = 0.5
-                # luminance = kr.sample_luminance()
-                if (luminance < -0.75) or (luminance > 0.75):
-                    flags.lightmode = True
-                elif (luminance >= -0.25) and (luminance <= 0.25):
-                    flags.darkmode = True
+                (dark, light) = kr.guess_dark_light()
+                if (not dark) and (not light):
+                    dark = flags.google  # todo9: discover don't guess Google Cloud Shell Darkmode
+                flags.darkmode |= dark
+                flags.lightmode |= light
 
             if flags.scrollback:
                 if y > 1:
@@ -2984,8 +2987,8 @@ class KeyboardReader:
         # todo: one 'def kbhit' per project is exactly enough?
         # todo: keep 'def kbhit' paired up with 'def read_bytes' and 'def read_byte_frames'
 
-    def sample_luminance(self) -> float:
-        """Choose Darkmode & Lightmode by Backlight else by Color"""
+    def guess_dark_light(self) -> tuple[bool, bool]:
+        """Choose Darkmode or Lightmode or neither Backlight"""
 
         tb = self.terminal_boss
         sw = tb.screen_writer
@@ -2993,6 +2996,7 @@ class KeyboardReader:
 
         # Sends ⎋]10;⇧?⌃G for reply ⎋]10;RGB⇧:{r}/{g}/{b}\007 for 10, 11, and 12
 
+        rgb_by_osc = dict()
         for osc in (10, 11, 12):  # 10 Color  # 11 Backlight  # 12 Cursor
 
             dsr5 = "\033[5n"
@@ -3004,6 +3008,7 @@ class KeyboardReader:
             reads_endswith_rgb = self.read_bytes()
             (reads, rgb) = self._bytes_split_osc_rgb_ints_(reads_endswith_rgb, osc=osc)
 
+            rgb_by_osc[osc] = rgb
             if rgb:
                 rep_rgb = "(" + ", ".join(f"0x{_:04X}" for _ in rgb) + ")"
                 logger.info(f"{osc=} rgb={rep_rgb}")
@@ -3020,9 +3025,18 @@ class KeyboardReader:
                 logger.info(f"{reads=} {osc_control=}")
                 reads_ahead.extend(reads)
 
+        # React to way low Backlight
+
+        dark = light = False
+
+        if 11 in rgb_by_osc.keys():
+            (r, g, b) = rgb_by_osc[11]
+            if (r + g + b) < 30_000:  # todo9: less simple Terminal Luminance models
+                dark = True
+
         # Succeed
 
-        return 0.0
+        return (dark, light)
 
     def _bytes_split_osc_rgb_ints_(self, data: bytes, osc: int) -> tuple[bytes, tuple[int, ...]]:
         """Split the Osc Byte Sequence off the end"""
@@ -4830,7 +4844,7 @@ def _try_unicode_source_texts_() -> None:
     #
 
     #
-    # macOS Terminal Themes  # todo5: survey Color & Highlight via Osc 10 11
+    # macOS Terminal Themes  # see also docs/rgb-themes.py
     #
     #   Basic
     #   Grass
