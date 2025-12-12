@@ -121,12 +121,15 @@ Sometimes it doesn't
 
 ### 2.6 Printing a double-wide Character moves the Terminal Cursor by two Columns
 
+This does work in some Terminals. But at a Google Cloud Shell you have to move the Cursor an extra Column to the Right yourself
+
     python3 -c '''
 
     import unicodedata
     o = unicodedata.lookup("Large Orange Circle")
     y = unicodedata.lookup("Large Yellow Circle")
     print(o + y)
+    print(o + "\033[C" + y)
 
     '''
 

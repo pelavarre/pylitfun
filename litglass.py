@@ -2609,15 +2609,16 @@ class ScreenWriter:
                 self._write_encode_(printable)
                 return
 
-        # Else trust the Terminal to write well, except to stop the Cursor at X + 1, not at X + 2
+        # Else trust the Terminal to write well, ecept to stop the Cursor at X + 1, not at X + 2
 
         for t in text:
             self._write_encode_(t)
             eaw = unicodedata.east_asian_width(t)
             if eaw in ("Fullwidth"[0], "Wide"[0]):
-                self.write_control("\033[C")
-                if not _os_environ_get_cloud_shell_:  # separate from .flags.google
-                    self.write_control("\033[D")
+                if _os_environ_get_cloud_shell_:  # separate from .flags.google
+                    self.write_control("\033[C")
+
+                    # todo8: double-wide chars in the far East and far Southeast
 
         # "Ambiguous"[0]  # ¡ ¤ § ® Ø ß ± ¶ ↖ ↗ ↘ ↙ € Ω Ⅷ 
         # "Narrow"[:2]  # ¢ and £ and the Printable US Ascii
@@ -2629,6 +2630,7 @@ class ScreenWriter:
 
         # also Wide are ♿ ⚪⚫ ⬛⬜ 🔰 🔴🔵 😃 🛼 🟠🟡🟢🟣🟤 🟥🟦🟧🟨🟩🟪🟫
 
+        # todo: every mention of  in Source makes Code Patches difficult to send across platforms
         # todo: shrink the distribution of '.replace("", "-").isprintable'
 
     def write_some_controls(self, texts: typing.Iterable[str]) -> None:
