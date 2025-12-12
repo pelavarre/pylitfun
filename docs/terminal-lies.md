@@ -1,0 +1,216 @@
+<!-- omit in toc -->
+# terminal-lies
+
+Lies that too many Terminal Programs tell themselves
+
+- [1. Input Key Chords read from the Terminal Touch/ Tap/ Key Press/ Release](#1-input-key-chords-read-from-the-terminal-touch-tap-key-press-release)
+  - [1.1 Each different Key Chord sends different Bytes](#11-each-different-key-chord-sends-different-bytes)
+  - [1.2 Key Chords send the same Bytes through your Terminal and mine](#12-key-chords-send-the-same-bytes-through-your-terminal-and-mine)
+  - [1.3 Different Key Chords that send different Bytes through your Terminal likewise send different Bytes through mine](#13-different-key-chords-that-send-different-bytes-through-your-terminal-likewise-send-different-bytes-through-mine)
+  - [1.4 Key Chords that send Bytes through your Terminal also send Bytes through mine](#14-key-chords-that-send-bytes-through-your-terminal-also-send-bytes-through-mine)
+  - [1.5 You can know when the Bytes of one Key Chord end before the start of the next](#15-you-can-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
+  - [1.6 You can't know when the Bytes of one Key Chord end before the start of the next](#16-you-cant-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
+- [2. Output Characters written to the Terminal Screen](#2-output-characters-written-to-the-terminal-screen)
+  - [2.1 Every Character looks a little different when printed](#21-every-character-looks-a-little-different-when-printed)
+  - [2.2 Every Character can be encoded as a UTF-8 SurrogateEscape Byte Sequence](#22-every-character-can-be-encoded-as-a-utf-8-surrogateescape-byte-sequence)
+  - [2.3 Every well-loved Character has one distinct Python UnicodeData Name](#23-every-well-loved-character-has-one-distinct-python-unicodedata-name)
+  - [2.4 Every Python Character found by UnicodeData Lookup has a Python UnicodeData Name](#24-every-python-character-found-by-unicodedata-lookup-has-a-python-unicodedata-name)
+  - [2.6 Printing a double-wide Character moves the Terminal Cursor by two Columns](#26-printing-a-double-wide-character-moves-the-terminal-cursor-by-two-columns)
+  - [2.7 Printing an Escape Sequence won't close all your Terminal Tabs](#27-printing-an-escape-sequence-wont-close-all-your-terminal-tabs)
+- [3. Terminal Capability Discovery \& Negotiation](#3-terminal-capability-discovery--negotiation)
+  - [3.1 Every Terminal reports if it's a Darkmode Terminal or a Lightmode Terminal](#31-every-terminal-reports-if-its-a-darkmode-terminal-or-a-lightmode-terminal)
+  - [3.2 Python "import pty" doesn't change the Colors negotiated by Vim](#32-python-import-pty-doesnt-change-the-colors-negotiated-by-vim)
+- [4. Copying Characters out from the Terminal and pasting Characters back into the Terminal](#4-copying-characters-out-from-the-terminal-and-pasting-characters-back-into-the-terminal)
+  - [4.1 You can copy in what you please](#41-you-can-copy-in-what-you-please)
+  - [4.2 You can copy out what you please](#42-you-can-copy-out-what-you-please)
+
+
+## 1. Input Key Chords read from the Terminal Touch/ Tap/ Key Press/ Release
+
+### 1.1 Each different Key Chord sends different Bytes
+
+    cat - >/dev/null
+        # press Esc
+        # press ⇧ Esc
+            # see the same ^[ from both
+
+### 1.2 Key Chords send the same Bytes through your Terminal and mine
+
+    cat - >/dev/null
+        # press ⌥←
+            # see ^[b at Apple macOS Terminal
+            # see ^[[1;3D at Open-Source macOS iTerm2
+
+### 1.3 Different Key Chords that send different Bytes through your Terminal likewise send different Bytes through mine
+
+    cat - >/dev/null
+        # press ↓
+        # press ⇧↓
+            # see ^[B twice at Apple macOS Terminal
+            # see ^[B from ↓ and ^[[1;2B from ⇧↓ at Open-Source macOS iTerm2
+
+### 1.4 Key Chords that send Bytes through your Terminal also send Bytes through mine
+
+    cat - >/dev/null
+        # press ⇧ Fn F1
+            # ring the bell to say don't do that, at Apple macOS Terminal, till after you reconfigure it
+            # see ^[[1;2P at Open-Source macOS iTerm2
+
+### 1.5 You can know when the Bytes of one Key Chord end before the start of the next
+
+    cat - >/dev/null
+        # press Esc
+        # press ←
+            # see ^[ said for Esc
+            # see ^[[D said for ←, starts with same Byte
+
+### 1.6 You can't know when the Bytes of one Key Chord end before the start of the next
+
+    sleep 1 && printf '\033[5n' && cat - >/dev/null
+        # press Esc during the Sleep
+        # see the ^[[0n from the ^[[5n arrives after the Esc, showing the end of its Bytes
+
+## 2. Output Characters written to the Terminal Screen
+
+### 2.1 Every Character looks a little different when printed
+
+    printf '_\040_ U+0020 Space\n'
+    printf '_\302\240_ U+00A0 No-Break Space\n'
+
+    cat - >/dev/null
+        # press Spacebar
+        # press ⌥ Spacebar
+
+### 2.2 Every Character can be encoded as a UTF-8 SurrogateEscape Byte Sequence
+
+Often it works
+
+    >>> b"\xc0\x80".decode(errors="surrogate""escape")
+    '\udcc0\udc80'
+    >>> 
+    >>> "\udcc0\udc80".encode(errors="surrogate""escape")
+    b'\xc0\x80'
+    >>> 
+
+Sometimes it doesn't
+
+    >>> "\ud800".encode(errors="surrogate""escape")
+    Traceback (most recent call last):
+    File "<stdin>", line 1, in <module>
+    UnicodeEncodeError: 'utf-8' codec can't encode character '\ud800' in position 0: surrogates not allowed
+    >>> 
+
+### 2.3 Every well-loved Character has one distinct Python UnicodeData Name
+
+    python3 -c 'import unicodedata; print(unicodedata.name(b"\302\240".decode()).title())'
+        # see they say No-Break Space, hurrah, but next look below
+
+    python3 -c 'import unicodedata; print(hex(ord(unicodedata.lookup("EOM"))))'          
+    python3 -c 'import unicodedata; print(hex(ord(unicodedata.lookup("End Of Medium"))))'
+        # see they both say 0x19
+
+    python3 -c 'import unicodedata; print(unicodedata.name("\000").title())'
+    python3 -c 'import unicodedata; print(unicodedata.name("\012").title())'
+        # see they say ValueError for U+0000 Null
+        # see they again say ValueError, now for U+000A Line Feed
+
+### 2.4 Every Python Character found by UnicodeData Lookup has a Python UnicodeData Name
+
+    python3 -c 'import unicodedata; print(unicodedata.name("\x19").title())'
+        # see they again say ValueError
+
+### 2.6 Printing a double-wide Character moves the Terminal Cursor by two Columns
+
+    python3 -c '''
+
+    import unicodedata
+    o = unicodedata.lookup("Large Orange Circle")
+    y = unicodedata.lookup("Large Yellow Circle")
+    print(o + y)
+
+    '''
+
+### 2.7 Printing an Escape Sequence won't close all your Terminal Tabs
+
+Unlock https://shell.cloud.google.com/?show=terminal with your gMail Username & Password. You can ignore the many upsells, you can always choose Reject. If you slip and fail to choose Reject, it still gives you a second chance to choose Reject
+
+Then try
+
+    printf '\033]12;#''ff0000\007' && sleep 1 && printf '\033]112\007'
+
+Watch it close all your Terminal Tabs. Oops
+
+
+## 3. Terminal Capability Discovery & Negotiation
+
+### 3.1 Every Terminal reports if it's a Darkmode Terminal or a Lightmode Terminal
+
+Apple macOS Terminal & Open-Source macOS iTerm2, yes
+
+Google Cloud Shell, no
+
+Try the Osc 11 Query of a 16-bit R G B encoding of the default Backlight behind foreground Color
+
+    % printf '\033[5n''\033]11;?\007' && cat - >/dev/null                                                       
+    ^[[0n^[]11;rgb:2020/2020/2020^G
+
+That's what it looks like when it works. When it doesn't work, it silently ignores the Osc 11
+
+    % printf '\033[5n''\033]11;?\007' && cat - >/dev/null                                                       
+    ^[[0n
+
+### 3.2 Python "import pty" doesn't change the Colors negotiated by Vim
+
+Last time I checked, the orange went missing
+
+
+## 4. Copying Characters out from the Terminal and pasting Characters back into the Terminal
+
+### 4.1 You can copy in what you please
+
+Try pasting in a U+0008 Backspace
+
+    printf '\010' |pbcopy && cat - >/dev/null
+
+At Open-Source macOS iTerm2, it just doesn't work
+
+At Apple macOS Terminal, it pops up a dialog to yell at you
+> Paste control characters? <br>
+> The text contains control characters which could allow the pasted content to perform arbitrary commands. <br>
+> To confirm and Paste, you can use ⇧ ⌘ ⏎  <br>
+> &lt;Paste&gt; &lt;Paste without Control Characters&gt; &lt;Cancel&gt;
+
+### 4.2 You can copy out what you please
+
+Putting U+0009 Tab into the text can matter. Like you can get Slack to paste Tsv. You can also paste as Tsv into ⇧ ⌘ V at Google's sheets.new > Edit > Paste Special > Values Only
+
+    printf 'Alfa\tBravo\tCharlie\n''A1\tB1\tC1\n''A2\tB2\tC2\n' |pbcopy
+
+Putting Backlights and Colors into the text can matter. Like you can get a Google docs.new to show the Colors
+
+    % printf '\033[31m''\033[103m''31 on 103\n'
+    31 on 103
+    % 
+
+Slack doesn't do Colors generally, but Slack does understand monospacing the 9 Comic Colors of Unicode. Odds on your Markdown Viewer feels this figure is assymetric, not a regular square. If that's so, then your Markdown Viewer is wrong
+
+          ⚪⚪⚪⚪⚪
+          ⚪🔴🔴🔴⚪
+      ⚪⚪⚪⚪⚪⚪⚪⚪⚪
+      ⚪🔴⚪⚪⚪⚪⚪🔴⚪
+      ⚪🔴⚪⚪⚪⚪⚪🔴⚪
+      ⚪🔴⚪⚪⚪⚪⚪🔴⚪
+      ⚪⚪⚪⚪⚪⚪⚪⚪⚪
+          ⚪🔴🔴🔴⚪
+          ⚪⚪⚪⚪⚪
+
+<!--
+
+todo: show when same Bytes have different meanings from Keyboard or to Screen
+
+todo: show when Screen Bytes can call for Keyboard Reply which calls for more Reply if echoed
+
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/docs/terminal-lies.md
+# copied from:  git clone https://github.com/pelavarre/pylitfun.git
+
+-->
