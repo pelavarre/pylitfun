@@ -147,7 +147,7 @@ class Flags:
 
     _assert_: bool = False  # assert False before doing much
     byteloop: bool = False  # loop back without adding latencies
-    color_picker: bool = False  # show Color choices and tweak them
+    color_picker: bool = False  # show Color Choices and tweak them
     echoes: bool = False  # echo the Control Sequences as they loopback
     keycaps: bool = False  # launch our Keyboard-Viewer of Leycaps
     _repr_: bool = False  # loop the Repr, not the Str
@@ -555,7 +555,7 @@ class ColorPickerGame:
 
         for _ in range(3):
 
-            sw.write_printable(dent)  # todo7: split controls from printables
+            sw.write_printable(dent)  # todo3: add def to split controls from printables
             sw.write_printable("█")
             sw.write_control("\033[2C")
             sw.write_printable("██")
@@ -1073,18 +1073,29 @@ class SquaresGame:
 
         self.sq_game_draw()
 
-        # Run till Quit
+        # Run till Quit  # 13:44:20 13:56:57.721291861
+
+        min_steps = 5e6 + 1  # passed in 13m at --seed='2025-12-13 10:34:03'
+        min_steps = -1  # last wins
 
         max_strikes = 0
+
         self.steps -= 1
         while True:
             self.steps += 1
 
-            # Read Input
+            # Read or fabricate Input
+
+            if self.steps > min_steps:
+                kr.kbhit(timeout=None)
+                kbhit = True
+            else:
+                kbhit = kr.kbhit(timeout=0)
+                if kbhit:
+                    min_steps = self.steps
 
             frames: tuple[bytes, ...] = (b" ",)
-            if self.steps > 100_000:
-                kr.kbhit(timeout=None)
+            if kbhit:
                 frames = kr.read_byte_frames()
 
             # Eval Input and print Output
@@ -1102,11 +1113,13 @@ class SquaresGame:
             # Quit at can't move
 
             if not self.sq_find_moves():
+                self.sq_logger_info_reprs(f"quit at no moves {max_strikes=}")
                 break
 
             # Quit at ⌃C
 
             if b"\003" in frames:
+                self.sq_logger_info_reprs(f"quit by ⌃C {max_strikes=}")
                 break
 
         sw.write_control("\033[2A")
@@ -1119,12 +1132,8 @@ class SquaresGame:
         sw.print()
         sw.print()  # twice
 
-        # todo4: bias the Row from above to reward Column Shuffle of middle
-        # todo4: bias the Column from above to reward Row Shuffle of middle
-
-        # todo4: ⇥ autoruns Shuffles till one is about to work, then stops there
-
-        # todo4: too fast quit @ seq 99 && @ --seed='2025-12-08 08:01:46' --egg=squares
+        # todo6: Squares ⇥ autoruns Shuffles till what
+        # todo6: Squares ⇥ autoruns Shuffles till just before one works
 
     def sq_game_form(self) -> None:
         """Fill the Board with Tiles"""
@@ -1204,7 +1213,7 @@ class SquaresGame:
         sw.print("Press ⌃C")  # todo5: overwrite with "Press Spacebar"
         sw.print()
 
-        # todo6: find the ⌥-click on the board
+        # todo5: have the ⌥-click on the board flip tiles through colors
 
         # todo7: rotate gravity to match arrow, and drag perpendicular to gravity
 
@@ -1403,7 +1412,7 @@ class SquaresGame:
 
         return falls
 
-    def sq_y_x_choice(self, y: int, x: int) -> str:
+    def _sq_y_x_choice_(self, y: int, x: int) -> str:
         """Choose pseudo randomly to show sticking points"""
 
         assert y == 0, (y, x)
@@ -1413,14 +1422,14 @@ class SquaresGame:
 
         squares = SquaresGame.Squares
 
-        # Pull down random choices till stuck
+        # Pull down pseudo random Choices
 
         self.sq_logger_info_reprs(y, x, "random choice")
         tn = r.choice(squares)
 
         return tn
 
-    def _sq_y_x_choice_(self, y: int, x: int) -> str:
+    def sq_y_x_choice(self, y: int, x: int) -> str:
         """Choose less randomly to run for longer"""
 
         assert y == 0, (y, x)
@@ -1434,7 +1443,7 @@ class SquaresGame:
 
         squares = SquaresGame.Squares
 
-        # Pull down random choices till stuck
+        # Pull down pseudo random Choices till stuck
 
         if self.sq_find_shuffle_moves():
             self.sq_logger_info_reprs(y, x, "random choice")
@@ -1443,34 +1452,21 @@ class SquaresGame:
 
         choices = list()
 
-        # Bias for the two-of-a-kind Color in this Row, if it exists
-
-        y_by_x = by_y_by_x[y]
-        y_cells = list(y_by_x[_] for _ in range(x_wide))
-
-        count_by_xt = collections.Counter(y_cells)
-        xt_fuzz = count_by_xt["⬜"]
-        assert xt_fuzz >= 1, (xt_fuzz, y_cells)
-
-        for xt, count in count_by_xt.items():
-            if xt == "⬜":
-                continue
-
-            assert count < 3, (count, xt)  # because not .sq_find_shuffle_moves
-            if (count + (xt_fuzz - 1)) >= 2:
-                choices.append(xt)
-
-        # Bias for the two-of-a-kind Color in this Column, if it exists
+        # Look down the Column to focus in the Row where the Choice could land
 
         x_cells = list()
         for ys in range(y_high):
             ys_by_x = by_y_by_x[ys]
-            t = ys_by_x[x]
-            x_cells.append(t)
+            yt = ys_by_x[x]
+            x_cells.append(yt)
 
         count_by_yt = collections.Counter(x_cells)
         yt_fuzz = count_by_yt["⬜"]
         assert yt_fuzz >= 1, (yt_fuzz, x_cells)
+
+        yf = yt_fuzz - 1
+
+        # Bias for the two-of-a-kind Color in this Column, if it exists
 
         for yt, count in count_by_yt.items():
             if yt == "⬜":
@@ -1479,6 +1475,22 @@ class SquaresGame:
             assert count < 3, (count, yt)  # because not .sq_find_shuffle_moves
             if (count + (yt_fuzz - 1)) >= 2:
                 choices.append(yt)
+
+        # Bias for the two-of-a-kind Color in that Row, if it exists
+
+        yf_by_x = by_y_by_x[yf]
+        yf_cells = list(yf_by_x[_] for _ in range(x_wide))
+
+        count_by_xt = collections.Counter(yf_cells)
+        xt_fuzz = count_by_xt["⬜"]
+
+        for xt, count in count_by_xt.items():
+            if xt == "⬜":
+                continue
+
+            assert count < 3, (count, xt)  # because not .sq_find_shuffle_moves
+            if (count + (max(xt_fuzz, 1) - 1)) >= 2:
+                choices.append(xt)
 
         # Pull down random choices when all choices unstick us
 
@@ -1495,6 +1507,8 @@ class SquaresGame:
         tn = r.choice(choices)
 
         return tn
+
+        # todo9: a mathematically sound .sq_y_x_choice
 
     def sq_columns_shuffle(self) -> None:
         """Shuffle the Columns"""
@@ -1525,6 +1539,8 @@ class SquaresGame:
                 by_x2 = by_y_by_x[y]
                 by_x2[x2] = t_list.pop(0)
 
+        # todo4: push just 1 column to the westmost, but tile by tile
+
     def sq_rows_shuffle(self) -> None:
         """Shuffle the Rows"""
 
@@ -1553,6 +1569,8 @@ class SquaresGame:
             for x in range(x_wide):
                 by2_x = by_y_by_x[y2]
                 by2_x[x] = t_list.pop(0)
+
+        # todo4: push just 1 row to the northmost but tile by tile
 
     def sq_find_moves(self) -> bool:
         """Say if progress is possible"""
@@ -1626,7 +1644,7 @@ class SquaresGame:
 #
 
 
-class Loopbacker:  # todo6: rename to Class Terminal
+class Loopbacker:  # todo3: rename to Class Terminal
     """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
 
     selves: list[Loopbacker] = list()
@@ -1713,7 +1731,7 @@ class Loopbacker:  # todo6: rename to Class Terminal
             if not flags.enter:
                 sw.write_control("\033[?1006;1000h")  # sgr-mouse-take
 
-            # sw.write_control("\033[?2004h")  # paste-wrap  # todo8:
+            # sw.write_control("\033[?2004h")  # paste-wrap  # todo3:
 
         return self
 
@@ -1729,8 +1747,7 @@ class Loopbacker:  # todo6: rename to Class Terminal
             if flags.mobile:
                 sw.write_control("\033[?1006;1000l")  # mouse-give
 
-        # if not flags.enter:  # todo8:
-
+        # if not flags.enter:  # todo3:
         #     sw.write_control("\033[?2004l")  # paste-unwrap ⎋[?2004L
 
         if not flags._exit_:
@@ -3123,15 +3140,17 @@ class KeyboardReader:
     # and update the H W Y X of this KeyboardReader
     #
 
-    def kbhit(self, timeout: float | None = None) -> None:
+    def kbhit(self, timeout: float | None = None) -> bool:
         """Block till next Input Byte, else till Timeout, else till forever"""
 
         reads_ahead = self.reads_ahead
         if reads_ahead:
-            return
+            return True
 
         tb = self.terminal_boss
-        tb.stdio_select_select(timeout=timeout)  # a la msvcrt.kbhit
+        hit = tb.stdio_select_select(timeout=timeout)  # a la msvcrt.kbhit
+
+        return hit
 
         # todo: one 'def kbhit' per project is exactly enough?
         # todo: keep 'def kbhit' paired up with 'def read_bytes' and 'def read_byte_frames'
@@ -4143,7 +4162,7 @@ class KeyboardDecoder:
             assert k not in decode_by_kseq.keys(), (k,)
             decode_by_kseq[k] = v
 
-        # Add the ⌥ and ⇧ Arrows  # todo8: differently at Apple vs others
+        # Add the ⌥ and ⇧ Arrows  # todo3: differently at Apple vs others
 
         d4 = {
             r"⌥↑": d3[r"↑"],
@@ -5090,13 +5109,13 @@ if __name__ == "__main__":
     main()
 
 
-# todo8: drop Keycaps specific to macOS Terminal, when elsewhere
-# todo8: add iTerm2 Keycaps
-# todo8: add Google Cloud Shell Keycaps
+# todo3: drop Keycaps specific to macOS Terminal, when elsewhere
+# todo3: add iTerm2 Keycaps
+# todo3: add Google Cloud Shell Keycaps
 
 
-# todo9: take bracketed-paste as print vertically
-# todo9: take unbracketed-paste as print vertically to left of rightmost tracked chars
+# todo3: take bracketed-paste as print vertically
+# todo3: take unbracketed-paste as print vertically to left of rightmost tracked chars
 
 
 # todo9: --egg=keycaps: add Keycaps of 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
