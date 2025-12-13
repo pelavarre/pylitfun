@@ -55,8 +55,11 @@ class GrepGopher:
         assert shverb, (shfile_shargv, shverb)
         shverb_shargv = (shverb, *shfile_shargv[1:])
 
-        if shverb_shargv[0] != "g":
-            raise NotImplementedError(shverb_shargv)
+        alt_shverb = shverb_shargv[0]
+        if alt_shverb != "g":
+            _ = NotImplementedError(alt_shverb)
+            print(f"NotImplementedError: {alt_shverb!r} in a pipe", file=sys.stderr)
+            sys.exit(2)  # exits 2 for bad args
 
         if not shverb_shargv[1:]:
             print("usage: |grep.py SHWORD [SHWORD ...]", file=sys.stderr)

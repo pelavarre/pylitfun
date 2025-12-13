@@ -10,6 +10,7 @@ Lies that too many Terminal Programs tell themselves
   - [1.4 Key Chords that send Bytes through your Terminal also send Bytes through mine](#14-key-chords-that-send-bytes-through-your-terminal-also-send-bytes-through-mine)
   - [1.5 You can know when the Bytes of one Key Chord end before the start of the next](#15-you-can-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
   - [1.6 You can't know when the Bytes of one Key Chord end before the start of the next](#16-you-cant-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
+  - [1.7 Key Chords send the same Character through your App and mine](#17-key-chords-send-the-same-character-through-your-app-and-mine)
 - [2. Output Characters written to the Terminal Screen](#2-output-characters-written-to-the-terminal-screen)
   - [2.1 Every Character looks a little different when printed](#21-every-character-looks-a-little-different-when-printed)
   - [2.2 Every Character can be encoded as a UTF-8 SurrogateEscape Byte Sequence](#22-every-character-can-be-encoded-as-a-utf-8-surrogateescape-byte-sequence)
@@ -20,6 +21,7 @@ Lies that too many Terminal Programs tell themselves
 - [3. Terminal Capability Discovery \& Negotiation](#3-terminal-capability-discovery--negotiation)
   - [3.1 Every Terminal reports if it's a Darkmode Terminal or a Lightmode Terminal](#31-every-terminal-reports-if-its-a-darkmode-terminal-or-a-lightmode-terminal)
   - [3.2 Python "import pty" doesn't change the Colors negotiated by Vim](#32-python-import-pty-doesnt-change-the-colors-negotiated-by-vim)
+  - [3.3 Escape Sequences can tell a Terminal Cursor in 2025 to step towards the 8 Points of the Compass](#33-escape-sequences-can-tell-a-terminal-cursor-in-2025-to-step-towards-the-8-points-of-the-compass)
 - [4. Copying Characters out from the Terminal and pasting Characters back into the Terminal](#4-copying-characters-out-from-the-terminal-and-pasting-characters-back-into-the-terminal)
   - [4.1 You can copy in what you please](#41-you-can-copy-in-what-you-please)
   - [4.2 You can copy out what you please](#42-you-can-copy-out-what-you-please)
@@ -70,6 +72,15 @@ Lies that too many Terminal Programs tell themselves
         # press Esc during the Sleep
         # see the ^[[0n from the ^[[5n arrives after the Esc, showing the end of its Bytes
 
+### 1.7 Key Chords send the same Character through your App and mine
+
+    cat - >/dev/null
+        # press ⌥ Y
+            # See ¥ inside most macOS Apps
+            # See \ inside the Terminal, in homage to Japanese Tech of the past century
+
+Understand here we mean the 2 Key Chord of hold down the ⌥ Option/Alt Key while you press and release the Y Key, there is no ⌥⇧Y 3 Key Chord here
+
 ## 2. Output Characters written to the Terminal Screen
 
 ### 2.1 Every Character looks a little different when printed
@@ -87,10 +98,10 @@ Often it works
 
     >>> b"\xc0\x80".decode(errors="surrogate""escape")
     '\udcc0\udc80'
-    >>> 
+    >>>
     >>> "\udcc0\udc80".encode(errors="surrogate""escape")
     b'\xc0\x80'
-    >>> 
+    >>>
 
 Sometimes it doesn't
 
@@ -98,14 +109,14 @@ Sometimes it doesn't
     Traceback (most recent call last):
     File "<stdin>", line 1, in <module>
     UnicodeEncodeError: 'utf-8' codec can't encode character '\ud800' in position 0: surrogates not allowed
-    >>> 
+    >>>
 
 ### 2.3 Every well-loved Character has one distinct Python UnicodeData Name
 
     python3 -c 'import unicodedata; print(unicodedata.name(b"\302\240".decode()).title())'
         # see they say No-Break Space, hurrah, but next look below
 
-    python3 -c 'import unicodedata; print(hex(ord(unicodedata.lookup("EOM"))))'          
+    python3 -c 'import unicodedata; print(hex(ord(unicodedata.lookup("EOM"))))'
     python3 -c 'import unicodedata; print(hex(ord(unicodedata.lookup("End Of Medium"))))'
         # see they both say 0x19
 
@@ -123,13 +134,19 @@ Sometimes it doesn't
 
 This does work in some Terminals. But at a Google Cloud Shell you have to move the Cursor an extra Column to the Right yourself
 
-    python3 -c '''
+    python3 -i -c '''
 
     import unicodedata
+
     o = unicodedata.lookup("Large Orange Circle")
     y = unicodedata.lookup("Large Yellow Circle")
-    print(o + y)
-    print(o + "\033[C" + y)
+    print(o + "\033[C" + y)  # orange and then yellow, separately
+
+    print(o + y)  # yellow over east half of orange
+    print(y + o)  # orange over east half of yellow
+
+    print(" " + o + "\r" + y)  # yellow beneath west half of orange
+    print(" " + y + "\r" + o)  # orange beneath west half of yellow
 
     '''
 
@@ -154,18 +171,33 @@ Google Cloud Shell, no
 
 Try the Osc 11 Query of a 16-bit R G B encoding of the default Backlight behind foreground Color
 
-    % printf '\033[5n''\033]11;?\007' && cat - >/dev/null                                                       
+    % printf '\033[5n''\033]11;?\007' && cat - >/dev/null
     ^[[0n^[]11;rgb:2020/2020/2020^G
 
 That's what it looks like when it works. When it doesn't work, it silently ignores the Osc 11
 
-    % printf '\033[5n''\033]11;?\007' && cat - >/dev/null                                                       
+    % printf '\033[5n''\033]11;?\007' && cat - >/dev/null
     ^[[0n
 
 ### 3.2 Python "import pty" doesn't change the Colors negotiated by Vim
 
 Last time I checked, the orange went missing
 
+### 3.3 Escape Sequences can tell a Terminal Cursor in 2025 to step towards the 8 Points of the Compass
+
+Aye, North & South & East & West do work
+
+    Write ⎋[⇧A to move ↑ North
+    Write ⎋[⇧B to move ↓ South
+    Write ⎋[⇧C to move → East
+    Write ⎋[⇧D to move ← West
+
+But the standards say Northwest, Northeast, Southeast, Southwest are unspeakable ideas. Whereas we say
+
+    Write ⎋[↖ to move ↖ Northwest, as if ↑ ← ←
+    Write ⎋[↗ to move ↗ Northeast, as if ↑ → →
+    Write ⎋[↘ to move ↘ Southeast, as if ↓ → →
+    Write ⎋[↙ to move ↙ Southwest, as if ↓ ← ←
 
 ## 4. Copying Characters out from the Terminal and pasting Characters back into the Terminal
 
@@ -193,7 +225,7 @@ Putting Backlights and Colors into the text can matter. Like you can get a Googl
 
     % printf '\033[31m''\033[103m''31 on 103\n'
     31 on 103
-    % 
+    %
 
 Slack doesn't do Colors generally, but Slack does understand monospacing the 9 Comic Colors of Unicode. Odds on your Markdown Viewer feels this figure is assymetric, not a regular square. If that's so, then your Markdown Viewer is wrong
 

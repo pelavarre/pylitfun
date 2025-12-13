@@ -188,13 +188,9 @@ Can we live within in these limits and still rewrite this text so well as to hop
 
 'The Comments are the first Issue Tracker'
 
-know how
-
-   gl of just a hash mmmm
+Broken and know how to fix
 
    v| should cope, not yammer of 'Vim: Warning: Output is not to a terminal'
-
-   p should mean print inside ~/bin/p
 
    ~/bin/c sh script of litshell.py
       prompt before blocking till Tty Stdin Line complete
@@ -211,15 +207,18 @@ know how
       -1| publish & dump = cat -1 |pbcopy && pbpaste
       -1 capture & publish = pbpaste >-1 && cat -1 |pbcopy
 
-dunno how
+Broken and dunno how to fix
 
    gcam should pick up new Added Files into the wip
 
    Zsh ⌃U wrongly does row-erase, I want the row-head-erase of ⎋[1⇧K
 
-Game - **Smushup** - Arrow Pair to move 8 ways, and smush matching colors
-Game - **Muhnswuhper** - Minesweeper® style, but ...
-Single File Download & Run of the Python
+Broken and probably know how to fix
+
+   Game - **Smushup** - Arrow Pair to move 8 ways, and smush matching colors
+   Game - **Muhnswuhper** - Minesweeper® style, but ...
+
+   Single File Download & Run of the Python
 
 -->
 

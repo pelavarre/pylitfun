@@ -197,6 +197,7 @@ def main() -> None:
     try:
         try_main()
     except BaseException:  # KeyboardInterrupt  # SystemExit
+        # Loopbacker.selves[-1].__exit__()  # todo6:
         excepthook(*sys.exc_info())
 
 
@@ -210,6 +211,9 @@ def try_main() -> None:
 
     if flags.logging:  # writes into:  tail -F __pycache__/litglass.log
         logging_resume()
+
+    if ns.force:
+        _try_lit_glass_()
 
     seed = shell_args_take_in_seed(ns.seed, naive=naive)
 
@@ -246,10 +250,10 @@ def logging_resume() -> None:
         format="%(message)s",  # omits '%(levelname)s:%(name)s:'
     )
 
-    logger.info("")
-    logger.info("")
-    logger.info("launched")
-    logger.info("")
+    logger_info_reprs("")
+    logger_info_reprs("")
+    logger_info_reprs("launched")
+    logger_info_reprs("")
 
     #
     # default Python .logging
@@ -287,11 +291,8 @@ def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namesp
     shell_args_take_in_eggs(ns.eggs, print_usage=print_usage)
 
     games = flags.games
-    if games:
+    if games or ns.force:
         flags.logging = True
-
-    if ns.force:
-        _try_lit_glass_()
 
     return ns
 
@@ -392,7 +393,8 @@ def logger_info_replay(seed: str, naive: dt.datetime) -> None:
             shargs.append(f"--egg={_option_}")
 
     join = " ".join(shargs)
-    logger.info(f"python3 litglass.py {join}")
+    logger_info_reprs("")
+    logger_info_reprs(f"python3 litglass.py {join}")
 
 
 def seed_to_sharg_near_naive(seed: str, naive: dt.datetime) -> str:
@@ -419,9 +421,15 @@ def seed_to_sharg_near_naive(seed: str, naive: dt.datetime) -> str:
 def _try_lit_glass_() -> None:
     """Run slow and quick Self-Test's of this Module"""
 
+    t0 = time.time()
+
     _try_chop_()
     _try_key_byte_frame_()
     _try_unicode_source_texts_()
+
+    t1 = time.time()
+    t1t0 = t1 - t0
+    logger.info(f"spent {chop(t1t0)}s on self-test")
 
 
 #
@@ -1018,7 +1026,9 @@ class SquaresGame:
 
     game_yx: tuple[int, ...]
 
+    steps: int
     strikes: int
+    row_strikes: int
 
     Squares = "🟥 🟨 🟩 🟦 🟪"
     Squares = "".join(Squares.split())
@@ -1030,7 +1040,16 @@ class SquaresGame:
         self.y_high = 0
         self.x_wide = 0
         self.game_yx = tuple()
+
+        self.steps = 0
         self.strikes = 0
+        self.row_strikes = 0
+
+    def sq_logger_info_reprs(self, *args: object) -> None:
+        """Send the Repr's as Logger Info, but led by Step Count"""
+
+        steps = self.steps
+        logger_info_reprs(steps, *args)
 
     def sq_run_awhile(self) -> None:
         """Run till Quit"""
@@ -1048,22 +1067,37 @@ class SquaresGame:
         self.game_yx = (y, x)  # replaces
 
         self.sq_game_form()
+        while not self.sq_find_moves():
+            self.sq_logger_info_reprs("form again")
+            self.sq_game_form()
+
         self.sq_game_draw()
 
         # Run till Quit
 
+        max_strikes = 0
+        self.steps -= 1
         while True:
-            logger.info("")
-            logger.info("...")
+            self.steps += 1
 
             # Read Input
 
-            kr.kbhit(timeout=None)
-            frames = kr.read_byte_frames()
+            frames: tuple[bytes, ...] = (b" ",)
+            if self.steps > 100_000:
+                kr.kbhit(timeout=None)
+                frames = kr.read_byte_frames()
 
             # Eval Input and print Output
 
-            self.sq_steps_because_frames(frames)
+            boxes = tuple(BytesBox(_) for _ in frames)
+            for box in boxes:
+                self.sq_step_because_box(box)
+
+            # Count the widest span of shuffles without collisions
+
+            if self.strikes > max_strikes:
+                max_strikes = self.strikes
+                self.sq_logger_info_reprs(max_strikes)
 
             # Quit at can't move
 
@@ -1077,6 +1111,8 @@ class SquaresGame:
 
         sw.write_control("\033[2A")
         sw.write_printable("🏆")
+        if _os_environ_get_cloud_shell_:
+            sw.write_control("\033[C")
         sw.write_control("\033[K")
         sw.write_some_controls(["\r", "\n"])
 
@@ -1172,13 +1208,6 @@ class SquaresGame:
 
         # todo7: rotate gravity to match arrow, and drag perpendicular to gravity
 
-    def sq_steps_because_frames(self, frames: tuple[bytes, ...]) -> None:
-        """Eval Frames of Input and print Output"""
-
-        boxes = tuple(BytesBox(_) for _ in frames)
-        for box in boxes:
-            self.sq_step_because_box(box)
-
     def sq_step_because_box(self, box: BytesBox) -> bool:
         """Eval 1 Box of Input and print Output"""
 
@@ -1205,6 +1234,7 @@ class SquaresGame:
             self.sq_empty_east_bars(east_bars)
             self.sq_empty_south_poles(south_poles)
             self.strikes = 0
+            self.row_strikes = 0
             self.sq_game_draw()
             return True
 
@@ -1214,6 +1244,7 @@ class SquaresGame:
 
         if falls:
             self.strikes = 0
+            self.row_strikes = 0
             self.sq_game_draw()
             return True
 
@@ -1223,10 +1254,12 @@ class SquaresGame:
         # Shuffle Columns or Rows
 
         self.strikes += 1
-        if self.strikes <= 3:
+
+        self.row_strikes += 1
+        if self.row_strikes <= 3:
             self.sq_rows_shuffle()  # todo7: only while gravity pulls South
         else:
-            self.strikes = 0
+            self.row_strikes = 0
             self.sq_columns_shuffle()
 
         self.sq_game_draw()
@@ -1256,7 +1289,7 @@ class SquaresGame:
                     east_bar = (y, x, wide)
                     east_bars.append(east_bar)
 
-                    logger.info(str([y, x, wide, (wide * t), "East Bar"]))
+                    self.sq_logger_info_reprs(y, x, wide, (wide * t), "east bar")
 
                     assert x_wide <= 5, (x_wide, wide, east_bar)
                     break
@@ -1286,7 +1319,7 @@ class SquaresGame:
                     south_pole = (y, x, high)
                     south_poles.append(south_pole)
 
-                    logger.info(str([y, x, high, (high * t), "South Pole"]))
+                    self.sq_logger_info_reprs(y, x, high, (high * t), "south pole")
 
                     assert y_high <= 5, (y_high, high, south_pole)
                     break
@@ -1320,14 +1353,9 @@ class SquaresGame:
     def sq_fall_south_into_empty_cells(self) -> int:
         """Across the South, fall from the North"""
 
-        lbr = self.loopbacker
-        r = lbr.random_random
-
         by_y_by_x = self.by_y_by_x
         y_high = self.y_high
         x_wide = self.x_wide
-
-        squares = SquaresGame.Squares
 
         # Walk from South to North to find each Empty Cell
 
@@ -1353,7 +1381,7 @@ class SquaresGame:
 
                 # Pull from Above, else from the Void
 
-                tn = r.choice(squares) if (yn < 0) else yn_by_x[x]
+                tn = self.sq_y_x_choice(ys, x=x) if (yn < 0) else yn_by_x[x]
                 ys_falls[x] = tn
 
                 ys_by_x[x] = tn
@@ -1369,11 +1397,104 @@ class SquaresGame:
 
             if "⬜" in ys_text:
                 if ys_text.rstrip("⬜"):
-                    logger.info(str([ys, ys_text, "Falls"]))
+                    self.sq_logger_info_reprs(ys, ys_text, "falls")
 
         # Succeed, or fail
 
         return falls
+
+    def sq_y_x_choice(self, y: int, x: int) -> str:
+        """Choose pseudo randomly to show sticking points"""
+
+        assert y == 0, (y, x)
+
+        lbr = self.loopbacker
+        r = lbr.random_random
+
+        squares = SquaresGame.Squares
+
+        # Pull down random choices till stuck
+
+        self.sq_logger_info_reprs(y, x, "random choice")
+        tn = r.choice(squares)
+
+        return tn
+
+    def _sq_y_x_choice_(self, y: int, x: int) -> str:
+        """Choose less randomly to run for longer"""
+
+        assert y == 0, (y, x)
+
+        lbr = self.loopbacker
+        r = lbr.random_random
+
+        by_y_by_x = self.by_y_by_x
+        y_high = self.y_high
+        x_wide = self.x_wide
+
+        squares = SquaresGame.Squares
+
+        # Pull down random choices till stuck
+
+        if self.sq_find_shuffle_moves():
+            self.sq_logger_info_reprs(y, x, "random choice")
+            tn = r.choice(squares)
+            return tn
+
+        choices = list()
+
+        # Bias for the two-of-a-kind Color in this Row, if it exists
+
+        y_by_x = by_y_by_x[y]
+        y_cells = list(y_by_x[_] for _ in range(x_wide))
+
+        count_by_xt = collections.Counter(y_cells)
+        xt_fuzz = count_by_xt["⬜"]
+        assert xt_fuzz >= 1, (xt_fuzz, y_cells)
+
+        for xt, count in count_by_xt.items():
+            if xt == "⬜":
+                continue
+
+            assert count < 3, (count, xt)  # because not .sq_find_shuffle_moves
+            if (count + (xt_fuzz - 1)) >= 2:
+                choices.append(xt)
+
+        # Bias for the two-of-a-kind Color in this Column, if it exists
+
+        x_cells = list()
+        for ys in range(y_high):
+            ys_by_x = by_y_by_x[ys]
+            t = ys_by_x[x]
+            x_cells.append(t)
+
+        count_by_yt = collections.Counter(x_cells)
+        yt_fuzz = count_by_yt["⬜"]
+        assert yt_fuzz >= 1, (yt_fuzz, x_cells)
+
+        for yt, count in count_by_yt.items():
+            if yt == "⬜":
+                continue
+
+            assert count < 3, (count, yt)  # because not .sq_find_shuffle_moves
+            if (count + (yt_fuzz - 1)) >= 2:
+                choices.append(yt)
+
+        # Pull down random choices when all choices unstick us
+
+        if (xt_fuzz > 3) or (yt_fuzz > 3) or (not choices):
+            self.sq_logger_info_reprs(y, x, "all choices")
+            tn = r.choice(squares)
+            return tn
+
+        # Choose so as to keep us moving
+
+        choices = sorted(set(choices))
+        self.sq_logger_info_reprs(y, x, choices, "biased choices")
+
+        tn = r.choice(choices)
+
+        return tn
 
     def sq_columns_shuffle(self) -> None:
         """Shuffle the Columns"""
@@ -1396,7 +1517,7 @@ class SquaresGame:
 
         x2_list = list(x_list)
         while x2_list == x_list:
-            logger.info("columns_shuffle")
+            self.sq_logger_info_reprs("columns shuffle")
             r.shuffle(x2_list)
 
         for x2 in x2_list:
@@ -1425,7 +1546,7 @@ class SquaresGame:
 
         y2_list = list(y_list)
         while y2_list == y_list:
-            logger.info("rows_shuffle")
+            self.sq_logger_info_reprs("rows shuffle")
             r.shuffle(y2_list)
 
         for y2 in y2_list:
@@ -1440,26 +1561,10 @@ class SquaresGame:
         y_high = self.y_high
         x_wide = self.x_wide
 
-        # Search all Column Shuffles to pick out >= 3 in a Row
+        # Search all Shuffles to pick out >= 3 together
 
-        for y in range(y_high):
-            by_x = by_y_by_x[y]
-            y_cells = list(by_x[x] for x in range(x_wide))
-            count_by_cell = collections.Counter(y_cells)
-
-            hope = max(count_by_cell.values())
-            if hope >= 3:
-                return True
-
-        # Search all Row Shuffles to pick out >= 3 in a Column
-
-        for x in range(x_wide):
-            x_cells = list(by_y_by_x[y][x] for y in range(y_high))
-            count_by_cell = collections.Counter(x_cells)
-
-            hope = max(count_by_cell.values())
-            if hope >= 3:
-                return True
+        if self.sq_find_shuffle_moves():
+            return True
 
         # Search all Cells to pick out a Fall of Cells in progress
 
@@ -1467,6 +1572,44 @@ class SquaresGame:
             for x in range(x_wide):
                 cell = by_y_by_x[y][x]
                 if cell == "⬜":
+                    return True
+
+        # Else give up
+
+        return False
+
+    def sq_find_shuffle_moves(self) -> bool:
+        """Say if progress is possible"""
+
+        by_y_by_x = self.by_y_by_x
+        y_high = self.y_high
+        x_wide = self.x_wide
+
+        # Search all Column Shuffles to pick out >= 3 in a Row
+
+        for y in range(y_high):
+            by_x = by_y_by_x[y]
+            y_cells = list(by_x[x] for x in range(x_wide))
+
+            filled_y_cells = list(_ for _ in y_cells if _ != "⬜")
+            if filled_y_cells:
+                count_by_tx = collections.Counter(filled_y_cells)
+
+                hope = max(count_by_tx.values())
+                if hope >= 3:
+                    return True
+
+        # Search all Row Shuffles to pick out >= 3 in a Column
+
+        for x in range(x_wide):
+            x_cells = list(by_y_by_x[y][x] for y in range(y_high))
+
+            filled_x_cells = list(_ for _ in x_cells if _ != "⬜")
+            if filled_x_cells:
+                count_by_ty = collections.Counter(filled_x_cells)
+
+                hope = max(count_by_ty.values())
+                if hope >= 3:
                     return True
 
         # Else give up
@@ -1483,8 +1626,10 @@ class SquaresGame:
 #
 
 
-class Loopbacker:
+class Loopbacker:  # todo6: rename to Class Terminal
     """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
+
+    selves: list[Loopbacker] = list()
 
     terminal_boss: TerminalBoss
     screen_writer: ScreenWriter
@@ -1501,6 +1646,8 @@ class Loopbacker:
     #
 
     def __init__(self, seed: str) -> None:
+
+        Loopbacker.selves.append(self)
 
         assert DSR5 == "\033[" "5n"
 
@@ -1658,8 +1805,8 @@ class Loopbacker:
 
             # Eval Input and print Output
 
-            logger.info("")
-            logger.info(f"{frames=}")
+            logger_info_reprs("")
+            logger_info_reprs(f"{frames=}")
             if flags._repr_:
                 self.lbr_print_repr_frame_per_row(frames, t1t0=t1t0)
             else:
@@ -2511,7 +2658,7 @@ class TerminalBoss:
 
         reads_ahead = kr.reads_ahead
         if reads_ahead:
-            logger.info(f"{reads_ahead=} {fileno=}")
+            logger_info_reprs(f"{reads_ahead=} {fileno=}")
 
         # Flush Output, drain Input, and change Input Mode
 
@@ -2529,7 +2676,7 @@ class TerminalBoss:
     def write_some_bytes(self, data: bytes) -> None:
         """Write zero or more Bytes"""
 
-        # logger.info(f"{data=}")
+        # logger_info_reprs(f"{data=}")
 
         fileno = self.fileno
         fd = fileno
@@ -2665,7 +2812,7 @@ class ScreenWriter:
     def _write_encode_(self, text: str) -> None:
         """Write the Byte Encodings of Text without adding a Line-Break"""
 
-        # logger.info(f"{text=}")  # printable or control or a mix of both
+        # logger_info_reprs(f"{text=}")  # printable or control or a mix of both
 
         tb = self.terminal_boss
         data = text.encode()  # may raise UnicodeEncodeError
@@ -2911,7 +3058,7 @@ class KeyboardReader:
             assert X1 <= x <= (w + 1), (y, x, h, w, o)
 
         if x > w:
-            logger.info(f"{h=} {w=} {y=} {x=}  # x > w")
+            logger_info_reprs(f"{h=} {w=} {y=} {x=}  # x > w")
             x -= 1
             assert X1 <= x <= w, (y, x, h, w, o)
 
@@ -3013,18 +3160,18 @@ class KeyboardReader:
             rgb_by_osc[osc] = rgb
             if rgb:
                 rep_rgb = "(" + ", ".join(f"0x{_:04X}" for _ in rgb) + ")"
-                logger.info(f"{osc=} rgb={rep_rgb}")
+                logger_info_reprs(f"{osc=} rgb={rep_rgb}")
 
             if reads:
                 m = re.search(rb"\033\[0n$", string=reads)
                 if m:
-                    logger.info(f"took {m.group(0)!r}")  # for Dsr 0 before Osc 10 11 12
+                    logger_info_reprs(f"took {m.group(0)!r}")  # for Dsr 0 before Osc 10 11 12
 
                     n = len(m.group(0))
                     reads = reads[:-n]
 
             if reads:
-                logger.info(f"{reads=} {osc_control=}")
+                logger_info_reprs(f"{reads=} {osc_control=}")
                 reads_ahead.extend(reads)
 
         # React to way low Backlight
@@ -3055,7 +3202,7 @@ class KeyboardReader:
         int_list = list()
 
         if m:
-            logger.info(f"took {m.group(0)!r}")  # for Osc 10 11 12
+            logger_info_reprs(f"took {m.group(0)!r}")  # for Osc 10 11 12
 
             n = len(m.group(0))
             startswith = data[:-n]
@@ -3083,13 +3230,13 @@ class KeyboardReader:
 
         dsr0 = b"\033[0n"
         assert dsr0_bytes.endswith(dsr0), (dsr0_bytes, dsr0)
-        # logger.info(f"took {dsr0}")
+        # logger_info_reprs(f"took {dsr0}")
 
         n = len(dsr0)
         reads = dsr0_bytes[:-n]
 
         if reads:
-            logger.info(f"{reads=} {dsr0=}")
+            logger_info_reprs(f"{reads=} {dsr0=}")
             reads_ahead.extend(reads)
 
         # Move this KeyboardReader to this fresh H W Y X
@@ -3107,7 +3254,7 @@ class KeyboardReader:
 
         reads_ahead = self.reads_ahead
         if reads_ahead:
-            logger.info(f"{reads_ahead=}")
+            logger_info_reprs(f"{reads_ahead=}")
 
             reads = bytes(reads_ahead)
             reads_ahead.clear()
@@ -3157,7 +3304,7 @@ class KeyboardReader:
         fd = fileno
         (w, h) = os.get_terminal_size(fd)
         if (h, w) != (self.y_high, self.x_wide):
-            logger.info(f"took ⎋[8;{h};{w}T")
+            logger_info_reprs(f"took ⎋[8;{h};{w}T")
 
         # Succeed
 
@@ -3191,7 +3338,7 @@ class KeyboardReader:
             if flags.clickarrows:
                 sm = re.search(rb"(\033\[[ABCD])$", string=ba)  # ⎋[⇧A ⎋[⇧B ⎋[⇧C ⎋[⇧D
                 if sm:
-                    logger.info(f"took {sm.group(0)!r}")  # for flags.clickarrows
+                    logger_info_reprs(f"took {sm.group(0)!r}")  # for flags.clickarrows
                     n = len(sm.group(0))
 
                     control = sm.group(0).decode()
@@ -3213,7 +3360,7 @@ class KeyboardReader:
 
                 del ba[-n:]
                 if (row_y, column_x) != (self.row_y, self.column_x):
-                    logger.info(f"took ⎋[{row_y};{column_x}⇧R")
+                    logger_info_reprs(f"took ⎋[{row_y};{column_x}⇧R")
 
                 assert row_y >= Y1, (row_y, column_x, ba)
                 assert column_x >= X1, (row_y, column_x, ba)
@@ -3235,13 +3382,13 @@ class KeyboardReader:
 
         if len(ba) < 20:
             headtail = bytes(ba)
-            # logger.info(f"ba={headtail!r} y={row_y} x={column_x}")
+            # logger_info_reprs(f"ba={headtail!r} y={row_y} x={column_x}")
             _ = headtail
         else:
             head = bytes(ba[:10])
             tail = bytes(ba[-10:])
             _ = head, tail
-            # logger.info(f"[:10]={head!r} [-10:]={tail!r} y={row_y} x={column_x}")
+            # logger_info_reprs(f"[:10]={head!r} [-10:]={tail!r} y={row_y} x={column_x}")
 
         return (yx, reads)
 
@@ -4090,24 +4237,18 @@ class KeyboardDecoder:
 
         # Add the ⌥ variants of Non-Blank Printable US-Ascii
 
-        plain_printables = r"""
-            -!"#$%&'()*+,-./
-            0123456789:;<=>?
-            @ABCDEFGHIJKLMNO
-            PQRSTUVWXYZ[\]^_
-            `abcdefghijklmno
-            pqrstuvwxyz{|}~
-        """
-
         assert "" == "\uf8ff"  # U+F8FF  # also tested by ._try_unicode_source_texts_
 
+        plain_printables = r"""
+            ¥!"#$%&'()*+,-./  0123456789:;<=>?
+            @ABCDEFGHIJKLMNO  PQRSTUVWXYZ[\]^_
+            `abcdefghijklmno  pqrstuvwxyz{|}~¥
+        """
+
         option_printables = r"""
-            ¥⁄Æ‹›ﬁ‡æ·‚°±≤–≥÷
-            º¡™£¢∞§¶•ªÚ…¯≠˘¿
-            €ÅıÇÎ´Ï˝ÓˆÔÒÂ˜Ø
-            ∏Œ‰Íˇ¨◊„˛Á¸“«‘ﬂ—
-            ¥å∫ç∂¥ƒ©˙¥∆˚¬µ¥ø
-            πœ®ß†¥√∑≈¥Ω”»’¥
+            ¥⁄Æ‹›ﬁ‡æ·‚°±≤–≥÷  º¡™£¢∞§¶•ªÚ…¯≠˘¿
+            €ÅıÇÎ´Ï˝ÓˆÔÒÂ˜Ø  ∏Œ‰Íˇ¨◊„˛Á¸“«‘ﬂ—
+            ¥å∫ç∂¥ƒ©˙¥∆˚¬µ¥ø  πœ®ß†¥√∑≈¥Ω”»’¥¥
         """
 
         assert len(plain_printables) == len(option_printables)
@@ -4116,6 +4257,7 @@ class KeyboardDecoder:
             if option in ("\n", " ", "¥"):
                 continue
 
+            assert 0x20 == ord(" ") < ord(plain) <= ord("~") == 0x7E
             assert option not in plain_printables, (option,)
 
             kseq = "⌥" + d[plain][0]
@@ -4128,7 +4270,8 @@ class KeyboardDecoder:
 
             # ⌥Y comes through as the U+005C Reverse-Solidus, not U+00A5 ¥ Yen-Sign
 
-        assert option_printables.count("¥") == 8  # ⌥␢ ⌥E ⌥I ⌥N ⌥U ⌥Y ⌥` ⌥⌫
+        assert plain_printables.count("¥") == 2  # ␢ ⌫
+        assert option_printables.count("¥") == 9  # ⌥␢ ⌥` ⌥E ⌥I ⌥N ⌥U ⌥Y ⌥⇧~ ⌥⌫
 
         option_kseq_by_text = {  # upper "j́" is "J́" len 2 decode, led by plain U+004A 'J'
             # ⌥E
@@ -4702,6 +4845,34 @@ def str_removesuffix(text: str, suffix: str) -> str:
         text = text[: -len(suffix)]
 
     return text
+
+
+#
+# Amp up Import Logging
+#
+
+
+def logger_info_reprs(*args: object) -> None:
+    """Send the Repr's as Logger Info, but drop the droppable quotes"""
+
+    texts = list()
+    for index, arg in enumerate(args):
+        rindex = index - len(args)
+
+        text = repr(arg)
+
+        if isinstance(arg, str):
+            q = text[:1]
+            assert q in ("'", '"', text)
+            assert text[:1] == text[-1:] == q, (text[:1], text[-1:], q, text)
+
+            if (rindex == -1) or (" " not in text):
+                text = text[len(q) : -len(q)]
+
+        texts.append(text)
+
+    join = " ".join(texts)
+    logger.info(join)
 
 
 #

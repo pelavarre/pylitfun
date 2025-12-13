@@ -55,7 +55,7 @@ ShlinePlusByShverb = {  # sorted by key
     "gd": "git diff --color-moved [...]",
     "gda": "git describe --always --dirty",
     # 10
-    "gdh": "git diff --color-moved HEAD~1",
+    "gdh": "git diff --color-moved HEAD~1 [...]",
     "gdno": "git diff --name-only [...]",
     "gf": "git fetch --prune --prune-tags --force",
     "gg/0": "git status",  # in Shell as 'gg' without Sh Args
@@ -84,9 +84,11 @@ ShlinePlusByShverb = {  # sorted by key
     # 32
 }
 
-# no 'git checkout' on purpose:  without args it cancels cherry-pick and hides rebase
+# todo: g in a pipe is 'grep.py'
+# todo: g in a pipe is 'grep.py'
 
 # todo: add:  git checkout -, git push, git rebase, local/remote mkdir/rmdir of git branches, ...
+# todo: no 'git checkout' on purpose:  without args it cancels cherry-pick and hides rebase
 # todo: something less ugly than "gg/0": and "gg/n"?
 
 
