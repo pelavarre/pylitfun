@@ -135,6 +135,12 @@ Sometimes it doesn't
 
 This does work in some Terminals. But at a Google Cloud Shell you have to move the Cursor an extra Column to the Right yourself
 
+As shown by Shell PrintF
+
+    printf '\xF0\x9F\x9F\xA1' && printf '\xF0\x9F\x9F\xA1' && printf '\033[6n' && printf '\x0A' && cat - >/dev/null
+
+As shown by Python
+
     python3 -i -c '''
 
     import unicodedata

@@ -557,7 +557,7 @@ class ColorPickerGame:
 
         for _ in range(3):
 
-            sw.write_printable(dent)  # todo3: add def to split controls from printables
+            sw.write_printable(dent)  # todo2: add def to split controls from printables
             sw.write_printable("█")
             sw.write_control("\033[2C")
             sw.write_printable("██")
@@ -1646,7 +1646,7 @@ class SquaresGame:
 #
 
 
-class TerminalBoss:  # todo2: rename to succinct but talking of interactively patching the Screen
+class TerminalBoss:
     """Edit Screen per Change Orders received from Touch/ Mouse/ Key Release/ Press"""
 
     selves: list[TerminalBoss] = list()
@@ -2576,166 +2576,6 @@ class ScreenChangeOrder:
         # todo9: Accept the shifting Symbols of ⎋ ⌃ ⌥ ⇧ ⌘ Fn into the Screen Change Order
 
 
-#
-# Talk with one KeyboardReader and one ScreenWriter
-#
-
-
-class KeyboardScreenIOWrapper:
-    """Talk with one KeyboardReader and one ScreenWriter"""
-
-    selves: list[KeyboardScreenIOWrapper] = list()
-
-    stdio: typing.TextIO
-    fileno: int
-    tcgetattr: list[int | list[bytes | int]]  # replaced by .__enter__
-
-    screen_writer: ScreenWriter
-    keyboard_reader: KeyboardReader
-
-    def __init__(self) -> None:
-
-        KeyboardScreenIOWrapper.selves.append(self)
-
-        stdio = sys.__stderr__
-        assert stdio is not None  # refuses to run headless
-
-        fileno = stdio.fileno()
-
-        sw = ScreenWriter(self)
-        kr = KeyboardReader(self)
-
-        self.stdio = stdio
-        self.fileno = fileno
-        self.tcgetattr = list()  # replaced by .__enter__
-
-        self.screen_writer = sw
-        self.keyboard_reader = kr
-
-    @staticmethod
-    def _breakpoint_() -> None:
-        """Exit for just long enough to breakpoint then re-enter"""
-
-        ks = KeyboardScreenIOWrapper.selves[-1]
-        ks.__exit__()
-
-        breakpoint()  # Pdb likes:  where, up, down, ks = None, continue
-        pass  # Pdb likes:  where, up, down, ks = None, continue
-
-        if ks:
-            ks.__enter__()
-
-        # KeyboardScreenIOWrapper._breakpoint_()
-
-    def __enter__(self) -> KeyboardScreenIOWrapper:
-        r"""Stop line-buffering Input, stop taking \n Output as \r\n, etc"""
-
-        stdio = self.stdio
-        fileno = self.fileno
-        tcgetattr = self.tcgetattr
-
-        # Enter once
-
-        if tcgetattr:
-            return self
-
-        # Flush Output, drain Input, and change Input Mode
-
-        stdio.flush()  # before 'tty.setraw' of TerminalStudio.__enter__
-
-        with_tcgetattr = termios.tcgetattr(fileno)
-        assert with_tcgetattr, (with_tcgetattr,)
-
-        self.tcgetattr = with_tcgetattr  # replaces
-
-        # Stop line-buffering Input, stop replacing \n Output with \r\n, etc
-
-        if not flags.sigint:
-            tty.setraw(fileno, when=termios.TCSADRAIN)
-        else:
-            tty.setcbreak(fileno, when=termios.TCSADRAIN)
-
-        # Succeed
-
-        return self
-
-        # todo: try termios.TCSAFLUSH to discard Input while entering
-
-    def __exit__(self, *args: object) -> None:
-        r"""Restart line-buffering Input, restart taking \n Output as \r\n, etc"""
-
-        kr = self.keyboard_reader
-
-        stdio = self.stdio
-        fileno = self.fileno
-        tcgetattr = self.tcgetattr
-
-        # Exit once
-
-        if not tcgetattr:
-            return
-
-        # Mention Input Bytes buffered and lost by an early Exit
-
-        reads_ahead = kr.reads_ahead
-        if reads_ahead:
-            logger_info_reprs(f"{reads_ahead=} {fileno=}")
-
-        # Flush Output, drain Input, and change Input Mode
-
-        stdio.flush()  # before 'termios.tcsetattr' of TerminalStudio.__exit__
-
-        fd = fileno
-        when = termios.TCSADRAIN
-        attributes = tcgetattr
-        termios.tcsetattr(fd, when, attributes)
-
-        self.tcgetattr = list()  # replaces
-
-        # todo: try termios.TCSAFLUSH to discard Input while exiting
-
-    def write_some_bytes(self, data: bytes) -> None:
-        """Write zero or more Bytes"""
-
-        # logger_info_reprs(f"{data=}")
-
-        fileno = self.fileno
-        fd = fileno
-        os.write(fd, data)  # maybe empty
-
-    def read_one_byte(self) -> bytes:
-        """Read one Byte"""
-
-        fileno = self.fileno
-
-        fd = fileno
-        length = 1
-        read = os.read(fd, length)
-
-        assert len(read) == 1, (read,)  # todo: test os.read returns empty
-
-        return read
-
-        # way far away from KeyboardReader.read_bytes and .read_byte_frames
-
-    def stdio_select_select(self, timeout: float | None) -> bool:
-        """Block till next Input Byte, else till Timeout, else till forever"""
-
-        stdio = self.stdio
-        fileno = self.fileno
-
-        assert self.tcgetattr, (self.tcgetattr,)
-
-        stdio.flush()  # before select.select of .stdio_select_select
-        (r, w, x) = select.select([fileno], [], [], timeout)
-
-        hit = fileno in r
-
-        return hit
-
-        # a la msvcrt.kbhit
-
-
 class ScreenWriter:
     """Write Lines of Output to the Terminal Screen"""
 
@@ -2777,7 +2617,7 @@ class ScreenWriter:
                 self._write_encode_(printable)
                 return
 
-        # Else trust the Terminal to write well, ecept to stop the Cursor at X + 1, not at X + 2
+        # Else trust the Terminal to write well, except to stop the Cursor at X + 1, not at X + 2
 
         for t in text:
             self._write_encode_(t)
@@ -5059,6 +4899,166 @@ def _try_unicode_source_texts_() -> None:
 
 
 #
+# Amp up Import Tty
+#
+
+
+class KeyboardScreenIOWrapper:
+    """Talk with one KeyboardReader and one ScreenWriter"""
+
+    selves: list[KeyboardScreenIOWrapper] = list()
+
+    stdio: typing.TextIO  # sys.__stderr__  # todo: try open("/dev/tty", "r+")
+    fileno: int  # 2
+    tcgetattr: list[int | list[bytes | int]]  # replaced by .__enter__
+
+    screen_writer: ScreenWriter
+    keyboard_reader: KeyboardReader
+
+    def __init__(self) -> None:
+
+        KeyboardScreenIOWrapper.selves.append(self)
+
+        stdio = sys.__stderr__
+        assert stdio is not None  # refuses to run headless
+
+        fileno = stdio.fileno()
+
+        sw = ScreenWriter(self)
+        kr = KeyboardReader(self)
+
+        self.stdio = stdio
+        self.fileno = fileno
+        self.tcgetattr = list()  # replaced by .__enter__
+
+        self.screen_writer = sw
+        self.keyboard_reader = kr
+
+    @staticmethod
+    def _breakpoint_() -> None:
+        """Exit for just long enough to breakpoint then re-enter"""
+
+        ks = KeyboardScreenIOWrapper.selves[-1]
+        ks.__exit__()
+
+        breakpoint()  # Pdb likes:  where, up, down, ks = None, continue
+        pass  # Pdb likes:  where, up, down, ks = None, continue
+
+        if ks:
+            ks.__enter__()
+
+        # KeyboardScreenIOWrapper._breakpoint_()
+
+    def __enter__(self) -> KeyboardScreenIOWrapper:
+        r"""Stop line-buffering Input, stop taking \n Output as \r\n, etc"""
+
+        stdio = self.stdio
+        fileno = self.fileno
+        tcgetattr = self.tcgetattr
+
+        # Enter once
+
+        if tcgetattr:
+            return self
+
+        # Flush Output, drain Input, and change Input Mode
+
+        stdio.flush()  # before 'tty.setraw' of TerminalStudio.__enter__
+
+        with_tcgetattr = termios.tcgetattr(fileno)
+        assert with_tcgetattr, (with_tcgetattr,)
+
+        self.tcgetattr = with_tcgetattr  # replaces
+
+        # Stop line-buffering Input, stop replacing \n Output with \r\n, etc
+
+        if not flags.sigint:
+            tty.setraw(fileno, when=termios.TCSADRAIN)
+        else:
+            tty.setcbreak(fileno, when=termios.TCSADRAIN)
+
+        # Succeed
+
+        return self
+
+        # todo: try termios.TCSAFLUSH to discard Input while entering
+
+    def __exit__(self, *args: object) -> None:
+        r"""Restart line-buffering Input, restart taking \n Output as \r\n, etc"""
+
+        kr = self.keyboard_reader
+
+        stdio = self.stdio
+        fileno = self.fileno
+        tcgetattr = self.tcgetattr
+
+        # Exit once
+
+        if not tcgetattr:
+            return
+
+        # Mention Input Bytes buffered and lost by an early Exit
+
+        reads_ahead = kr.reads_ahead
+        if reads_ahead:
+            logger_info_reprs(f"{reads_ahead=} {fileno=}")
+
+        # Flush Output, drain Input, and change Input Mode
+
+        stdio.flush()  # before 'termios.tcsetattr' of TerminalStudio.__exit__
+
+        fd = fileno
+        when = termios.TCSADRAIN
+        attributes = tcgetattr
+        termios.tcsetattr(fd, when, attributes)
+
+        self.tcgetattr = list()  # replaces
+
+        # todo: try termios.TCSAFLUSH to discard Input while exiting
+
+    def write_some_bytes(self, data: bytes) -> None:
+        """Write zero or more Bytes"""
+
+        # logger_info_reprs(f"{data=}")
+
+        fileno = self.fileno
+        fd = fileno
+        os.write(fd, data)  # maybe empty
+
+    def read_one_byte(self) -> bytes:
+        """Read one Byte"""
+
+        fileno = self.fileno
+
+        fd = fileno
+        length = 1
+        read = os.read(fd, length)
+
+        assert len(read) == 1, (read,)  # todo: test os.read returns empty
+
+        return read
+
+        # way far away from KeyboardReader.read_bytes and .read_byte_frames
+
+    def stdio_select_select(self, timeout: float | None) -> bool:
+        """Block till next Input Byte, else till Timeout, else till forever"""
+
+        stdio = self.stdio
+        fileno = self.fileno
+
+        assert self.tcgetattr, (self.tcgetattr,)
+
+        stdio.flush()  # before select.select of .stdio_select_select
+        (r, w, x) = select.select([fileno], [], [], timeout)
+
+        hit = fileno in r
+
+        return hit
+
+        # a la msvcrt.kbhit
+
+
+#
 # Cite some Terminal Escape & Control Sequence Docs
 #
 
@@ -5112,6 +5112,11 @@ _ = """  # more famous Python Imports to run in place of our Code here
 
 if __name__ == "__main__":
     main()
+
+
+# todo2: emulate macOS Terminal Writes at Google Cloud Shell
+# todo2: double-wide character cursor moves
+# todo2: deletes while backlight
 
 
 # todo3: drop Keycaps specific to macOS Terminal, when elsewhere
