@@ -159,19 +159,14 @@ class GitGopher:
 
         (authed, taggable) = self.auth_git_shline(diff_shline)
 
-        # Shove back on Python ShLex Quote fussily quoting mentions of HEAD~1 to no purpose
+        # Shove back on Python ShLex Quote fussily quoting mentions of HEAD~... to no purpose
 
-        def like_shlex_join(argv: typing.Iterable[str]) -> str:
-            return " ".join(("HEAD~1" if (_ == "HEAD~1") else shlex.quote(_)) for _ in argv)
-
-        assert shlex.quote("HEAD~1") == "'HEAD~1'", (shlex.quote("HEAD~1"),)
-
-        run_shline = authed + " " + like_shlex_join(diff_shargv[1:])
+        run_shline = authed + " " + " ".join(shlex_quote_calmly(_) for _ in diff_shargv[1:])
         run_shargv = shlex.split(authed) + list(diff_shargv[1:])
 
         # Loudly promise to call the Shell now
 
-        taggable_shline = taggable + like_shlex_join(diff_shargv[1:])
+        taggable_shline = taggable + " " + " ".join(shlex_quote_calmly(_) for _ in diff_shargv[1:])
         taggable_shline = taggable_shline.rstrip()
 
         tagged_shverb = "gg" if diff_shverb in ("gg/0", "gg/n") else diff_shverb
@@ -667,6 +662,27 @@ class GitGopher:
         print("+ exit", returncode, file=sys.stderr)  # repeat after caller
 
         sys.exit(returncode)
+
+
+#
+# Amp up Import ShLex
+#
+
+
+assert shlex.quote("HEAD~1") == "'HEAD~1'", (shlex.quote("HEAD~1"),)
+
+
+def shlex_quote_calmly(arg: str) -> str:
+    quote = shlex.quote(arg)
+
+    at_quotable = arg.replace("~", "@")
+    at_quote = shlex.quote(at_quotable)
+
+    if not arg.startswith("~"):
+        if at_quote == at_quotable:
+            return arg
+
+    return quote
 
 
 #
