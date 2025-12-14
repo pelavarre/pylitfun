@@ -197,7 +197,7 @@ def main() -> None:
     try:
         try_main()
     except BaseException:  # KeyboardInterrupt  # SystemExit
-        # Loopbacker.selves[-1].__exit__()  # todo6:
+        # TerminalBoss.selves[-1].__exit__()  # todo6:
         excepthook(*sys.exc_info())
 
     # todo2: rewrite 'def main' as form an object and call it
@@ -219,18 +219,18 @@ def try_main() -> None:
 
     seed = shell_args_take_in_seed(ns.seed, naive=naive)
 
-    with Loopbacker(seed) as lbr:
+    with TerminalBoss(seed) as tb:
         logger_info_replay(seed, naive=naive)
 
         if flags._assert_:
             assert False, "Asserting False before doing much"
 
-        cpg = ColorPickerGame(lbr)
-        kcg = KeycapsGame(lbr)
-        sqg = SquaresGame(lbr)
+        cpg = ColorPickerGame(tb)
+        kcg = KeycapsGame(tb)
+        sqg = SquaresGame(tb)
 
         if flags.byteloop:
-            lbr.lbr_run_byteloop()
+            tb.tb_run_byteloop()
         elif flags.color_picker:
             cpg.cp_run_awhile()
         elif flags.keycaps:
@@ -238,7 +238,7 @@ def try_main() -> None:
         elif flags.squares:
             sqg.sq_run_awhile()
         else:
-            lbr.lbr_run_awhile()
+            tb.tb_run_awhile()
 
 
 def logging_resume() -> None:
@@ -442,7 +442,7 @@ def _try_lit_glass_() -> None:
 class ColorPickerGame:
     """Play for --egg=color-picker"""
 
-    loopbacker: Loopbacker
+    terminal_boss: TerminalBoss
 
     game_yx: tuple[int, ...]
 
@@ -452,9 +452,9 @@ class ColorPickerGame:
 
     focus_int: int  # 0, 1, or 2
 
-    def __init__(self, loopbacker: Loopbacker) -> None:
+    def __init__(self, terminal_boss: TerminalBoss) -> None:
 
-        self.loopbacker = loopbacker
+        self.terminal_boss = terminal_boss
 
         self.game_yx = tuple()
 
@@ -467,10 +467,10 @@ class ColorPickerGame:
     def cp_run_awhile(self) -> None:
         """Trace Key Releases till ⌃C"""
 
-        lbr = self.loopbacker
+        tb = self.terminal_boss
 
-        sw = lbr.screen_writer
-        kr = lbr.keyboard_reader
+        sw = tb.screen_writer
+        kr = tb.keyboard_reader
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
 
@@ -506,8 +506,8 @@ class ColorPickerGame:
     def cp_game_draw(self) -> None:
         """Draw the Gameboard, scrolling if need be"""
 
-        lbr = self.loopbacker
-        sw = lbr.screen_writer
+        tb = self.terminal_boss
+        sw = tb.screen_writer
 
         game_yx = self.game_yx
 
@@ -584,8 +584,8 @@ class ColorPickerGame:
     def cp_step_once(self, frames: tuple[bytes, ...]) -> None:
         """Eval Input and print Output"""
 
-        lbr = self.loopbacker
-        kd = lbr.keyboard_decoder
+        tb = self.terminal_boss
+        kd = tb.keyboard_decoder
 
         # Take all plain unmarked classic Arrows here, and nothing else
 
@@ -603,9 +603,9 @@ class ColorPickerGame:
             self.cp_game_draw()
             return
 
-        # Else fall back onto the enclosing Loopbacker
+        # Else fall back onto the enclosing TerminalBoss
 
-        lbr.lbr_step_once(frames)
+        tb.tb_step_once(frames)
 
     def cp_step_one_arrow_once(self, frame: bytes) -> None:
         """Eval one Arrow in the Frame"""
@@ -616,8 +616,8 @@ class ColorPickerGame:
 
         focus_int = self.focus_int
 
-        lbr = self.loopbacker
-        kd = lbr.keyboard_decoder
+        tb = self.terminal_boss
+        kd = tb.keyboard_decoder
         kseqs = kd.bytes_to_kseqs_if(frame)
         kseq = kseqs[0] if kseqs else ""
 
@@ -645,7 +645,7 @@ class ColorPickerGame:
 class KeycapsGame:
     """Play for --egg=keycaps"""
 
-    loopbacker: Loopbacker
+    terminal_boss: TerminalBoss
     game_yx: tuple[int, ...]
     shifters: str  # todo: dump/ load Keycaps Games
     scrollables: list[str]  # Rows printed
@@ -679,9 +679,9 @@ class KeycapsGame:
 
     #
 
-    def __init__(self, loopbacker: Loopbacker) -> None:
+    def __init__(self, terminal_boss: TerminalBoss) -> None:
 
-        self.loopbacker = loopbacker
+        self.terminal_boss = terminal_boss
         self.game_yx = tuple()
         self.shifters = ""  # none of ⎋ ⌃ ⌥ ⇧
         self.scrollables = list()
@@ -689,10 +689,10 @@ class KeycapsGame:
     def kc_run_awhile(self) -> None:
         """Trace Key Releases till ⌃C"""
 
-        lbr = self.loopbacker
+        tb = self.terminal_boss
 
-        sw = lbr.screen_writer
-        kr = lbr.keyboard_reader
+        sw = tb.screen_writer
+        kr = tb.keyboard_reader
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
 
@@ -729,14 +729,14 @@ class KeycapsGame:
     def kc_game_draw(self) -> tuple[int, int]:
         """Draw the Gameboard, scrolling if need be"""
 
-        lbr = self.loopbacker
-        kr = lbr.keyboard_reader
+        tb = self.terminal_boss
+        kr = tb.keyboard_reader
 
         shifters = self.shifters
         assert shifters in ("", "⇧"), (shifters,)
 
-        lbr = self.loopbacker
-        sw = lbr.screen_writer
+        tb = self.terminal_boss
+        sw = tb.screen_writer
 
         assert EL_PS == "\033[" "{}" "K"
 
@@ -807,11 +807,11 @@ class KeycapsGame:
     def kc_step_once(self, frames: tuple[bytes, ...]) -> None:
         """Eval Input and print Output"""
 
-        lbr = self.loopbacker
-        sw = lbr.screen_writer
+        tb = self.terminal_boss
+        sw = tb.screen_writer
 
-        kr = lbr.keyboard_reader
-        kd = lbr.keyboard_decoder
+        kr = tb.keyboard_reader
+        kd = tb.keyboard_decoder
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
         assert unicodedata.name("¤").title() == "Currency Sign".title()
@@ -839,9 +839,9 @@ class KeycapsGame:
 
     def kc_print(self, *args: object) -> None:
 
-        lbr = self.loopbacker  # todo9: layer KeycapsGame over KeyboardScreenIOWrapper?
-        kr = lbr.keyboard_reader
-        sw = lbr.screen_writer
+        tb = self.terminal_boss  # todo9: layer KeycapsGame over KeyboardScreenIOWrapper?
+        kr = tb.keyboard_reader
+        sw = tb.screen_writer
 
         scrollables = self.scrollables
 
@@ -884,11 +884,11 @@ class KeycapsGame:
         kseqs_join = "".join(kseqs)
         kseq = kseqs[0]
 
-        lbr = self.loopbacker
+        tb = self.terminal_boss
         game_yx = self.game_yx
         shifters = self.shifters
 
-        sw = lbr.screen_writer
+        sw = tb.screen_writer
         (game_y, game_x) = game_yx
 
         # Don't switch Tabs for ⌃ Control and ⌥ Option Keys  # todo9: --egg=keycaps: do
@@ -931,11 +931,11 @@ class KeycapsGame:
 
         assert kseqs, (kseqs,)
 
-        lbr = self.loopbacker
+        tb = self.terminal_boss
         game_yx = self.game_yx
         shifters = self.shifters
 
-        sw = lbr.screen_writer
+        sw = tb.screen_writer
         (game_y, game_x) = game_yx
 
         # Form the Rows of the Gameboards
@@ -1020,7 +1020,7 @@ class KeycapsGame:
 class SquaresGame:
     """Play for --egg=squares"""
 
-    loopbacker: Loopbacker
+    terminal_boss: TerminalBoss
 
     by_y_by_x: dict[int, dict[int, str]]
     y_high: int  # H W positive after initial zero
@@ -1035,9 +1035,9 @@ class SquaresGame:
     Squares = "🟥 🟨 🟩 🟦 🟪"
     Squares = "".join(Squares.split())
 
-    def __init__(self, loopbacker: Loopbacker) -> None:
+    def __init__(self, terminal_boss: TerminalBoss) -> None:
 
-        self.loopbacker = loopbacker
+        self.terminal_boss = terminal_boss
         self.by_y_by_x = dict()
         self.y_high = 0
         self.x_wide = 0
@@ -1056,10 +1056,10 @@ class SquaresGame:
     def sq_run_awhile(self) -> None:
         """Run till Quit"""
 
-        lbr = self.loopbacker
+        tb = self.terminal_boss
 
-        sw = lbr.screen_writer
-        kr = lbr.keyboard_reader
+        sw = tb.screen_writer
+        kr = tb.keyboard_reader
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
 
@@ -1140,8 +1140,8 @@ class SquaresGame:
     def sq_game_form(self) -> None:
         """Fill the Board with Tiles"""
 
-        lbr = self.loopbacker
-        r = lbr.random_random
+        tb = self.terminal_boss
+        r = tb.random_random
 
         by_y_by_x = self.by_y_by_x
 
@@ -1174,8 +1174,8 @@ class SquaresGame:
         by_y_by_x = self.by_y_by_x
         game_yx = self.game_yx
 
-        lbr = self.loopbacker
-        sw = lbr.screen_writer
+        tb = self.terminal_boss
+        sw = tb.screen_writer
 
         squares = SquaresGame.Squares
         dent = 4 * " "
@@ -1419,8 +1419,8 @@ class SquaresGame:
 
         assert y == 0, (y, x)
 
-        lbr = self.loopbacker
-        r = lbr.random_random
+        tb = self.terminal_boss
+        r = tb.random_random
 
         squares = SquaresGame.Squares
 
@@ -1436,8 +1436,8 @@ class SquaresGame:
 
         assert y == 0, (y, x)
 
-        lbr = self.loopbacker
-        r = lbr.random_random
+        tb = self.terminal_boss
+        r = tb.random_random
 
         by_y_by_x = self.by_y_by_x
         y_high = self.y_high
@@ -1515,8 +1515,8 @@ class SquaresGame:
     def sq_columns_shuffle(self) -> None:
         """Shuffle the Columns"""
 
-        lbr = self.loopbacker
-        r = lbr.random_random
+        tb = self.terminal_boss
+        r = tb.random_random
 
         by_y_by_x = self.by_y_by_x
         y_high = self.y_high
@@ -1546,8 +1546,8 @@ class SquaresGame:
     def sq_rows_shuffle(self) -> None:
         """Shuffle the Rows"""
 
-        lbr = self.loopbacker
-        r = lbr.random_random
+        tb = self.terminal_boss
+        r = tb.random_random
 
         by_y_by_x = self.by_y_by_x
         y_high = self.y_high
@@ -1646,10 +1646,10 @@ class SquaresGame:
 #
 
 
-class Loopbacker:  # todo2: rename to succinct but talking of interactively patching the Screen
+class TerminalBoss:  # todo2: rename to succinct but talking of interactively patching the Screen
     """Edit Screen per Change Orders received from Touch/ Mouse/ Key Release/ Press"""
 
-    selves: list[Loopbacker] = list()
+    selves: list[TerminalBoss] = list()
 
     keyboard_screen_i_o_wrapper: KeyboardScreenIOWrapper
     screen_writer: ScreenWriter
@@ -1667,7 +1667,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
 
     def __init__(self, seed: str) -> None:
 
-        Loopbacker.selves.append(self)
+        TerminalBoss.selves.append(self)
 
         assert DSR5 == "\033[" "5n"
 
@@ -1698,7 +1698,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
 
         # todo: limit fanout of pretending ⎋[5N came as last Input before Launch
 
-    def __enter__(self) -> Loopbacker:
+    def __enter__(self) -> TerminalBoss:
 
         ks = self.keyboard_screen_i_o_wrapper
         sw = self.screen_writer
@@ -1769,7 +1769,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
     # Run awhile
     #
 
-    def lbr_run_byteloop(self) -> None:
+    def tb_run_byteloop(self) -> None:
         """Loop back without adding latencies"""
 
         ks = self.keyboard_screen_i_o_wrapper
@@ -1786,7 +1786,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
             if data == b"\003":
                 break
 
-    def lbr_run_awhile(self) -> None:
+    def tb_run_awhile(self) -> None:
         """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
 
         sw = self.screen_writer
@@ -1827,9 +1827,9 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
             logger_info_reprs("")
             logger_info_reprs(f"{frames=}")
             if flags._repr_:
-                self.lbr_print_repr_frame_per_row(frames, t1t0=t1t0)
+                self.tb_print_repr_frame_per_row(frames, t1t0=t1t0)
             else:
-                self.lbr_step_once(frames)
+                self.tb_step_once(frames)
 
             # Quit at ⌃C
 
@@ -1843,7 +1843,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
             sw.write_control("\033[J")  # after-erase ⎋[⇧J  # simpler than ⎋[0⇧J
             sw.print("bye for now")
 
-    def lbr_step_once(self, frames: tuple[bytes, ...]) -> None:
+    def tb_step_once(self, frames: tuple[bytes, ...]) -> None:
         """Collect Input Frames over time as a Screen Change Order"""
 
         sw = self.screen_writer
@@ -1862,7 +1862,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
             assert data, (data,)
 
             if not text:
-                self.lbr_write_frame_echo(data)
+                self.tb_write_frame_echo(data)
                 continue
 
             (y, x) = (kr.row_y, kr.column_x)
@@ -1874,10 +1874,10 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
             if not (sco.forceful_order or sco.intricate_order):
 
                 if flags.echoes:
-                    self.lbr_write_frame_echo(data)
+                    self.tb_write_frame_echo(data)
                     sw.write_control(f"\033[{y};{x}H")
 
-                self.lbr_box_step_once(box, intricate_order=False)
+                self.tb_box_step_once(box, intricate_order=False)
 
                 continue
 
@@ -1887,12 +1887,12 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
             (row_y, column_x, strong, factor, sco_box) = compilation
 
             if not sco_box:
-                self.lbr_write_frame_echo(data)
+                self.tb_write_frame_echo(data)
                 break
 
             # Run this Order as completed by this Frame
 
-            self.lbr_sco_step_once(data, compilation=compilation)
+            self.tb_sco_step_once(data, compilation=compilation)
 
             sco.yx = tuple()
             f = sco.key_byte_frame
@@ -1906,7 +1906,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
         if clearing_screen_order:
             sco.clear_order()
 
-    def lbr_sco_step_once(
+    def tb_sco_step_once(
         self, data: bytes, compilation: tuple[int, int, int, int, BytesBox]
     ) -> None:
         """Run this Order as completed by this Frame"""
@@ -1929,7 +1929,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
 
         elif factor < -1:  # echoes without writing
 
-            self.lbr_write_frame_echo(data)
+            self.tb_write_frame_echo(data)
 
         elif factor == -1:  # echoes and greatly details
 
@@ -1938,14 +1938,14 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
             t1 = time.time()
             t1t0 = t1 - sco.time_time
 
-            self.lbr_write_frame_echo(data)
+            self.tb_write_frame_echo(data)
 
             sw.write_printable(" ")
-            self.lbr_print_repr_frame_per_row(frames, t1t0=t1t0)
+            self.tb_print_repr_frame_per_row(frames, t1t0=t1t0)
 
         elif factor == 0:  # echoes and leaps and writes
 
-            self.lbr_write_frame_echo("⌃m".encode() if (data == b"\r") else data)  # ⌃M
+            self.tb_write_frame_echo("⌃m".encode() if (data == b"\r") else data)  # ⌃M
 
             sw.write_control(f"\033[{row_y};{column_x}H")
             kr.row_y = row_y
@@ -1959,21 +1959,21 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
         else:  # echoes and cooks and leaps and writes
 
             if sco.intricate_order or flags.echoes:
-                self.lbr_write_frame_echo(data)
+                self.tb_write_frame_echo(data)
 
             sw.write_control(f"\033[{row_y};{column_x}H")
             kr.row_y = row_y
             kr.column_x = column_x
 
             for _ in range(factor):
-                self.lbr_box_step_once(sco_box, intricate_order=sco.intricate_order)
+                self.tb_box_step_once(sco_box, intricate_order=sco.intricate_order)
 
     #
     # Loop back a single Frame of decodable Input Bytes,
     # having arrived all together or else slowly intricately built as a Screen Change Order
     #
 
-    def lbr_box_step_once(self, box: BytesBox, intricate_order: bool) -> None:
+    def tb_box_step_once(self, box: BytesBox, intricate_order: bool) -> None:
         """Loop back the Decode of the Frame, else echo it"""
 
         data = box.data
@@ -1996,7 +1996,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
 
         # If Frame has Keycaps
 
-        if self.lbr_decode_kseqs_step_once_if(box, intricate_order=intricate_order):
+        if self.tb_decode_kseqs_step_once_if(box, intricate_order=intricate_order):
             return
 
         # Loop back a few Esc Byte Sequences unchanged
@@ -2067,14 +2067,14 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
 
         # Loop back well-known Csi & Osc Byte Sequences
 
-        if self.lbr_csi_osc_step_once_if(box):
+        if self.tb_csi_osc_step_once_if(box):
             return
 
         # Else echo vertically down southward
 
-        self.lbr_write_echo_southward(echo)
+        self.tb_write_echo_southward(echo)
 
-    def lbr_write_echo_southward(self, echo: str) -> None:
+    def tb_write_echo_southward(self, echo: str) -> None:
 
         sw = self.screen_writer
         kr = self.keyboard_reader
@@ -2088,7 +2088,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
             kr.row_y = min(kr.y_high, kr.row_y + 1)
             sw.write_control(f"\033[{kr.row_y};{kr.column_x}H")
 
-    def lbr_decode_kseqs_step_once_if(self, box: BytesBox, intricate_order: bool) -> bool:
+    def tb_decode_kseqs_step_once_if(self, box: BytesBox, intricate_order: bool) -> bool:
         """Loop back the Keycaps of the Frame, else return False"""
 
         data = box.data
@@ -2162,7 +2162,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
 
         return False
 
-    def lbr_csi_osc_step_once_if(self, box: BytesBox) -> bool:
+    def tb_csi_osc_step_once_if(self, box: BytesBox) -> bool:
         """Loop back well-known Csi & Osc Byte Sequences"""
 
         control = box.text
@@ -2273,7 +2273,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
     # Form Repr's of Frames of Input Bytes
     #
 
-    def lbr_write_frame_echo(self, frame: bytes) -> None:
+    def tb_write_frame_echo(self, frame: bytes) -> None:
         """Show a brief Repr of one Frame"""
 
         sw = self.screen_writer
@@ -2282,7 +2282,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
         echo = kd.frame_to_echo(frame)
         sw.write_printable(echo)
 
-    def lbr_print_repr_frame_per_row(self, frames: tuple[bytes, ...], t1t0: float) -> None:
+    def tb_print_repr_frame_per_row(self, frames: tuple[bytes, ...], t1t0: float) -> None:
         """Print the Repr of each Frame, but mark the Frames as framed together"""
 
         sw = self.screen_writer
@@ -2295,7 +2295,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
 
         for frame_index in range(len(frames)):
 
-            self.lbr_print_one_repr_frame(frames, frame_index=frame_index, t1t0=frame_t1t0)
+            self.tb_print_one_repr_frame(frames, frame_index=frame_index, t1t0=frame_t1t0)
 
             frame_t1t0 = 0e0
             y += 1  # todo: 'row_y > y_high' happens here  # todo: update Y X shadow
@@ -2303,7 +2303,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
             sw.write_control("\n")
             sw.write_control(f"\033[{y};{x}H")
 
-    def lbr_print_one_repr_frame(
+    def tb_print_one_repr_frame(
         self, frames: tuple[bytes, ...], frame_index: int, t1t0: float
     ) -> None:
         """Write the Repr of one Frame, but mark the Frames as framed together"""
