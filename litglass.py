@@ -194,246 +194,242 @@ MAX_ARROW_KEY_JAM_2 = 2  # takes Key Jams larger than Double Arrow as ⌥-Click'
 def main() -> None:
     """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
 
+    lg = LitGlass()
+
     try:
-        try_main()
+        lg.try_main()
     except BaseException:  # KeyboardInterrupt  # SystemExit
         # TerminalBoss.selves[-1].__exit__()  # todo3:
         excepthook(*sys.exc_info())
 
-    # todo2: rewrite 'def main' as form an object and call it
 
+class LitGlass:
 
-def try_main() -> None:
-    """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
+    def try_main(self) -> None:
+        """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
 
-    naive = dt.datetime.now()
+        naive = dt.datetime.now()
 
-    parser = arg_doc_to_parser(__main__.__doc__ or "")
-    ns = shell_args_take_in(args=sys.argv[1:], parser=parser)
+        parser = self.arg_doc_to_parser(__main__.__doc__ or "")
+        ns = self.shell_args_take_in(args=sys.argv[1:], parser=parser)
 
-    if flags.logging:  # writes into:  tail -F __pycache__/litglass.log
-        logging_resume()
+        if flags.logging:  # writes into:  tail -F __pycache__/litglass.log
+            self.logging_resume()
 
-    if ns.force:
-        _try_lit_glass_()
+        if ns.force:
+            self.try_lit_glass()
 
-    seed = shell_args_take_in_seed(ns.seed, naive=naive)
+        seed = self.shell_args_take_in_seed(ns.seed, naive=naive)
 
-    with TerminalBoss(seed) as tb:
-        logger_info_replay(seed, naive=naive)
+        with TerminalBoss(seed) as tb:
+            self.logger_info_replay(seed, naive=naive)
 
-        if flags._assert_:
-            assert False, "Asserting False before doing much"
+            if flags._assert_:
+                assert False, "Asserting False before doing much"
 
-        cpg = ColorPickerGame(tb)
-        kcg = KeycapsGame(tb)
-        sqg = SquaresGame(tb)
+            cpg = ColorPickerGame(tb)
+            kcg = KeycapsGame(tb)
+            sqg = SquaresGame(tb)
 
-        if flags.byteloop:
-            tb.tb_run_byteloop()
-        elif flags.color_picker:
-            cpg.cp_run_awhile()
-        elif flags.keycaps:
-            kcg.kc_run_awhile()
-        elif flags.squares:
-            sqg.sq_run_awhile()
-        else:
-            tb.tb_run_awhile()
+            if flags.byteloop:
+                tb.tb_run_byteloop()
+            elif flags.color_picker:
+                cpg.cp_run_awhile()
+            elif flags.keycaps:
+                kcg.kc_run_awhile()
+            elif flags.squares:
+                sqg.sq_run_awhile()
+            else:
+                tb.tb_run_awhile()
 
+    def logging_resume(self) -> None:
+        """Open up a new Logging Session at our .logger"""
 
-def logging_resume() -> None:
-    """Open up a new Logging Session at our .logger"""
+        os.makedirs("__pycache__", exist_ok=True)
 
-    os.makedirs("__pycache__", exist_ok=True)
+        logging.basicConfig(
+            filename="__pycache__/litglass.log",  # appends, doesn't restart
+            level=logging.INFO,  # .INFO and above
+            format="%(message)s",  # omits '%(levelname)s:%(name)s:'
+        )
 
-    logging.basicConfig(
-        filename="__pycache__/litglass.log",  # appends, doesn't restart
-        level=logging.INFO,  # .INFO and above
-        format="%(message)s",  # omits '%(levelname)s:%(name)s:'
-    )
+        logger_info_reprs("")
+        logger_info_reprs("")
+        logger_info_reprs("launched")
+        logger_info_reprs("")
 
-    logger_info_reprs("")
-    logger_info_reprs("")
-    logger_info_reprs("launched")
-    logger_info_reprs("")
+        #
+        # default Python .logging
+        #
+        #       drops many .INFO, .DEBUG, .NOTSET as < 30 .WARNING - # secretly, silently, uncountably
+        #       tags many lines at left with like 'INFO:__main__:'
+        #
 
-    #
-    # default Python .logging
-    #
-    #       drops many .INFO, .DEBUG, .NOTSET as < 30 .WARNING - # secretly, silently, uncountably
-    #       tags many lines at left with like 'INFO:__main__:'
-    #
+    def arg_doc_to_parser(self, doc: str) -> ArgDocParser:
+        """Declare the Positional Arguments & Options"""
 
+        parser = ArgDocParser(doc, add_help=True)
 
-def arg_doc_to_parser(doc: str) -> ArgDocParser:
-    """Declare the Positional Arguments & Options"""
+        force_help = "ask fewer questions (like do run slow self-test's)"
+        seed_help = "a chosen seed for pseudorandom choices (like to replay a game)"
+        egg_help = "a hint of how to behave, such as 'repr' or 'sigint'"
 
-    parser = ArgDocParser(doc, add_help=True)
+        parser.add_argument("-f", "--force", action="count", help=force_help)
+        parser.add_argument("--seed", dest="seed", help=seed_help)
+        parser.add_argument("--egg", dest="eggs", metavar="EGG", action="append", help=egg_help)
 
-    force_help = "ask fewer questions (like do run slow self-test's)"
-    seed_help = "a chosen seed for pseudorandom choices (like to replay a game)"
-    egg_help = "a hint of how to behave, such as 'repr' or 'sigint'"
+        return parser
 
-    parser.add_argument("-f", "--force", action="count", help=force_help)
-    parser.add_argument("--seed", dest="seed", help=seed_help)
-    parser.add_argument("--egg", dest="eggs", metavar="EGG", action="append", help=egg_help)
+    def shell_args_take_in(self, args: list[str], parser: ArgDocParser) -> argparse.Namespace:
+        """Take in the Shell Command-Line Args"""
 
-    return parser
+        ns = parser.parse_args_if(args)  # often prints help & exits zero
+        print_usage = parser.parser.print_usage
 
+        ns_keys = list(vars(ns).keys())
+        assert ns_keys == ["force", "seed", "eggs"], (ns_keys, ns, args)
 
-def shell_args_take_in(args: list[str], parser: ArgDocParser) -> argparse.Namespace:
-    """Take in the Shell Command-Line Args"""
+        self.shell_args_take_in_eggs(ns.eggs, print_usage=print_usage)
 
-    ns = parser.parse_args_if(args)  # often prints help & exits zero
-    print_usage = parser.parser.print_usage
+        games = flags.games
+        if games or ns.force:
+            flags.logging = True
 
-    ns_keys = list(vars(ns).keys())
-    assert ns_keys == ["force", "seed", "eggs"], (ns_keys, ns, args)
+        return ns
 
-    shell_args_take_in_eggs(ns.eggs, print_usage=print_usage)
+    def shell_args_take_in_eggs(
+        self, eggs: list[str] | None, print_usage: typing.Callable[[], None]
+    ) -> None:
+        """Take in the Shell --egg=EGG's"""
 
-    games = flags.games
-    if games or ns.force:
-        flags.logging = True
+        hints = eggs or list()
 
-    return ns
+        # Find the Eggs
 
+        dash_dash_eggs = list(vars(flags).keys())
 
-def shell_args_take_in_eggs(eggs: list[str] | None, print_usage: typing.Callable[[], None]) -> None:
-    """Take in the Shell --egg=EGG's"""
+        # Choose some Eggs or none
 
-    hints = eggs or list()
+        corrections = 0
+        attr_list = list()
+        for hint in hints:
+            splits = hint.split(",")
+            for split in splits:  # to one egg from several joined across comma separators
+                casefold = split.casefold()  # to folded case from unfolded case
+                strip = casefold.strip("_")  # to plain word from enclosed in skid marks
+                replace = strip.replace("-", "_")  # to skidded from snake case
 
-    # Find the Eggs
+                matches = list(_ for _ in dash_dash_eggs if _.strip("_").startswith(replace))
+                if len(matches) != 1:
 
-    dash_dash_eggs = list(vars(flags).keys())
+                    s = sorted(_.strip("_") for _ in dash_dash_eggs)
+                    if len(matches) > 1:
+                        s = sorted(matches)
 
-    # Choose some Eggs or none
+                    print_usage()
+                    print(f"don't choose {split!r}, do choose from {s}", file=sys.stderr)
+                    sys.exit(2)  # exits 2 for bad Arg
 
-    corrections = 0
-    attr_list = list()
-    for hint in hints:
-        splits = hint.split(",")
-        for split in splits:  # to one egg from several joined across comma separators
-            casefold = split.casefold()  # to folded case from unfolded case
-            strip = casefold.strip("_")  # to plain word from enclosed in skid marks
-            replace = strip.replace("-", "_")  # to skidded from snake case
+                copies = list(_ for _ in dash_dash_eggs if _.strip("_") == split)
+                if copies != matches:
+                    corrections += 1
 
-            matches = list(_ for _ in dash_dash_eggs if _.strip("_").startswith(replace))
-            if len(matches) != 1:
+                attr = matches[-1]
+                setattr(flags, attr, True)
 
-                s = sorted(_.strip("_") for _ in dash_dash_eggs)
-                if len(matches) > 1:
-                    s = sorted(matches)
+                attr_list.append(attr)
 
-                print_usage()
-                print(f"don't choose {split!r}, do choose from {s}", file=sys.stderr)
-                sys.exit(2)  # exits 2 for bad Arg
+        if corrections:
+            print(f"+ litglass.py --egg={','.join(attr_list)}")
 
-            copies = list(_ for _ in dash_dash_eggs if _.strip("_") == split)
-            if copies != matches:
-                corrections += 1
+        # todo9: is -f to --force a correction worth printing?
 
-            attr = matches[-1]
-            setattr(flags, attr, True)
+    def shell_args_take_in_seed(self, seed: str | None, naive: dt.datetime) -> str:
+        """Take in the last Shell --seed=SEED"""
 
-            attr_list.append(attr)
+        strftime = naive.strftime("%Y-%m-%d %H:%M:%S")
+        if not seed:
+            return strftime
 
-    if corrections:
-        print(f"+ litglass.py --egg={','.join(attr_list)}")
+        if re.fullmatch(r"[0-9]+(:[0-9]+)?(:[0-9]+)?", string=seed):
 
-    # todo9: is -f to --force a correction worth printing?
+            splits = seed.split(":")
 
+            ints = tuple(int(_) for _ in splits)
+            if len(splits) == 1:
+                ints = (naive.hour, ints[0], 0)  # --seed=MM
+            elif len(splits) == 2:
+                ints = (ints[0], ints[1], 0)  # --seed=HH:MM
+            else:
+                assert len(splits) == 3, (splits, ints)
 
-def shell_args_take_in_seed(seed: str | None, naive: dt.datetime) -> str:
-    """Take in the last Shell --seed=SEED"""
+            t = naive.replace(hour=ints[0], minute=ints[1], second=ints[2])
+            strftime = t.strftime("%Y-%m-%d %H:%M:%S")
 
-    strftime = naive.strftime("%Y-%m-%d %H:%M:%S")
-    if not seed:
-        return strftime
+            return strftime
 
-    if re.fullmatch(r"[0-9]+(:[0-9]+)?(:[0-9]+)?", string=seed):
+        return seed
 
-        splits = seed.split(":")
+    def logger_info_replay(self, seed: str, naive: dt.datetime) -> None:
+        """Log restarting/ starting from --seed=SEED"""
 
-        ints = tuple(int(_) for _ in splits)
-        if len(splits) == 1:
-            ints = (naive.hour, ints[0], 0)  # --seed=MM
-        elif len(splits) == 2:
-            ints = (ints[0], ints[1], 0)  # --seed=HH:MM
-        else:
-            assert len(splits) == 3, (splits, ints)
-
-        t = naive.replace(hour=ints[0], minute=ints[1], second=ints[2])
+        t = dt.datetime.fromisoformat(seed)
         strftime = t.strftime("%Y-%m-%d %H:%M:%S")
 
-        return strftime
+        shargs = list()
 
-    return seed
+        sharg = self.seed_to_sharg_near_naive(seed, naive=naive)
+        shargs.append(sharg)
+        shargs.append(f"--seed={strftime!r}")
 
+        d = dict(vars(flags))
 
-def logger_info_replay(seed: str, naive: dt.datetime) -> None:
-    """Log restarting/ starting from --seed=SEED"""
-
-    t = dt.datetime.fromisoformat(seed)
-    strftime = t.strftime("%Y-%m-%d %H:%M:%S")
-
-    shargs = list()
-
-    sharg = seed_to_sharg_near_naive(seed, naive=naive)
-    shargs.append(sharg)
-    shargs.append(f"--seed={strftime!r}")
-
-    d = dict(vars(flags))
-
-    items = sorted(_ for _ in d.items() if _[-1])
-    if items[1:]:
-        del d["yolo"]
         items = sorted(_ for _ in d.items() if _[-1])
+        if items[1:]:
+            del d["yolo"]
+            items = sorted(_ for _ in d.items() if _[-1])
 
-    for option, value in items:
-        _option_ = option.replace("_", "-")
-        if value:
-            shargs.append(f"--egg={_option_}")
+        for option, value in items:
+            _option_ = option.replace("_", "-")
+            if value:
+                shargs.append(f"--egg={_option_}")
 
-    join = " ".join(shargs)
-    logger_info_reprs("")
-    logger_info_reprs(f"python3 litglass.py {join}")
+        join = " ".join(shargs)
+        logger_info_reprs("")
+        logger_info_reprs(f"python3 litglass.py {join}")
 
+    def seed_to_sharg_near_naive(self, seed: str, naive: dt.datetime) -> str:
+        """Quote back one Shell --seed=SEED"""
 
-def seed_to_sharg_near_naive(seed: str, naive: dt.datetime) -> str:
-    """Quote back one Shell --seed=SEED"""
+        t = dt.datetime.fromisoformat(seed)
 
-    t = dt.datetime.fromisoformat(seed)
+        if (t.year, t.month, t.day) != (naive.year, naive.month, naive.day):
+            sharg = "--seed=" + shlex.quote(seed)
+            return sharg
 
-    if (t.year, t.month, t.day) != (naive.year, naive.month, naive.day):
-        sharg = "--seed=" + shlex.quote(seed)
+        if t.second:
+            sharg = t.strftime("--seed=%H:%M:%S")  # '--seed=19:42:56'
+            return sharg
+
+        if t.hour != naive.hour:
+            sharg = t.strftime("--seed=%H:%M")  # '--seed=19:42'
+            return sharg
+
+        sharg = t.strftime(f"--seed={t.minute}")  # '--seed=9'
         return sharg
 
-    if t.second:
-        sharg = t.strftime("--seed=%H:%M:%S")  # '--seed=19:42:56'
-        return sharg
+    def try_lit_glass(self) -> None:
+        """Run slow and quick Self-Test's of this Module"""
 
-    if t.hour != naive.hour:
-        sharg = t.strftime("--seed=%H:%M")  # '--seed=19:42'
-        return sharg
+        t0 = time.time()
 
-    sharg = t.strftime(f"--seed={t.minute}")  # '--seed=9'
-    return sharg
+        _try_chop_()
+        _try_key_byte_frame_()
+        _try_unicode_source_texts_()
 
-
-def _try_lit_glass_() -> None:
-    """Run slow and quick Self-Test's of this Module"""
-
-    t0 = time.time()
-
-    _try_chop_()
-    _try_key_byte_frame_()
-    _try_unicode_source_texts_()
-
-    t1 = time.time()
-    t1t0 = t1 - t0
-    logger.info(f"spent {chop(t1t0)}s on self-test")
+        t1 = time.time()
+        t1t0 = t1 - t0
+        logger.info(f"spent {chop(t1t0)}s on self-test")
 
 
 #
