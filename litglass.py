@@ -197,7 +197,7 @@ def main() -> None:
     try:
         try_main()
     except BaseException:  # KeyboardInterrupt  # SystemExit
-        # TerminalBoss.selves[-1].__exit__()  # todo6:
+        # TerminalBoss.selves[-1].__exit__()  # todo3:
         excepthook(*sys.exc_info())
 
     # todo2: rewrite 'def main' as form an object and call it
@@ -1952,9 +1952,9 @@ class TerminalBoss:
             kr.column_x = column_x
 
             if sco_box.nearly_printable:
-                sw.write_printable(sco_text)
+                sw.write_printable(sco_text)  # todo2: no, bypass ScreenWriter emulations
             else:
-                sw.write_control(sco_text)
+                sw.write_control(sco_text)  # todo2: no, bypass ScreenWriter emulations
 
         else:  # echoes and cooks and leaps and writes
 
@@ -2045,6 +2045,8 @@ class TerminalBoss:
             controls = controls_by_marks[marks]
             sw.write_some_controls(controls)
             return
+
+            # todo2: move the 8-way ↖↗↘↙ Compass Arrows into sw.write_control
 
         # Show a brief loud Repr of any Unknown Encode arriving as Input
 
@@ -2185,7 +2187,14 @@ class TerminalBoss:
             return True
 
         if head == b"\033[":
-            if len(backtail) == 1:
+            if backtail in (b"'}", b"'~"):
+
+                self._screen_columns_insert_delete_if_(f)
+                return True
+
+                # todo2: move def _screen_columns_insert_delete_if_ into sw.write_control
+
+            elif len(backtail) == 1:
 
                 if backtail in b"@" b"ABCDEFGHIJKLM" b"P" b"ST" b"Z" b"d" b"f" b"h" b"lm" b"q":
                     sw.write_control(control)  # no limits on .marks and .ints
@@ -2194,11 +2203,6 @@ class TerminalBoss:
                 if backtail in b"nt":
                     sw.write_control(control)  # no limits on .marks and .ints
                     return True
-
-            # Emulate Columns Insert/ Delete by Csi
-
-            if self._screen_columns_insert_delete_if_(f):
-                return True
 
             # todo: Accept only the Csi understood by our Class ScreenWriter
 
@@ -2266,8 +2270,6 @@ class TerminalBoss:
         return True
 
         # macOS Terminal & macOS iTerm2 & Google Cloud Shell lack ⎋['⇧} cols-insert
-
-        # todo2: move def _screen_columns_insert_delete_if_ into Class ScreenWriter
 
     #
     # Form Repr's of Frames of Input Bytes
@@ -2678,6 +2680,8 @@ class ScreenWriter:
         ks = self.keyboard_screen_i_o_wrapper
         data = text.encode()  # may raise UnicodeEncodeError
         ks.write_some_bytes(data)
+
+        # todo2: move 'def _write_encode_' into ks.write_text_encode
 
 
 Y1 = 1  # min Y of Terminal Cursor
@@ -5115,8 +5119,7 @@ if __name__ == "__main__":
 
 
 # todo2: emulate macOS Terminal Writes at Google Cloud Shell
-# todo2: double-wide character cursor moves
-# todo2: deletes while backlight
+# todo2: deletes while backlight, color filling from eastmost mirrored \n
 
 
 # todo3: drop Keycaps specific to macOS Terminal, when elsewhere
