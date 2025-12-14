@@ -839,7 +839,7 @@ class KeycapsGame:
 
     def kc_print(self, *args: object) -> None:
 
-        lbr = self.loopbacker  # todo9: layer KeycapsGame over TerminalBoss?
+        lbr = self.loopbacker  # todo9: layer KeycapsGame over KeyboardScreenIOWrapper?
         kr = lbr.keyboard_reader
         sw = lbr.screen_writer
 
@@ -1651,7 +1651,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
 
     selves: list[Loopbacker] = list()
 
-    terminal_boss: TerminalBoss
+    keyboard_screen_i_o_wrapper: KeyboardScreenIOWrapper
     screen_writer: ScreenWriter
     keyboard_reader: KeyboardReader
 
@@ -1673,9 +1673,9 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
 
         #
 
-        tb = TerminalBoss()
-        kr = tb.keyboard_reader
-        sw = tb.screen_writer
+        ks = KeyboardScreenIOWrapper()
+        kr = ks.keyboard_reader
+        sw = ks.screen_writer
 
         kd = KeyboardDecoder()
 
@@ -1687,7 +1687,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
 
         #
 
-        self.terminal_boss = tb
+        self.keyboard_screen_i_o_wrapper = ks
         self.screen_writer = sw
         self.keyboard_reader = kr
 
@@ -1700,13 +1700,13 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
 
     def __enter__(self) -> Loopbacker:
 
-        tb = self.terminal_boss
+        ks = self.keyboard_screen_i_o_wrapper
         sw = self.screen_writer
         kr = self.keyboard_reader
 
         assert SM_PS and SU_Y
 
-        tb.__enter__()
+        ks.__enter__()
 
         if flags.scrollback or ((not flags.enter) and (not flags._exit_)):
 
@@ -1739,7 +1739,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
 
     def __exit__(self, *args: object) -> None:
 
-        tb = self.terminal_boss
+        ks = self.keyboard_screen_i_o_wrapper
         sw = self.screen_writer
         kr = self.keyboard_reader
 
@@ -1763,7 +1763,7 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
             sw.write_control("\033[?1049l")  # main-screen ⎋[⇧?1049L vs ⎋[⇧?1049H
             sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
-        tb.__exit__(*args)
+        ks.__exit__(*args)
 
     #
     # Run awhile
@@ -1772,17 +1772,17 @@ class Loopbacker:  # todo2: rename to succinct but talking of interactively patc
     def lbr_run_byteloop(self) -> None:
         """Loop back without adding latencies"""
 
-        tb = self.terminal_boss
+        ks = self.keyboard_screen_i_o_wrapper
         sw = self.screen_writer
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
 
         sw.write_printable("Press ⌃C")
         while True:
-            data = tb.read_one_byte()
-            tb.write_some_bytes(data)
+            data = ks.read_one_byte()
+            ks.write_some_bytes(data)
             if data == b"\r":  # rounds up ⌘V of \r to \r\n
-                tb.write_some_bytes(b"\n")
+                ks.write_some_bytes(b"\n")
             if data == b"\003":
                 break
 
@@ -2581,10 +2581,10 @@ class ScreenChangeOrder:
 #
 
 
-class TerminalBoss:
+class KeyboardScreenIOWrapper:
     """Talk with one KeyboardReader and one ScreenWriter"""
 
-    selves: list[TerminalBoss] = list()
+    selves: list[KeyboardScreenIOWrapper] = list()
 
     stdio: typing.TextIO
     fileno: int
@@ -2595,7 +2595,7 @@ class TerminalBoss:
 
     def __init__(self) -> None:
 
-        TerminalBoss.selves.append(self)
+        KeyboardScreenIOWrapper.selves.append(self)
 
         stdio = sys.__stderr__
         assert stdio is not None  # refuses to run headless
@@ -2616,18 +2616,18 @@ class TerminalBoss:
     def _breakpoint_() -> None:
         """Exit for just long enough to breakpoint then re-enter"""
 
-        tb = TerminalBoss.selves[-1]
-        tb.__exit__()
+        ks = KeyboardScreenIOWrapper.selves[-1]
+        ks.__exit__()
 
-        breakpoint()  # Pdb likes:  where, up, down, tb = None, continue
-        pass  # Pdb likes:  where, up, down, tb = None, continue
+        breakpoint()  # Pdb likes:  where, up, down, ks = None, continue
+        pass  # Pdb likes:  where, up, down, ks = None, continue
 
-        if tb:
-            tb.__enter__()
+        if ks:
+            ks.__enter__()
 
-        # TerminalBoss._breakpoint_()
+        # KeyboardScreenIOWrapper._breakpoint_()
 
-    def __enter__(self) -> TerminalBoss:
+    def __enter__(self) -> KeyboardScreenIOWrapper:
         r"""Stop line-buffering Input, stop taking \n Output as \r\n, etc"""
 
         stdio = self.stdio
@@ -2739,10 +2739,10 @@ class TerminalBoss:
 class ScreenWriter:
     """Write Lines of Output to the Terminal Screen"""
 
-    terminal_boss: TerminalBoss
+    keyboard_screen_i_o_wrapper: KeyboardScreenIOWrapper
 
-    def __init__(self, terminal_boss: TerminalBoss) -> None:
-        self.terminal_boss = terminal_boss
+    def __init__(self, keyboard_screen_i_o_wrapper: KeyboardScreenIOWrapper) -> None:
+        self.keyboard_screen_i_o_wrapper = keyboard_screen_i_o_wrapper
 
     def print(self, *args: object) -> None:
         """Answer the question of 'what is print?' here lately"""
@@ -2835,9 +2835,9 @@ class ScreenWriter:
 
         # logger_info_reprs(f"{text=}")  # printable or control or a mix of both
 
-        tb = self.terminal_boss
+        ks = self.keyboard_screen_i_o_wrapper
         data = text.encode()  # may raise UnicodeEncodeError
-        tb.write_some_bytes(data)
+        ks.write_some_bytes(data)
 
 
 Y1 = 1  # min Y of Terminal Cursor
@@ -2895,7 +2895,7 @@ DSR6 = "\033[" "6n"  # DSR_PS Ps 6 for CPR_Y_X
 class KeyboardReader:
     """Read Frames of Input from the Terminal Keyboard"""
 
-    terminal_boss: TerminalBoss
+    keyboard_screen_i_o_wrapper: KeyboardScreenIOWrapper
 
     y_high: int  # H W positive after initial zero
     x_wide: int
@@ -2905,9 +2905,9 @@ class KeyboardReader:
 
     reads_ahead: bytearray
 
-    def __init__(self, terminal_boss: TerminalBoss) -> None:
+    def __init__(self, keyboard_screen_i_o_wrapper: KeyboardScreenIOWrapper) -> None:
 
-        self.terminal_boss = terminal_boss
+        self.keyboard_screen_i_o_wrapper = keyboard_screen_i_o_wrapper
 
         self.row_y = 0
         self.column_x = 0
@@ -2949,7 +2949,7 @@ class KeyboardReader:
         return frames
 
         # todo: keep 'def read_byte_frames' paired up with 'def kbhit'
-        # way far away from TerminalBoss.read_one_byte
+        # way far away from KeyboardScreenIOWrapper.read_one_byte
 
     def _frames_compress_if_(self, frames: tuple[bytes, ...]) -> tuple[bytes, ...]:
         """Collapse two Frames to one, or don't"""
@@ -3151,8 +3151,8 @@ class KeyboardReader:
         if reads_ahead:
             return True
 
-        tb = self.terminal_boss
-        hit = tb.stdio_select_select(timeout=timeout)  # a la msvcrt.kbhit
+        ks = self.keyboard_screen_i_o_wrapper
+        hit = ks.stdio_select_select(timeout=timeout)  # a la msvcrt.kbhit
 
         return hit
 
@@ -3162,8 +3162,8 @@ class KeyboardReader:
     def guess_dark_light(self) -> tuple[bool, bool]:
         """Choose Darkmode or Lightmode or neither Backlight"""
 
-        tb = self.terminal_boss
-        sw = tb.screen_writer
+        ks = self.keyboard_screen_i_o_wrapper
+        sw = ks.screen_writer
         reads_ahead = self.reads_ahead
 
         # Sends ⎋]10;⇧?⌃G for reply ⎋]10;RGB⇧:{r}/{g}/{b}\007 for 10, 11, and 12
@@ -3240,8 +3240,8 @@ class KeyboardReader:
     def sample_hwyx(self) -> tuple[int, int, int, int]:
         """Take a fresh sample of Width x Height and Y X Cursor Position of this Terminal"""
 
-        tb = self.terminal_boss
-        sw = tb.screen_writer
+        ks = self.keyboard_screen_i_o_wrapper
+        sw = ks.screen_writer
         reads_ahead = self.reads_ahead
 
         assert DSR0 == "\033[" "0n"
@@ -3292,7 +3292,7 @@ class KeyboardReader:
         return reads
 
         # todo: keep 'def read_bytes' paired up with 'def kbhit'
-        # way far away from TerminalBoss.read_one_byte
+        # way far away from KeyboardScreenIOWrapper.read_one_byte
 
         # todo: one 'def read_bytes' per project is exactly enough?
 
@@ -3314,8 +3314,8 @@ class KeyboardReader:
     def _read_hwyx_bytes_(self) -> tuple[tuple[int, int, int, int], bytes]:
         """Read the Input Bytes and their Y X, then add their H W"""
 
-        tb = self.terminal_boss
-        fileno = tb.fileno
+        ks = self.keyboard_screen_i_o_wrapper
+        fileno = ks.fileno
 
         # Read one Byte, then send for Y X Cursor Position, then block till it comes
 
@@ -3338,15 +3338,15 @@ class KeyboardReader:
     def _read_yx_bytes_(self) -> tuple[tuple[int, int], bytes]:
         """Read 1 Byte, send for Cursor Y X Position, & read Available Bytes till the Report"""
 
-        tb = self.terminal_boss
-        sw = tb.screen_writer
+        ks = self.keyboard_screen_i_o_wrapper
+        sw = ks.screen_writer
 
         assert _NorthArrow_ and _SouthArrow_ and _EastArrow_ and _WestArrow_
         assert DSR6 == "\033[" "6n"
         assert CPR_Y_X == "\033[" "{};{}R"
 
-        tb.write_some_bytes(b"\033[6n")  # ⎋[6n send for reply Y X
-        tb.stdio_select_select(timeout=0e0)  # flushes and blocks after .write_some_bytes
+        ks.write_some_bytes(b"\033[6n")  # ⎋[6n send for reply Y X
+        ks.stdio_select_select(timeout=0e0)  # flushes and blocks after .write_some_bytes
 
         row_y = -1
         column_x = -1
@@ -3355,7 +3355,7 @@ class KeyboardReader:
         flags_lazy_kbhits = False  # truthy to show more messy things
         while True:
 
-            read = tb.read_one_byte()
+            read = ks.read_one_byte()
             ba.extend(read)
 
             if flags.clickarrows:
@@ -3397,7 +3397,7 @@ class KeyboardReader:
                     # Arrow Key Bursts split apart into frames if .flags_lazy_kbhits
                     # Double Key Jams still often recur despite .flags_lazy_kbhits
 
-            if not tb.stdio_select_select(timeout=0e0):  # blocks
+            if not ks.stdio_select_select(timeout=0e0):  # blocks
                 break
 
         yx = (row_y, column_x)  # taken from first, when more left in .ba
