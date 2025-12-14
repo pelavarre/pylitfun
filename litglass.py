@@ -200,6 +200,8 @@ def main() -> None:
         # Loopbacker.selves[-1].__exit__()  # todo6:
         excepthook(*sys.exc_info())
 
+    # todo2: rewrite 'def main' as form an object and call it
+
 
 def try_main() -> None:
     """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
@@ -1644,7 +1646,7 @@ class SquaresGame:
 #
 
 
-class Loopbacker:  # todo3: rename to Class Terminal
+class Loopbacker:  # todo2: rename to succinct but talking of interactively patching the Screen
     """Loop Input back to Output, to Screen from Touch/ Mouse/ Key"""
 
     selves: list[Loopbacker] = list()
@@ -1748,7 +1750,7 @@ class Loopbacker:  # todo3: rename to Class Terminal
                 sw.write_control("\033[?1006;1000l")  # mouse-give
 
         # if not flags.enter:  # todo3:
-        #     sw.write_control("\033[?2004l")  # paste-unwrap ⎋[?2004L
+        #     sw.write_control("\033[?2004l")  # paste-unwrap ⎋[?2004L  # todo3:
 
         if not flags._exit_:
 
@@ -2264,6 +2266,8 @@ class Loopbacker:  # todo3: rename to Class Terminal
         return True
 
         # macOS Terminal & macOS iTerm2 & Google Cloud Shell lack ⎋['⇧} cols-insert
+
+        # todo2: move def _screen_columns_insert_delete_if_ into Class ScreenWriter
 
     #
     # Form Repr's of Frames of Input Bytes
@@ -4340,15 +4344,15 @@ class KeyboardDecoder:
                 d[text].append(kseq)
 
             if " " in kseq:
-                ks = kseq[:-1] + "⇧" + kseq[-1:]
-                dc = text.upper()  # 'Á' from 'á'
-                if dc != text:
+                up = text.upper()  # 'Á' from 'á'
+                shift = kseq[:-1] + "⇧" + kseq[-1:]  # '⌥E ⇧A' from '⌥E A'
+                if up != text:
 
-                    if ks in decode_by_kseq.keys():
-                        assert decode_by_kseq[ks] == dc, (decode_by_kseq[ks], dc, ks)
+                    if shift in decode_by_kseq.keys():
+                        assert decode_by_kseq[shift] == up, (decode_by_kseq[shift], up, shift)
                     else:
-                        decode_by_kseq[ks] = dc
-                        d[dc].append(ks)
+                        decode_by_kseq[shift] = up
+                        d[up].append(shift)
 
         # Add the "Use Option as Meta key" of macOS Terminal
 
