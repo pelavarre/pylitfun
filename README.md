@@ -190,7 +190,8 @@ Can we live within in these limits and still rewrite this text so well as to hop
 
 Broken and know how to fix
 
-   v| should cope, not yammer of 'Vim: Warning: Output is not to a terminal'
+   'alfa |' should cope, not yammer of 'Vim: Warning: Output is not to a terminal'
+   |alfa should feel that the arg '.' was supplied, a la = >echo '{"1":11}' |jq .
 
    ~/bin/c sh script of litshell.py
       prompt before blocking till Tty Stdin Line complete
