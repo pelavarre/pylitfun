@@ -1,5 +1,7 @@
 if [ $# -eq 0 ]; then
+    set -xe
     ./litglass.py --
 else
+    set -xe
     ./litglass.py "$@"
 fi

@@ -55,14 +55,16 @@ bin:
 	# @cat - >/dev/null
 	:
 	rm -fr ~/bin/pylitfun/
-	echo bin/[-a-z]* |(cd ~/ && xargs -n1 rm -fr)
+	echo bin/* sh/* |(cd ~/ && xargs -n1 rm -fr)
 	:
 	mkdir -p ~/bin/pylitfun/
 	cp -ip *.py ~/bin/pylitfun/.
 	:
-	cp -p bin/[-a-z]* ~/bin/.
+	cp -p bin/* ~/bin/.
 	rm -fr ~/bin/pwnme
 	rm -fr ~/bin/pylitfun.py
+	:
+	cp -p sh/* ~/bin/.
 
 
 #

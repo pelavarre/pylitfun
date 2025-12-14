@@ -133,11 +133,13 @@ Sometimes it doesn't
 
 ### 2.6 Printing a double-wide Character moves the Terminal Cursor by two Columns
 
-This does work in some Terminals. But at a Google Cloud Shell you have to move the Cursor an extra Column to the Right yourself
+This does work in some Terminals. But at a Google Cloud Shell you have to blank out the East Column yourself, and you have to move the Cursor across the East Column yourself
 
 As shown by Shell PrintF
 
     printf '\xF0\x9F\x9F\xA1' && printf '\xF0\x9F\x9F\xA1' && printf '\033[6n' && printf '\x0A' && cat - >/dev/null
+
+    printf 'AlfaBravo''\r''\xF0\x9F\x8F\x86''\033[C''\033[K''\n'
 
 As shown by Python
 

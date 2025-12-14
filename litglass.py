@@ -342,6 +342,8 @@ def shell_args_take_in_eggs(eggs: list[str] | None, print_usage: typing.Callable
     if corrections:
         print(f"+ litglass.py --egg={','.join(attr_list)}")
 
+    # todo9: is -f to --force a correction worth printing?
+
 
 def shell_args_take_in_seed(seed: str | None, naive: dt.datetime) -> str:
     """Take in the last Shell --seed=SEED"""
@@ -1125,10 +1127,8 @@ class SquaresGame:
                 break
 
         sw.write_control("\033[2A")
-        sw.write_printable("🏆")
-        if _os_environ_get_cloud_shell_:
-            sw.write_control("\033[C")
         sw.write_control("\033[K")
+        sw.write_printable("🏆")
         sw.write_some_controls(["\r", "\n"])
 
         sw.print()
@@ -2437,7 +2437,7 @@ class ScreenChangeOrder:
         # '\x15' '0' '\x15' b'\x1b[A'
 
     #
-    # Say what to do and where
+    # Say what to do and where  # todo2: Compile to a Class Instance  # todo2: /sco/order/  # todo: /.../text/
     #
 
     def compile_order(self) -> tuple[int, int, int, int, BytesBox]:
@@ -2488,8 +2488,10 @@ class ScreenChangeOrder:
 
         return (row_y, column_x, strong, factor, box)
 
+        # todo2: change to .compile_order_if, into self, deciding .strong .factor .box
+
     #
-    # Add on a next Input, else restart
+    # Add on a next Input, else restart  # todo2: Accept ⎋⌃⌥⇧F Key Caps
     #
 
     def grow_order(self, box: BytesBox, yx: tuple[int, int]) -> None:
