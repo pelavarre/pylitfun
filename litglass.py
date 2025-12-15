@@ -530,10 +530,7 @@ class ColorPickerGame:
         (y, x) = game_yx
         sw.write_control(f"\033[{y};{x}H")
 
-        # Draw the Board
-
-        sw.print()
-        sw.print()  # twice
+        # Form the Board
 
         ns = 3 * len("5 ") * " "
         i = focus_int * len("5 ")
@@ -542,6 +539,11 @@ class ColorPickerGame:
         gap = len("rgb color ") * " "
         n = ns[:i] + "↑ " + ns[j:]
         s = ns[:i] + "↓ " + ns[j:]
+
+        # Draw above the Board
+
+        sw.print()
+        sw.print()  # twice
 
         sw.print(dent + gap + n + dent)
         sw.print()
@@ -552,30 +554,20 @@ class ColorPickerGame:
         sw.print()
         sw.print()  # twice
 
+        # Draw the Board per se
+
         sw.write_control(f"\033[38;5;{ps}m")
 
         for _ in range(3):
-
-            sw.write_printable(dent)  # todo2: add def to split controls from printables
-            sw.write_printable("█")
-            sw.write_control("\033[2C")
-            sw.write_printable("██")
-            sw.write_control("\033[2C")
-            sw.write_printable("███")
-            sw.write_control("\033[2C")
-            sw.write_printable("██")
-            sw.write_control("\033[2C")
-            sw.write_printable("█")
-            sw.write_printable(dent)
-            sw.write_some_controls(["\r", "\n"])
-
-            # sw.print(dent + "███  ██  █  █  ██  ███" + dent)
+            sep = "\033[2C"
+            text = dent + "█" + sep + "██" + sep + "███" + sep + "██" + sep + "█" + dent + "\r\n"
+            sw.write_text(text)
 
         sw.write_control("\033[m")
 
-        sw.print()
+        # Draw below the Board
 
-        # Draw the Chat
+        sw.print()
 
         sw.print("Press ⌃C")
         sw.print()
@@ -661,9 +653,6 @@ class KeycapsGame:
         ⇧      z  x  c  v  b  n  m   ,  .  /           ⇧
         Fn  ⌃  ⌥  ⌘   Spacebar    ⌘   ⌥          ← ↑ → ↓
     """
-
-    Unprintables = "⎋ ⇥ ⌫ ⏎ ← ↑ → ↓"
-    Unprintables = "".join(Unprintables.split())
 
     ShiftedKeyboard = r"""
         ⎋    F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>
@@ -2325,30 +2314,30 @@ class TerminalBoss:
 
         # Choose which details to print
 
-        printables: list[object] = list()
+        joinables: list[object] = list()
 
         if alt_kseqs:
-            printables.append(alt_kseqs[0])
+            joinables.append(alt_kseqs[0])
 
         if not box.nearly_printable:
-            printables.append(repr(frame))
+            joinables.append(repr(frame))
         else:
             if text == " ":
-                printables.append(repr(text))
+                joinables.append(repr(text))
             else:
-                printables.append(text)
+                joinables.append(text)
 
-        printables.append(chop(1000 * t1t0))
+        joinables.append(chop(1000 * t1t0))
 
         if alt_kseqs[1:]:
-            printables.append(alt_kseqs[1:])
+            joinables.append(alt_kseqs[1:])
 
         if frames[1:]:
-            printables.append(frame_index)
+            joinables.append(frame_index)
 
         # Print the chosen details
 
-        join = " ".join(str(_) for _ in printables)
+        join = " ".join(str(_) for _ in joinables)
         sw.write_printable(join)
 
         self.t = time.time()
@@ -2597,6 +2586,37 @@ class ScreenWriter:
         self.write_some_controls(["\r", "\n"])
 
         # todo: one 'def print' per project is exactly enough?
+
+    def write_text(self, text: str) -> None:
+        """Write the Characters of a Text, after splitting it into Controls and Printables"""
+
+        frame = KeyByteFrame(b"")
+
+        encode = text.encode()  # may raise UnicodeEncodeError
+
+        ba = bytearray()
+        ba.extend(encode)
+
+        ba.extend(b".")  # runs with one extra at the end
+        while ba:
+            code = ba.pop(0)
+
+            if ba:
+                byte = bytes([code])
+                extras = frame.take_one_byte_if(byte)
+                ba[0:0] = extras
+
+            if frame.closed:
+                printable = frame.printable
+                box_text = printable.decode()
+                if box_text:
+                    self.write_printable(box_text)
+                else:
+                    control = frame.to_frame_bytes()
+                    self.write_control(control.decode())
+                frame.clear_frame()
+
+        # todo: one 'def write_text' per project is exactly enough?
 
     def write_printable(self, text: str) -> None:
         """Write the Byte Encodings of Printable Text without adding a Line-Break"""
