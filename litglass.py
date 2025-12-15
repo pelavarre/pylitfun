@@ -1677,8 +1677,8 @@ class TerminalBoss:
         kd = KeyboardDecoder()
 
         dsr5 = BytesBox(b"\033[5n")
-        sco = ScreenChangeOrder()
-        sco.grow_order(dsr5, yx=(kr.row_y, kr.column_x))
+        order = ScreenChangeOrder()
+        order.grow_order(dsr5, yx=(kr.row_y, kr.column_x))
 
         r = random.Random(seed)
 
@@ -1689,7 +1689,7 @@ class TerminalBoss:
         self.keyboard_reader = kr
 
         self.keyboard_decoder = kd
-        self.screen_change_order = sco
+        self.screen_change_order = order
         self.seed = seed
         self.random_random = r
 
@@ -1845,7 +1845,7 @@ class TerminalBoss:
 
         sw = self.screen_writer
         kr = self.keyboard_reader
-        sco = self.screen_change_order
+        order = self.screen_change_order
 
         # Take in each Frame
 
@@ -1866,9 +1866,9 @@ class TerminalBoss:
 
             # Take in the Frame by itself, while Order incomplete
 
-            sco.grow_order(box, yx=(kr.row_y, kr.column_x))
+            order.grow_order(box, yx=(kr.row_y, kr.column_x))
 
-            if not (sco.forceful_order or sco.intricate_order):
+            if not (order.forceful_order or order.intricate_order):
 
                 if flags.echoes:
                     self.tb_write_frame_echo(data)
@@ -1878,21 +1878,18 @@ class TerminalBoss:
 
                 continue
 
-                # todo9: Delete the repeat-count when not-echo'ing the Key Byte Frame
+                # todo9: Delete the .factor repeat-count when not-echo'ing the Key Byte Frame
 
-            compilation = sco.compile_order()
-            (row_y, column_x, strong, factor, sco_box) = compilation
-
-            if not sco_box:
+            if not order.compile_order():
                 self.tb_write_frame_echo(data)
                 break
 
             # Run this Order as completed by this Frame
 
-            self.tb_sco_step_once(data, compilation=compilation)
+            self.tb_order_step_once(data, order=order)
 
-            sco.yx = tuple()
-            f = sco.key_byte_frame
+            order.yx = tuple()
+            f = order.key_byte_frame
             f.clear_frame()  # reruns Factor for remaining Frames
 
             if boxes[box_index:][1:]:
@@ -1901,28 +1898,33 @@ class TerminalBoss:
             clearing_screen_order = True
 
         if clearing_screen_order:
-            sco.clear_order()
+            order.clear_order()
 
-    def tb_sco_step_once(
-        self, data: bytes, compilation: tuple[int, int, int, int, BytesBox]
-    ) -> None:
+    def tb_order_step_once(self, data: bytes, order: ScreenChangeOrder) -> None:
         """Run this Order as completed by this Frame"""
 
-        (row_y, column_x, strong, factor, sco_box) = compilation
-        sco_data = sco_box.data
-        sco_text = sco_box.text
+        yx = order.yx
+        (row_y, column_x) = yx
 
+        strong = order.strong
+        factor = order.factor
+
+        order_box = order.box
+        order_data = order_box.data
+        order_text = order_box.text
+
+        ks = self.keyboard_screen_i_o_wrapper
         sw = self.screen_writer
         kr = self.keyboard_reader
-        sco = self.screen_change_order
+        order = self.screen_change_order
 
-        assert sco.forceful_order or sco.intricate_order, (sco,)
+        assert order.forceful_order or order.intricate_order, (order,)
 
         # Write the Frame and grow the Order
 
-        if sco_box.nearly_printable and (not strong):
+        if order_box.nearly_printable and (not strong):
 
-            sw.write_printable(sco_text)
+            sw.write_printable(order_text)
 
         elif factor < -1:  # echoes without writing
 
@@ -1930,10 +1932,10 @@ class TerminalBoss:
 
         elif factor == -1:  # echoes and greatly details
 
-            frames = tuple([sco_data])
+            frames = tuple([order_data])
 
             t1 = time.time()
-            t1t0 = t1 - sco.time_time
+            t1t0 = t1 - order.time_time
 
             self.tb_write_frame_echo(data)
 
@@ -1948,14 +1950,11 @@ class TerminalBoss:
             kr.row_y = row_y
             kr.column_x = column_x
 
-            if sco_box.nearly_printable:
-                sw.write_printable(sco_text)  # todo2: no, bypass ScreenWriter emulations
-            else:
-                sw.write_control(sco_text)  # todo2: no, bypass ScreenWriter emulations
+            ks.write_some_bytes(order_data)  # todo8: notice back to ScreenWriter for mirroring?
 
         else:  # echoes and cooks and leaps and writes
 
-            if sco.intricate_order or flags.echoes:
+            if order.intricate_order or flags.echoes:
                 self.tb_write_frame_echo(data)
 
             sw.write_control(f"\033[{row_y};{column_x}H")
@@ -1963,7 +1962,7 @@ class TerminalBoss:
             kr.column_x = column_x
 
             for _ in range(factor):
-                self.tb_box_step_once(sco_box, intricate_order=sco.intricate_order)
+                self.tb_box_step_once(order_box, intricate_order=order.intricate_order)
 
     #
     # Loop back a single Frame of decodable Input Bytes,
@@ -2379,6 +2378,10 @@ class ScreenChangeOrder:
     key_byte_frame: KeyByteFrame
     intricate_order: bool  # says if .key_byte_frame grown from multiple Inputs
 
+    strong: bool
+    factor: int
+    box: BytesBox
+
     #
     # Define Init, Bool, Str, & Clear
     #
@@ -2402,6 +2405,10 @@ class ScreenChangeOrder:
         f.clear_frame()
 
         self.intricate_order = False
+
+        self.strong = False
+        self.factor = 1
+        self.box = BytesBox(b"")
 
     def __bool__(self) -> bool:
 
@@ -2432,60 +2439,6 @@ class ScreenChangeOrder:
         return s
 
         # '\x15' '0' '\x15' b'\x1b[A'
-
-    #
-    # Say what to do and where  # todo2: Compile to a Class Instance  # todo2: /sco/order/  # todo: /.../text/
-    #
-
-    def compile_order(self) -> tuple[int, int, int, int, BytesBox]:
-        """Say where to run, what to run, and if strongly told to run it other than once"""
-
-        yx = self.yx
-
-        early_mark = self.early_mark
-        int_literal = self.int_literal
-        late_mark = self.late_mark
-
-        f = self.key_byte_frame
-
-        assert DL_Y == "\033[" "{}M"
-        assert _CLICK3_ == "\033[M"
-
-        # Say where to run
-
-        (row_y, column_x) = yx
-
-        # Say how strongly marked the Factor is, if marked at all
-
-        strong = len(early_mark + late_mark)
-
-        # Take an Int Literal as is, not changed by more or less ⌃U marks next door
-
-        if not int_literal:
-            factor = 4 ** len(early_mark)  # per Emacs
-        else:
-            try:
-                base = 0
-                factor = int(int_literal, base)  # maybe negative or zero
-            except ValueError:
-                factor = -1 if (int_literal == "-") else 1
-
-        # Quit now to grow some more, else fall through with a whole Frame
-
-        f.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
-
-        data = f.to_frame_bytes()
-        if not f.closed:
-            if not f.printable:
-                data = b""
-
-        box = BytesBox(data)
-
-        # Succeed
-
-        return (row_y, column_x, strong, factor, box)
-
-        # todo2: change to .compile_order_if, into self, deciding .strong .factor .box
 
     #
     # Add on a next Input, else restart  # todo2: Accept ⎋⌃⌥⇧F Key Caps
@@ -2575,6 +2528,56 @@ class ScreenChangeOrder:
         self.clear_order()
 
         # todo9: Accept the shifting Symbols of ⎋ ⌃ ⌥ ⇧ ⌘ Fn into the Screen Change Order
+
+    #
+    # Say what to do and where
+    #
+
+    def compile_order(self) -> bool:
+        """Say where to run, what to run, and if strongly told to run it other than once"""
+
+        early_mark = self.early_mark
+        int_literal = self.int_literal
+        late_mark = self.late_mark
+
+        f = self.key_byte_frame
+
+        assert DL_Y == "\033[" "{}M"
+        assert _CLICK3_ == "\033[M"
+
+        # Say how strongly marked the Factor is, if marked at all
+
+        strong = bool(early_mark + late_mark)
+
+        # Take an Int Literal as is, not changed by more or less ⌃U marks next door
+
+        if not int_literal:
+            factor = 4 ** len(early_mark)  # per Emacs
+        else:
+            try:
+                base = 0
+                factor = int(int_literal, base)  # maybe negative or zero
+            except ValueError:
+                factor = -1 if (int_literal == "-") else 1
+
+        # Quit now to grow some more, else fall through with a whole Frame
+
+        f.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
+
+        data = f.to_frame_bytes()
+        box = BytesBox(data)
+
+        if not f.closed:
+            if not f.printable:
+                return False
+
+        # Succeed
+
+        self.strong = strong  # replaces
+        self.factor = factor  # replaces
+        self.box = box  # replaces
+
+        return True
 
 
 class ScreenWriter:
