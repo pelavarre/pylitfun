@@ -26,6 +26,7 @@ Lies that too many Terminal Programs tell themselves
   - [4.1 You can copy in what you please](#41-you-can-copy-in-what-you-please)
   - [4.2 You can copy out what you please](#42-you-can-copy-out-what-you-please)
   - [4.3 The Emacs Key Chords you learn at the Terminal do or don't work elsewhere](#43-the-emacs-key-chords-you-learn-at-the-terminal-do-or-dont-work-elsewhere)
+  - [4.4 You can print the Glyphs you printed in 1980](#44-you-can-print-the-glyphs-you-printed-in-1980)
 
 
 ## 1. Input Key Chords read from the Terminal Touch/ Tap/ Key Press/ Release
@@ -257,6 +258,20 @@ Lots of macOS understands ⌃A ⌃B ⌃D ⌃E ⌃F ⌃K ⌃N ⌃O ⌃P ⌃T ⌃Y
 The Apple macOS Terminal doesn't let you distinguish ⌥⌫ from ⌫, but does pretty natively understand ⎋B and ⎋F, which Emacs ⌃H K docs as M-b 'backward-word' and M-f 'forward-word'
 
 You can get some variations of Emacs ⎋Z and ⎋⇧Z to work in places like macOS Zsh, which gives you a bit and not much of what Vim does with D T and D F. Emacs speaks of 'zap-to-char' and 'zap-up-to-char', with ⎋Z traditionally doing the work of Vim D F I, but Zsh ⎋Z can more easily be told to do D T
+
+### 4.4 You can print the Glyphs you printed in 1980
+
+Wikipedia [ATASCII](https://en.wikipedia.org/wiki/ATASCII), meaning Atari® Ascii, has tried to find similar Glyphs inside Unicode, and they're not all plainly found.
+
+Back in the days of the Atari 800, the Byte Codes 0x80 through 0xFF printed as the reverse video of Byte Codes 0x00 through 0x7F, and only 0x20 was blank. 0xA0 was a reversed blank
+
+Reverse-video at my Terminal copies into Google http://docs.new no problem, aye, but it lands wrong in Google http://sheets.new/ and it lands wrong in Slack
+
+I felt so very disappointed when first I saw the IBM PC choose to render 0x00 and 0x20 and 0xFF as all the very same blank glyph. Like, you know, "you had just the one job". You could have done it well
+
+See also
++ a screenshot of [Atari®](https://en.wikipedia.org/wiki/ATASCII#/media/File:Atascii-character-set-00toFF-2x.gif)
++ a screenshot of [IBM PC](https://en.wikipedia.org/wiki/Code_page_437#/media/File:Codepage-437.png)
 
 <!--
 

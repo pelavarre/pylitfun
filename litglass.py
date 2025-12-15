@@ -2121,8 +2121,9 @@ class TerminalBoss:
 
                 arrow_control = kd.decode_by_kseq[arrow]
                 sw.write_control(arrow_control)
+
                 if (arrow in ("←", "→")) and flags.echoes:
-                    sw.write_control(arrow_control)
+                    sw.write_control(arrow_control)  # double wide while echoed
 
                 return True
 
@@ -5189,6 +5190,9 @@ _ = """  # more famous Python Imports to run in place of our Code here
 
 if __name__ == "__main__":
     main()
+
+
+# todo2: Alt + Number
 
 
 # todo2: emulate macOS Terminal Writes at Google Cloud Shell OR vice versa
