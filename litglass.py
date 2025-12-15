@@ -204,6 +204,7 @@ def main() -> None:
 
 
 class LitGlass:
+    """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
 
     def try_main(self) -> None:
         """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
@@ -2597,6 +2598,8 @@ class ScreenWriter:
     def write_printable(self, text: str) -> None:
         """Write the Byte Encodings of Printable Text without adding a Line-Break"""
 
+        ks = self.keyboard_screen_i_o_wrapper
+
         printable = text  # alias
         assert printable.replace("", "-").isprintable(), (printable,)
 
@@ -2606,7 +2609,7 @@ class ScreenWriter:
         # Trust the Terminal to write well
 
         if not flags.google:
-            self._write_encode_(printable)
+            ks.write_text_encode(printable)
             return
 
         # Else trust the Terminal to write all but Fullwidth & Wide well
@@ -2614,13 +2617,13 @@ class ScreenWriter:
         eaws_set = set(unicodedata.east_asian_width(_) for _ in printable)
         if "Fullwidth"[0] not in eaws_set:
             if "Wide"[0] not in eaws_set:
-                self._write_encode_(printable)
+                ks.write_text_encode(printable)
                 return
 
         # Else trust the Terminal to write well, except to stop the Cursor at X + 1, not at X + 2
 
         for t in text:
-            self._write_encode_(t)
+            ks.write_text_encode(t)
             eaw = unicodedata.east_asian_width(t)
             if eaw in ("Fullwidth"[0], "Wide"[0]):
                 if _os_environ_get_cloud_shell_:  # separate from .flags.google
@@ -2654,6 +2657,8 @@ class ScreenWriter:
     def write_control(self, text: str) -> None:
         """Write the Byte Encodings of one Unprintable Control Text"""
 
+        ks = self.keyboard_screen_i_o_wrapper
+
         control = text  # alias
 
         if not control:
@@ -2666,20 +2671,9 @@ class ScreenWriter:
         f.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
         assert (not f.printable) and f.closed, (data, f)
 
-        self._write_encode_(control)
+        ks.write_text_encode(control)
 
         # todo: can the assert is-control idea be spoken lots more simply?
-
-    def _write_encode_(self, text: str) -> None:
-        """Write the Byte Encodings of Text without adding a Line-Break"""
-
-        # logger_info_reprs(f"{text=}")  # printable or control or a mix of both
-
-        ks = self.keyboard_screen_i_o_wrapper
-        data = text.encode()  # may raise UnicodeEncodeError
-        ks.write_some_bytes(data)
-
-        # todo2: move 'def _write_encode_' into ks.write_text_encode
 
 
 Y1 = 1  # min Y of Terminal Cursor
@@ -5017,6 +5011,14 @@ class KeyboardScreenIOWrapper:
         self.tcgetattr = list()  # replaces
 
         # todo: try termios.TCSAFLUSH to discard Input while exiting
+
+    def write_text_encode(self, text: str) -> None:
+        """Write the Byte Encodings of Text without adding a Line-Break"""
+
+        # logger_info_reprs(f"{text=}")  # printable or control or a mix of both
+
+        data = text.encode()  # may raise UnicodeEncodeError
+        self.write_some_bytes(data)
 
     def write_some_bytes(self, data: bytes) -> None:
         """Write zero or more Bytes"""
