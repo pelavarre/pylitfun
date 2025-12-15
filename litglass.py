@@ -1970,9 +1970,6 @@ class TerminalBoss:
         echo = kd.frame_to_echo(data)
         assert echo.isprintable(), (echo,)
 
-        assert _NorthArrow_ and _SouthArrow_ and _EastArrow_ and _WestArrow_
-        assert _NorthwestArrow_ and _NortheastArrow_ and _SoutheastArrow_ and _SouthwestArrow_
-
         # If Frame is Printable
 
         if box.nearly_printable:
@@ -2016,22 +2013,6 @@ class TerminalBoss:
             sw.write_control(f"\033[{y};{x}H")
             sw.write_printable("@")  # '@' to make ⌥-Click's visible
             return
-
-        # Leap the Cursor to the 8-way ↖↗↘↙ Compass Arrows
-
-        controls_by_marks = {
-            "↖".encode(): ["\033[A", "\033[D", "\033[D"],
-            "↗".encode(): ["\033[A", "\033[C", "\033[C"],
-            "↘".encode(): ["\033[B", "\033[C", "\033[C"],
-            "↙".encode(): ["\033[B", "\033[D", "\033[D"],
-        }
-
-        if marks in controls_by_marks.keys():
-            controls = controls_by_marks[marks]
-            sw.write_some_controls(controls)
-            return
-
-            # todo2: move the 8-way ↖↗↘↙ Compass Arrows into sw.write_control
 
         # Show a brief loud Repr of any Unknown Encode arriving as Input
 
@@ -2128,7 +2109,7 @@ class TerminalBoss:
             sw.write_some_controls(["\033[D", "\033[P"])
             return True
 
-        # Loop back as Arrow, no matter the shifting Keys
+        # Loop back as a Cardinal Arrow, no matter the shifting Keys
 
         join = str(kseqs)
         if not intricate_order:
@@ -2145,7 +2126,15 @@ class TerminalBoss:
 
                 return True
 
-        # Else don't loop back here
+        # Loop back as an Intercardinal Arrow
+
+        if not intricate_order:
+            if kseq in ("↖", "↗", "↘", "↙"):
+                arrow_control = kd.decode_by_kseq[kseq]
+                sw.write_control(arrow_control)
+                return True
+
+        # Else don't loop back here  # so likely come out echoed at .bouncing
 
         return False
 
@@ -2172,12 +2161,16 @@ class TerminalBoss:
             return True
 
         if head == b"\033[":
-            if backtail in (b"'}", b"'~"):
 
-                self._screen_columns_insert_delete_if_(f)
+            diagonal_tails = ("↖".encode(), "↗".encode(), "↘".encode(), "↙".encode())
+            if backtail in diagonal_tails:
+                sw.write_control(control)  # no limits on .marks and .ints
                 return True
 
-                # todo2: move def _screen_columns_insert_delete_if_ into sw.write_control
+            elif backtail in (b"'}", b"'~"):
+
+                sw.write_control(control)  # no limits on .marks and .ints
+                return True
 
             elif len(backtail) == 1:
 
@@ -2212,49 +2205,6 @@ class TerminalBoss:
             # todo: Accept only the Osc understood by our Class ScreenWriter
 
         return False
-
-    def _screen_columns_insert_delete_if_(self, f: KeyByteFrame) -> bool:
-        """Emulate Columns Insert/ Delete by Csi"""
-
-        sw = self.screen_writer
-
-        kr = self.keyboard_reader
-        row_y = kr.row_y
-        y_high = kr.y_high
-
-        #
-
-        (marks, ints) = f.to_csi_marks_ints_if()
-        if marks not in (b"'}", b"'~"):
-            return False
-
-        if len(ints) > 1:
-            return False
-
-        #
-
-        deleting = [b"'}", b"'~"].index(marks)
-
-        pn_int = ints[-1] if ints else PN1
-        pn = pn_int  # accepts pn = 0
-
-        #
-
-        assert ICH_X == "\033[" "{}" "@"
-        assert VPA_Y == "\033[" "{}" "d"
-        assert DECDC_X == "\033[" "{}" "'~"
-        assert DECIC_X == "\033[" "{}" "'}}"  # speaking of ⎋[ '}
-
-        #
-
-        for y in range(Y1, y_high + 1):
-            sw.write_control(f"\033[{y}d")
-            sw.write_control(f"\033[{pn}P" if deleting else f"\033[{pn}@")
-        sw.write_control(f"\033[{row_y}d")
-
-        return True
-
-        # macOS Terminal & macOS iTerm2 & Google Cloud Shell lack ⎋['⇧} cols-insert
 
     #
     # Form Repr's of Frames of Input Bytes
@@ -2680,23 +2630,116 @@ class ScreenWriter:
     def write_control(self, text: str) -> None:
         """Write the Byte Encodings of one Unprintable Control Text"""
 
-        ks = self.keyboard_screen_i_o_wrapper
-
         control = text  # alias
-
         if not control:
             return
 
+        #
+
+        assert _NorthArrow_ and _SouthArrow_ and _EastArrow_ and _WestArrow_
+        assert _NorthwestArrow_ and _NortheastArrow_ and _SoutheastArrow_ and _SouthwestArrow_
+
+        #
+
         assert not control.isprintable(), (control,)
 
-        data = control.encode()
+        data = control.encode()  # todo: speak this assert is-control idea lots more simply?
         f = KeyByteFrame(data)  # may raise UnicodeEncodeError
         f.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
         assert (not f.printable) and f.closed, (data, f)
 
-        ks.write_text_encode(control)
+        #
 
-        # todo: can the assert is-control idea be spoken lots more simply?
+        (marks, ints) = f.to_csi_marks_ints_if()
+
+        if marks == f.backtail:
+            if f.backtail == b"'}":
+                self.columns_insert(ints[:1])
+                return
+            if f.backtail == b"'~":
+                self.columns_delete(ints[:1])
+                return
+
+        #
+
+        controls_by_marks = {  # not yet standard
+            "↖".encode(): ["\033[A", "\033[D", "\033[D"],
+            "↗".encode(): ["\033[A", "\033[C", "\033[C"],
+            "↘".encode(): ["\033[B", "\033[C", "\033[C"],
+            "↙".encode(): ["\033[B", "\033[D", "\033[D"],
+        }
+
+        if marks in controls_by_marks.keys():
+            controls = controls_by_marks[marks]
+            for control in controls:
+                self.write_control_through(control)
+            return
+
+        #
+
+        self.write_control_through(control)
+
+    def columns_delete(self, ints: tuple[int, ...]) -> None:
+        """Delete Columns of the Screen"""
+
+        pn_int = ints[-1] if ints else PN1
+        pn = pn_int  # accepts pn = 0
+
+        #
+
+        ks = self.keyboard_screen_i_o_wrapper
+        kr = ks.keyboard_reader
+        row_y = kr.row_y
+        y_high = kr.y_high
+
+        #
+
+        assert DCH_X == "\033[" "{}" "P"
+        assert VPA_Y == "\033[" "{}" "d"
+        assert DECDC_X == "\033[" "{}" "'~"
+
+        #
+
+        for y in range(Y1, y_high + 1):
+            self.write_control_through(f"\033[{y}d")
+            self.write_control_through(f"\033[{pn}P")
+        self.write_control_through(f"\033[{row_y}d")
+
+        # macOS Terminal & macOS iTerm2 & Google Cloud Shell lack ⎋['⇧~ cols-delete
+
+    def columns_insert(self, ints: tuple[int, ...]) -> None:
+        """Insert Columns of the Screen & fill with Backlight or not"""
+
+        pn_int = ints[-1] if ints else PN1
+        pn = pn_int  # accepts pn = 0
+
+        #
+
+        ks = self.keyboard_screen_i_o_wrapper
+        kr = ks.keyboard_reader
+        row_y = kr.row_y
+        y_high = kr.y_high
+
+        #
+
+        assert ICH_X == "\033[" "{}" "@"
+        assert VPA_Y == "\033[" "{}" "d"
+        assert DECIC_X == "\033[" "{}" "'}}"  # speaking of ⎋[ '}
+
+        #
+
+        for y in range(Y1, y_high + 1):
+            self.write_control_through(f"\033[{y}d")
+            self.write_control_through(f"\033[{pn}@")
+        self.write_control_through(f"\033[{row_y}d")
+
+        # macOS Terminal & macOS iTerm2 & Google Cloud Shell lack ⎋['⇧} cols-insert
+
+    def write_control_through(self, text: str) -> None:
+        """Write the Byte Encodings of one Unprintable Control Text"""
+
+        ks = self.keyboard_screen_i_o_wrapper
+        ks.write_text_encode(text)
 
 
 Y1 = 1  # min Y of Terminal Cursor
@@ -2710,7 +2753,6 @@ _MAX_PN_32100_ = 32100  # max Csi Pn = 32100 exceeds the x_wide x y_high of most
 
 
 ICH_X = "\033[" "{}" "@"  # Csi 04/00 [Insert] Cursor Horizontal [Pn] [Columns]
-
 CUU_Y = "\033[" "{}" "A"  # Csi 04/01 Cursor Up [Pn] [Rows]
 CUF_X = "\033[" "{}" "C"  # Csi 04/03 Cursor Forward [Pn] [Columns]
 CUB_X = "\033[" "{}" "D"  # Csi 04/04 Cursor Backward [Pn] [Columns]
@@ -2720,6 +2762,8 @@ EL_PS = "\033[" "{}" "K"  # CSI 04/11 Erase in Line [Row]  # 0 Tail # 1 Head # 2
 IL_Y = "\033[" "{}" "L"  # Csi 04/12 Insert Line [Row]
 _CLICK3_ = "\033[M"  # ⎋[⇧M{b}{x}{y} Click Press/ Release
 DL_Y = "\033[" "{}M"  # Csi 04/13 Delete Line [Row]
+
+DCH_X = "\033[" "{}" "P"  # Csi 05/00 [Delete] Cursor Horizontal [Pn] [Columns]
 SU_Y = "\033[" "{}S"  # CSI 05/03 Scroll Up [Into Scrollback]
 
 VPA_Y = "\033[" "{}" "d"  # Csi 06/04 Vertical Position Absolute [Row]
@@ -3953,12 +3997,18 @@ class KeyByteFrame:
         assert fm, (fm, neck, backtail)
 
         marks = fm.group(1) + fm.group(3)
-        ints = tuple((int(_) if _ else -1) for _ in fm.group(2).split(b";"))
+        ints_bytes = fm.group(2)
+
+        ints: tuple[int, ...] = tuple()
+        if ints_bytes:
+            ints = tuple((int(_) if _ else -1) for _ in ints_bytes.split(b";"))
 
         return (marks, ints)
 
         # (b"A", []) for "\033[A"
         # (b"H", [123, -1]) for "\033[123;H"
+
+        # todo9: give examples of corners of .to_csi_marks_ints_if
 
     #
     # Take 1 Byte in and return 0 Bytes, else return 1..4 Bytes that don't fit
@@ -5036,7 +5086,7 @@ class KeyboardScreenIOWrapper:
         # todo: try termios.TCSAFLUSH to discard Input while exiting
 
     def write_text_encode(self, text: str) -> None:
-        """Write the Byte Encodings of Text without adding a Line-Break"""
+        """Write a Text, encoded as Bytes"""
 
         # logger_info_reprs(f"{text=}")  # printable or control or a mix of both
 
@@ -5141,8 +5191,8 @@ if __name__ == "__main__":
     main()
 
 
-# todo2: emulate macOS Terminal Writes at Google Cloud Shell
-# todo2: deletes while backlight, color filling from eastmost mirrored \n
+# todo2: emulate macOS Terminal Writes at Google Cloud Shell OR vice versa
+# todo2: deletes while backlight, color filling from eastmost mirrored character write
 
 
 # todo3: drop Keycaps specific to macOS Terminal, when elsewhere
