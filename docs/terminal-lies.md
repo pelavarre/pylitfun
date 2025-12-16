@@ -4,63 +4,65 @@
 Lies that too many Terminal Programs tell themselves
 
 - [1. Input Key Chords read from the Terminal Touch/ Tap/ Key Press/ Release](#1-input-key-chords-read-from-the-terminal-touch-tap-key-press-release)
-  - [1.1 Each different Key Chord sends different Bytes](#11-each-different-key-chord-sends-different-bytes)
-  - [1.2 Key Chords send the same Bytes through your Terminal and mine](#12-key-chords-send-the-same-bytes-through-your-terminal-and-mine)
-  - [1.3 Different Key Chords that send different Bytes through your Terminal likewise send different Bytes through mine](#13-different-key-chords-that-send-different-bytes-through-your-terminal-likewise-send-different-bytes-through-mine)
-  - [1.4 Key Chords that send Bytes through your Terminal also send Bytes through mine](#14-key-chords-that-send-bytes-through-your-terminal-also-send-bytes-through-mine)
-  - [1.5 You can know when the Bytes of one Key Chord end before the start of the next](#15-you-can-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
-  - [1.6 You can't know when the Bytes of one Key Chord end before the start of the next](#16-you-cant-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
-  - [1.7 Key Chords send the same Character through your App and mine](#17-key-chords-send-the-same-character-through-your-app-and-mine)
+  - [Lie 1.1 Each different Key Chord sends different Bytes](#lie-11-each-different-key-chord-sends-different-bytes)
+  - [Lie 1.2 Key Chords send the same Bytes through your Terminal and mine](#lie-12-key-chords-send-the-same-bytes-through-your-terminal-and-mine)
+  - [Lie 1.3 You can know which sets of Key Chords send the same Bytes](#lie-13-you-can-know-which-sets-of-key-chords-send-the-same-bytes)
+  - [Lie 1.4 Key Chords that send Bytes through your Terminal also send Bytes through mine](#lie-14-key-chords-that-send-bytes-through-your-terminal-also-send-bytes-through-mine)
+  - [Lie 1.5 You can know when the Bytes of one Key Chord end before the start of the next](#lie-15-you-can-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
+  - [Lie 1.6 You can't know when the Bytes of one Key Chord end before the start of the next](#lie-16-you-cant-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
+  - [Lie 1.7 Key Chords send the same Character through your App and mine](#lie-17-key-chords-send-the-same-character-through-your-app-and-mine)
 - [2. Output Characters written to the Terminal Screen](#2-output-characters-written-to-the-terminal-screen)
-  - [2.1 Every Character looks a little different when printed](#21-every-character-looks-a-little-different-when-printed)
-  - [2.2 Every Character can be encoded as a UTF-8 SurrogateEscape Byte Sequence](#22-every-character-can-be-encoded-as-a-utf-8-surrogateescape-byte-sequence)
-  - [2.3 Every well-loved Character has one distinct Python UnicodeData Name](#23-every-well-loved-character-has-one-distinct-python-unicodedata-name)
-  - [2.4 Every Python Character found by UnicodeData Lookup has a Python UnicodeData Name](#24-every-python-character-found-by-unicodedata-lookup-has-a-python-unicodedata-name)
-  - [2.6 Printing a double-wide Character moves the Terminal Cursor by two Columns](#26-printing-a-double-wide-character-moves-the-terminal-cursor-by-two-columns)
-  - [2.7 Printing an Escape Sequence won't close all your Terminal Tabs](#27-printing-an-escape-sequence-wont-close-all-your-terminal-tabs)
+  - [Lie 2.1 Every Character looks a little different when printed](#lie-21-every-character-looks-a-little-different-when-printed)
+  - [Lie 2.2 Every Character can be encoded as a UTF-8 SurrogateEscape Byte Sequence](#lie-22-every-character-can-be-encoded-as-a-utf-8-surrogateescape-byte-sequence)
+  - [Lie 2.3 Every well-loved Character has one distinct Python UnicodeData Name](#lie-23-every-well-loved-character-has-one-distinct-python-unicodedata-name)
+  - [Lie 2.4 Every Python Character found by UnicodeData Lookup has a Python UnicodeData Name](#lie-24-every-python-character-found-by-unicodedata-lookup-has-a-python-unicodedata-name)
+  - [Lie 2.5 Printing a double-wide Character moves the Terminal Cursor by two Columns](#lie-25-printing-a-double-wide-character-moves-the-terminal-cursor-by-two-columns)
+  - [Lie 2.6 Printing an Escape Sequence won't close all your Terminal Tabs](#lie-26-printing-an-escape-sequence-wont-close-all-your-terminal-tabs)
 - [3. Terminal Capability Discovery \& Negotiation](#3-terminal-capability-discovery--negotiation)
-  - [3.1 Every Terminal reports if it's a Darkmode Terminal or a Lightmode Terminal](#31-every-terminal-reports-if-its-a-darkmode-terminal-or-a-lightmode-terminal)
-  - [3.2 Python "import pty" doesn't change the Colors negotiated by Vim](#32-python-import-pty-doesnt-change-the-colors-negotiated-by-vim)
-  - [3.3 Escape Sequences can tell a Terminal Cursor in 2025 to step towards the 8 Points of the Compass](#33-escape-sequences-can-tell-a-terminal-cursor-in-2025-to-step-towards-the-8-points-of-the-compass)
+  - [Lie 3.1 Every Terminal reports if it's a Darkmode Terminal or a Lightmode Terminal](#lie-31-every-terminal-reports-if-its-a-darkmode-terminal-or-a-lightmode-terminal)
+  - [Lie 3.2 Python "import pty" doesn't change the Colors negotiated by Vim](#lie-32-python-import-pty-doesnt-change-the-colors-negotiated-by-vim)
+  - [Lie 3.3 Escape Sequences can tell a Terminal Cursor in 2025 to step towards the 8 Points of the Compass](#lie-33-escape-sequences-can-tell-a-terminal-cursor-in-2025-to-step-towards-the-8-points-of-the-compass)
 - [4. Copying Characters out from the Terminal and pasting Characters back into the Terminal](#4-copying-characters-out-from-the-terminal-and-pasting-characters-back-into-the-terminal)
-  - [4.1 You can copy in what you please](#41-you-can-copy-in-what-you-please)
-  - [4.2 You can copy out what you please](#42-you-can-copy-out-what-you-please)
-  - [4.3 The Emacs Key Chords you learn at the Terminal do or don't work elsewhere](#43-the-emacs-key-chords-you-learn-at-the-terminal-do-or-dont-work-elsewhere)
-  - [4.4 You can print the Glyphs you printed in 1980](#44-you-can-print-the-glyphs-you-printed-in-1980)
+  - [Lie 4.1 You can copy in what you please](#lie-41-you-can-copy-in-what-you-please)
+  - [Lie 4.2 You can copy out what you please](#lie-42-you-can-copy-out-what-you-please)
+  - [Lie 4.3 The Emacs Key Chords you learn at the Terminal do or don't work elsewhere](#lie-43-the-emacs-key-chords-you-learn-at-the-terminal-do-or-dont-work-elsewhere)
+  - [Lie 4.4 You can print the Glyphs you printed in 1980](#lie-44-you-can-print-the-glyphs-you-printed-in-1980)
+
+As posted by Pat LaVarre & friends, Dec/2025
 
 
 ## 1. Input Key Chords read from the Terminal Touch/ Tap/ Key Press/ Release
 
-### 1.1 Each different Key Chord sends different Bytes
+### Lie 1.1 Each different Key Chord sends different Bytes
 
     cat - >/dev/null
         # press Esc
         # press ⇧ Esc
             # see the same ^[ from both
 
-### 1.2 Key Chords send the same Bytes through your Terminal and mine
+### Lie 1.2 Key Chords send the same Bytes through your Terminal and mine
 
     cat - >/dev/null
         # press ⌥←
             # see ^[b at Apple macOS Terminal
             # see ^[[1;3D at Open-Source macOS iTerm2
 
-### 1.3 Different Key Chords that send different Bytes through your Terminal likewise send different Bytes through mine
+### Lie 1.3 You can know which sets of Key Chords send the same Bytes
 
     cat - >/dev/null
         # press ↓
         # press ⇧↓
-            # see ^[B twice at Apple macOS Terminal
+            # see ^[B twice at Apple macOS Terminal, same same
             # see ^[B from ↓ and ^[[1;2B from ⇧↓ at Open-Source macOS iTerm2
 
-### 1.4 Key Chords that send Bytes through your Terminal also send Bytes through mine
+### Lie 1.4 Key Chords that send Bytes through your Terminal also send Bytes through mine
 
     cat - >/dev/null
         # press ⇧ Fn F1
             # ring the bell to say don't do that, at Apple macOS Terminal, till after you reconfigure it
             # see ^[[1;2P at Open-Source macOS iTerm2
 
-### 1.5 You can know when the Bytes of one Key Chord end before the start of the next
+### Lie 1.5 You can know when the Bytes of one Key Chord end before the start of the next
 
     cat - >/dev/null
         # press Esc
@@ -68,13 +70,13 @@ Lies that too many Terminal Programs tell themselves
             # see ^[ said for Esc
             # see ^[[D said for ←, starts with same Byte
 
-### 1.6 You can't know when the Bytes of one Key Chord end before the start of the next
+### Lie 1.6 You can't know when the Bytes of one Key Chord end before the start of the next
 
     sleep 1 && printf '\033[5n' && cat - >/dev/null
         # press Esc during the Sleep
         # see the ^[[0n from the ^[[5n arrives after the Esc, showing the end of its Bytes
 
-### 1.7 Key Chords send the same Character through your App and mine
+### Lie 1.7 Key Chords send the same Character through your App and mine
 
     cat - >/dev/null
         # press ⌥ Y
@@ -85,7 +87,7 @@ Understand here we mean the 2 Key Chord of hold down the ⌥ Option/Alt Key whil
 
 ## 2. Output Characters written to the Terminal Screen
 
-### 2.1 Every Character looks a little different when printed
+### Lie 2.1 Every Character looks a little different when printed
 
     printf '_\040_ U+0020 Space\n'
     printf '_\302\240_ U+00A0 No-Break Space\n'
@@ -94,7 +96,7 @@ Understand here we mean the 2 Key Chord of hold down the ⌥ Option/Alt Key whil
         # press Spacebar
         # press ⌥ Spacebar
 
-### 2.2 Every Character can be encoded as a UTF-8 SurrogateEscape Byte Sequence
+### Lie 2.2 Every Character can be encoded as a UTF-8 SurrogateEscape Byte Sequence
 
 Often it works
 
@@ -113,7 +115,7 @@ Sometimes it doesn't
     UnicodeEncodeError: 'utf-8' codec can't encode character '\ud800' in position 0: surrogates not allowed
     >>>
 
-### 2.3 Every well-loved Character has one distinct Python UnicodeData Name
+### Lie 2.3 Every well-loved Character has one distinct Python UnicodeData Name
 
     python3 -c 'import unicodedata; print(unicodedata.name(b"\302\240".decode()).title())'
         # see they say No-Break Space, hurrah, but next look below
@@ -127,12 +129,12 @@ Sometimes it doesn't
         # see they say ValueError for U+0000 Null
         # see they again say ValueError, now for U+000A Line Feed
 
-### 2.4 Every Python Character found by UnicodeData Lookup has a Python UnicodeData Name
+### Lie 2.4 Every Python Character found by UnicodeData Lookup has a Python UnicodeData Name
 
     python3 -c 'import unicodedata; print(unicodedata.name("\x19").title())'
         # see they again say ValueError
 
-### 2.6 Printing a double-wide Character moves the Terminal Cursor by two Columns
+### Lie 2.5 Printing a double-wide Character moves the Terminal Cursor by two Columns
 
 This does work in some Terminals. But at a Google Cloud Shell you have to blank out the East Column yourself, and you have to move the Cursor across the East Column yourself
 
@@ -160,7 +162,7 @@ As shown by Python
 
     '''
 
-### 2.7 Printing an Escape Sequence won't close all your Terminal Tabs
+### Lie 2.6 Printing an Escape Sequence won't close all your Terminal Tabs
 
 Unlock https://shell.cloud.google.com/?show=terminal with your gMail Username & Password. You can ignore the many upsells, you can always choose Reject. If you slip and fail to choose Reject, it still gives you a second chance to choose Reject
 
@@ -173,7 +175,7 @@ Watch it close all your Terminal Tabs. Oops
 
 ## 3. Terminal Capability Discovery & Negotiation
 
-### 3.1 Every Terminal reports if it's a Darkmode Terminal or a Lightmode Terminal
+### Lie 3.1 Every Terminal reports if it's a Darkmode Terminal or a Lightmode Terminal
 
 Apple macOS Terminal & Open-Source macOS iTerm2, yes
 
@@ -189,11 +191,11 @@ That's what it looks like when it works. When it doesn't work, it silently ignor
     % printf '\033[5n''\033]11;?\007' && cat - >/dev/null
     ^[[0n
 
-### 3.2 Python "import pty" doesn't change the Colors negotiated by Vim
+### Lie 3.2 Python "import pty" doesn't change the Colors negotiated by Vim
 
 Last time I checked, the orange went missing
 
-### 3.3 Escape Sequences can tell a Terminal Cursor in 2025 to step towards the 8 Points of the Compass
+### Lie 3.3 Escape Sequences can tell a Terminal Cursor in 2025 to step towards the 8 Points of the Compass
 
 Aye, North & South & East & West do work
 
@@ -211,7 +213,7 @@ But the standards say Northwest, Northeast, Southeast, Southwest are unspeakable
 
 ## 4. Copying Characters out from the Terminal and pasting Characters back into the Terminal
 
-### 4.1 You can copy in what you please
+### Lie 4.1 You can copy in what you please
 
 Try pasting in a U+0008 Backspace
 
@@ -225,7 +227,7 @@ At Apple macOS Terminal, it pops up a dialog to yell at you
 > To confirm and Paste, you can use ⇧ ⌘ ⏎  <br>
 > &lt;Paste&gt; &lt;Paste without Control Characters&gt; &lt;Cancel&gt;
 
-### 4.2 You can copy out what you please
+### Lie 4.2 You can copy out what you please
 
 Putting U+0009 Tab into the text can matter. Like you can get Slack to paste Tsv. You can also paste as Tsv into ⇧ ⌘ V at Google's sheets.new > Edit > Paste Special > Values Only
 
@@ -249,7 +251,7 @@ Slack doesn't do Colors generally, but Slack does understand monospacing the 9 C
           ⚪🔴🔴🔴⚪
           ⚪⚪⚪⚪⚪
 
-### 4.3 The Emacs Key Chords you learn at the Terminal do or don't work elsewhere
+### Lie 4.3 The Emacs Key Chords you learn at the Terminal do or don't work elsewhere
 
 In reality, they don't simply all work, and they don't simply all not work
 
@@ -259,7 +261,7 @@ The Apple macOS Terminal doesn't let you distinguish ⌥⌫ from ⌫, but does p
 
 You can get some variations of Emacs ⎋Z and ⎋⇧Z to work in places like macOS Zsh, which gives you a bit and not much of what Vim does with D T and D F. Emacs speaks of 'zap-to-char' and 'zap-up-to-char', with ⎋Z traditionally doing the work of Vim D F I, but Zsh ⎋Z can more easily be told to do D T
 
-### 4.4 You can print the Glyphs you printed in 1980
+### Lie 4.4 You can print the Glyphs you printed in 1980
 
 Wikipedia [ATASCII](https://en.wikipedia.org/wiki/ATASCII), meaning Atari® Ascii, has tried to find similar Glyphs inside Unicode, and they're not all plainly found.
 
