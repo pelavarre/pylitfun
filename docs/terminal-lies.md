@@ -21,7 +21,8 @@ Lies that too many Terminal Programs tell themselves
 - [3. Terminal Capability Discovery \& Negotiation](#3-terminal-capability-discovery--negotiation)
   - [Lie 3.1 Every Terminal reports if it's a Darkmode Terminal or a Lightmode Terminal](#lie-31-every-terminal-reports-if-its-a-darkmode-terminal-or-a-lightmode-terminal)
   - [Lie 3.2 Python "import pty" doesn't change the Colors negotiated by Vim](#lie-32-python-import-pty-doesnt-change-the-colors-negotiated-by-vim)
-  - [Lie 3.3 Escape Sequences can tell a Terminal Cursor in 2025 to step towards the 8 Points of the Compass](#lie-33-escape-sequences-can-tell-a-terminal-cursor-in-2025-to-step-towards-the-8-points-of-the-compass)
+  - [Lie 3.3 Escape Sequences can tell a Terminal Cursor to step towards the 8 Points of the Compass](#lie-33-escape-sequences-can-tell-a-terminal-cursor-to-step-towards-the-8-points-of-the-compass)
+  - [Lie 3.4 Preplanning put the related Characters together in Unicode](#lie-34-preplanning-put-the-related-characters-together-in-unicode)
 - [4. Copying Characters out from the Terminal and pasting Characters back into the Terminal](#4-copying-characters-out-from-the-terminal-and-pasting-characters-back-into-the-terminal)
   - [Lie 4.1 You can copy in what you please](#lie-41-you-can-copy-in-what-you-please)
   - [Lie 4.2 You can copy out what you please](#lie-42-you-can-copy-out-what-you-please)
@@ -195,7 +196,7 @@ That's what it looks like when it works. When it doesn't work, it silently ignor
 
 Last time I checked, the orange went missing
 
-### Lie 3.3 Escape Sequences can tell a Terminal Cursor in 2025 to step towards the 8 Points of the Compass
+### Lie 3.3 Escape Sequences can tell a Terminal Cursor to step towards the 8 Points of the Compass
 
 Aye, North & South & East & West do work
 
@@ -210,6 +211,26 @@ But the standards say Northwest, Northeast, Southeast, Southwest are unspeakable
     Write ⎋[↗ to move ↗ Northeast, as if ↑ → →
     Write ⎋[↘ to move ↘ Southeast, as if ↓ → →
     Write ⎋[↙ to move ↙ Southwest, as if ↓ ← ←
+
+### Lie 3.4 Preplanning put the related Characters together in Unicode
+
+Yes you will see clusters
+
+You can find 0123456789 and ABCDEFGHIJKLMNOPQRSTUVWXYZ and abcdefghijklmnopqrstuvwxyz, because of how slowly and carefully the US ASCII standard came together in the 1960's
+
+But you will find the 9 Comic Colors of Unicode jumbled
+
+    ⚪ ⚫
+    ⬛ ⬜ 
+
+    🔴 🔵 🟠 🟡 🟢 🟣 🟤
+    🟥 🟦 🟧 🟨 🟩 🟪 🟫
+
+And Apple promotes ordering mentions of ⎋ ⌃ ⌥ ⇧ ⌘ as such, but those show up jumbled in Unicode, and not all together
+
+    ← ↑ → ↓
+    ↖ ↗ ↘ ↙
+    ⇥ ⇧ ⋮ ⌃ ⌘ ⌥ ⌫ ⎋ ⏎ ☰
 
 ## 4. Copying Characters out from the Terminal and pasting Characters back into the Terminal
 
