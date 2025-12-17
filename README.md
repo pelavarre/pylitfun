@@ -190,36 +190,35 @@ Can we live within in these limits and still rewrite this text so well as to hop
 
 Broken and know how to fix
 
-   'alfa |' should cope, not yammer of 'Vim: Warning: Output is not to a terminal'
-   |alfa should feel that the arg '.' was supplied, a la = >echo '{"1":11}' |jq .
+    'alfa |' should cope, not yammer of 'Vim: Warning: Output is not to a terminal'
+    |alfa should feel that the arg '.' was supplied, a la = >echo '{"1":11}' |jq .
 
-   ~/bin/c sh script of litshell.py
-      prompt before blocking till Tty Stdin Line complete
+    ~/bin/c sh script of litshell.py
+       prompt before blocking till Tty Stdin Line complete
 
-   ~/bin/o sh script of litshell.py - counting _.strip()'s
-      |o| filter = |o|
-      |o filter & dump = |o
-      o| source & filter = pbpaste |o|
-      o source & filter & sink = pbpaste |o |pbcopy
+    ~/bin/o sh script of litshell.py - counting _.strip()'s
+       |o| filter = |o|
+       |o filter & dump = |o
+       o| source & filter = pbpaste |o|
+       o source & filter & sink = pbpaste |o |pbcopy
 
-   ~/bin/-1 sh script of litshell.py
-      |-1| capture & re/publish & dump = >-1 && -1 |pbcopy && pbpaste
-      |-1 capture & publish & sink = >-1 && -1 |pbcopy
-      -1| publish & dump = cat -1 |pbcopy && pbpaste
-      -1 capture & publish = pbpaste >-1 && cat -1 |pbcopy
+    ~/bin/-1 sh script of litshell.py
+       |-1| capture & re/publish & dump = >-1 && -1 |pbcopy && pbpaste
+       |-1 capture & publish & sink = >-1 && -1 |pbcopy
+       -1| publish & dump = cat -1 |pbcopy && pbpaste
+       -1 capture & publish = pbpaste >-1 && cat -1 |pbcopy
 
 Broken and dunno how to fix
 
-   gcam should pick up new Added Files into the wip
-
-   Zsh ⌃U wrongly does row-erase, I want the row-head-erase of ⎋[1⇧K
+    Zsh ⌃U wrongly does row-erase, I want the row-head-erase of ⎋[1⇧K
 
 Broken and probably know how to fix
 
-   Game - **Smushup** - Arrow Pair to move 8 ways, and smush matching colors
-   Game - **Muhnswuhper** - Minesweeper® style, but ...
+    Game - **Smushup** - Arrow Pair to move 8 ways, and smush matching colors
+    Game - **Muhnswuhper** - Minesweeper® style, but ...
+    Game - **Kuhnbuhn** - Kanban Board
 
-   Single File Download & Run of the Python
+    Single File Download & Run of the Python (other than just making litglass.py huge)
 
 -->
 

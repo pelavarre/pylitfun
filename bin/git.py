@@ -558,11 +558,10 @@ class GitGopher:
         if not gdno_run_stdout:
             return (shverb, shline)  # no change
 
-        message = shlex.quote("wip -")
-        for line in gdno_run_stdout.decode().splitlines():
-            message += shlex.quote(" " + line)
+        pathnames = gdno_run_stdout.decode().splitlines()
+        message = "wip - " + " ".join(pathnames)
 
-        gcam_shline_plus = "git commit --all -m " + message
+        gcam_shline_plus = "git commit --all -m " + repr(message)
         return ("gcam", gcam_shline_plus)  # this 'gcam' knows its 'gdno'
 
     def shargv_tweak_up(self, shverb: str, shargv: tuple[str, ...]) -> tuple[str, ...]:
@@ -692,6 +691,22 @@ def shlex_quote_calmly(arg: str) -> str:
 
 if __name__ == "__main__":
     main()
+
+
+_ = """  # todo
+
+gcp has something odd going on
+
+    $ gcp 80fb147c31
+    error: empty commit set passed
+    fatal: cherry-pick failed
+    : gcp ... && git cherry-pick 80fb147c31
+
+add an option to rewrite, thus 'git diff', our bin/g*
+
+gcam should pick up new Added Files into the wip
+
+"""
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/git.py
