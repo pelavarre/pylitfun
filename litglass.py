@@ -3109,7 +3109,7 @@ class KeyboardReader:
             rgb = rgb_by_osc[11]
             if rgb:
                 (r, g, b) = rgb
-                if (r + g + b) < 30_000:  # todo9: less simple Terminal Luminance models
+                if (r + g + b) < 0xFFFF:  # todo9: less simple Terminal Luminance models
                     dark = True
 
         # Succeed
