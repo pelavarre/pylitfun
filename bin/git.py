@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-usage: git.py [--help] [--shfile SHFILE] [SHWORD ...]
+usage: git.py [--help] [--make-bin] [--shfile SHFILE] [SHWORD ...]
 
 abbreviate the subcommands to call Git, but do show them in full
 
@@ -11,6 +11,7 @@ positional arguments:
 options:
   --help           show this help message and exit (-h is for Git, not for Git·Py)
   --shfile SHFILE  a filename as the Git alias to decode (default: '/dev/null/g')
+  --make-bin       rewrite bin/g* as Shell Scripts to call g.py to call git.py
 
 examples:
   gg -w gg ggl
@@ -29,6 +30,7 @@ import shlex
 import signal
 import subprocess
 import sys
+import textwrap
 import typing
 
 if not __debug__:
@@ -58,12 +60,12 @@ ShlinePlusByShverb = {  # sorted by key
     "gdh": "git diff --color-moved HEAD~1 [...]",
     "gdno": "git diff --name-only [...]",
     "gf": "git fetch --prune --prune-tags --force",
-    "gg/0": "git status",  # in Shell as 'gg' without Sh Args
-    "gg/n": "git grep ...",  # -ai -e ... -e ...  # in Shell as 'gg' with Sh Args
+    "gg/0": "git status",  # "gg": but without Sh Args
+    "gg/n": "git grep -ai -e ... -e ...",  # "gg": but with Sh Args
     # 15
-    "ggl": "git grep -l ...",  # -ai -e ... -e ...
+    "ggl": "git grep -l -ai -e ... -e ...",
     "gl": "git log --pretty=fuller --no-decorate [...]",
-    "glf": "git ls-files |grep ...",  # |grep -ai -e ... -e ...
+    "glf": "git ls-files |grep -ai -e ... -e ...",
     "glq": "git log --oneline --no-decorate [...]",
     "gls": "git log --pretty=fuller --no-decorate --numstat [...]",
     # 20
@@ -83,13 +85,6 @@ ShlinePlusByShverb = {  # sorted by key
     "gspno": "git show --pretty= --name-only [...]",
     # 32
 }
-
-# todo: g in a pipe is 'grep.py'
-# todo: g in a pipe is 'grep.py'
-
-# todo: add:  git checkout -, git push, git rebase, local/remote mkdir/rmdir of git branches, ...
-# todo: no 'git checkout' on purpose:  without args it cancels cherry-pick and hides rebase
-# todo: something less ugly than "gg/0": and "gg/n"?
 
 
 _a_ = list(ShlinePlusByShverb.keys())
@@ -112,13 +107,16 @@ class GitGopher:
 
         # Fail if no Shell Args
 
+        usage = "usage: git.py [--help] [--make-bin] [--shfile SHFILE] [SHWORD ...]"
+
         if not sys.argv[1:]:
-            print("usage: git.py [--help] [--shfile SHFILE] [SHWORD ...]", file=sys.stderr)
+            print(usage)
             sys.exit(2)  # exits 2 for bad args
 
         # Find the Shell Verb and the Shell Args after it
 
         self.exit_if_dash_dash_help()
+        self.exit_if_dash_dash_make_bin()
 
         shfile_shargv = self.dash_dash_shfile_shargv(sys.argv, default="/dev/null/g")
 
@@ -204,6 +202,50 @@ class GitGopher:
         if "--help" in sys.argv[1:]:
             print(__main__.__doc__, file=sys.stderr)
             sys.exit(0)  # exits 0 after printing Help
+
+    def exit_if_dash_dash_make_bin(self) -> None:
+        """Rewrite bin/g* as Shell Scripts to call g.py to call git.py"""
+
+        if sys.argv[1:] != ["--make-bin"]:
+            return
+
+        shline_plus_by_shverb = ShlinePlusByShverb
+
+        gg_framed_text = f"""
+
+            #!/bin/sh
+            # {shline_plus_by_shverb["gg/0"]}
+            # {shline_plus_by_shverb["gg/n"]}
+            g.py --shfile="$0" "$@"
+
+        """
+
+        for shverb, shline_plus in shline_plus_by_shverb.items():
+
+            framed_text = f"""
+
+                #!/bin/sh
+                # {shline_plus}
+                g.py --shfile="$0" "$@"
+
+            """
+
+            pathname = f"bin/{shverb}"
+            if "/" in shverb:
+                assert shverb in ("gg/0", "gg/n"), (shverb,)
+                framed_text = gg_framed_text
+                pathname = "bin/gg"  # written twice, to no purpose
+
+            text = textwrap.dedent(framed_text).strip()
+
+            path = pathlib.Path(pathname)
+            _ = path.read_text()  # requires readable
+            x_ok = os.access(pathname, mode=os.X_OK)
+            assert x_ok, (pathname, x_ok)  # requires executable
+
+            path.write_text(text + "\n")
+
+        sys.exit()
 
     def dash_dash_shfile_shargv(
         self, sys_argv: typing.Iterable[str], default: str
@@ -322,15 +364,26 @@ class GitGopher:
         shline = shverb_shline_plus.removesuffix(" ...")
         shsuffix = " ..."
 
-        if shverb_shline_plus == "git ls-files |grep ...":
+        # Tweak away from Doc while heavily editing required Args
+
+        if shverb_shline_plus.endswith(" -ai -e ... -e ..."):
+            shline = shverb_shline_plus.removesuffix(" -ai -e ... -e ...")
+
+        # Tweak away from Doc when supposedly required Args absent
+
+        if shverb_shline_plus == "git ls-files |grep -ai -e ... -e ...":
             assert shverb == "glf", (shverb, shline)
 
-            if not shargv[1:]:
+            if shargv[1:]:
+                shline = "git ls-files |grep"
+            else:
                 shline = "git ls-files"
                 shsuffix = ""
 
-                assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
-                return (shline, shsuffix)
+            assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
+            return (shline, shsuffix)
+
+        # Do require Args
 
         if not shargv[1:]:
 
@@ -343,7 +396,9 @@ class GitGopher:
             print(required_args_usage, file=sys.stderr)
             sys.exit(2)  # exits 2 for bad args
 
-        assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
+        # Succeed
+
+        assert shsuffix == " ...", (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
         # ga, gcp, gg/n, ggl, glf, grh
@@ -695,16 +750,12 @@ if __name__ == "__main__":
 
 _ = """  # todo
 
-gcp has something odd going on
+# todo: gcam should pick up new Added Files into the wip
 
-    $ gcp 80fb147c31
-    error: empty commit set passed
-    fatal: cherry-pick failed
-    : gcp ... && git cherry-pick 80fb147c31
+# todo: add:  git checkout -, git push, git rebase, local/remote mkdir/rmdir of git branches, ...
+# todo: no 'git checkout' on purpose:  without args it cancels cherry-pick and hides rebase
 
-add an option to rewrite, thus 'git diff', our bin/g*
-
-gcam should pick up new Added Files into the wip
+# todo: what did i mean by saying "g in a pipe is 'grep.py'"? sure, true, but why mention it?
 
 """
 
