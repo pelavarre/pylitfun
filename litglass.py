@@ -2397,7 +2397,7 @@ class ScreenChangeOrder:
 
         # Take Input after a Text Frame or Closed Frame as a new Order
 
-        if f.printable or f.closed:
+        if f.encodes or f.closed:
             self.clear_order()
 
         # Place Output over top of first Input
@@ -2508,7 +2508,7 @@ class ScreenChangeOrder:
         box = BytesBox(data)
 
         if not f.closed:
-            if not f.printable:
+            if not f.encodes:
                 return False
 
         # Succeed
@@ -2558,8 +2558,8 @@ class ScreenWriter:
                 ba[0:0] = extras
 
             if frame.closed:
-                printable = frame.printable
-                box_text = printable.decode()
+                encodes = frame.encodes
+                box_text = encodes.decode()
                 if box_text:
                     self.write_printable(box_text)
                 else:
@@ -2647,7 +2647,7 @@ class ScreenWriter:
         data = control.encode()  # todo: speak this assert is-control idea lots more simply?
         f = KeyByteFrame(data)  # may raise UnicodeEncodeError
         f.tilt_to_close_frame()  # like stop staying open to accept b x y into ⎋[⇧M{b}{x}{y}
-        assert (not f.printable) and f.closed, (data, f)
+        assert (not f.encodes) and f.closed, (data, f)
 
         #
 
@@ -3866,7 +3866,7 @@ def _try_key_byte_frame_() -> None:
 class KeyByteFrame:
     """Frame Bytes of Input, as an ⎋ Esc Sequence, else simply"""
 
-    printable: bytearray  # b''  # Decodable Printable Text
+    encodes: bytearray  # b''  # Decodable Printable Text
 
     head: bytearray  # b''  # N * ESC  # N * ESC + CSI  # N * ESC + SS3  # OSC
     neck: bytearray  # b''  # Csi Params  # Osc Payload
@@ -3878,7 +3878,7 @@ class KeyByteFrame:
 
     def __init__(self, data: bytes) -> None:
 
-        self.printable = bytearray()
+        self.encodes = bytearray()
 
         self.head = bytearray()
         self.neck = bytearray()
@@ -3907,13 +3907,13 @@ class KeyByteFrame:
     def clear_frame(self) -> None:
         """Start again"""
 
-        printable = self.printable
+        encodes = self.encodes
         head = self.head
         neck = self.neck
         backtail = self.backtail
         stash = self.stash
 
-        printable.clear()
+        encodes.clear()
         head.clear()
         neck.clear()
         backtail.clear()
@@ -3924,7 +3924,7 @@ class KeyByteFrame:
     def tilt_to_close_frame(self) -> None:
         """Transform into a Closed DL_Y without explicit Pn, if it was _CLICK3_ and no Stash"""
 
-        printable = self.printable
+        encodes = self.encodes
         head = self.head
         neck = self.neck
         backtail = self.backtail
@@ -3937,7 +3937,7 @@ class KeyByteFrame:
         data = self.to_frame_bytes()
 
         if data == b"\033[M":  # takes the ⎋[⇧M DL_Y that isn't the ⎋[⇧M{b}{x}{y} _CLICK3_
-            assert (not printable) and (not neck) and (not backtail), (head, self, data)
+            assert (not encodes) and (not neck) and (not backtail), (head, self, data)
             assert head == b"\033[M", (head, self, data)
 
             if not stash:
@@ -3956,7 +3956,7 @@ class KeyByteFrame:
     def to_frame_bytes(self) -> bytes:
         """List the Bytes taken"""
 
-        printable = self.printable
+        encodes = self.encodes
 
         head = self.head
         neck = self.neck
@@ -3964,7 +3964,7 @@ class KeyByteFrame:
 
         stash = self.stash
 
-        join = bytes(printable + head + neck + backtail + stash)
+        join = bytes(encodes + head + neck + backtail + stash)
 
         return join  # no matter if .closed or not
 
@@ -3983,7 +3983,7 @@ class KeyByteFrame:
     def to_csi_marks_ints_if(self) -> tuple[bytes, tuple[int, ...]]:
         """Pick out the Nonnegative Int Literals of a Csi Escape Sequence"""
 
-        printable = self.printable
+        encodes = self.encodes
         head = self.head
         neck = self.neck
         backtail = self.backtail
@@ -3991,7 +3991,7 @@ class KeyByteFrame:
 
         assert CSI == "\033["
 
-        if (head != b"\033[") or printable or stash or (not backtail):
+        if (head != b"\033[") or encodes or stash or (not backtail):
             return (b"", tuple())
 
         fm = re.fullmatch(rb"^([^0-9;]*)([0-9;]*)(.*)$", string=neck + backtail)
@@ -4035,7 +4035,7 @@ class KeyByteFrame:
         assert len(data) == 1, (data,)
         kbyte = data
 
-        printable = self.printable
+        encodes = self.encodes
         head = self.head
         stash = self.stash
         closed = self.closed
@@ -4074,7 +4074,7 @@ class KeyByteFrame:
 
         # Take later Bytes in differently, after starts with each kind of Head
 
-        assert not printable, (printable,)
+        assert not encodes, (encodes,)
 
         dent = len(head) - len(head.lstrip(b"\033"))
         dent = (dent - 1) if dent else 0
@@ -4105,19 +4105,19 @@ class KeyByteFrame:
     def _take_before_head_if_(self, data: bytes, text: str) -> bytes:
         """Take 1..4 more Bytes in, before any Head, else return what doesn't fit"""
 
-        printable = self.printable
+        encodes = self.encodes
         head = self.head
 
         # Take 1 Decoded Printable Char, without closing the Frame
 
         if text:
             if text.isprintable():
-                self.printable = printable + data
+                encodes.extend(data)
                 return b""
 
         # End a Text Frame before Unprintable or Undecodable Bytes
 
-        if printable:
+        if encodes:
             self.close_frame()
             return data
 
@@ -5192,7 +5192,7 @@ if __name__ == "__main__":
     main()
 
 
-# todo2: Alt + Number
+# todo2: Alt + Number ⌥1⌥2⌥3 key cap
 
 
 # todo2: emulate macOS Terminal Writes at Google Cloud Shell OR vice versa
