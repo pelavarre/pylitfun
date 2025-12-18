@@ -475,10 +475,11 @@ class ColorPickerGame:
 
         # Place & draw the Gameboard, scrolling if need be
 
-        (h, w, y, x) = kr.sample_hwyx()
-        self.game_yx = (y, x)  # replaces
+        assert not self.game_yx, (self.game_yx,)
+        game_yx = self.cp_game_draw(first=True)
+        assert game_yx, (game_yx,)
 
-        self.cp_game_draw()
+        self.game_yx = game_yx  # replaces
 
         # Run till Quit
 
@@ -502,11 +503,12 @@ class ColorPickerGame:
 
         sw.print()
 
-    def cp_game_draw(self) -> None:
+    def cp_game_draw(self, first: bool) -> tuple[int, ...]:
         """Draw the Gameboard, scrolling if need be"""
 
         tb = self.terminal_boss
         sw = tb.screen_writer
+        kr = tb.keyboard_reader
 
         game_yx = self.game_yx
 
@@ -527,8 +529,9 @@ class ColorPickerGame:
 
         # Place the board
 
-        (y, x) = game_yx
-        sw.write_control(f"\033[{y};{x}H")
+        if game_yx:
+            (y, x) = game_yx
+            sw.write_control(f"\033[{y};{x}H")
 
         # Form the Board
 
@@ -540,7 +543,11 @@ class ColorPickerGame:
         n = ns[:i] + "↑ " + ns[j:]
         s = ns[:i] + "↓ " + ns[j:]
 
+        y_high = 0
+
         # Draw above the Board
+
+        sw.write_control("\033[39m")  # todo6: checkpoint & revert ⎋[M
 
         sw.print()
         sw.print()  # twice
@@ -554,6 +561,8 @@ class ColorPickerGame:
         sw.print()
         sw.print()  # twice
 
+        y_high += 2 + 5 + 2
+
         # Draw the Board per se
 
         sw.write_control(f"\033[38;5;{ps}m")
@@ -563,14 +572,38 @@ class ColorPickerGame:
             text = dent + "█" + sep + "██" + sep + "███" + sep + "██" + sep + "█" + dent + "\r\n"
             sw.write_text(text)
 
-        sw.write_control("\033[m")
+        y_high += 3
 
         # Draw below the Board
+
+        sw.write_control("\033[39m")
 
         sw.print()
 
         sw.print("Press ⌃C")
         sw.print()
+
+        y_high += 1 + 2
+
+        # Place the Board
+
+        if first:
+            (h, w, y, x) = kr.sample_hwyx()
+            y -= y_high
+            game_yx = (y, x)  # replaces
+
+        # Revert to TerminalBoss Cursor, but change which Color it draws
+
+        sw.write_control(f"\033[38;5;{ps}m")
+
+        if not first:
+            (ya, xa) = (kr.row_y, kr.column_x)
+            sw.write_control(f"\033[{ya};{xa}H")
+
+        return game_yx
+
+        # todo: call ScreenWriter Def's to checkpoint & revert Color, Backlight, Cursor
+        # todo: Cursor Position as tuple[int, int], or as tuple[int, ..], or as int & int
 
     def cp_step_once(self, frames: tuple[bytes, ...]) -> None:
         """Eval Input and print Output"""
@@ -591,7 +624,7 @@ class ColorPickerGame:
         if note_to_self:
             for frame in frames:
                 self.cp_step_one_arrow_once(frame)
-            self.cp_game_draw()
+            self.cp_game_draw(first=False)
             return
 
         # Else fall back onto the enclosing TerminalBoss
@@ -3109,7 +3142,7 @@ class KeyboardReader:
             rgb = rgb_by_osc[11]
             if rgb:
                 (r, g, b) = rgb
-                if (r + g + b) < 0xFFFF:  # todo9: less simple Terminal Luminance models
+                if (r + g + b) <= 0xFFFF:  # todo9: less simple Terminal Luminance models
                     dark = True
 
         # Succeed

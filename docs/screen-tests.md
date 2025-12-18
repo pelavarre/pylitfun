@@ -59,6 +59,11 @@ The famous Csi ⎋[ Inputs, apart from the Reply Inputs, are
 
     ⎋[>{f};{x};{y}⇧M press  ⎋[>{f};{x};{y}M release  ⎋[⇧M{b}{x}{y} press/release
 
+<!-- todo: Say more of ⎋[22M intensity-plain to cancel ⎋[1M intensity-bold -->
+<!-- todo: Say more of ⎋[39M color-plain to cancel ⎋[38;5;130M orange etc -->
+<!-- todo: Say more of ⎋[49M backlight-plain to cancel ⎋[48;5;130M orange etc -->
+<!-- todo: Say more of ⎋[ 40..47 90..97 100..107 for Color's & Backlight's -->
+
 <!-- todo: Say more of Osc Ps 12 112, esp Ps 12 crashes of Terminal Tabs at Google Cloud Shell -->
 
 
