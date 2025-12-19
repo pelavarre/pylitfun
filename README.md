@@ -217,6 +217,7 @@ Broken and probably know how to fix
     Game - **Smushup** - Arrow Pair to move 8 ways, and smush matching colors
     Game - **Muhnswuhper** - Minesweeper® style, but ...
     Game - **Kuhnbuhn** - Kanban Board
+    Game - **SlideRuhler** - Simulate an arithmetic Slide Ruler
 
     Single File Download & Run of the Python (other than just making litglass.py huge)
 

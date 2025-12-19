@@ -1944,9 +1944,14 @@ class TerminalBoss:
 
         # Write the Frame and grow the Order
 
-        if order_box.nearly_printable and (not strong):
+        if (not strong) and order_box.nearly_printable:
 
             sw.write_printable(order_text)
+
+        elif (not strong) and (order_text in ("\r", "\177")):  # ⏎ ⌫
+
+            assert not order.intricate_order, (strong, order_text, data, order)
+            self.tb_box_step_once(order_box, intricate_order=order.intricate_order)
 
         elif factor < -1:  # echoes without writing
 
@@ -2545,6 +2550,9 @@ class ScreenChangeOrder:
                 return False
 
         # Succeed
+
+        strong_str = "demand" if strong else "suggest"
+        logger.info(f"{strong_str} {factor} {box.data=}")
 
         self.strong = strong  # replaces
         self.factor = factor  # replaces
@@ -5223,6 +5231,15 @@ _ = """  # more famous Python Imports to run in place of our Code here
 
 if __name__ == "__main__":
     main()
+
+
+# todo2: unbracketed paste in the same frame could paste vertically
+
+# todo2: <> could make button <F12> <⌥1⌥2⌥3>
+
+# todo2: docs/terminal-lies.md could talk of F1 vs F12 vs ⎋[M vs '\033[''m' vs < ⌥1 ⌥2 ⌥3 >
+
+# todo2: revisit 'pm Tue 16/Dec' experiments in echo-in-place of Key Caps such as F12 and ⌥6⌥5
 
 
 # todo2: Alt + Number ⌥1⌥2⌥3 key cap
