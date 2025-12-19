@@ -1872,6 +1872,7 @@ class TerminalBoss:
         # Take in each Frame
 
         boxes = tuple(BytesBox(_) for _ in frames)
+        boxes_yx = (kr.row_y, kr.column_x) if boxes[1:] else tuple()
 
         clearing_screen_order = False
         for box_index, box in enumerate(boxes):
@@ -1896,7 +1897,7 @@ class TerminalBoss:
                     self.tb_write_frame_echo(data)
                     sw.write_control(f"\033[{y};{x}H")
 
-                self.tb_box_step_once(box, intricate_order=False)
+                self.tb_box_step_once(box, intricate_order=False, boxes_yx=boxes_yx)
 
                 continue
 
@@ -1908,7 +1909,7 @@ class TerminalBoss:
 
             # Run this Order as completed by this Frame
 
-            self.tb_order_step_once(data, order=order)
+            self.tb_order_step_once(data, order=order, boxes_yx=boxes_yx)
 
             order.yx = tuple()
             f = order.key_byte_frame
@@ -1922,7 +1923,9 @@ class TerminalBoss:
         if clearing_screen_order:
             order.clear_order()
 
-    def tb_order_step_once(self, data: bytes, order: ScreenChangeOrder) -> None:
+    def tb_order_step_once(
+        self, data: bytes, order: ScreenChangeOrder, boxes_yx: tuple[int, ...]
+    ) -> None:
         """Run this Order as completed by this Frame"""
 
         yx = order.yx
@@ -1951,7 +1954,9 @@ class TerminalBoss:
         elif (not strong) and (order_text in ("\r", "\177")):  # ⏎ ⌫
 
             assert not order.intricate_order, (strong, order_text, data, order)
-            self.tb_box_step_once(order_box, intricate_order=order.intricate_order)
+            self.tb_box_step_once(
+                order_box, intricate_order=order.intricate_order, boxes_yx=boxes_yx
+            )
 
         elif factor < -1:  # echoes without writing
 
@@ -1989,14 +1994,18 @@ class TerminalBoss:
             kr.column_x = column_x
 
             for _ in range(factor):
-                self.tb_box_step_once(order_box, intricate_order=order.intricate_order)
+                self.tb_box_step_once(
+                    order_box, intricate_order=order.intricate_order, boxes_yx=boxes_yx
+                )
 
     #
     # Loop back a single Frame of decodable Input Bytes,
     # having arrived all together or else slowly intricately built as a Screen Change Order
     #
 
-    def tb_box_step_once(self, box: BytesBox, intricate_order: bool) -> None:
+    def tb_box_step_once(
+        self, box: BytesBox, intricate_order: bool, boxes_yx: tuple[int, ...]
+    ) -> None:
         """Loop back the Decode of the Frame, else echo it"""
 
         data = box.data
@@ -2016,7 +2025,9 @@ class TerminalBoss:
 
         # If Frame has Keycaps
 
-        if self.tb_decode_kseqs_step_once_if(box, intricate_order=intricate_order):
+        if self.tb_decode_kseqs_step_once_if(
+            box, intricate_order=intricate_order, boxes_yx=boxes_yx
+        ):
             return
 
         # Loop back a few Esc Byte Sequences unchanged
@@ -2094,7 +2105,9 @@ class TerminalBoss:
             kr.row_y = min(kr.y_high, kr.row_y + 1)
             sw.write_control(f"\033[{kr.row_y};{kr.column_x}H")
 
-    def tb_decode_kseqs_step_once_if(self, box: BytesBox, intricate_order: bool) -> bool:
+    def tb_decode_kseqs_step_once_if(
+        self, box: BytesBox, intricate_order: bool, boxes_yx: tuple[int, ...]
+    ) -> bool:
         """Loop back the Keycaps of the Frame, else return False"""
 
         data = box.data
@@ -2111,6 +2124,8 @@ class TerminalBoss:
 
         sw = self.screen_writer
         kd = self.keyboard_decoder
+
+        assert CUF_X == "\033[" "{}" "C"
 
         # Echo ⎋ Esc and ⎋⎋ Esc Esc as such
 
@@ -2138,7 +2153,14 @@ class TerminalBoss:
         # Loop back ⌃M encoding of ⏎ Return as CR LF
 
         if kseq == "⏎":
+
             sw.write_some_controls(["\r", "\n"])
+
+            if boxes_yx:  # vertically pastes multiple Frames of Input
+                (y, x) = boxes_yx
+                if x > X1:
+                    sw.write_control(f"\033[{x - X1}C")
+
             return True
 
         # Loop back ⌃⇧? ⌫ as Delete
