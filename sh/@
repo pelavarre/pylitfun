@@ -1,6 +1,6 @@
 if [ $# -eq 0 ]; then
     set -xe
-    ./litglass.py --
+    ./litglass.py --egg=logging
 else
     set -xe
     ./litglass.py "$@"
