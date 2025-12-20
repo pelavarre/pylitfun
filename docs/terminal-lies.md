@@ -6,12 +6,13 @@ Lies that too many Terminal Programs tell themselves
 - [1. Input Key Chords read from the Terminal Touch/ Tap/ Key Press/ Release](#1-input-key-chords-read-from-the-terminal-touch-tap-key-press-release)
   - [Lie 1.1 Each different Key Chord sends different Bytes](#lie-11-each-different-key-chord-sends-different-bytes)
   - [Lie 1.2 Key Chords send the same Bytes through your Terminal and mine](#lie-12-key-chords-send-the-same-bytes-through-your-terminal-and-mine)
-  - [Lie 1.3 You can know which sets of Key Chords send the same Bytes](#lie-13-you-can-know-which-sets-of-key-chords-send-the-same-bytes)
-  - [Lie 1.4 Key Chords that send Bytes through your Terminal also send Bytes through mine](#lie-14-key-chords-that-send-bytes-through-your-terminal-also-send-bytes-through-mine)
-  - [Lie 1.5 You can know when the Bytes of one Key Chord end before the start of the next](#lie-15-you-can-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
-  - [Lie 1.6 You can't know when the Bytes of one Key Chord end before the start of the next](#lie-16-you-cant-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
-  - [Lie 1.7 Key Chords send the same Character through your App and mine](#lie-17-key-chords-send-the-same-character-through-your-app-and-mine)
-  - [Lie 1.8 That Key Chord that worked yesterday will work today too](#lie-18-that-key-chord-that-worked-yesterday-will-work-today-too)
+  - [Lie 1.3 You can know which Key Chords send any Bytes at all](#lie-13-you-can-know-which-key-chords-send-any-bytes-at-all)
+  - [Lie 1.4 You can know which sets of Key Chords send the same Bytes](#lie-14-you-can-know-which-sets-of-key-chords-send-the-same-bytes)
+  - [Lie 1.5 Key Chords that send Bytes through your Terminal also send Bytes through mine](#lie-15-key-chords-that-send-bytes-through-your-terminal-also-send-bytes-through-mine)
+  - [Lie 1.6 You can know when the Bytes of one Key Chord end before the start of the next](#lie-16-you-can-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
+  - [Lie 1.7 You can't know when the Bytes of one Key Chord end before the start of the next](#lie-17-you-cant-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
+  - [Lie 1.8 Key Chords send the same Character through your App and mine](#lie-18-key-chords-send-the-same-character-through-your-app-and-mine)
+  - [Lie 1.9 That Key Chord that worked yesterday will work today too](#lie-19-that-key-chord-that-worked-yesterday-will-work-today-too)
 - [2. Output Characters written to the Terminal Screen](#2-output-characters-written-to-the-terminal-screen)
   - [Lie 2.1 Every Character looks a little different when printed](#lie-21-every-character-looks-a-little-different-when-printed)
   - [Lie 2.2 Every Character can be encoded as a UTF-8 SurrogateEscape Byte Sequence](#lie-22-every-character-can-be-encoded-as-a-utf-8-surrogateescape-byte-sequence)
@@ -50,7 +51,16 @@ As posted by Pat LaVarre & friends, Dec/2025
             # see ^[b at Apple macOS Terminal
             # see ^[[1;3D at Open-Source macOS iTerm2
 
-### Lie 1.3 You can know which sets of Key Chords send the same Bytes
+### Lie 1.3 You can know which Key Chords send any Bytes at all
+
+    cat - >/dev/null
+        # press ⇧F1
+            # see ^[[1;2P at Open-Source macOS Ghostty or iTerm2
+            # see nothing at Apple macOS Terminal (but hear an audible Bel or see a visual Bel)
+
+Apple macOS Terminal has pages of Settings. You can intervene separately at each MacBook and ask for ⇧F1 and ⌥↑ and so on to work. But they don't work by default
+
+### Lie 1.4 You can know which sets of Key Chords send the same Bytes
 
     cat - >/dev/null
         # press ↓
@@ -58,14 +68,14 @@ As posted by Pat LaVarre & friends, Dec/2025
             # see ^[B twice at Apple macOS Terminal, same same
             # see ^[B from ↓ and ^[[1;2B from ⇧↓ at Open-Source macOS iTerm2
 
-### Lie 1.4 Key Chords that send Bytes through your Terminal also send Bytes through mine
+### Lie 1.5 Key Chords that send Bytes through your Terminal also send Bytes through mine
 
     cat - >/dev/null
         # press ⇧ Fn F1
             # ring the bell to say don't do that, at Apple macOS Terminal, till after you reconfigure it
             # see ^[[1;2P at Open-Source macOS iTerm2
 
-### Lie 1.5 You can know when the Bytes of one Key Chord end before the start of the next
+### Lie 1.6 You can know when the Bytes of one Key Chord end before the start of the next
 
     cat - >/dev/null
         # press Esc
@@ -73,13 +83,13 @@ As posted by Pat LaVarre & friends, Dec/2025
             # see ^[ said for Esc
             # see ^[[D said for ←, starts with same Byte
 
-### Lie 1.6 You can't know when the Bytes of one Key Chord end before the start of the next
+### Lie 1.7 You can't know when the Bytes of one Key Chord end before the start of the next
 
     sleep 1 && printf '\033[5n' && cat - >/dev/null
         # press Esc during the Sleep
         # see the ^[[0n from the ^[[5n arrives after the Esc, showing the end of its Bytes
 
-### Lie 1.7 Key Chords send the same Character through your App and mine
+### Lie 1.8 Key Chords send the same Character through your App and mine
 
     cat - >/dev/null
         # press ⌥ Y
@@ -88,7 +98,7 @@ As posted by Pat LaVarre & friends, Dec/2025
 
 Understand here we mean the 2 Key Chord of hold down the ⌥ Option/Alt Key while you press and release the Y Key, there is no ⌥⇧Y 3 Key Chord here
 
-### Lie 1.8 That Key Chord that worked yesterday will work today too
+### Lie 1.9 That Key Chord that worked yesterday will work today too
 
 This can be true in places, but . . .
 
