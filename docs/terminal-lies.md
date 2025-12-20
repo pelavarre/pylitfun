@@ -29,6 +29,7 @@ Lies that too many Terminal Programs tell themselves
   - [Lie 4.2 You can copy out what you please](#lie-42-you-can-copy-out-what-you-please)
   - [Lie 4.3 The Emacs Key Chords you learn at the Terminal do or don't work elsewhere](#lie-43-the-emacs-key-chords-you-learn-at-the-terminal-do-or-dont-work-elsewhere)
   - [Lie 4.4 You can print the Glyphs you printed in 1980](#lie-44-you-can-print-the-glyphs-you-printed-in-1980)
+  - [Lie 4.5 Two people can agree on how to spell out a Keyboard Chord Sequence](#lie-45-two-people-can-agree-on-how-to-spell-out-a-keyboard-chord-sequence)
 
 As posted by Pat LaVarre & friends, Dec/2025
 
@@ -314,6 +315,28 @@ I felt so very disappointed when first I saw the IBM PC choose to render 0x00 an
 See also
 + a screenshot of [Atari®](https://en.wikipedia.org/wiki/ATASCII#/media/File:Atascii-character-set-00toFF-2x.gif)
 + a screenshot of [IBM PC](https://en.wikipedia.org/wiki/Code_page_437#/media/File:Codepage-437.png)
+
+### Lie 4.5 Two people can agree on how to spell out a Keyboard Chord Sequence
+
+Nine points of disagreement
+
+a ) The real life Key Caps of a MacBook speak of upper case US Ascii and then esc, delete, tab, · caps lock, return, shift, fn 🌐, control ⌃, option ⌥, command ⌘, and the four cardinal arrows ← ↑ → ↓, without mentioning the intercardinal arrows ↖ ↗ ↘ ↙. Its spacebar is large and rectangulsar and blank. Its upper right Key is small and squarish and blank
+
+b ) Apple's Keyboard Viewer inside macOS speaks of:  esc, ⌫, ⇥, ⇪, ⏎, ⇧, fn, ⌃, ⌥, ⌘, but otherwise matches a MacBook, except the upper right Key of the Keyboard Viewer looks lots like the ☰ Trigram For Heaven. We follow most of that convention, except we say ⎋ U+238B Broken Circle With Northwest Arrow to mean Esc, and we say Fn to mean the fn Key Cap
+
+c ) The classic 'stty echoctl' convention speaks of the first 33 (0o41) Control Characters as ^A through ^Z, and of ^@ ^[ ^\ ^] ^^ ^_ ^?. We come near to that convention. We first let the nerds snipe us into distinguishing U+2303 ⌃ Up Arrowhead , and then we decide ⇧ matters, so we end up talking of ⌃A through ⌃Z and of ⌃⇧@ ⌃[ ⌃\ ⌃] ⌃^ ⌃_ ⌃⇧?
+
+d ) macOS Menus speak of ⎋ ⌃ ⌥ ⇧ ⌘ Fn in pretty much that exact order. We copy this convention likewise, often making a point of mentioning ⌃ before ⌥ before ⇧
+
+e ) We take the Space as a Separator, to mean the end of one Key Chord and the start of the next. So for an ordinary strike of the Spacebar we talk of ␢, but we say ⌃␢ or ⌃⇧@ to talk of holding down Control ⌃ while striking the Spacebar to send the \0 Key Code to talk of the U+0000 NUL Character. And we say ⌥␢ to talk of holding down Option ⌥ while striking the Spacebar to send the \302 \240 Key Codes to talk of the U+00A0  No-Break Space Character
+
+f ) We can speak unambiguously and precisely of ⇧T A B Key Chord Sequence to mean 3 Keys struck, first Shift with the Letter Key T, then the Letter Key A without a Shift, then the Letter Key B without a Shift. Other conventions more struggle to distinguiush the 3 Chords of ⇧T A B from the single strike of the ⇥ Tab Key. They have similar troubles with all their named keys: their ⎋ Esc, ⌫ Delete, ⇥ Tab, & Return ⏎
+
+g ) The thin single-wide monospace Fonts struggle to make a clear-at-a-glance distinction between ^ and ⌃, and between ⇪ and ⇧. Ouch
+
+h ) People often disagree over whether to say Esc or Escape, Del or Delete, Ret or Return, Opt or Alt or Option
+
+i ) Practically no one stands up for the intercardinal arrows ↖ ↗ ↘ ↙. On a MacBook, those only work reliably enough for games. Lag in the computer can often suddenly break them into two, the ↖ into ← ↑ or into ↑ ←, the ↘ into → and ↓ or ↓ and →, and so on
 
 <!--
 
