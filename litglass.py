@@ -471,8 +471,6 @@ class ColorPickerGame:
         sw = tb.screen_writer
         kr = tb.keyboard_reader
 
-        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
-
         # Place & draw the Gameboard, scrolling if need be
 
         assert not self.game_yx, (self.game_yx,)
@@ -483,23 +481,16 @@ class ColorPickerGame:
 
         # Run till Quit
 
-        quitting = False
-        while not quitting:
+        while not tb.quitting:
 
             # Read Input
 
             kr.kbhit(timeout=None)
-            frames = kr.read_byte_frames()
+            frames = tb.tb_read_byte_frames()
 
             # Eval Input and print Output
 
             self.cp_step_once(frames)
-
-            # Quit at ⌃C
-
-            if b"\003" in frames:
-                quitting = True
-                break
 
         sw.print()
 
@@ -715,8 +706,6 @@ class KeycapsGame:
         sw = tb.screen_writer
         kr = tb.keyboard_reader
 
-        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
-
         # Draw the Gameboard, scrolling if need be
 
         game_yx = self.kc_game_draw()
@@ -724,23 +713,16 @@ class KeycapsGame:
 
         # Run till Quit
 
-        quitting = False
-        while not quitting:
+        while not tb.quitting:
 
             # Read Input
 
             kr.kbhit(timeout=None)
-            frames = kr.read_byte_frames()
+            frames = tb.tb_read_byte_frames()
 
             # Eval Input and print Output
 
             self.kc_step_once(frames)
-
-            # Quit at ⌃C
-
-            if b"\003" in frames:
-                quitting = True
-                break
 
         sw.print()
 
@@ -835,6 +817,8 @@ class KeycapsGame:
         kd = tb.keyboard_decoder
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
+        assert ord("\\") ^ 0x40 == ord("\034")  # ⌃\
+
         assert unicodedata.name("¤").title() == "Currency Sign".title()
 
         # Eval each Input Frame
@@ -855,7 +839,11 @@ class KeycapsGame:
         sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
         if unhit_kseqs:
-            if frames != (b"\003",):
+            if frames == (b"\003",):  # ⌃C
+                pass
+            elif frames == (b"\034",):  # ⌃\
+                pass
+            else:
                 self.kc_print(unhit_kseqs, "Keycap not found", frames)
 
     def kc_print(self, *args: object) -> None:
@@ -1082,8 +1070,6 @@ class SquaresGame:
         sw = tb.screen_writer
         kr = tb.keyboard_reader
 
-        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
-
         # Draw the Gameboard
 
         (h, w, y, x) = kr.sample_hwyx()
@@ -1104,7 +1090,9 @@ class SquaresGame:
         max_strikes = 0
 
         self.steps -= 1
-        while True:
+
+        winning = False
+        while not tb.quitting:
             self.steps += 1
 
             # Read or fabricate Input
@@ -1119,7 +1107,7 @@ class SquaresGame:
 
             frames: tuple[bytes, ...] = (b" ",)
             if kbhit:
-                frames = kr.read_byte_frames()
+                frames = tb.tb_read_byte_frames()
 
             # Eval Input and print Output
 
@@ -1135,23 +1123,21 @@ class SquaresGame:
 
             # Quit at can't move
 
-            if not self.sq_find_moves():
-                self.sq_logger_info_reprs(f"quit at no moves {max_strikes=}")
-                break
+            if not self.sq_find_moves():  # todo8: never True
+                self.sq_logger_info_reprs(f"quit at no moves")
+                winning = True
+                tb.quitting = True
 
-            # Quit at ⌃C
+        self.sq_logger_info_reprs(f"quit at {max_strikes=}")
 
-            if b"\003" in frames:
-                self.sq_logger_info_reprs(f"quit by ⌃C {max_strikes=}")
-                break
+        if winning:  # todo8: never True
+            sw.write_control("\033[2A")
+            sw.write_control("\033[K")
+            sw.write_printable("🏆")
+            sw.print()
+            sw.print()  # twice
 
-        sw.write_control("\033[2A")
-        sw.write_control("\033[K")
-        sw.write_printable("🏆")
-        sw.write_some_controls(["\r", "\n"])
-
-        sw.print()
-        sw.print()  # twice
+        sw.print()  # thrice
 
         # todo6: Squares ⇥ autoruns Shuffles till what
         # todo6: Squares ⇥ autoruns Shuffles till just before one works
@@ -1680,6 +1666,8 @@ class TerminalBoss:
     seed: str
     random_random: random.Random
 
+    quitting: bool
+
     #
     # Init, enter, and exit
     #
@@ -1714,6 +1702,8 @@ class TerminalBoss:
         self.screen_change_order = order
         self.seed = seed
         self.random_random = r
+
+        self.quitting = False
 
         # todo: limit fanout of pretending ⎋[5N came as last Input before Launch
 
@@ -1795,14 +1785,15 @@ class TerminalBoss:
         sw = self.screen_writer
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
+        assert ord("\\") ^ 0x40 == ord("\034")  # ⌃\
 
-        sw.write_printable("Press ⌃C")
+        sw.print("Press ⌃C")
         while True:
             data = ks.read_one_byte()
             ks.write_some_bytes(data)
             if data == b"\r":  # rounds up ⌘V of \r to \r\n
                 ks.write_some_bytes(b"\n")
-            if data == b"\003":
+            if data in (b"\003", b"\034"):
                 break
 
     def tb_run_awhile(self) -> None:
@@ -1810,8 +1801,6 @@ class TerminalBoss:
 
         sw = self.screen_writer
         kr = self.keyboard_reader
-
-        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
 
         assert CUU_Y == "\033[" "{}" "A"
         assert CUP_Y_X == "\033[" "{};{}H"
@@ -1828,15 +1817,14 @@ class TerminalBoss:
 
         # Run till Quit
 
-        quitting = False
-        while not quitting:
+        while not self.quitting:
 
             # Read Input
 
             t0 = time.time()
 
             kr.kbhit(timeout=None)
-            frames = kr.read_byte_frames()
+            frames = self.tb_read_byte_frames()
 
             t1 = time.time()
             t1t0 = t1 - t0
@@ -1845,22 +1833,39 @@ class TerminalBoss:
 
             logger_info_reprs("")
             logger_info_reprs(f"{frames=}")
+
             if flags._repr_:
                 self.tb_print_repr_frame_per_row(frames, t1t0=t1t0)
-            else:
-                self.tb_step_once(frames)
+                continue
 
-            # Quit at ⌃C
-
-            if b"\003" in frames:
-                quitting = True
-                break
+            self.tb_step_once(frames)
 
         if not flags._exit_:
+
+            if flags._repr_:
+                sw.write_control("\r")
+                return
+
             sw.write_control("\033[32100H")  # cursor-unstyled ⎋[32100⇧H
-            sw.write_control("\033[2A")  # 2 ↑ ⎋[2⇧A
+            sw.write_control("\033[3A")  # 3 ↑ ⎋[3⇧A
             sw.write_control("\033[J")  # after-erase ⎋[⇧J  # simpler than ⎋[0⇧J
-            sw.print("bye for now")
+            sw.print("bye for now ...")
+
+    def tb_read_byte_frames(self) -> tuple[bytes, ...]:
+        """Read one Frame at a time, and help the Caller quit"""
+
+        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
+        assert ord("\\") ^ 0x40 == ord("\034")  # ⌃\
+
+        kr = self.keyboard_reader
+        frames = kr.read_byte_frames()
+
+        if b"\003" in frames:
+            self.quitting = True
+        elif b"\034" in frames:
+            self.quitting = True
+
+        return frames
 
     def tb_step_once(self, frames: tuple[bytes, ...]) -> None:
         """Collect Input Frames over time as a Screen Change Order"""
@@ -2012,10 +2017,12 @@ class TerminalBoss:
         text = box.text
 
         sw = self.screen_writer
-
         kd = self.keyboard_decoder
+
         echo = kd.frame_to_echo(data)
         assert echo.isprintable(), (echo,)
+
+        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
 
         # If Frame is Printable
 
@@ -2076,10 +2083,7 @@ class TerminalBoss:
                     # todo9: solve .clickruns Frames as fully as not, across Wrapped Lines
 
         if bouncing:
-
-            if echo != "⌃C":  # presumes ⌃C don't want this Echo here
-                sw.write_printable("<" + echo + ">")  # <⌃Y>
-
+            sw.write_printable("<" + echo + ">")  # <⌃C>  # <⌃\>
             return
 
         # Loop back well-known Csi & Osc Byte Sequences
@@ -3722,6 +3726,9 @@ class KeyboardDecoder:
             ¥å∫ç∂¥ƒ©˙¥∆˚¬µ¥ø  πœ®ß†¥√∑≈¥Ω”»’¥¥
         """
 
+        _op_ = "".join(_[0] for _ in zip(plain_printables, option_printables) if _[-1] == "¥")
+        assert _op_ == "¥`einuy~¥"  # ⌥Y can send just b"\\"  # ⌥⇧~ can send just b"`"`
+
         assert len(plain_printables) == len(option_printables)
 
         for plain, option in zip(plain_printables, option_printables):
@@ -5253,6 +5260,13 @@ _ = """  # more famous Python Imports to run in place of our Code here
 
 if __name__ == "__main__":
     main()
+
+
+# todo1: Take ⌃\ when ⌃C not available
+
+# todo1: Take ⎋← and ⎋→ as ⎋↑ ⎋↓ when ⎋↑ ⎋↓ not available
+
+# todo8: Take ⎋ or ⎋⎋ more as itself, don't force it into starting an Intricate Key Chord Sequence
 
 
 # todo2: unbracketed paste in the same frame could paste vertically
