@@ -11,6 +11,7 @@ Lies that too many Terminal Programs tell themselves
   - [Lie 1.5 You can know when the Bytes of one Key Chord end before the start of the next](#lie-15-you-can-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
   - [Lie 1.6 You can't know when the Bytes of one Key Chord end before the start of the next](#lie-16-you-cant-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next)
   - [Lie 1.7 Key Chords send the same Character through your App and mine](#lie-17-key-chords-send-the-same-character-through-your-app-and-mine)
+  - [Lie 1.8 That Key Chord that worked yesterday will work today too](#lie-18-that-key-chord-that-worked-yesterday-will-work-today-too)
 - [2. Output Characters written to the Terminal Screen](#2-output-characters-written-to-the-terminal-screen)
   - [Lie 2.1 Every Character looks a little different when printed](#lie-21-every-character-looks-a-little-different-when-printed)
   - [Lie 2.2 Every Character can be encoded as a UTF-8 SurrogateEscape Byte Sequence](#lie-22-every-character-can-be-encoded-as-a-utf-8-surrogateescape-byte-sequence)
@@ -85,6 +86,24 @@ As posted by Pat LaVarre & friends, Dec/2025
             # See \ inside the Terminal, in homage to Japanese Tech of the past century
 
 Understand here we mean the 2 Key Chord of hold down the ⌥ Option/Alt Key while you press and release the Y Key, there is no ⌥⇧Y 3 Key Chord here
+
+### Lie 1.8 That Key Chord that worked yesterday will work today too
+
+This can be true in places, but . . .
+
+At the Apple macOS Terminal, you can toggle its Settings > Keyboard > Use Option As Meta Key back and forth. And then you get more distinct Key Chords in this special mode. You get ⎋ ⎋ and ⎋⌫ and ⎋ ⏎ apart from ⏎ and ⌫ and ⎋. You get quick complete ⎋\` ⎋E ⎋I ⎋N ⎋U because you gave up the Key Chords coded as accented vowels at ⎋\` E and ⎋E E and  ⎋I I and ⎋N N and  ⎋U U and so on. But then when you toggle this Setting back, you lose all these new Key Chords
+
+At the Google Cloud Shell, they churn their rules from time to time. Lately, their ⌃M is a toggle between having the ⇥ Tab Key mean ⌃I or some Browser Thing. Their ⌃M also toggle the ⇧⇥  Shift Tab Key Chord between meaning ⎋[Z and some Browser Thing. And they break the classic equivalence between ⌃M and ⏎ Return: you get different effects at each. And ditto they give you different effects at ⌃I and at ⇥ Tab. Plus they have a ⛭ > Keyboard > Alt Is Meta toggle that works lots like Apple's Keyboard > Use Option As Meta Key
+
+At the Google Cloud Shell, you can't depend on ⌃C meaning anything. Sometimes, you can pound away on ⌃C to no response. With us, we'll likely take ⌃\ or ⌃Z to mean some kind of quit, even while they're blocking ⌃C
+
+And don't go thinking that having ⎋⎋ ⎋` ⎋E ⎋I ⎋N ⎋U means you have ⎋← ⎋↑ ⎋→ ⎋↓. At the Apple macOS Terminal you still then have only ⎋← and ⎋→ and ⇧← and ⇧→ as distinct from ← ↑ → ↓ across all combinations of the ⌃ ⌥ ⇧ shifting Keys. That's why we'll often take ⎋← and ⎋→ to mean ⎋↑ and ⎋↓ in place of themselves
+
+Google Cloud Shell often pops up complaints about this whole mess, in particular
+
+> Is your browser intercepting key combinations? Install Cloud Shell as a PWA for a better experience
+
+> The tab key is being redirected to the terminal. Press ctrl+m to enable page navigation with the tab key
 
 ## 2. Output Characters written to the Terminal Screen
 
@@ -221,7 +240,7 @@ You can find 0123456789 and ABCDEFGHIJKLMNOPQRSTUVWXYZ and abcdefghijklmnopqrstu
 But you will find the 9 Comic Colors of Unicode jumbled
 
     ⚪ ⚫
-    ⬛ ⬜ 
+    ⬛ ⬜
 
     🔴 🔵 🟠 🟡 🟢 🟣 🟤
     🟥 🟦 🟧 🟨 🟩 🟪 🟫
