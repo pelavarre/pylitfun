@@ -1124,7 +1124,7 @@ class SquaresGame:
             # Quit at can't move
 
             if not self.sq_find_moves():  # todo8: never True
-                self.sq_logger_info_reprs(f"quit at no moves")
+                self.sq_logger_info_reprs("quit at no moves")
                 winning = True
                 tb.quitting = True
 
@@ -5262,36 +5262,26 @@ if __name__ == "__main__":
     main()
 
 
-# todo1: Take ⌃\ when ⌃C not available
-
 # todo1: Take ⎋← and ⎋→ as ⎋↑ ⎋↓ when ⎋↑ ⎋↓ not available
 
-# todo8: Take ⎋ or ⎋⎋ more as itself, don't force it into starting an Intricate Key Chord Sequence
+
+# todo6: Take ⎋ or ⎋⎋ more as itself, don't force it into starting an Intricate Key Chord Sequence
+
+# todo6: Alt + Number ⌥1⌥2⌥3 key cap
+# todo6: <> could make button <F12> <⌥1⌥2⌥3>
+# todo6: revisit 'pm Tue 16/Dec' experiments in echo-in-place of Key Caps such as F12 and ⌥6⌥5
 
 
-# todo2: unbracketed paste in the same frame could paste vertically
-
-# todo2: <> could make button <F12> <⌥1⌥2⌥3>
-
-# todo2: docs/terminal-lies.md could talk of F1 vs F12 vs ⎋[M vs '\033[''m' vs < ⌥1 ⌥2 ⌥3 >
-
-# todo2: revisit 'pm Tue 16/Dec' experiments in echo-in-place of Key Caps such as F12 and ⌥6⌥5
+# todo3: emulate macOS Terminal Writes at Google Cloud Shell OR vice versa
+# todo3: deletes while backlight, color filling from eastmost mirrored character write
 
 
-# todo2: Alt + Number ⌥1⌥2⌥3 key cap
+# todo2: drop Keycaps specific to macOS Terminal, when elsewhere
+# todo2: add iTerm2 Keycaps
+# todo2: add Google Cloud Shell Keycaps
 
 
-# todo2: emulate macOS Terminal Writes at Google Cloud Shell OR vice versa
-# todo2: deletes while backlight, color filling from eastmost mirrored character write
-
-
-# todo3: drop Keycaps specific to macOS Terminal, when elsewhere
-# todo3: add iTerm2 Keycaps
-# todo3: add Google Cloud Shell Keycaps
-
-
-# todo3: take bracketed-paste as print vertically
-# todo3: take unbracketed-paste as print vertically to left of rightmost tracked chars
+# todo8: take bracketed-paste as print vertically
 
 
 # todo9: --egg=keycaps: add Keycaps of 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋

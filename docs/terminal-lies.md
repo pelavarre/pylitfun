@@ -50,6 +50,11 @@ As posted by Pat LaVarre & friends, Dec/2025
         # press ⌥←
             # see ^[b at Apple macOS Terminal
             # see ^[[1;3D at Open-Source macOS iTerm2
+        # press ⌥I P
+            # see ˆp at Apple macOS Terminal and at Open-Source macOS iTerm2
+            # see ^[ip at Open-Source macOS Ghostty
+            # see ˆˆ at Google Cloud Shell in macOS Apple Safari
+            # see ˆp at Google Cloud Shell in macOS Google Chrome
 
 ### Lie 1.3 You can know which Key Chords send any Bytes at all
 
@@ -342,11 +347,15 @@ e ) We take the Space as a Separator, to mean the end of one Key Chord and the s
 
 f ) We can speak unambiguously and precisely of ⇧T A B Key Chord Sequence to mean 3 Keys struck, first Shift with the Letter Key T, then the Letter Key A without a Shift, then the Letter Key B without a Shift. Other conventions more struggle to distinguiush the 3 Chords of ⇧T A B from the single strike of the ⇥ Tab Key. They have similar troubles with all their named keys: their ⎋ Esc, ⌫ Delete, ⇥ Tab, & Return ⏎
 
-g ) The thin single-wide monospace Fonts struggle to make a clear-at-a-glance distinction between ^ and ⌃, and between ⇪ and ⇧. Ouch
+g ) We give up the struggle to assign meaning to the lowercase letters a .. z. We speak of the A ... Z Key Caps and the ⇧A .. ⇧Z Key Chords. In particular we speak of ⎋[M and ⎋[⇧M where PrintF speaks of '\033[m' and '\033[M'. We speak of ⇧⇥ where PrintF speaks of '\033[Z'. And so on and on
 
-h ) People often disagree over whether to say Esc or Escape, Del or Delete, Ret or Return, Opt or Alt or Option
+h ) We require further separators when you want to speak of &lt;F12&gt; and &lt;F11&gt; and &lt;F2&gt; and &lt;F1&gt; all together. Without the <> Separators we can confuse F1 with F12 and confuse F1 with F11 and ⌥1 with < ⌥1 ⌥2 ⌥3 > and so on and on
 
-i ) Practically no one stands up for the intercardinal arrows ↖ ↗ ↘ ↙. On a MacBook, those only work reliably enough for games. Lag in the computer can often suddenly break them into two, the ↖ into ← ↑ or into ↑ ←, the ↘ into → and ↓ or ↓ and →, and so on
+h ) The thin single-wide monospace Fonts struggle to make a clear-at-a-glance distinction between ^ and ⌃, and between ⇪ and ⇧. Ouch
+
+i ) People often disagree over whether to say Esc or Escape, Del or Delete, Ret or Return, Opt or Alt or Option
+
+j ) Practically no one stands up for the intercardinal arrows ↖ ↗ ↘ ↙. On a MacBook, those only work reliably enough for games. Lag in the computer can often suddenly break them into two, the ↖ into ← ↑ or into ↑ ←, the ↘ into → and ↓ or ↓ and →, and so on
 
 <!--
 
