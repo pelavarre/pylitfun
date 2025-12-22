@@ -105,7 +105,10 @@ class Flags:
 
     apple: bool = sys.platform == "darwin"
     google: bool = bool(_os_environ_get_cloud_shell_)
+
     terminal: bool = os.environ.get("TERM_PROGRAM", "") == "Apple_Terminal"
+    i_term_app: bool = os.environ.get("TERM_PROGRAM", "") == "iTerm.app"
+    ghostty: bool = os.environ.get("TERM_PROGRAM", "") == "ghostty"
 
     mobile: bool = False  # truthy for < 30x30 Columns x Rows discovered
 
@@ -199,7 +202,7 @@ def main() -> None:
     try:
         lg.try_main()
     except BaseException:  # KeyboardInterrupt  # SystemExit
-        # TerminalBoss.selves[-1].__exit__()  # todo3:
+        # TerminalBoss.selves[-1].__exit__()  # todo6:
         excepthook(*sys.exc_info())
 
 
@@ -538,7 +541,7 @@ class ColorPickerGame:
 
         # Draw above the Board
 
-        sw.write_control("\033[39m")  # todo6: checkpoint & revert ⎋[M
+        sw.write_control("\033[39m")  # todo3: checkpoint & revert ⎋[M
 
         sw.print()
         sw.print()  # twice
@@ -662,7 +665,7 @@ class KeycapsGame:
 
     terminal_boss: TerminalBoss
     game_yx: tuple[int, ...]
-    shifters: str  # todo: dump/ load Keycaps Games
+    shifters: str  # todo: dump/ load KeycapsGame to suit different choices of Shifters
     scrollables: list[str]  # Rows printed
 
     MAX_SCROLLABLES_3 = 3
@@ -844,7 +847,7 @@ class KeycapsGame:
             elif frames == (b"\034",):  # ⌃\
                 pass
             else:
-                self.kc_print(unhit_kseqs, "Keycap not found", frames)
+                self.kc_print(unhit_kseqs, "Key Cap not found", frames)
 
     def kc_print(self, *args: object) -> None:
 
@@ -936,7 +939,7 @@ class KeycapsGame:
         self.kc_game_draw()
 
     def kc_press_keys_if(self, kseqs: tuple[str, ...], unhit_kseqs: list[object]) -> None:
-        """Wipe out each Keycap when pressed"""
+        """Wipe out each Key Cap when pressed"""
 
         assert kseqs, (kseqs,)
 
@@ -957,7 +960,7 @@ class KeycapsGame:
 
         removesuffix = str_removesuffix(dedent, suffix=splitlines[-1])
 
-        # Visit each Keycap
+        # Visit each Key Cap
 
         kseq = kseqs[0]
 
@@ -971,7 +974,7 @@ class KeycapsGame:
         elif kseq.startswith("⇧"):
             cap = str_removeprefix(kseq, prefix="⇧")
 
-        # Wipe out each Keycap when pressed
+        # Wipe out each Key Cap when pressed
 
         cap_is_esc = cap == "⎋"
         cap_is_fn = cap.startswith("F") and str_removeprefix(cap, prefix="F")
@@ -993,14 +996,14 @@ class KeycapsGame:
             found_lines = dedent[: find + 1].splitlines()
             assert found_lines, (found_lines, find, cap)
 
-            # Leap to this found Keycap
+            # Leap to this found Key Cap
 
             y = game_y + len(found_lines)
             x = game_x + len(dent) + len(found_lines[-1]) - 1
 
             sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
-            # Wipe out this Keycap
+            # Wipe out this Key Cap
 
             width = len(cap)  # width 1 except for len('Spacebar')
 
@@ -1139,8 +1142,8 @@ class SquaresGame:
 
         sw.print()  # thrice
 
-        # todo6: Squares ⇥ autoruns Shuffles till what
-        # todo6: Squares ⇥ autoruns Shuffles till just before one works
+        # todo5: Squares ⇥ autoruns Shuffles till what
+        # todo5: Squares ⇥ autoruns Shuffles till just before one works
 
     def sq_game_form(self) -> None:
         """Fill the Board with Tiles"""
@@ -1221,8 +1224,7 @@ class SquaresGame:
         sw.print()
 
         # todo5: have the ⌥-click on the board flip tiles through colors
-
-        # todo7: rotate gravity to match arrow, and drag perpendicular to gravity
+        # todo5: rotate gravity to match arrow, and drag perpendicular to gravity
 
     def sq_step_because_box(self, box: BytesBox) -> bool:
         """Eval 1 Box of Input and print Output"""
@@ -1265,7 +1267,7 @@ class SquaresGame:
             return True
 
             # todo5: move all the 3 square arrows where they point
-            # todo6: game trophies of first finding each kind of move
+            # todo5: game trophies of first finding each kind of move
 
         # Shuffle Columns or Rows
 
@@ -1273,7 +1275,7 @@ class SquaresGame:
 
         self.row_strikes += 1
         if self.row_strikes <= 3:
-            self.sq_rows_shuffle()  # todo7: only while gravity pulls South
+            self.sq_rows_shuffle()  # todo5: only while gravity pulls South
         else:
             self.row_strikes = 0
             self.sq_columns_shuffle()
@@ -1546,7 +1548,7 @@ class SquaresGame:
                 by_x2 = by_y_by_x[y]
                 by_x2[x2] = t_list.pop(0)
 
-        # todo4: push just 1 column to the westmost, but tile by tile
+        # todo5: push just 1 column to the westmost, but tile by tile
 
     def sq_rows_shuffle(self) -> None:
         """Shuffle the Rows"""
@@ -1577,7 +1579,7 @@ class SquaresGame:
                 by2_x = by_y_by_x[y2]
                 by2_x[x] = t_list.pop(0)
 
-        # todo4: push just 1 row to the northmost but tile by tile
+        # todo5: push just 1 row to the northmost but tile by tile
 
     def sq_find_moves(self) -> bool:
         """Say if progress is possible"""
@@ -1742,7 +1744,7 @@ class TerminalBoss:
             if not flags.enter:
                 sw.write_control("\033[?1006;1000h")  # sgr-mouse-take
 
-            # sw.write_control("\033[?2004h")  # paste-wrap  # todo3:
+            # sw.write_control("\033[?2004h")  # paste-wrap  # todo6:
 
         return self
 
@@ -1758,8 +1760,8 @@ class TerminalBoss:
             if flags.mobile:
                 sw.write_control("\033[?1006;1000l")  # mouse-give
 
-        # if not flags.enter:  # todo3:
-        #     sw.write_control("\033[?2004l")  # paste-unwrap ⎋[?2004L  # todo3:
+        # if not flags.enter:  # todo6:
+        #     sw.write_control("\033[?2004l")  # paste-unwrap ⎋[?2004L  # todo6:
 
         if not flags._exit_:
 
@@ -2030,7 +2032,7 @@ class TerminalBoss:
             sw.write_printable(text)
             return
 
-        # If Frame has Keycaps
+        # If Frame has Key Caps
 
         if self.tb_decode_kseqs_step_once_if(
             box, intricate_order=intricate_order, boxes_yx=boxes_yx
@@ -2112,7 +2114,7 @@ class TerminalBoss:
     def tb_decode_kseqs_step_once_if(
         self, box: BytesBox, intricate_order: bool, boxes_yx: tuple[int, ...]
     ) -> bool:
-        """Loop back the Keycaps of the Frame, else return False"""
+        """Loop back the Key Caps of the Frame, else return False"""
 
         data = box.data
         text = box.text
@@ -2124,7 +2126,7 @@ class TerminalBoss:
         if not kseqs:
             return False
 
-        kseq = kseqs[0]  # only search for the first Keycap
+        kseq = kseqs[0]  # only search for the first Key Cap
 
         sw = self.screen_writer
         kd = self.keyboard_decoder
@@ -2318,7 +2320,7 @@ class TerminalBoss:
         sw = self.screen_writer
         kd = self.keyboard_decoder
 
-        # Choose which Keycaps to put out front
+        # Choose which Key Caps to put out front
 
         kseqs = kd.bytes_to_kseqs_if(frame)
 
@@ -2445,7 +2447,7 @@ class ScreenChangeOrder:
         # '\x15' '0' '\x15' b'\x1b[A'
 
     #
-    # Add on a next Input, else restart  # todo2: Accept ⎋⌃⌥⇧F Key Caps
+    # Add on a next Input, else restart  # todo6: Accept ⎋⌃⌥⇧F Key Caps
     #
 
     def grow_order(self, box: BytesBox, yx: tuple[int, int]) -> None:
@@ -3410,12 +3412,12 @@ class KeyboardReader:
 
 
 #
-# Speak of a Byte Encoding as a Sequence of Chords of Keycaps
+# Speak of a Byte Encoding as a Sequence of Chords of Key Caps
 #
 
 
 class KeyboardDecoder:
-    """Speak of a Byte Encoding as a Sequence of Chords of Keycaps"""
+    """Speak of a Byte Encoding as a Sequence of Chords of Key Caps"""
 
     selves: list[KeyboardDecoder] = list()
 
@@ -3433,7 +3435,7 @@ class KeyboardDecoder:
         self._invert_decode_by_kseq_()
 
     #
-    # Speak of a Byte Encoding as a Sequence of Chords of Keycaps
+    # Speak of a Byte Encoding as a Sequence of Chords of Key Caps
     #
 
     def frame_to_echo(self, data: bytes) -> str:
@@ -3444,7 +3446,7 @@ class KeyboardDecoder:
         box = BytesBox(data)
         text = box.text
 
-        # Show Keycaps, if available as ⌫ ⇧⇥ ⇥ etc, except show ⏎ as ⌃M
+        # Show Key Caps, if available as ⌫ ⇧⇥ ⇥ etc, except show ⏎ as ⌃M
 
         kseqs = self.bytes_to_kseqs_if(data)
         if kseqs:
@@ -3459,7 +3461,7 @@ class KeyboardDecoder:
             assert echo.isprintable(), (echo,)
             return echo
 
-        # Show one Keycap per Character, if decodable
+        # Show one Key Cap per Character, if decodable
 
         echo = ""
         for t in text:
@@ -3472,7 +3474,7 @@ class KeyboardDecoder:
         return echo
 
     def bytes_to_kseqs_if(self, data: bytes) -> tuple[str, ...]:
-        """Speak of a Byte Encoding as a Sequence of Chords of Keycaps"""
+        """Speak of a Byte Encoding as a Sequence of Chords of Key Caps"""
 
         text = data.decode()
 
@@ -3485,26 +3487,30 @@ class KeyboardDecoder:
         return tuple()
 
     #
-    # Add the Keycap Sequences for US-Ascii at MacBook
+    # Add the Key Cap Sequences for US-Ascii at MacBook
     #
 
     def _add_basic_kseqs_(self) -> None:
-        """Add the Keycap Sequences for US-Ascii at MacBook"""
+        """Add the Key Cap Sequences for US-Ascii at 2021 MacBook"""
 
         decode_by_kseq = self.decode_by_kseq
 
-        # Add the simplest named Keycaps: Esc, Return, Delete
+        # Add the simplest named Key Caps: Esc, Return, Delete
+
+        self._add_into_decode_by_kseq_(
+            {
+                r"⏎": "\r",  # ⌃M
+                # r"⌃⏎": "\r",  # ⌃M  # pops up menu
+                r"⇧⏎": "\r",  # ⌃M
+                r"⌥⏎": "\r",  # ⌃M
+                # r"⌃⇧⏎": "\r",  # ⌃M  # pops up menu
+                r"⌃⌥⏎": "\r",  # ⌃M
+                r"⌥⇧⏎": "\r",  # ⌃M
+                r"⌥⇧⌃⏎": "\r",  # ⌃M
+            }
+        )
 
         d0 = {
-            #
-            r"⏎": "\r",  # ⌃M
-            # r"⌃⏎": "\r",  # ⌃M
-            r"⇧⏎": "\r",  # ⌃M
-            r"⌥⏎": "\r",  # ⌃M
-            # r"⌃⇧⏎": "\r",  # ⌃M
-            r"⌃⌥⏎": "\r",  # ⌃M
-            r"⌥⇧⏎": "\r",  # ⌃M
-            r"⌥⇧⌃⏎": "\r",  # ⌃M
             #
             r"⎋": "\033",  # ⌃[
             r"⌃⎋": "\033",  # ⌃[
@@ -3558,7 +3564,7 @@ class KeyboardDecoder:
             assert k not in decode_by_kseq.keys(), (k,)
             decode_by_kseq[k] = v
 
-        # Add the unnamed Keycaps: ⇧A..⇧Z, A..Z, 0..9, and the marks
+        # Add the unnamed Key Caps: ⇧A..⇧Z, A..Z, 0..9, and the marks
 
         kseq = r"""
 
@@ -3618,13 +3624,13 @@ class KeyboardDecoder:
             assert k not in decode_by_kseq.keys(), (k,)
             decode_by_kseq[k] = v
 
-        # Add the ⌥ and ⇧ Arrows  # todo3: differently at Apple vs others
+        # Add the ⌥ and ⇧ Arrows  # todo2: differently at Apple vs others
 
         d4 = {
             r"⌥↑": d3[r"↑"],
             r"⌥↓": d3[r"↓"],
             r"⌥→": "\033" "f",  # ⎋F
-            r"⌥←": "\033" "b",  # ⎋B
+            r"⌥←": "\033" "b",  # ⎋B  # todo8: take ⌥← and ⌥→ as ⌥↑ ⌥↓ while ⌥↑ ⌥↓ not available
             #
             r"⇧↑": d3[r"↑"],
             r"⇧↓": d3[r"↓"],
@@ -3691,15 +3697,24 @@ class KeyboardDecoder:
             assert k not in decode_by_kseq.keys(), (k,)
             decode_by_kseq[k] = v
 
+    def _add_into_decode_by_kseq_(self, d_by_ks: dict[str, str]) -> None:
+        """Add more Key Cap Sequences"""
+
+        decode_by_kseq = self.decode_by_kseq
+
+        for k, v in d_by_ks.items():
+            assert k not in decode_by_kseq.keys(), (k,)
+            decode_by_kseq[k] = v
+
     #
-    # Index the Keycap Sequences by their Decodes
+    # Index the Key Cap Sequences by their Decodes
     #
 
     OptionAccents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧` ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
     OptionGraveGrave = "``"  # ⌥⇧` `
 
     def _invert_decode_by_kseq_(self) -> None:
-        """Index the Keycap Sequences by their Decodes"""
+        """Index the Key Cap Sequences by their Decodes"""
 
         decode_by_kseq = self.decode_by_kseq
         kseqs_by_text = self.kseqs_by_text
@@ -5262,29 +5277,25 @@ if __name__ == "__main__":
     main()
 
 
-# todo1: Take ⎋← and ⎋→ as ⎋↑ ⎋↓ when ⎋↑ ⎋↓ not available
+# todo2: drop Key Caps specific to macOS Terminal, when elsewhere
+# todo2: add iTerm2 Key Caps
+# todo2: add Google Cloud Shell Key Caps
 
 
-# todo6: Take ⎋ or ⎋⎋ more as itself, don't force it into starting an Intricate Key Chord Sequence
+# todo6: take ⎋ or ⎋⎋ more as itself, don't force it into starting an Intricate Key Chord Sequence
 
 # todo6: Alt + Number ⌥1⌥2⌥3 key cap
 # todo6: <> could make button <F12> <⌥1⌥2⌥3>
 # todo6: revisit 'pm Tue 16/Dec' experiments in echo-in-place of Key Caps such as F12 and ⌥6⌥5
 
-
 # todo3: emulate macOS Terminal Writes at Google Cloud Shell OR vice versa
 # todo3: deletes while backlight, color filling from eastmost mirrored character write
-
-
-# todo2: drop Keycaps specific to macOS Terminal, when elsewhere
-# todo2: add iTerm2 Keycaps
-# todo2: add Google Cloud Shell Keycaps
 
 
 # todo8: take bracketed-paste as print vertically
 
 
-# todo9: --egg=keycaps: add Keycaps of 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
+# todo9: --egg=keycaps: add Key Caps of 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
 # todo9: --egg=resize to fit the Terminal to the Gameboard and vice versa
 
 # todo9: pick apart text key jams and unbracketed text paste
