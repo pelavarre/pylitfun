@@ -794,9 +794,7 @@ class KeycapsGame:
 
         # Form the Rows of the Gameboards
 
-        keyboard = self.kc_plain_tangible_keyboard()
-        if shifters == "⇧":
-            keyboard = self.ShiftedKeyboard
+        keyboard = self.kc_tangible_keyboard()
 
         dent = 4 * " "
         dedent = textwrap.dedent(keyboard).strip()
@@ -806,28 +804,10 @@ class KeycapsGame:
 
         sw.print()
         for line in splitlines:
-
             printable = dent + line + dent
 
-            if shifters == "⇧":
-                printable = printable.replace("F1 F2 F3 F4", "<> <> <> <>")
-
-            if shifters != "⇧":
-                sw.write_printable(printable)
-            else:
-
-                splits = printable.split("⇧")
-                for index, split in enumerate(splits):
-                    if index:
-                        sw.write_control("\033[7m")  # ⎋[7M style-reverse
-                        sw.write_printable("⇧")
-                        sw.write_control("\033[m")  # ⎋[M style-plain
-                    sw.write_printable(split)
-
-                # todo: can we more simply code this idea of highlighting the ⇧ Shift Lock?
-
+            sw.write_printable(printable)
             sw.write_control("\033[K")
-
             sw.write_some_controls(["\r", "\n"])
 
         # Print a Trailer in the far Southeast
@@ -842,13 +822,40 @@ class KeycapsGame:
 
         # todo: .kc_game_draw well onto larger & smaller Screens
 
-    def kc_plain_tangible_keyboard(self) -> str:
+    def kc_tangible_keyboard(self) -> str:
+        """Draw a Keyboard but blank out its intangible Key Caps"""
+
+        shifters = self.shifters
+
+        if not shifters:
+            return self.kc_tangible_plain_keyboard()
+        elif shifters == "⇧":
+            return self.kc_tangible_shifted_keyboard()
+        else:
+            assert False, (shifters,)
+
+    def kc_tangible_plain_keyboard(self) -> str:
         """Draw a Plain Keyboard but blank out its Shifters and Fn Keys and upper right <>"""
 
         keyboard = self.PlainKeyboard
 
         caps = "Fn F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>".split()
         caps += ["⇪ ", "⇧ ", " ⇧", "Fn", "⌃ ", "⌥ ", "⌘ ", " ⌘", " ⌥"]
+        for cap in reversed(sorted(caps)):  # like to replace 'F12' before 'F1'
+            assert len(cap) in (2, 3)
+            repl = len(cap) * " "
+
+            keyboard = keyboard.replace(cap, repl)
+
+        return keyboard
+
+    def kc_tangible_shifted_keyboard(self) -> str:
+        """Draw a Plain Keyboard but blank out its Shifters and Fn Keys and upper right <>"""
+
+        keyboard = self.ShiftedKeyboard
+
+        caps = "Fn F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>".split()
+        caps += ["⇪ ", "Fn", "⌃ ", "⌥ ", "⌘ ", " ⌘", " ⌥"]
         for cap in reversed(sorted(caps)):  # like to replace 'F12' before 'F1'
             assert len(cap) in (2, 3)
             repl = len(cap) * " "
@@ -955,8 +962,9 @@ class KeycapsGame:
 
         # Don't switch Tabs for ⌃ Control and ⌥ Option Keys  # todo9: --egg=keycaps: do
 
-        if any((_ in kseq) for _ in "⌃⌥"):
-            return
+        if kseq != "`":  # of ⌥` ` fame
+            if any((_ in kseq) for _ in "⌃⌥"):
+                return
 
         # Change Keyboard Choice, or don't
 
@@ -968,19 +976,23 @@ class KeycapsGame:
                 kseqs_shifters = "⇧"
 
         else:
-
             assert shifters == "⇧", (shifters,)
+
             if kseq in string.ascii_uppercase:
                 kseqs_shifters = ""
-            elif kseq in ("↑", "↓"):  # could be ⇧↑ ⇧↓
-                assert "⇧" in kseqs_join, (kseqs_join, kseq)
             elif "⇧" not in kseqs_join:
                 kseqs_shifters = ""
+            elif kseq == "`":  # of ⌥` ` fame
+                kseqs_shifters = ""
 
-        # Switch Tabs when Keyboard Choice changes
+        # Don't switch Tabs when Keyboard Choice doesn't change
 
         if kseqs_shifters == shifters:
             return
+
+        # Do switch Tabs when Keyboard Choice does change
+
+        logger.info(f"{kseqs=}  # kc_switch_tab_if")
 
         shifters = kseqs_shifters
         self.shifters = shifters  # replaces
@@ -1016,6 +1028,8 @@ class KeycapsGame:
         elif kseq.startswith("⇧"):
             cap = str_removeprefix(kseq, prefix="⇧")
 
+        logger.info(f"{cap=} {kseqs=}  # kc_press_keys_if")
+
         hits = self.kc_wipeout_else_restore(cap)
 
         if not hits:
@@ -1026,7 +1040,6 @@ class KeycapsGame:
 
         tb = self.terminal_boss
         game_yx = self.game_yx
-        shifters = self.shifters
 
         wipeout_set = self.wipeout_set
 
@@ -1035,9 +1048,7 @@ class KeycapsGame:
 
         # Form the Rows of the Gameboards
 
-        keyboard = self.kc_plain_tangible_keyboard()
-        if shifters == "⇧":
-            keyboard = self.ShiftedKeyboard
+        keyboard = self.kc_tangible_keyboard()
 
         dent = 4 * " "
         dedent = textwrap.dedent(keyboard).strip()
@@ -3590,18 +3601,18 @@ class KeyboardDecoder:
                 assert kcap not in decode_by_kseq.keys(), (kcap,)
                 decode_by_kseq[kcap] = text
 
-        # Add the aliases
-
-        d = {
-            r"⌃⇧_": r"⌃-",  # quicker to type ⌃-, easier to encode ⌃⇧_
-            r"⌃⇧{": r"⌃[",
-            r"⌃⇧|": r"⌃\ ".rstrip(),
-            r"⌃⇧}": r"⌃]",
-        }
-
-        for k, v in d.items():
-            assert k not in decode_by_kseq.keys(), (k,)
-            decode_by_kseq[k] = decode_by_kseq[v]
+        # # Add the ⌃⇧ aliases  # todo1:
+        #
+        # d = {
+        #     r"⌃⇧_": r"⌃-",  # quicker to type ⌃-, easier to encode ⌃⇧_
+        #     r"⌃⇧{": r"⌃[",
+        #     r"⌃⇧|": r"⌃\ ".rstrip(),
+        #     r"⌃⇧}": r"⌃]",
+        # }
+        #
+        # for k, v in d.items():
+        #     assert k not in decode_by_kseq.keys(), (k,)
+        #     decode_by_kseq[k] = decode_by_kseq[v]
 
     def _add_common_named_keys_(self) -> None:
         """Add the Esc, Tab, Delete, Return, Black Spacebar, and Arrow Key Chords"""
@@ -3621,7 +3632,16 @@ class KeyboardDecoder:
             r"→": "\033[" "C",  # ⎋[⇧C
             r"←": "\033[" "D",  # ⎋[⇧D
             #
+            r"⇧↑": "\033[" "1;2" "A",  # ⎋[1;2⇧A
+            r"⇧↓": "\033[" "1;2" "B",  # ⎋[1;2⇧C
+            r"⇧→": "\033[" "1;2" "C",  # ⎋[1;2⇧C
+            r"⇧←": "\033[" "1;2" "D",   # ⎋[1;2⇧D
+            #
+            #
             r"⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
+            #
+            r"⇧⏎": "\033[" "27;2;13~",  # ⎋ [ 27;2;13⇧~  # 13 == 0x040 ^ ord("M")
+            r"⇧⎋": "\033[" "27;2;27~",  # ⎋ [ 27;2;27⇧~  # 27 == 0o033
             #
             r"↖": "\033[" "↖",  # ⎋[↖    # not yet standard
             r"↗": "\033[" "↗",  # ⎋[↗
@@ -3631,6 +3651,21 @@ class KeyboardDecoder:
             r"⌥␢": "\240",  # U+00A0 No-Break Space
             r"⌦": "\033[3~",  # ⎋[3~  # Fn Delete  # Erase To The Right
         }
+
+        d[r"⇧␢"] = d[r"␢"]
+        d[r"⇧⌫"] = d[r"⌫"]
+
+        if not flags.ghostty:
+            d["⇧⏎"] = d[r"⏎"]
+            d["⇧⎋"] = d[r"⎋"]
+
+        if flags.google or flags.terminal:
+            d[r"⇧↑"] = d[r"↑"]
+            d[r"⇧↓"] = d[r"↓"]
+
+        if flags.google:
+            d[r"⇧→"] = d[r"→"]
+            d[r"⇧←"] = d[r"←"]
 
         for k, v in d.items():
             assert k not in decode_by_kseq.keys(), (k,)
