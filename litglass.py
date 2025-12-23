@@ -768,7 +768,7 @@ class KeycapsGame:
         kr = tb.keyboard_reader
 
         shifters = self.shifters
-        assert shifters in ("", "⇧"), (shifters,)
+        assert shifters in ("", "⇧", "⌃"), (shifters,)
 
         tb = self.terminal_boss
         sw = tb.screen_writer
@@ -798,6 +798,8 @@ class KeycapsGame:
 
         dent = 4 * " "
         dedent = textwrap.dedent(keyboard).strip()
+        if shifters == "⌃":
+            dedent += "\n\n"
         splitlines = dedent.splitlines()
 
         # Print each Row
@@ -830,7 +832,9 @@ class KeycapsGame:
         if not shifters:
             return self.kc_tangible_plain_keyboard()
         elif shifters == "⇧":
-            return self.kc_tangible_shifted_keyboard()
+            return self.kc_tangible_shift_keyboard()
+        elif shifters == "⌃":
+            return self.kc_tangible_control_keyboard()
         else:
             assert False, (shifters,)
 
@@ -841,6 +845,7 @@ class KeycapsGame:
 
         caps = "Fn F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>".split()
         caps += ["⇪ ", "⇧ ", " ⇧", "Fn", "⌃ ", "⌥ ", "⌘ ", " ⌘", " ⌥"]
+
         for cap in reversed(sorted(caps)):  # like to replace 'F12' before 'F1'
             assert len(cap) in (2, 3)
             repl = len(cap) * " "
@@ -849,18 +854,39 @@ class KeycapsGame:
 
         return keyboard
 
-    def kc_tangible_shifted_keyboard(self) -> str:
-        """Draw a Plain Keyboard but blank out its Shifters and Fn Keys and upper right <>"""
+    def kc_tangible_shift_keyboard(self) -> str:
+        """Draw a Shift Keyboard but blank out extra Shifters and Fn Keys and upper right <>"""
 
         keyboard = self.ShiftedKeyboard
 
         caps = "Fn F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>".split()
         caps += ["⇪ ", "Fn", "⌃ ", "⌥ ", "⌘ ", " ⌘", " ⌥"]
+
         for cap in reversed(sorted(caps)):  # like to replace 'F12' before 'F1'
             assert len(cap) in (2, 3)
             repl = len(cap) * " "
 
             keyboard = keyboard.replace(cap, repl)
+
+        return keyboard
+
+    def kc_tangible_control_keyboard(self) -> str:
+        """Draw a Control Keyboard but blank out extra Shifters and Fn Keys and upper right <>"""
+
+        keyboard = self.PlainKeyboard
+
+        caps = "Fn F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>".split()
+        caps += ["⇪ ", "⇧ ", " ⇧", "Fn", "⌥ ", "⌘ ", " ⌘", " ⌥"]
+        caps += ["←", "↑", "→", "↓", "↖", "↗", "↘", "↙"]
+
+        for cap in reversed(sorted(caps)):  # like to replace 'F12' before 'F1'
+            assert len(cap) in (1, 2, 3)
+            repl = len(cap) * " "
+
+            keyboard = keyboard.replace(cap, repl)
+
+        keyboard = keyboard.upper()
+        keyboard = keyboard.replace("Spacebar".upper(), "Spacebar")
 
         return keyboard
 
@@ -947,9 +973,6 @@ class KeycapsGame:
     def kc_switch_tab_if(self, kseqs: tuple[str, ...]) -> None:
         """Switch to next Keyboard View when a Key is struck out there"""
 
-        kseqs_join = "".join(kseqs)
-        kseq = kseqs[0]
-
         tb = self.terminal_boss
         game_yx = self.game_yx
         shifters = self.shifters
@@ -960,44 +983,29 @@ class KeycapsGame:
         (game_y, game_x) = game_yx
         assert wipeout_set is wipeout_set_by_shifters[shifters]
 
-        # Don't switch Tabs for ⌃ Control and ⌥ Option Keys  # todo9: --egg=keycaps: do
+        # Don't switch Tabs when Keyboard Choice doesn't indisputably change
 
-        if kseq != "`":  # of ⌥` ` fame
-            if any((_ in kseq) for _ in "⌃⌥"):
-                return
+        shifters_list = list()
+        for kseq in kseqs:
+            text = ""
+            for t in kseq:
+                if t not in "⎋ ⌃ ⌥ ⇧ Fn".split():
+                    break
+                text += t
+            shifters_list.append(text)
 
-        # Change Keyboard Choice, or don't
-
-        kseqs_shifters = shifters
-
-        if not shifters:
-
-            if "⇧" in kseq:
-                kseqs_shifters = "⇧"
-
-        else:
-            assert shifters == "⇧", (shifters,)
-
-            if kseq in string.ascii_uppercase:
-                kseqs_shifters = ""
-            elif "⇧" not in kseqs_join:
-                kseqs_shifters = ""
-            elif kseq == "`":  # of ⌥` ` fame
-                kseqs_shifters = ""
-
-        # Don't switch Tabs when Keyboard Choice doesn't change
-
-        if kseqs_shifters == shifters:
+        if shifters in shifters_list:
             return
+
+        next_shifters = shifters_list[0]
 
         # Do switch Tabs when Keyboard Choice does change
 
-        logger.info(f"{kseqs=}  # kc_switch_tab_if")
+        logger.info(f"{next_shifters=} {kseqs=}  # kc_switch_tab_if")
 
-        shifters = kseqs_shifters
-        self.shifters = shifters  # replaces
+        self.shifters = next_shifters  # replaces
 
-        wipeout_set = self.wipeout_set_by_shifters[shifters]  # replaces
+        wipeout_set = self.wipeout_set_by_shifters[next_shifters]  # replaces
         self.wipeout_set = wipeout_set
 
         sw.write_control(f"\033[{game_y};{game_x}H")  # row-column-leap ⎋[⇧H
@@ -1014,26 +1022,45 @@ class KeycapsGame:
     def kc_press_keys_if(self, kseqs: tuple[str, ...], unhit_kseqs: list[object]) -> None:
         """Wipe out each Key Cap when pressed"""
 
+        shifters = self.shifters
+
         assert kseqs, (kseqs,)
 
         kseq = kseqs[0]
 
         cap = kseq
-        if kseq == "␢":
-            cap = "Spacebar"
-        elif flags.sigint and (kseq == "⌃J"):
-            cap = "⏎"
-        elif kseq in tuple(string.ascii_uppercase):
-            cap = kseq.lower()
-        elif kseq.startswith("⇧"):
-            cap = str_removeprefix(kseq, prefix="⇧")
+        alt_cap = ""
+        if shifters == "⌃":
+            if kseq == "⌃␢":
+                cap = "Spacebar"
+            elif kseq == "⇥":
+                alt_cap = "I"  # from ⌃I
+            elif kseq == "⏎":
+                alt_cap = "M"  # from ⌃M
+            elif kseq == "⎋":
+                alt_cap = "["  # from ⌃[
+            elif kseq.startswith("⌃"):
+                cap = str_removeprefix(kseq, prefix="⌃")
+        else:
+            if kseq == "␢":
+                cap = "Spacebar"
+            elif flags.sigint and (kseq == "⌃J"):  # todo1: retest
+                cap = "⏎"
+            elif kseq in tuple(string.ascii_uppercase):
+                cap = kseq.lower()
+            elif kseq.startswith("⇧"):
+                cap = str_removeprefix(kseq, prefix="⇧")
 
         logger.info(f"{cap=} {kseqs=}  # kc_press_keys_if")
 
         hits = self.kc_wipeout_else_restore(cap)
-
         if not hits:
             unhit_kseqs.append([cap, kseqs])
+
+        if alt_cap:
+            hits = self.kc_wipeout_else_restore(alt_cap)
+            if not hits:
+                unhit_kseqs.append([alt_cap, kseqs])
 
     def kc_wipeout_else_restore(self, cap: str) -> int:
         """Wipe out each Key Cap, or restore, when found"""
