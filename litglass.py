@@ -257,10 +257,10 @@ class LitGlass:
             format="%(message)s",  # omits '%(levelname)s:%(name)s:'
         )
 
-        logger_info_reprs("")
-        logger_info_reprs("")
-        logger_info_reprs("launched")
-        logger_info_reprs("")
+        logger_info_reprs_minus("")
+        logger_info_reprs_minus("")
+        logger_info_reprs_minus("launched")
+        logger_info_reprs_minus("")
 
         #
         # default Python .logging
@@ -399,8 +399,8 @@ class LitGlass:
                 shargs.append(f"--egg={_option_}")
 
         join = " ".join(shargs)
-        logger_info_reprs("")
-        logger_info_reprs(f"python3 litglass.py {join}")
+        logger_info_reprs_minus("")
+        logger_info_reprs_minus(f"python3 litglass.py {join}")
 
     def seed_to_sharg_near_naive(self, seed: str, naive: dt.datetime) -> str:
         """Quote back one Shell --seed=SEED"""
@@ -1142,7 +1142,7 @@ class SquaresGame:
         """Send the Repr's as Logger Info, but led by Step Count"""
 
         steps = self.steps
-        logger_info_reprs(steps, *args)
+        logger_info_reprs_minus(steps, *args)
 
     def sq_run_awhile(self) -> None:
         """Run till Quit"""
@@ -1912,8 +1912,8 @@ class TerminalBoss:
 
             # Eval Input and print Output
 
-            logger_info_reprs("")
-            logger_info_reprs(f"{frames=}")
+            logger_info_reprs_minus("")
+            logger_info_reprs_minus(f"{frames=}")
 
             if flags._repr_:
                 self.tb_print_repr_frame_per_row(frames, t1t0=t1t0)
@@ -3009,28 +3009,38 @@ class KeyboardReader:
         assert _NorthArrow_ and _SouthArrow_ and _EastArrow_ and _WestArrow_
         assert _NorthwestArrow_ and _NortheastArrow_ and _SoutheastArrow_ and _SouthwestArrow_
 
-        # Convert a Double Key Jam of actual 4-way ←↑→↓ Arrows into 8-way ↖↗↘↙ Compass Arrows
+        # Convert a Double Key Jam of actual ←↑→↓ Cardinal Arrows to ↖↗↘↙ Intercardinal Arrows
 
-        classic_arrow_encodings = (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
+        unshifted_encodings = (b"\033[A", b"\033[B", b"\033[C", b"\033[D")
+
+        shifted_encodings = (b"\033[1;2A", b"\033[1;2B", b"\033[1;2C", b"\033[1;2D")
+        encodings = unshifted_encodings + shifted_encodings
 
         if len(frames) == 2:
-            if all((_ in classic_arrow_encodings) for _ in frames):
+
+            m0 = all((_ in unshifted_encodings) for _ in frames)
+            m1 = all((_ in encodings) for _ in frames)
+            pns = "" if m0 else "1;2"
+
+            if m0 or m1:
                 backtails = b"".join(sorted(_[-1:] for _ in frames))
 
                 if backtails == b"AD":  # _NorthArrow_ _WestArrow_
-                    return ("\033[↖".encode(),)
+                    return (f"\033[{pns}↖".encode(),)
                 elif backtails == b"AC":  # _NorthArrow_ _EastArrow_
-                    return ("\033[↗".encode(),)
+                    return (f"\033[{pns}↗".encode(),)
                 elif backtails == b"BC":  # _SouthArrow_ _EastArrow_
-                    return ("\033[↘".encode(),)
+                    return (f"\033[{pns}↘".encode(),)
                 elif backtails == b"BD":  # _SouthArrow_ _WestArrow_
-                    return ("\033[↙".encode(),)
-
-                # ⎋ [ ↖ ↗ ↘ ↙  # not yet standard
+                    return (f"\033[{pns}↙".encode(),)
 
         # Else make no change
 
         return frames
+
+        # ⎋ [ ↖ ↗ ↘ ↙  # ⎋ [ 1 ; 2 ↖ ↗ ↘ ↙  # not yet standard
+
+        # todo8: intercardinal arrows at Google Cloud Shell
 
     def _read_click_release_frame_and_after_(self) -> tuple[bytes, bytes]:
         """Read Bytes, but split off a leading ⌥-Click if present"""
@@ -3131,7 +3141,7 @@ class KeyboardReader:
             assert X1 <= x <= (w + 1), (y, x, h, w, o)
 
         if x > w:
-            logger_info_reprs(f"{h=} {w=} {y=} {x=}  # x > w")
+            logger_info_reprs_minus(f"{h=} {w=} {y=} {x=}  # x > w")
             x -= 1
             assert X1 <= x <= w, (y, x, h, w, o)
 
@@ -3235,18 +3245,18 @@ class KeyboardReader:
             rgb_by_osc[osc] = rgb
             if rgb:
                 rep_rgb = "(" + ", ".join(f"0x{_:04X}" for _ in rgb) + ")"
-                logger_info_reprs(f"{osc=} rgb={rep_rgb}")
+                logger_info_reprs_minus(f"{osc=} rgb={rep_rgb}")
 
             if reads:
                 m = re.search(rb"\033\[0n$", string=reads)
                 if m:
-                    logger_info_reprs(f"took {m.group(0)!r}")  # for Dsr 0 before Osc 10 11 12
+                    logger_info_reprs_minus(f"took {m.group(0)!r}")  # for Dsr 0 before Osc 10 11 12
 
                     n = len(m.group(0))
                     reads = reads[:-n]
 
             if reads:
-                logger_info_reprs(f"{reads=} {osc_control=}")
+                logger_info_reprs_minus(f"{reads=} {osc_control=}")
                 reads_ahead.extend(reads)
 
         # React to way low Backlight
@@ -3277,7 +3287,7 @@ class KeyboardReader:
         int_list = list()
 
         if m:
-            logger_info_reprs(f"took {m.group(0)!r}")  # for Osc 10 11 12
+            logger_info_reprs_minus(f"took {m.group(0)!r}")  # for Osc 10 11 12
 
             n = len(m.group(0))
             startswith = data[:-n]
@@ -3305,13 +3315,12 @@ class KeyboardReader:
 
         dsr0 = b"\033[0n"
         assert dsr0_bytes.endswith(dsr0), (dsr0_bytes, dsr0)
-        # logger_info_reprs(f"took {dsr0}")
 
         n = len(dsr0)
         reads = dsr0_bytes[:-n]
 
         if reads:
-            logger_info_reprs(f"{reads=} {dsr0=}")
+            logger_info_reprs_minus(f"{reads=} {dsr0=}")
             reads_ahead.extend(reads)
 
         # Move this KeyboardReader to this fresh H W Y X
@@ -3322,6 +3331,8 @@ class KeyboardReader:
 
         return (h, w, y, x)
 
+        # todo2: survive iTerm2 .sample_hwyx stress of Shifted Intercardinal Arrows
+
     def read_bytes(self) -> bytes:
         """Take Input Bytes from Cache, else from Terminal"""
 
@@ -3329,7 +3340,7 @@ class KeyboardReader:
 
         reads_ahead = self.reads_ahead
         if reads_ahead:
-            logger_info_reprs(f"{reads_ahead=}")
+            logger_info_reprs_minus(f"{reads_ahead=}")
 
             reads = bytes(reads_ahead)
             reads_ahead.clear()
@@ -3379,7 +3390,7 @@ class KeyboardReader:
         fd = fileno
         (w, h) = os.get_terminal_size(fd)
         if (h, w) != (self.y_high, self.x_wide):
-            logger_info_reprs(f"took ⎋[8;{h};{w}T")
+            logger_info_reprs_minus(f"took ⎋[8;{h};{w}T")
 
         # Succeed
 
@@ -3413,7 +3424,7 @@ class KeyboardReader:
             if flags.clickarrows:
                 sm = re.search(rb"(\033\[[ABCD])$", string=ba)  # ⎋[⇧A ⎋[⇧B ⎋[⇧C ⎋[⇧D
                 if sm:
-                    logger_info_reprs(f"took {sm.group(0)!r}")  # for flags.clickarrows
+                    logger_info_reprs_minus(f"took {sm.group(0)!r}")  # for flags.clickarrows
                     n = len(sm.group(0))
 
                     control = sm.group(0).decode()
@@ -3435,7 +3446,7 @@ class KeyboardReader:
 
                 del ba[-n:]
                 if (row_y, column_x) != (self.row_y, self.column_x):
-                    logger_info_reprs(f"took ⎋[{row_y};{column_x}⇧R")
+                    logger_info_reprs_minus(f"took ⎋[{row_y};{column_x}⇧R")
 
                 assert row_y >= Y1, (row_y, column_x, ba)
                 assert column_x >= X1, (row_y, column_x, ba)
@@ -3454,16 +3465,6 @@ class KeyboardReader:
 
         yx = (row_y, column_x)  # taken from first, when more left in .ba
         reads = bytes(ba)
-
-        if len(ba) < 20:
-            headtail = bytes(ba)
-            # logger_info_reprs(f"ba={headtail!r} y={row_y} x={column_x}")
-            _ = headtail
-        else:
-            head = bytes(ba[:10])
-            tail = bytes(ba[-10:])
-            _ = head, tail
-            # logger_info_reprs(f"[:10]={head!r} [-10:]={tail!r} y={row_y} x={column_x}")
 
         return (yx, reads)
 
@@ -3635,8 +3636,7 @@ class KeyboardDecoder:
             r"⇧↑": "\033[" "1;2" "A",  # ⎋[1;2⇧A
             r"⇧↓": "\033[" "1;2" "B",  # ⎋[1;2⇧C
             r"⇧→": "\033[" "1;2" "C",  # ⎋[1;2⇧C
-            r"⇧←": "\033[" "1;2" "D",   # ⎋[1;2⇧D
-            #
+            r"⇧←": "\033[" "1;2" "D",  # ⎋[1;2⇧D
             #
             r"⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
             #
@@ -3647,6 +3647,11 @@ class KeyboardDecoder:
             r"↗": "\033[" "↗",  # ⎋[↗
             r"↘": "\033[" "↘",  # ⎋[↘
             r"↙": "\033[" "↙",  # ⎋[↙
+            #
+            r"⇧↖": "\033[" "1;2" "↖",  # ⎋[↖  # not yet standard
+            r"⇧↗": "\033[" "1;2" "↗",  # ⎋[↗
+            r"⇧↘": "\033[" "1;2" "↘",  # ⎋[↘
+            r"⇧↙": "\033[" "1;2" "↙",  # ⎋[↙
             #
             r"⌥␢": "\240",  # U+00A0 No-Break Space
             r"⌦": "\033[3~",  # ⎋[3~  # Fn Delete  # Erase To The Right
@@ -4075,7 +4080,7 @@ def _try_key_byte_frame_() -> None:
     assert f.to_frame_bytes() == b"\033[Mab\xff", (f,)
     assert f.closed, (f,)
 
-    # Accept 8-way Compass Arrows, not just the 4-way Most Classic Arrows
+    # Accept ↖↗↘↙ Intercardinal Arrows, not just ←↑→↓ Cardinal Arrows
 
     f = KeyByteFrame("\033[↗".encode())  # not yet standard
     assert f.to_frame_bytes() == "\033[↗".encode(), (f,)
@@ -5017,7 +5022,7 @@ def str_removesuffix(text: str, suffix: str) -> str:
 #
 
 
-def logger_info_reprs(*args: object) -> None:
+def logger_info_reprs_minus(*args: object) -> None:
     """Send the Repr's as Logger Info, but drop the droppable quotes"""
 
     texts = list()
@@ -5302,7 +5307,7 @@ class KeyboardScreenIOWrapper:
 
         reads_ahead = kr.reads_ahead
         if reads_ahead:
-            logger_info_reprs(f"{reads_ahead=} {fileno=}")
+            logger_info_reprs_minus(f"{reads_ahead=} {fileno=}")
 
         # Flush Output, drain Input, and change Input Mode
 
@@ -5320,15 +5325,11 @@ class KeyboardScreenIOWrapper:
     def write_text_encode(self, text: str) -> None:
         """Write a Text, encoded as Bytes"""
 
-        # logger_info_reprs(f"{text=}")  # printable or control or a mix of both
-
         data = text.encode()  # may raise UnicodeEncodeError
         self.write_some_bytes(data)
 
     def write_some_bytes(self, data: bytes) -> None:
         """Write zero or more Bytes"""
-
-        # logger_info_reprs(f"{data=}")
 
         fileno = self.fileno
         fd = fileno
