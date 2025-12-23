@@ -675,19 +675,21 @@ class KeycapsGame:
     PlainKeyboard = r"""
         ⎋    F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>
         `   1  2  3  4  5  6  7  8  9  0   -   =     ⌫
-        ⇥    q  w  e  r  t  y  u  i  o  p   [   ]      \
-        ⇪     a  s  d  f  g  h  j  k  l   ;   '        ⏎
-        ⇧      z  x  c  v  b  n  m   ,  .  /           ⇧
-        Fn  ⌃  ⌥  ⌘   Spacebar    ⌘   ⌥          ← ↑ → ↓
+        ⇥    q  w  e  r  t  y  u  i  o  p   [   ]    \
+        ⇪     a  s  d  f  g  h  j  k  l   ;   '      ⏎
+        ⇧      z  x  c  v  b  n  m   ,  .  /         ⇧
+        Fn  ⌃  ⌥  ⌘   Spacebar    ⌘   ⌥        ← ↑ → ↓
+                                                ↖ ↗ ↘ ↙
     """
 
     ShiftedKeyboard = r"""
         ⎋    F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>
         ~   !  @  #  $  %  ^  &  *  (  )   _   +     ⌫
-        ⇥    Q  W  E  R  T  Y  U  I  O  P   {   }      |
-        ⇪     A  S  D  F  G  H  J  K  L   :   "        ⏎
-        ⇧      Z  X  C  V  B  N  M   <  >  ?           ⇧
-        Fn  ⌃  ⌥  ⌘   Spacebar    ⌘   ⌥            ← →
+        ⇥    Q  W  E  R  T  Y  U  I  O  P   {   }    |
+        ⇪     A  S  D  F  G  H  J  K  L   :   "      ⏎
+        ⇧      Z  X  C  V  B  N  M   <  >  ?         ⇧
+        Fn  ⌃  ⌥  ⌘   Spacebar    ⌘   ⌥        ← ↑ → ↓
+                                                ↖ ↗ ↘ ↙
     """
 
     # . 123456789 123456789 123456789 123456789 12345678
@@ -765,7 +767,9 @@ class KeycapsGame:
 
         # Form the Rows of the Gameboards
 
-        keyboard = self.ShiftedKeyboard if (shifters == "⇧") else self.PlainKeyboard
+        keyboard = self.kc_plain_tangible_keyboard()
+        if shifters == "⇧":
+            keyboard = self.ShiftedKeyboard
 
         dent = 4 * " "
         dedent = textwrap.dedent(keyboard).strip()
@@ -777,6 +781,7 @@ class KeycapsGame:
         for line in splitlines:
 
             printable = dent + line + dent
+
             if shifters == "⇧":
                 printable = printable.replace("F1 F2 F3 F4", "<> <> <> <>")
 
@@ -809,6 +814,21 @@ class KeycapsGame:
         return (y, x)
 
         # todo: .kc_game_draw well onto larger & smaller Screens
+
+    def kc_plain_tangible_keyboard(self) -> str:
+        """Draw a Plain Keyboard but blank out its Shifters and Fn Keys and upper right <>"""
+
+        keyboard = self.PlainKeyboard
+
+        caps = "Fn F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>".split()
+        caps += ["⇪ ", "⇧ ", " ⇧", "Fn", "⌃ ", "⌥ ", "⌘ ", " ⌘", " ⌥"]
+        for cap in reversed(sorted(caps)):  # like to replace 'F12' before 'F1'
+            assert len(cap) in (2, 3)
+            repl = len(cap) * " "
+
+            keyboard = keyboard.replace(cap, repl)
+
+        return keyboard
 
     def kc_step_once(self, frames: tuple[bytes, ...]) -> None:
         """Eval Input and print Output"""
@@ -952,13 +972,12 @@ class KeycapsGame:
 
         # Form the Rows of the Gameboards
 
-        keyboard = self.ShiftedKeyboard if (shifters == "⇧") else self.PlainKeyboard
+        keyboard = self.kc_plain_tangible_keyboard()
+        if shifters == "⇧":
+            keyboard = self.ShiftedKeyboard
 
         dent = 4 * " "
         dedent = textwrap.dedent(keyboard).strip()
-        splitlines = dedent.splitlines()
-
-        removesuffix = str_removesuffix(dedent, suffix=splitlines[-1])
 
         # Visit each Key Cap
 
@@ -976,12 +995,8 @@ class KeycapsGame:
 
         # Wipe out each Key Cap when pressed
 
-        cap_is_esc = cap == "⎋"
-        cap_is_fn = cap.startswith("F") and str_removeprefix(cap, prefix="F")
-
-        suffix_kseqs = ("␢", "←", "↑", "→", "↓", "⇧←", "⇧→")
-        hittable = dedent if kseq in suffix_kseqs else removesuffix
-        find = -1 if (cap_is_esc or cap_is_fn) else len(splitlines[0])
+        hittable = dedent
+        find = -1
 
         hits = 0
         while True:
@@ -1011,10 +1026,9 @@ class KeycapsGame:
             sw.write_printable(width * "¤")
             sw.write_control("\033[m")  # ⎋[M style-plain
 
-            # Wipe out only "F1" and not the "F1" in "F12", etc
+            # Wipe once and done  # Don't find "a" in Spacebar, etc
 
-            if cap_is_fn:
-                break
+            break
 
         if not hits:
             unhit_kseqs.append([cap, kseqs])
@@ -3431,7 +3445,9 @@ class KeyboardDecoder:
         self.decode_by_kseq = dict()
         self.kseqs_by_text = dict()
 
-        self._add_basic_kseqs_()
+        self._add_common_named_keys_()
+        self._add_common_text_keys_()
+
         self._invert_decode_by_kseq_()
 
     #
@@ -3489,6 +3505,87 @@ class KeyboardDecoder:
     #
     # Add the Key Cap Sequences for US-Ascii at MacBook
     #
+
+    def _add_common_text_keys_(self) -> None:
+        """Add the Control, Shift, and Unshifted Key Chords"""
+
+        decode_by_kseq = self.decode_by_kseq
+
+        kseq = r"""
+
+            ⌃⇧@  ⌃A  ⌃B  ⌃C  ⌃D  ⌃E  ⌃F  ⌃G  ⌃H  ⌃I  ⌃J  ⌃K  ⌃L  ⌃M  ⌃N  ⌃O
+            ⌃P  ⌃Q  ⌃R  ⌃S  ⌃T  ⌃U  ⌃V  ⌃W  ⌃X  ⌃Y  ⌃Z  ⌃[  ⌃\  ⌃]  ⌃⇧^  ⌃-
+
+            ⌃`  ⇧!  ⇧"  ⇧#  ⇧$  ⇧%  ⇧&  '  ⇧(  ⇧)  ⇧*  ⇧+  ,  -  .  /
+            0  1  2  3  4  5  6  7  8  9  ⇧:  ;  ⇧<  =  ⇧>  ⇧?
+
+            ⇧@  ⇧A  ⇧B  ⇧C  ⇧D  ⇧E  ⇧F  ⇧G  ⇧H  ⇧I  ⇧J  ⇧K  ⇧L  ⇧M  ⇧N  ⇧O
+            ⇧P  ⇧Q  ⇧R  ⇧S  ⇧T  ⇧U  ⇧V  ⇧W  ⇧X  ⇧Y  ⇧Z  [  \  ]  ⇧^  ⇧_
+
+            `  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
+            P  Q  R  S  T  U  V  W  X  Y  Z  ⇧{  ⇧|  ⇧}  ⇧~  ⌃⇧?
+
+        """
+
+        code = -1  # Upper ⇧A..⇧Z, Lower A..Z, Digits 0..9, and the Punctuation Marks
+        for kcap in kseq.split():
+            code += 1
+            text = chr(code)
+
+            if kcap not in ("⌃`", "⌃⇧?"):  # not in ␢ \040, ⌫ \177
+                assert kcap not in decode_by_kseq.keys(), (kcap,)
+                decode_by_kseq[kcap] = text
+
+        # Add the aliases
+
+        d = {
+            r"⌃⇧_": r"⌃-",  # quicker to type ⌃-, easier to encode ⌃⇧_
+            r"⌃⇧{": r"⌃[",
+            r"⌃⇧|": r"⌃\ ".rstrip(),
+            r"⌃⇧}": r"⌃]",
+        }
+
+        for k, v in d.items():
+            assert k not in decode_by_kseq.keys(), (k,)
+            decode_by_kseq[k] = decode_by_kseq[v]
+
+    def _add_common_named_keys_(self) -> None:
+        """Add the Esc, Tab, Delete, Return, Black Spacebar, and Arrow Key Chords"""
+
+        decode_by_kseq = self.decode_by_kseq
+
+        d = {
+            r"⌃␢": "\0",  # ⌃⇧@
+            r"⇥": "\t",  # Tab for ⌃I
+            r"⏎": "\r",  # Return for ⌃M  # not Line Feed ⌃J  # not CR LF ⌃M ⌃J
+            r"⎋": "\033",  # Esc for ⌃[
+            r"␢": "\040",  # Blank Spacebar for ⌃`  # Blank Symbol
+            r"⌫": "\177",  # Delete for ⌃⇧?  # Erase To The Left  # not ⌃H "\b"
+            #
+            r"↑": "\033[" "A",  # ⎋[⇧A
+            r"↓": "\033[" "B",  # ⎋[⇧B
+            r"→": "\033[" "C",  # ⎋[⇧C
+            r"←": "\033[" "D",  # ⎋[⇧D
+            #
+            r"⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
+            #
+            r"↖": "\033[" "↖",  # ⎋[↖    # not yet standard
+            r"↗": "\033[" "↗",  # ⎋[↗
+            r"↘": "\033[" "↘",  # ⎋[↘
+            r"↙": "\033[" "↙",  # ⎋[↙
+            #
+            r"⌥␢": "\240",  # U+00A0 No-Break Space
+            r"⌦": "\033[3~",  # ⎋[3~  # Fn Delete  # Erase To The Right
+        }
+
+        for k, v in d.items():
+            assert k not in decode_by_kseq.keys(), (k,)
+            decode_by_kseq[k] = v
+
+        # yes the ⌃␢ and ␢ and ⌥␢ of the Shifted and Unshifted Spacebar
+        # yes the ⇥ and ⇧⇥ of the Unshifted and Shifted Tab
+        # yes the ⌦ Fn Delete, but none of the Shifted Fn Delete
+        # none of the Shifted Arrows
 
     def _add_basic_kseqs_(self) -> None:
         """Add the Key Cap Sequences for US-Ascii at 2021 MacBook"""
@@ -3563,46 +3660,6 @@ class KeyboardDecoder:
         for k, v in d1.items():
             assert k not in decode_by_kseq.keys(), (k,)
             decode_by_kseq[k] = v
-
-        # Add the unnamed Key Caps: ⇧A..⇧Z, A..Z, 0..9, and the marks
-
-        kseq = r"""
-
-            ⌃⇧@  ⌃A  ⌃B  ⌃C  ⌃D  ⌃E  ⌃F  ⌃G  ⌃H  ⌃I  ⌃J  ⌃K  ⌃L  ⌃M  ⌃N  ⌃O
-            ⌃P  ⌃Q  ⌃R  ⌃S  ⌃T  ⌃U  ⌃V  ⌃W  ⌃X  ⌃Y  ⌃Z  ⌃[  ⌃\  ⌃]  ⌃⇧^  ⌃-
-
-            ⌃`  ⇧!  ⇧"  ⇧#  ⇧$  ⇧%  ⇧&  '  ⇧(  ⇧)  ⇧*  ⇧+  ,  -  .  /
-            0  1  2  3  4  5  6  7  8  9  ⇧:  ;  ⇧<  =  ⇧>  ⇧?
-
-            ⇧@  ⇧A  ⇧B  ⇧C  ⇧D  ⇧E  ⇧F  ⇧G  ⇧H  ⇧I  ⇧J  ⇧K  ⇧L  ⇧M  ⇧N  ⇧O
-            ⇧P  ⇧Q  ⇧R  ⇧S  ⇧T  ⇧U  ⇧V  ⇧W  ⇧X  ⇧Y  ⇧Z  [  \  ]  ⇧^  ⇧_
-
-            `  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
-            P  Q  R  S  T  U  V  W  X  Y  Z  ⇧{  ⇧|  ⇧}  ⇧~  ⌃⇧?
-
-        """
-
-        code = -1
-        for kcap in kseq.split():
-            code += 1
-            text = chr(code)
-
-            if kcap not in ("⌃`", "⌃⇧?"):
-                assert kcap not in decode_by_kseq.keys(), (kcap,)
-                decode_by_kseq[kcap] = text
-
-        # Add the aliases
-
-        d2 = {
-            r"⌃⇧_": r"⌃-",  # quicker to type ⌃-, easier to encode ⌃⇧_
-            r"⌃⇧{": r"⌃[",
-            r"⌃⇧|": r"⌃\ ".rstrip(),
-            r"⌃⇧}": r"⌃]",
-        }
-
-        for k, v in d2.items():
-            assert k not in decode_by_kseq.keys(), (k,)
-            decode_by_kseq[k] = decode_by_kseq[v]
 
         # Add the Basic Arrows and the Double-Key-Jam Arrows
 
@@ -3865,7 +3922,7 @@ class KeyboardDecoder:
             assert text not in kseqs_by_text, (text, kseqs_by_text[text], kseq_list)
             kseqs_by_text[text] = tuple(kseq_list)
 
-        # no explicit mention of ÁÉÍJ́ÓÚ ÂÊÎÔÛ ÃÑÕ ÄËÏÖÜŸ ÀÈÌÒÙ
+        # no explicit mention of upper case ÁÉÍJ́ÓÚ ÂÊÎÔÛ ÃÑÕ ÄËÏÖÜŸ ÀÈÌÒÙ
 
 
 _FactorMark_ = "\025"  # 01/05 ⌃U Emacs Global-Map Universal-Argument
@@ -5283,7 +5340,7 @@ if __name__ == "__main__":
 # todo1: Send ambiguities into where they fit, switch keyboards to random choice of elsewheres
 # todo1: Speak missed Keys as sourcelines to add
 # todo1: First test the plain keyboard, then the shifted, then the rest
-# todo1: Write <> across the Keys not visibly in play ⇪ ⇧ Fn ⌃ ⌥ ⌘
+# todo1: Blank out the Keys not visibly in play ⇪ ⇧ Fn ⌃ ⌥ ⌘
 # todo1: Show both ⇧ when chosen
 # todo1: Stop drawing Reverse-Video to show the ⇧ chosen
 # todo1: Draw the F11 as can't be reached
