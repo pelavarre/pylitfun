@@ -5277,6 +5277,9 @@ if __name__ == "__main__":
     main()
 
 
+# todo1: Port --egg=keycaps across the 32 Keyboards of 2 ** (⎋ ⌃ ⌥ ⇧ Fn)
+
+
 # todo2: drop Key Caps specific to macOS Terminal, when elsewhere
 # todo2: add iTerm2 Key Caps
 # todo2: add Google Cloud Shell Key Caps

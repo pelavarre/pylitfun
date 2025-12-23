@@ -44,27 +44,29 @@ The famous Csi ⎋[ Outputs are ⎋[ ⇧ @ ABCDEFGHIJKLM P ST Z and ⎋[ D F H L
 
     ⎋[4H inserting  ⎋[4L replacing  ⎋[⇧?2004H paste-wrap  ⎋[⇧?2004L paste-unwrap
     ⎋[?25H cursor-show  ⎋[?25L -hide  ⎋[6 Q -bar  ⎋[4 Q -skid  ⎋[ Q -unstyled
+    ⎋[⇧?1049H screen-alt  ⎋[⇧?1049L screen-main
 
-    ⎋[1M bold  ⎋[4M underline  ⎋[7M reverse/inverse  ⎋[103M backlight yellow
-    ⎋[31M red  ⎋[32M green  ⎋[34M blue  ⎋[38;5;130M orange  ⎋[48;5;130M same back
-    ⎋[M plain  ⎋[⇧?1049H screen-alt  ⎋[⇧?1049L screen-main
+    ⎋[1M bold  ⎋[2M dim  ⎋[4M underline  ⎋[7M reverse  ⎋[44M on-blue  ⎋[103M on-yellow
+    ⎋[91M red  ⎋[34M blue  ⎋[32M green  ⎋[38;5;130M orange  ⎋[48;5;130M on-orange
+    ⎋[M plain  ⎋[22M bold-not-dim-not  ⎋[39M color-not  ⎋[49M on-not
 
-The famous Csi ⎋[ and Osc ⎋] Output Calls and Reply Inputs are
+<!-- ⎋[1M "bold", "increased intensity" -->
+<!-- ⎋[2M "faint", "decreased intensity", "second colour" -->
+<!-- ⎋[7M "reverse video", "inverse video", "negative image" -->
+<!-- ⎋[27M "positive image" -->
+
+The famous Csi ⎋[ and Osc ⎋] Outputs sent for reply as Inputs are
 
     ⎋[5N send for reply ⎋[0N
     ⎋[6N send for reply ⎋[{y};{x}⇧R  ⎋[18T send for reply ⎋[8;{rows};{columns}T
-    ⎋]11;⇧?⌃G send for {r}/{g}/{b}  # 11 Backlight  # 10 Color
+    ⎋]11;⇧?⌃G send for {r}/{g}/{b}  # 11 On-Backlight  # 10 Color  # 12 Cursor
 
 The famous Csi ⎋[ Inputs, apart from the Reply Inputs, are
 
     ⎋[>{f};{x};{y}⇧M press  ⎋[>{f};{x};{y}M release  ⎋[⇧M{b}{x}{y} press/release
 
-<!-- todo: Say more of ⎋[22M intensity-plain to cancel ⎋[1M intensity-bold -->
-<!-- todo: Say more of ⎋[39M color-plain to cancel ⎋[38;5;130M orange etc -->
-<!-- todo: Say more of ⎋[49M backlight-plain to cancel ⎋[48;5;130M orange etc -->
-<!-- todo: Say more of ⎋[ 40..47 90..97 100..107 for Color's & Backlight's -->
-
 <!-- todo: Say more of Osc Ps 12 112, esp Ps 12 crashes of Terminal Tabs at Google Cloud Shell -->
+<!-- todo: Beware of printf '\033]12;''#ff0000''\007' && sleep 1 && printf '\033]112\007' -->
 
 
 ## Results
