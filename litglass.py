@@ -5279,6 +5279,15 @@ if __name__ == "__main__":
 
 # todo1: Port --egg=keycaps across the 32 Keyboards of 2 ** (⎋ ⌃ ⌥ ⇧ Fn)
 
+# todo1: Keep templates of whole keyboard, and damage chosen, to toggle damage
+# todo1: Send ambiguities into where they fit, switch keyboards to random choice of elsewheres
+# todo1: Speak missed Keys as sourcelines to add
+# todo1: First test the plain keyboard, then the shifted, then the rest
+# todo1: Write <> across the Keys not visibly in play ⇪ ⇧ Fn ⌃ ⌥ ⌘
+# todo1: Show both ⇧ when chosen
+# todo1: Stop drawing Reverse-Video to show the ⇧ chosen
+# todo1: Draw the F11 as can't be reached
+
 
 # todo2: drop Key Caps specific to macOS Terminal, when elsewhere
 # todo2: add iTerm2 Key Caps
