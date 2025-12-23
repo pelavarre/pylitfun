@@ -664,9 +664,12 @@ class KeycapsGame:
     """Play for --egg=keycaps"""
 
     terminal_boss: TerminalBoss
-    game_yx: tuple[int, ...]
-    shifters: str  # todo: dump/ load KeycapsGame to suit different choices of Shifters
-    scrollables: list[str]  # Rows printed
+    game_yx: tuple[int, ...]  # Northwest Corner of the Gameboard
+    scrollables: list[str]  # Rows of Messages
+
+    wipeout_set_by_shifters: dict[str, set[str]]
+    shifters: str
+    wipeout_set: set[str]  # Key Caps found and wiped, not yet found again and restored
 
     MAX_SCROLLABLES_3 = 3
 
@@ -698,10 +701,34 @@ class KeycapsGame:
 
     def __init__(self, terminal_boss: TerminalBoss) -> None:
 
+        # Form 1 Wipeout Set per Shifting Key Chord
+
+        shifter_by_index = "⎋ ⌃ ⌥ ⇧ Fn".split()
+        n = len(shifter_by_index)
+
+        d: dict[str, set[str]] = dict()
+        for bitsum in range(2**n):
+            shifters = ""
+            for i in range(n):
+                if bitsum & (1 << i):
+                    shifters += shifter_by_index[i]  # ordered conventionally
+
+            d[shifters] = set()  # ['']  # ['⎋']  # ['⎋⌃']  # ['⌥']  # ...
+
+        wipeout_set_by_shifters = d
+
+        shifters = ""  # none of ⎋ ⌃ ⌥ ⇧
+        wipeout_set = d[shifters]
+
+        # Init the Fields
+
         self.terminal_boss = terminal_boss
         self.game_yx = tuple()
-        self.shifters = ""  # none of ⎋ ⌃ ⌥ ⇧
         self.scrollables = list()
+
+        self.shifters = shifters
+        self.wipeout_set = wipeout_set
+        self.wipeout_set_by_shifters = wipeout_set_by_shifters
 
     def kc_run_awhile(self) -> None:
         """Trace Key Releases till ⌃C"""
@@ -919,9 +946,12 @@ class KeycapsGame:
         tb = self.terminal_boss
         game_yx = self.game_yx
         shifters = self.shifters
+        wipeout_set = self.wipeout_set
+        wipeout_set_by_shifters = self.wipeout_set_by_shifters
 
         sw = tb.screen_writer
         (game_y, game_x) = game_yx
+        assert wipeout_set is wipeout_set_by_shifters[shifters]
 
         # Don't switch Tabs for ⌃ Control and ⌥ Option Keys  # todo9: --egg=keycaps: do
 
@@ -953,33 +983,26 @@ class KeycapsGame:
             return
 
         shifters = kseqs_shifters
-        self.shifters = shifters
+        self.shifters = shifters  # replaces
+
+        wipeout_set = self.wipeout_set_by_shifters[shifters]  # replaces
+        self.wipeout_set = wipeout_set
 
         sw.write_control(f"\033[{game_y};{game_x}H")  # row-column-leap ⎋[⇧H
         self.kc_game_draw()
+
+        caps = sorted(wipeout_set)  # todo1: nahh get back to ordered list
+        wipeout_set.clear()
+        for cap in caps:
+            self.kc_wipeout_else_restore(cap)
+
+        recaps = sorted(wipeout_set)
+        assert recaps == caps, (recaps, caps)
 
     def kc_press_keys_if(self, kseqs: tuple[str, ...], unhit_kseqs: list[object]) -> None:
         """Wipe out each Key Cap when pressed"""
 
         assert kseqs, (kseqs,)
-
-        tb = self.terminal_boss
-        game_yx = self.game_yx
-        shifters = self.shifters
-
-        sw = tb.screen_writer
-        (game_y, game_x) = game_yx
-
-        # Form the Rows of the Gameboards
-
-        keyboard = self.kc_plain_tangible_keyboard()
-        if shifters == "⇧":
-            keyboard = self.ShiftedKeyboard
-
-        dent = 4 * " "
-        dedent = textwrap.dedent(keyboard).strip()
-
-        # Visit each Key Cap
 
         kseq = kseqs[0]
 
@@ -993,7 +1016,31 @@ class KeycapsGame:
         elif kseq.startswith("⇧"):
             cap = str_removeprefix(kseq, prefix="⇧")
 
-        # Wipe out each Key Cap when pressed
+        hits = self.kc_wipeout_else_restore(cap)
+
+        if not hits:
+            unhit_kseqs.append([cap, kseqs])
+
+    def kc_wipeout_else_restore(self, cap: str) -> int:
+        """Wipe out each Key Cap, or restore, when found"""
+
+        tb = self.terminal_boss
+        game_yx = self.game_yx
+        shifters = self.shifters
+
+        wipeout_set = self.wipeout_set
+
+        sw = tb.screen_writer
+        (game_y, game_x) = game_yx
+
+        # Form the Rows of the Gameboards
+
+        keyboard = self.kc_plain_tangible_keyboard()
+        if shifters == "⇧":
+            keyboard = self.ShiftedKeyboard
+
+        dent = 4 * " "
+        dedent = textwrap.dedent(keyboard).strip()
 
         hittable = dedent
         find = -1
@@ -1018,20 +1065,27 @@ class KeycapsGame:
 
             sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
-            # Wipe out this Key Cap
+            # Restore this Key Cap later, else wipe it out to begin with
 
-            width = len(cap)  # width 1 except for len('Spacebar')
+            if cap in wipeout_set:
+                wipeout_set.remove(cap)
 
-            sw.write_control("\033[1m")  # ⎋[1M style-bold
-            sw.write_printable(width * "¤")
-            sw.write_control("\033[m")  # ⎋[M style-plain
+                sw.write_printable(cap)
 
-            # Wipe once and done  # Don't find "a" in Spacebar, etc
+            else:
+                wipeout_set.add(cap)
+
+                width = len(cap)  # width 1 except for len('Spacebar')
+
+                sw.write_control("\033[1m")  # ⎋[1M style-bold
+                sw.write_printable(width * "¤")
+                sw.write_control("\033[m")  # ⎋[M style-plain
+
+            # Flip once and done  # Don't find "a" in Spacebar, etc
 
             break
 
-        if not hits:
-            unhit_kseqs.append([cap, kseqs])
+        return hits
 
     # todo9: --egg=keycaps: restart in each Keyboard viewed
     # todo9: --egg=keycaps: save/ load progress in each Keyboard viewed
@@ -5343,7 +5397,7 @@ if __name__ == "__main__":
 # todo1: Blank out the Keys not visibly in play ⇪ ⇧ Fn ⌃ ⌥ ⌘
 # todo1: Show both ⇧ when chosen
 # todo1: Stop drawing Reverse-Video to show the ⇧ chosen
-# todo1: Draw the F11 as can't be reached
+# todo1: Draw the F11 as can't be reached, except indirectly via ⌥⇧F6 etc
 
 
 # todo2: drop Key Caps specific to macOS Terminal, when elsewhere
