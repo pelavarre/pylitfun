@@ -433,7 +433,7 @@ class LitGlass:
 
         t1 = time.time()
         t1t0 = t1 - t0
-        logger.info(f"spent {chop(t1t0)}s on self-test")
+        logger_info_reprs_minus(f"spent {chop(t1t0)}s on self-test")
 
 
 #
@@ -847,7 +847,7 @@ class KeycapsGame:
         caps += ["⇪ ", "⇧ ", " ⇧", "Fn", "⌃ ", "⌥ ", "⌘ ", " ⌘", " ⌥"]
 
         for cap in reversed(sorted(caps)):  # like to replace 'F12' before 'F1'
-            assert len(cap) in (2, 3)
+            assert len(cap) in (1, 2, 3)
             repl = len(cap) * " "
 
             keyboard = keyboard.replace(cap, repl)
@@ -878,6 +878,10 @@ class KeycapsGame:
         caps = "Fn F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>".split()
         caps += ["⇪ ", "⇧ ", " ⇧", "Fn", "⌥ ", "⌘ ", " ⌘", " ⌥"]
         caps += ["←", "↑", "→", "↓", "↖", "↗", "↘", "↙"]
+        if flags.terminal:
+            caps += list("`1234567890=" ";'⏎" ",./")
+        if flags.i_term_app:
+            caps += ["⇥", "⏎"]
 
         for cap in reversed(sorted(caps)):  # like to replace 'F12' before 'F1'
             assert len(cap) in (1, 2, 3)
@@ -988,8 +992,8 @@ class KeycapsGame:
         shifters_list = list()
         for kseq in kseqs:
             text = ""
-            for t in kseq:
-                if t not in "⎋ ⌃ ⌥ ⇧ Fn".split():
+            for t in kseq[:-1]:  # todo1: "⎋" by itself is not "⎋" Shifter
+                if t not in "⎋ ⌃ ⌥ ⇧ Fn".split():  # todo1: Fn Shifter
                     break
                 text += t
             shifters_list.append(text)
@@ -1001,7 +1005,7 @@ class KeycapsGame:
 
         # Do switch Tabs when Keyboard Choice does change
 
-        logger.info(f"{next_shifters=} {kseqs=}  # kc_switch_tab_if")
+        logger_info_reprs_minus(f"{next_shifters=} {kseqs=}  # kc_switch_tab_if")
 
         self.shifters = next_shifters  # replaces
 
@@ -1019,7 +1023,9 @@ class KeycapsGame:
         recaps = sorted(wipeout_set)
         assert recaps == caps, (recaps, caps)
 
-    def kc_press_keys_if(self, kseqs: tuple[str, ...], unhit_kseqs: list[object]) -> None:
+    def kc_press_keys_if(  # noqa C901 too complex (27  # todo0:
+        self, kseqs: tuple[str, ...], unhit_kseqs: list[object]
+    ) -> None:
         """Wipe out each Key Cap when pressed"""
 
         shifters = self.shifters
@@ -1030,18 +1036,51 @@ class KeycapsGame:
 
         cap = kseq
         alt_cap = ""
+        alt_alt_cap = ""
+
         if shifters == "⌃":
+
             if kseq == "⌃␢":
                 cap = "Spacebar"
+                if flags.i_term_app:
+                    alt_cap = "2"
+            elif kseq == "⌃-":
+                cap = "-"
+                if flags.i_term_app:
+                    alt_cap = "/"  # '/' from ⌃/ but without ⌃
+                    alt_alt_cap = "7"
+            elif kseq == r"⌃\ ".rstrip():
+                cap = r"\ ".rstrip()
+                if flags.i_term_app:
+                    alt_cap = "4"  # '4' from ⌃4 but with ⌃\
+            elif kseq == "⌃⇧^":
+                cap = "6"
+            elif kseq == "⌃]":
+                cap = "]"
+                if flags.i_term_app:
+                    alt_cap = "5"
+            elif kseq == "⌫":
+                cap = "8"
+            elif kseq == "⌃⌫":
+                cap = "⌫"
+                if flags.i_term_app:
+                    alt_cap = "H"  # 'H' from ⌃H but with ⌃⌫
             elif kseq == "⇥":
-                alt_cap = "I"  # from ⌃I
+                if flags.i_term_app:
+                    cap = "I"  # 'I' from ⌃I but without ⌃⇥
+                else:
+                    alt_cap = "I"  # 'I' from ⌃I but with ⌃⇥
             elif kseq == "⏎":
-                alt_cap = "M"  # from ⌃M
+                cap = "M"  # 'M' from ⌃M but without ⌃⏎
             elif kseq == "⎋":
                 alt_cap = "["  # from ⌃[
+                if flags.i_term_app:
+                    alt_alt_cap = "3"  # from ⌃3
             elif kseq.startswith("⌃"):
                 cap = str_removeprefix(kseq, prefix="⌃")
+
         else:
+
             if kseq == "␢":
                 cap = "Spacebar"
             elif flags.sigint and (kseq == "⌃J"):  # todo1: retest
@@ -1051,16 +1090,14 @@ class KeycapsGame:
             elif kseq.startswith("⇧"):
                 cap = str_removeprefix(kseq, prefix="⇧")
 
-        logger.info(f"{cap=} {kseqs=}  # kc_press_keys_if")
+        logger_info_reprs_minus(f"{cap=} {alt_cap=} {alt_alt_cap=} {kseqs=}  # kc_press_keys_if")
 
-        hits = self.kc_wipeout_else_restore(cap)
-        if not hits:
-            unhit_kseqs.append([cap, kseqs])
-
-        if alt_cap:
-            hits = self.kc_wipeout_else_restore(alt_cap)
-            if not hits:
-                unhit_kseqs.append([alt_cap, kseqs])
+        assert cap, (cap,)
+        for c in (cap, alt_cap, alt_alt_cap):
+            if c:
+                hits = self.kc_wipeout_else_restore(c)
+                if not hits:
+                    unhit_kseqs.append([c, kseqs])
 
     def kc_wipeout_else_restore(self, cap: str) -> int:
         """Wipe out each Key Cap, or restore, when found"""
@@ -2686,7 +2723,7 @@ class ScreenChangeOrder:
         # Succeed
 
         strong_str = "demand" if strong else "suggest"
-        logger.info(f"{strong_str} {factor} {box.data=}")
+        logger_info_reprs_minus(f"{strong_str} {factor} {box.data=}")
 
         self.strong = strong  # replaces
         self.factor = factor  # replaces
@@ -3629,6 +3666,13 @@ class KeyboardDecoder:
                 assert kcap not in decode_by_kseq.keys(), (kcap,)
                 decode_by_kseq[kcap] = text
 
+        if flags.i_term_app:
+            decode_by_kseq["⌃6"] = "\036"  # ⌃6 as ⌃⇧^
+            decode_by_kseq["⌃8"] = "\177"  # ⌃8 as ⌃⌫
+            for t in "`190=;',.":
+                kcap = "⌃" + t
+                decode_by_kseq[kcap] = t
+
         # # Add the ⌃⇧ aliases  # todo1:
         #
         # d = {
@@ -3691,6 +3735,11 @@ class KeyboardDecoder:
             d["⇧⏎"] = d[r"⏎"]
             d["⇧⎋"] = d[r"⎋"]
 
+        if flags.i_term_app:
+            d[r"⌃⌫"] = "\010"  # ⌃Delete for ⌃H
+        else:
+            d[r"⌃⌫"] = "\177"  # ⌃Delete for ⌃⇧?
+
         if flags.google or flags.terminal:
             d[r"⇧↑"] = d[r"↑"]
             d[r"⇧↓"] = d[r"↓"]
@@ -3703,177 +3752,7 @@ class KeyboardDecoder:
             assert k not in decode_by_kseq.keys(), (k,)
             decode_by_kseq[k] = v
 
-        # yes the ⌃␢ and ␢ and ⌥␢ of the Shifted and Unshifted Spacebar
-        # yes the ⇥ and ⇧⇥ of the Unshifted and Shifted Tab
-        # yes the ⌦ Fn Delete, but none of the Shifted Fn Delete
-        # none of the Shifted Arrows
-
-    def _add_basic_kseqs_(self) -> None:
-        """Add the Key Cap Sequences for US-Ascii at 2021 MacBook"""
-
-        decode_by_kseq = self.decode_by_kseq
-
-        # Add the simplest named Key Caps: Esc, Return, Delete
-
-        self._add_into_decode_by_kseq_(
-            {
-                r"⏎": "\r",  # ⌃M
-                # r"⌃⏎": "\r",  # ⌃M  # pops up menu
-                r"⇧⏎": "\r",  # ⌃M
-                r"⌥⏎": "\r",  # ⌃M
-                # r"⌃⇧⏎": "\r",  # ⌃M  # pops up menu
-                r"⌃⌥⏎": "\r",  # ⌃M
-                r"⌥⇧⏎": "\r",  # ⌃M
-                r"⌥⇧⌃⏎": "\r",  # ⌃M
-            }
-        )
-
-        d0 = {
-            #
-            r"⎋": "\033",  # ⌃[
-            r"⌃⎋": "\033",  # ⌃[
-            r"⇧⎋": "\033",  # ⌃[
-            r"⌥⎋": "\033",  # ⌃[
-            r"⌃⇧⎋": "\033",  # ⌃[
-            r"⌃⌥⎋": "\033",  # ⌃[
-            r"⌥⇧⎋": "\033",  # ⌃[
-            r"⌥⇧⌃⎋": "\033",  # ⌃[
-            #
-            r"⌫": "\177",  # ⌃⇧?
-            r"⌃⌫": "\177",  # ⌃⇧?
-            r"⇧⌫": "\177",  # ⌃⇧?
-            r"⌥⌫": "\177",  # ⌃⇧?
-            r"⌃⇧⌫": "\177",  # ⌃⇧?
-            r"⌃⌥⌫": "\177",  # ⌃⇧?
-            r"⌥⇧⌫": "\177",  # ⌃⇧?
-            r"⌥⇧⌃⌫": "\177",  # ⌃⇧?
-            #
-        }
-
-        for k, v in d0.items():
-            assert k not in decode_by_kseq.keys(), (k,)
-            decode_by_kseq[k] = v
-
-        # Add the forms of Spacebar and Tab
-
-        d1 = {
-            #
-            r"⇥": "\t",  # ⌃I
-            r"⌃⇥": "\t",  # ⌃I
-            r"⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
-            r"⌥⇥": "\t",  # ⌃I
-            r"⌃⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
-            r"⌃⌥⇥": "\t",  # ⌃I
-            r"⌥⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
-            r"⌥⇧⌃⇥": "\033[" "Z",  # ⎋ [ ⇧Z
-            #
-            r"␢": "\040",  # ⌃`
-            r"⌃␢": "\000",  # ⌃⇧@
-            r"⇧␢": "\040",  # ⌃⇧`
-            r"⌥␢": "\240",  # U+00A0 No-Break Space
-            r"⌃⇧␢": "\000",  # ⌃⇧@
-            r"⌃⌥␢": "\000",  # ⌃⇧@
-            r"⌥⇧␢": "\240",  # U+00A0 No-Break Space
-            r"⌥⇧⌃␢": "\000",  # ⌃⇧@
-            #
-        }
-
-        for k, v in d1.items():
-            assert k not in decode_by_kseq.keys(), (k,)
-            decode_by_kseq[k] = v
-
-        # Add the Basic Arrows and the Double-Key-Jam Arrows
-
-        d3 = {
-            #
-            r"↑": "\033[" "A",  # ⎋[⇧A
-            r"↓": "\033[" "B",  # ⎋[⇧B
-            r"→": "\033[" "C",  # ⎋[⇧C
-            r"←": "\033[" "D",  # ⎋[⇧D
-            #
-            r"↖": "\033[" "↖",  # ⎋[↖    # not yet standard
-            r"↗": "\033[" "↗",  # ⎋[↗
-            r"↘": "\033[" "↘",  # ⎋[↘
-            r"↙": "\033[" "↙",  # ⎋[↙
-            #
-        }
-
-        for k, v in d3.items():
-            assert k not in decode_by_kseq.keys(), (k,)
-            decode_by_kseq[k] = v
-
-        # Add the ⌥ and ⇧ Arrows  # todo2: differently at Apple vs others
-
-        d4 = {
-            r"⌥↑": d3[r"↑"],
-            r"⌥↓": d3[r"↓"],
-            r"⌥→": "\033" "f",  # ⎋F
-            r"⌥←": "\033" "b",  # ⎋B  # todo8: take ⌥← and ⌥→ as ⌥↑ ⌥↓ while ⌥↑ ⌥↓ not available
-            #
-            r"⇧↑": d3[r"↑"],
-            r"⇧↓": d3[r"↓"],
-            r"⇧→": "\033[" "1;2C",  # ⎋[1;2⇧C
-            r"⇧←": "\033[" "1;2D",  # ⎋[1;2⇧D
-            #
-            r"⌥⇧↑": d3[r"↑"],
-            r"⌥⇧↓": d3[r"↓"],
-            r"⌥⇧→": d3[r"→"],
-            r"⌥⇧←": d3[r"←"],
-            #
-            r"⇧Fn↑": "\033[" "5~",  # ⎋[5⇧~
-            r"⇧Fn↓": "\033[" "6~",  # ⎋[6⇧~
-            r"⇧Fn→": "\033[" "F",  # ⎋[⇧F
-            r"⇧Fn←": "\033[" "H",  # ⎋[⇧H
-        }
-
-        for k, v in d4.items():
-            assert k not in decode_by_kseq.keys(), (k,)
-            decode_by_kseq[k] = v
-
-        # Add the Fn Keys and the ⇧Fn keys
-
-        d5 = {
-            #
-            r"F1": "\033O" "P",  # ⎋OP
-            r"F2": "\033O" "Q",  # ⎋OQ
-            r"F3": "\033O" "R",  # ⎋OR
-            r"F4": "\033O" "S",  # ⎋OS
-            r"F5": "\033[" "15~",  # ⎋[15⇧~
-            r"F6": "\033[" "17~",  # ⎋[17⇧~
-            r"F7": "\033[" "18~",  # ⎋[18⇧~
-            r"F8": "\033[" "19~",  # ⎋[19⇧~
-            r"F9": "\033[" "20~",  # ⎋[20⇧~
-            r"F10": "\033[" "21~",  # ⎋[21⇧~
-            r"F11": "\033[" "23~",  # ⎋[23⇧~  # Apple takes F11
-            r"F12": "\033[" "24~",  # ⎋[24⇧~
-            #
-            # r"⇧F1": ...  # macOS Terminal defaults to block ⇧F1 ⇧F2 ⇧F3 ⇧F4
-            # r"⇧F2": ...
-            # r"⇧F3": ...
-            # r"⇧F4": ...
-            r"⇧F5": "\033[" "25~",  # ⎋[25⇧~
-            r"⇧F6": "\033[" "26~",  # ⎋[26⇧~
-            r"⇧F7": "\033[" "28~",  # ⎋[28⇧~
-            r"⇧F8": "\033[" "29~",  # ⎋[29⇧~
-            r"⇧F9": "\033[" "31~",  # ⎋[31⇧~
-            r"⇧F10": "\033[" "32~",  # ⎋[32⇧~
-            r"⇧F11": "\033[" "33~",  # ⎋[33⇧~
-            r"⇧F12": "\033[" "34~",  # ⎋[34⇧~
-        }
-
-        for k, v in d5.items():
-            assert k not in decode_by_kseq.keys(), (k,)
-            decode_by_kseq[k] = v
-
-        # Add more ⌃⌥⇧ Shiftings of Fn Keys
-
-        d6 = {
-            r"⌥F6": d5["F11"],
-        }
-
-        for k, v in d6.items():
-            assert k not in decode_by_kseq.keys(), (k,)
-            decode_by_kseq[k] = v
+        # Apple Terminal rejects ⌃` and  ⌃⇧?
 
     def _add_into_decode_by_kseq_(self, d_by_ks: dict[str, str]) -> None:
         """Add more Key Cap Sequences"""
@@ -5453,13 +5332,8 @@ if __name__ == "__main__":
 
 # todo1: Port --egg=keycaps across the 32 Keyboards of 2 ** (⎋ ⌃ ⌥ ⇧ Fn)
 
-# todo1: Keep templates of whole keyboard, and damage chosen, to toggle damage
 # todo1: Send ambiguities into where they fit, switch keyboards to random choice of elsewheres
 # todo1: Speak missed Keys as sourcelines to add
-# todo1: First test the plain keyboard, then the shifted, then the rest
-# todo1: Blank out the Keys not visibly in play ⇪ ⇧ Fn ⌃ ⌥ ⌘
-# todo1: Show both ⇧ when chosen
-# todo1: Stop drawing Reverse-Video to show the ⇧ chosen
 # todo1: Draw the F11 as can't be reached, except indirectly via ⌥⇧F6 etc
 
 
