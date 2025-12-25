@@ -891,8 +891,9 @@ class KeycapsGame:
             if not kseqs:
                 unhit_kseqs.append([frame, kseqs])
             else:
-                self.kc_switch_tab_if(kseqs)
-                self.kc_press_keys_if(kseqs, unhit_kseqs)
+                switching = self.kc_switch_tab_if(kseqs)
+                if (not switching) or (switching and not tb.quitting):
+                    self.kc_press_keys_if(kseqs, unhit_kseqs)
 
         sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
@@ -945,7 +946,7 @@ class KeycapsGame:
         scrollables.append(printable)
         sw.write_control(f"\033[{yn};{x}H")  # row-column-leap ⎋[⇧H
 
-    def kc_switch_tab_if(self, kseqs: tuple[str, ...]) -> None:
+    def kc_switch_tab_if(self, kseqs: tuple[str, ...]) -> bool:
         """Switch to next Keyboard View when a Key is struck out there"""
 
         tb = self.terminal_boss
@@ -970,7 +971,10 @@ class KeycapsGame:
             shifters_list.append(text)
 
         if shifters in shifters_list:
-            return
+            return False
+
+        if tb.quitting:
+            return True
 
         next_shifters = shifters_list[0]
 
@@ -993,6 +997,8 @@ class KeycapsGame:
 
         recaps = sorted(wipeout_set)
         assert recaps == caps, (recaps, caps)
+
+        return True
 
     def kc_press_keys_if(  # noqa C901 too complex (27  # todo0:
         self, kseqs: tuple[str, ...], unhit_kseqs: list[object]
