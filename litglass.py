@@ -841,16 +841,22 @@ class KeycapsGame:
     def kc_tangible_plain_keyboard(self) -> str:
         """Draw a Plain Keyboard but blank out its Shifters and Fn Keys and upper right <>"""
 
+        tb = self.terminal_boss
+        kd = tb.keyboard_decoder
+
+        assert unicodedata.name("⇪").title() == "Upwards White Arrow From Bar"
+
         keyboard = self.PlainKeyboard
 
-        caps = "Fn F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>".split()
-        caps += ["⇪ ", "⇧ ", " ⇧", "Fn", "⌃ ", "⌥ ", "⌘ ", " ⌘", " ⌥"]
+        kseqs = keyboard.split()
+        for kseq in kseqs:
+            repl = len(kseq) * " "
 
-        for cap in reversed(sorted(caps)):  # like to replace 'F12' before 'F1'
-            assert len(cap) in (1, 2, 3)
-            repl = len(cap) * " "
-
-            keyboard = keyboard.replace(cap, repl)
+            (shifters, cap) = kd.kseq_to_shifters_cap(kseq)
+            assert shifters or cap, (shifters, cap)
+            if shifters or (not cap) or (cap == "<>") or (kseq == "⇪"):
+                count_eq_1 = 1
+                keyboard = keyboard.replace(kseq, repl, count_eq_1)
 
         return keyboard
 
@@ -3618,6 +3624,45 @@ class KeyboardDecoder:
 
         assert echo.isprintable(), (echo,)
         return echo
+
+    def kseqs_to_shifters_if(self, kseqs: tuple[str, ...], shifters: str) -> str:
+        """Choose new Shifters if Byte Encoding unambiguously separate"""
+
+        if not kseqs:
+            return shifters
+
+        kseq_shifters_list = list()
+        for kseq in kseqs:
+            (kseq_shifters, cap) = self.kseq_to_shifters_cap(kseq)
+            kseq_shifters_list.append(kseq_shifters)
+
+            if kseq_shifters == shifters:
+                return shifters
+
+        kseq_shifters = kseq_shifters_list[0]
+        return kseq_shifters
+
+    def kseq_to_shifters_cap(self, kseq: str) -> tuple[str, str]:
+        """Split out the Shifters at left, and add 'Fn' if Fn"""
+
+        if kseq == "⎋":
+            return ("", "⎋")
+
+        shifters = ""
+        for t in kseq:
+            if t not in "⎋ ⌃ ⌥ ⇧ Fn".split():
+                break
+            shifters += t
+
+        cap = kseq[len(shifters) :]
+        if cap.startswith("F") and (cap != "F"):
+            shifters += "Fn"
+            if cap == "Fn":
+                cap = ""
+
+        return (shifters, cap)
+
+        # ('', '⎋')  # ('Fn', '')  # ('⌃⇧', '@')  # ('⇧Fn', 'F1')
 
     def bytes_to_kseqs_if(self, data: bytes) -> tuple[str, ...]:
         """Speak of a Byte Encoding as a Sequence of Chords of Key Caps"""
