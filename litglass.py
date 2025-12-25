@@ -3486,14 +3486,14 @@ class KeyboardDecoder:
     selves: list[KeyboardDecoder] = list()
 
     decode_by_kseq: dict[str, str]
-    kseqs_by_text: dict[str, tuple[str, ...]]
+    kseqs_by_decode: dict[str, tuple[str, ...]]
 
     def __init__(self) -> None:
 
         KeyboardDecoder.selves.append(self)
 
         self.decode_by_kseq = dict()
-        self.kseqs_by_text = dict()
+        self.kseqs_by_decode = dict()
 
         self._add_common_named_keys_()
         self._add_common_text_keys_()
@@ -3583,10 +3583,10 @@ class KeyboardDecoder:
 
         text = data.decode()
 
-        kseqs_by_text = self.kseqs_by_text
+        kseqs_by_decode = self.kseqs_by_decode
 
-        if text in kseqs_by_text.keys():
-            kseqs = kseqs_by_text.get(text, tuple())
+        if text in kseqs_by_decode.keys():
+            kseqs = kseqs_by_decode.get(text, tuple())
             return kseqs
 
         return tuple()
@@ -3747,7 +3747,7 @@ class KeyboardDecoder:
         """Index the Key Cap Sequences by their Decodes"""
 
         decode_by_kseq = self.decode_by_kseq
-        kseqs_by_text = self.kseqs_by_text
+        kseqs_by_decode = self.kseqs_by_decode
 
         # Index the Sequences collected by now
 
@@ -3892,8 +3892,8 @@ class KeyboardDecoder:
         # Convert to immutable Tuples from mutable Lists
 
         for text, kseq_list in d.items():
-            assert text not in kseqs_by_text, (text, kseqs_by_text[text], kseq_list)
-            kseqs_by_text[text] = tuple(kseq_list)
+            assert text not in kseqs_by_decode, (text, kseqs_by_decode[text], kseq_list)
+            kseqs_by_decode[text] = tuple(kseq_list)
 
         # no explicit mention of upper case ÁÉÍJ́ÓÚ ÂÊÎÔÛ ÃÑÕ ÄËÏÖÜŸ ÀÈÌÒÙ
 
