@@ -897,7 +897,9 @@ class KeycapsGame:
 
         sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
-        if unhit_kseqs:
+        if not unhit_kseqs:
+            logger_print(frames)
+        else:
             if frames == (b"\003",):  # ⌃C
                 pass
             elif frames == (b"\034",):  # ⌃\
@@ -3622,112 +3624,159 @@ class KeyboardDecoder:
 
         """
 
+        d = decode_by_kseq  # alias
+
         code = -1  # Upper ⇧A..⇧Z, Lower A..Z, Digits 0..9, and the Punctuation Marks
         for kcap in kseq.split():
             code += 1
             text = chr(code)
 
             if kcap not in ("⌃`", "⌃⇧?"):  # not in ␢ \040, ⌫ \177
-                assert kcap not in decode_by_kseq.keys(), (kcap,)
-                decode_by_kseq[kcap] = text
+                assert kcap not in d.keys(), (kcap,)
+                d[kcap] = text
 
         if flags.i_term_app:
+            d["`"] = "`"
 
-            for t in "`190=;',.":
+        if flags.i_term_app or flags.ghostty:
+
+            for t in "190=;',.":
                 kcap = "⌃" + t
-                decode_by_kseq[kcap] = t
+                d[kcap] = t
 
-            decode_by_kseq["⌃2"] = decode_by_kseq["⌃⇧@"]
-            decode_by_kseq["⌃3"] = decode_by_kseq["⌃["]
-            decode_by_kseq["⌃4"] = decode_by_kseq[r"⌃\ ".rstrip()]
-            decode_by_kseq["⌃5"] = decode_by_kseq["⌃]"]
-            decode_by_kseq["⌃6"] = decode_by_kseq["⌃⇧^"]
-            decode_by_kseq["⌃7"] = decode_by_kseq["⌃-"]
-            decode_by_kseq["⌃8"] = "\177"  # ⌃8 as ⌫ as ⌃⌫
-            decode_by_kseq["⌃/"] = decode_by_kseq["⌃-"]
+            d["⌃2"] = d["⌃⇧@"]
+            d["⌃3"] = d["⌃["]
+            d["⌃4"] = d[r"⌃\ ".rstrip()]
+            d["⌃5"] = d["⌃]"]
+            d["⌃6"] = d["⌃⇧^"]
+            d["⌃7"] = d["⌃-"]
+            d["⌃8"] = "\177"  # ⌃8 as ⌫ as ⌃⌫
+            d["⌃/"] = d["⌃-"]
+
+        if flags.ghostty:
+
+            d["⌃`"] = "\033[" "96;5u"  # ⎋ [ 96;5U  # 96 == 0o140 == ord("`")
+            d["⌃-"] = "\033[" "45;5u"  # ⎋ [ 45;5U  # 45 == 0o055 == ord("-")
+            d["⌃="] = "\033[" "61;5u"  # ⎋ [ 61;5U  # 61 == 0o075 == ord("=")
+            d["⌃;"] = "\033[" "59;5u"  # ⎋ [ 59;5U  # 59 == 0o073 == ord(";")
+            d["⌃'"] = "\033[" "39;5u"  # ⎋ [ 39;5U  # 39 == 0o047 == ord("'")
+            d["⌃,"] = "\033[" "44;5u"  # ⎋ [ 44;5U  # 44 == 0o054 == ord(",")
+            d["⌃."] = "\033[" "46;5u"  # ⎋ [ 46;5U  # 46 == 0o056 == ord(".")
+            d["⌃["] = "\033[" "91;5u"  # ⎋ [ 91;5U  # 91 == 0o133 == ord("[")
+            d["⌃I"] = "\033[" "105;5" "u"  # ⎋ [ 105;5U   # 105 == 0o151 == ord("i")
+            d["⌃M"] = "\033[" "109;5" "u"  # ⎋ [ 109;5U   # 109 == 0o155 == ord("m")
 
     def _add_common_named_keys_(self) -> None:
         """Add the Esc, Tab, Delete, Return, Black Spacebar, and Arrow Key Chords"""
 
         decode_by_kseq = self.decode_by_kseq
 
-        # List the distinct Byte Encodes that Key Chords could send
+        # Encode Esc
 
-        d = {
-            r"⌃␢": "\0",  # ⌃⇧@
-            r"⇥": "\t",  # Tab for ⌃I
-            r"⏎": "\r",  # Return for ⌃M  # not Line Feed ⌃J  # not CR LF ⌃M ⌃J
-            r"⎋": "\033",  # Esc for ⌃[
-            r"␢": "\040",  # Blank Spacebar for ⌃`  # Blank Symbol
-            r"⌫": "\177",  # Delete for ⌃⇧?  # Erase To The Left  # not ⌃H "\b"
-            #
-            r"↑": "\033[" "A",  # ⎋[⇧A
-            r"↓": "\033[" "B",  # ⎋[⇧B
-            r"→": "\033[" "C",  # ⎋[⇧C
-            r"←": "\033[" "D",  # ⎋[⇧D
-            #
-            r"⇧↑": "\033[" "1;2" "A",  # ⎋[1;2⇧A
-            r"⇧↓": "\033[" "1;2" "B",  # ⎋[1;2⇧C
-            r"⇧→": "\033[" "1;2" "C",  # ⎋[1;2⇧C
-            r"⇧←": "\033[" "1;2" "D",  # ⎋[1;2⇧D
-            #
-            r"⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
-            #
-            r"⇧⏎": "\033[" "27;2;13~",  # ⎋ [ 27;2;13⇧~  # 13 == 0x040 ^ ord("M")
-            r"⇧⎋": "\033[" "27;2;27~",  # ⎋ [ 27;2;27⇧~  # 27 == 0o033
-            #
-            r"↖": "\033[" "↖",  # ⎋[↖    # not yet standard
-            r"↗": "\033[" "↗",  # ⎋[↗
-            r"↘": "\033[" "↘",  # ⎋[↘
-            r"↙": "\033[" "↙",  # ⎋[↙
-            #
-            r"⇧↖": "\033[" "1;2" "↖",  # ⎋[↖  # not yet standard
-            r"⇧↗": "\033[" "1;2" "↗",  # ⎋[↗
-            r"⇧↘": "\033[" "1;2" "↘",  # ⎋[↘
-            r"⇧↙": "\033[" "1;2" "↙",  # ⎋[↙
-            #
-            r"⌥␢": "\240",  # U+00A0 No-Break Space
-            r"⌦": "\033[3~",  # ⎋[3~  # Fn Delete  # Erase To The Right
+        esc = {
+            "⎋": "\033",
+            "⌃⎋": "\033[" "27;5;27~",  # ⎋ [ 27;5;27⇧~  # 27 == 0o033
+            "⇧⎋": "\033[" "27;2;27~",  # ⎋ [ 27;2;27⇧~  # 27 == 0o033
         }
 
-        # Erase distinctions that no one makes
-
-        d[r"⇧␢"] = d[r"␢"]
-        d[r"⇧⌫"] = d[r"⌫"]
-
-        # Let majorities drop the ⌃ and ⇧ of some Key Chords
-
-        if not flags.terminal:
-            d["⌃⇥"] = d[r"⇥"]
-
-        if not flags.i_term_app:
-            d[r"⌃⌫"] = d[r"⌫"]
-            d[r"⌃⇥"] = d[r"⇥"]
-            d["⌃⏎"] = d[r"⏎"]
-
         if not flags.ghostty:
-            d["⇧⏎"] = d[r"⏎"]
-            d["⇧⎋"] = d[r"⎋"]
-            d["⌃⎋"] = d[r"⎋"]  # albeit weirdly slow at Google Cloud Shell
+            esc["⌃⎋"] = esc["⎋"]
+            esc["⇧⎋"] = esc["⎋"]
 
-        # Let minorities drop the ⌃ and ⇧ of some Key Chords
+        # Encode Backwards Delete
+
+        delete = {
+            "⌫": "\177",  # Delete for ⌃⇧?  # Erase To The Right
+            "⌃⌫": "\010",  # ⌃Delete for ⌃H  # Erase To The Left
+            "⇧⌫": "\177",
+        }
 
         if flags.terminal:
-            d["⌃⏎"] = ""  # pops up menu
-            d[r"⇧↑"] = d[r"↑"]
-            d[r"⇧↓"] = d[r"↓"]
+            delete["⌃⌫"] = delete["⌫"]
 
-        if flags.i_term_app:
-            d["⌃⇥"] = ""  # sends no bytes
-            d[r"⌃⌫"] = "\010"  # ⌃Delete for ⌃H
+        # Encode Tab
+
+        tab = {
+            "⇥": "\t",
+            "⌃⇥": "\t",
+            "⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
+        }
+
+        if not flags.terminal:
+            tab["⌃⇥"] = ""  # sends no bytes  # jumps to pinned browser tab
+
+        # Encode Return
+
+        _return_ = {
+            "⏎": "\r",  # Return for ⌃M  # not Line Feed ⌃J  # not CR LF ⌃M ⌃J
+            "⌃⏎": "\033[" "27;5;13~",  # ⎋ [ 27;5;13⇧~  # 13 == 0x040 ^ ord("M")
+            "⇧⏎": "\033[" "27;2;13~",  # ⎋ [ 27;2;13⇧~  # 13 == 0x040 ^ ord("M")
+        }
+
+        if flags.terminal:
+            _return_["⌃⏎"] = ""  # pops up menu
+            _return_["⇧⏎"] = _return_["⏎"]
+        elif not flags.ghostty:
+            _return_["⌃⏎"] = _return_["⏎"]
+            _return_["⇧⏎"] = _return_["⏎"]
+
+        # Encode Spacebar
+
+        spacebar = {
+            "␢": "\040",  # Blank Spacebar for ⌃`  # Blank Symbol
+            "⌃␢": "\0",  # ⌃⇧@
+            "⇧␢": "\040",
+            # "⌥␢": "\240",  # U+00A0 No-Break Space Blank  # todo1:
+        }
+
+        # Encode Forwards Delete
+
+        d = {
+            # "⌦": "\033[3~",  # ⎋[3~  # Fn Delete  # Erase To The Right  # todo1:
+        }
+
+        # Encode the Cardinal Arrows & Intercardinal Arrows, but no ⌃ Arrows
+
+        arrows = {
+            "↑": "\033[" "A",  # ⎋[⇧A
+            "↓": "\033[" "B",  # ⎋[⇧B
+            "→": "\033[" "C",  # ⎋[⇧C
+            "←": "\033[" "D",  # ⎋[⇧D
+            #
+            "⇧↑": "\033[" "1;2" "A",  # ⎋[1;2⇧A
+            "⇧↓": "\033[" "1;2" "B",  # ⎋[1;2⇧C
+            "⇧→": "\033[" "1;2" "C",  # ⎋[1;2⇧C
+            "⇧←": "\033[" "1;2" "D",  # ⎋[1;2⇧D
+            #
+            "↖": "\033[" "↖",  # ⎋[↖    # Intercardinal Arrows not yet standard
+            "↗": "\033[" "↗",  # ⎋[↗
+            "↘": "\033[" "↘",  # ⎋[↘
+            "↙": "\033[" "↙",  # ⎋[↙
+            #
+            "⇧↖": "\033[" "1;2" "↖",  # ⎋[↖  # Intercardinal Arrows not yet standard
+            "⇧↗": "\033[" "1;2" "↗",  # ⎋[↗
+            "⇧↘": "\033[" "1;2" "↘",  # ⎋[↘
+            "⇧↙": "\033[" "1;2" "↙",  # ⎋[↙
+        }
+
+        if flags.terminal:
+            d["⇧↑"] = arrows["↑"]
+            d["⇧↓"] = arrows["↓"]
 
         if flags.google:
-            d[r"⇧↑"] = d[r"↑"]
-            d[r"⇧↓"] = d[r"↓"]
-            d[r"⇧→"] = d[r"→"]
-            d[r"⇧←"] = d[r"←"]
+            arrows["⇧↑"] = arrows["↑"]
+            arrows["⇧↓"] = arrows["↓"]
+            arrows["⇧→"] = arrows["→"]
+            arrows["⇧←"] = arrows["←"]
 
         # Add these Byte Encodes of these Key Chords
+
+        d.update(esc)
+        d.update(tab)
+        d.update(delete)
+        d.update(_return_)
+        d.update(spacebar)
+        d.update(arrows)
 
         for k, v in d.items():
             assert k not in decode_by_kseq.keys(), (k,)
