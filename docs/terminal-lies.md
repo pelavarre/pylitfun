@@ -109,7 +109,7 @@ This can be true in places, but . . .
 
 At the Apple macOS Terminal, you can toggle its Settings > Keyboard > Use Option As Meta Key back and forth. And then you get more distinct Key Chords in this special mode. You get ⎋ ⎋ and ⎋⌫ and ⎋ ⏎ apart from ⏎ and ⌫ and ⎋. You get quick complete ⎋\` ⎋E ⎋I ⎋N ⎋U because you gave up the Key Chords coded as accented vowels at ⎋\` E and ⎋E E and  ⎋I I and ⎋N N and  ⎋U U and so on. But then when you toggle this Setting back, you lose all these new Key Chords
 
-At the Google Cloud Shell, they churn their rules from time to time. Lately, their ⌃M is a toggle between having the ⇥ Tab Key mean ⌃I or some Browser Thing. Their ⌃M also toggle the ⇧⇥  Shift Tab Key Chord between meaning ⎋[Z and some Browser Thing. And they break the classic equivalence between ⌃M and ⏎ Return: you get different effects at each. And ditto they give you different effects at ⌃I and at ⇥ Tab. Plus they have a ⛭ > Keyboard > Alt Is Meta toggle that works lots like Apple's Keyboard > Use Option As Meta Key
+At the Google Cloud Shell, they churn their rules from time to time. Lately, their ⌃M is a toggle between having the ⇥ Tab Key mean ⌃I or some Browser Thing. Their ⌃M also toggle the ⇧⇥  Shift Tab Key Chord between meaning ⎋[Z and some Browser Thing. And they break the classic equivalence between ⌃M and ⏎ Return: you get different effects at each. And ditto they give you different effects at ⌃I and at ⇥ Tab. Plus they have a ⛭ > Keyboard > Alt Is Meta toggle, though I can't see that it ever does much
 
 At the Google Cloud Shell, you can't depend on ⌃C meaning anything. Sometimes, you can pound away on ⌃C to no response. With us, we'll likely take ⌃\ or ⌃Z to mean some kind of quit, even while they're blocking ⌃C
 

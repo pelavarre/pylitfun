@@ -767,7 +767,7 @@ class KeycapsGame:
         kr = tb.keyboard_reader
 
         shifters = self.shifters
-        assert shifters in ("", "⇧", "⌃"), (shifters,)
+        assert shifters in ("", "⌃", "⌥", "⇧"), (shifters,)
 
         tb = self.terminal_boss
         sw = tb.screen_writer
@@ -837,7 +837,7 @@ class KeycapsGame:
         keyboard = self.ShiftedKeyboard
         if self_shifters != "⇧":
             keyboard = self.PlainKeyboard
-            if self_shifters == "⌃":
+            if self_shifters:
                 keyboard = keyboard.upper()
                 keyboard = keyboard.replace("Spacebar".upper(), "Spacebar")
 
@@ -3030,7 +3030,7 @@ class KeyboardReader:
 
         return frames
 
-        # ⎋ [ ↖ ↗ ↘ ↙  # ⎋ [ 1 ; 2 ↖ ↗ ↘ ↙  # not yet standard
+        # ⎋[ ↖ ↗ ↘ ↙  # ⎋[ 1 ; 2 ↖ ↗ ↘ ↙  # not yet standard
 
         # todo8: intercardinal arrows at Google Cloud Shell
 
@@ -3655,16 +3655,16 @@ class KeyboardDecoder:
 
         if flags.ghostty:
 
-            d["⌃`"] = "\033[" "96;5u"  # ⎋ [ 96;5U  # 96 == 0o140 == ord("`")
-            d["⌃-"] = "\033[" "45;5u"  # ⎋ [ 45;5U  # 45 == 0o055 == ord("-")
-            d["⌃="] = "\033[" "61;5u"  # ⎋ [ 61;5U  # 61 == 0o075 == ord("=")
-            d["⌃;"] = "\033[" "59;5u"  # ⎋ [ 59;5U  # 59 == 0o073 == ord(";")
-            d["⌃'"] = "\033[" "39;5u"  # ⎋ [ 39;5U  # 39 == 0o047 == ord("'")
-            d["⌃,"] = "\033[" "44;5u"  # ⎋ [ 44;5U  # 44 == 0o054 == ord(",")
-            d["⌃."] = "\033[" "46;5u"  # ⎋ [ 46;5U  # 46 == 0o056 == ord(".")
-            d["⌃["] = "\033[" "91;5u"  # ⎋ [ 91;5U  # 91 == 0o133 == ord("[")
-            d["⌃I"] = "\033[" "105;5" "u"  # ⎋ [ 105;5U   # 105 == 0o151 == ord("i")
-            d["⌃M"] = "\033[" "109;5" "u"  # ⎋ [ 109;5U   # 109 == 0o155 == ord("m")
+            d["⌃`"] = "\033[" "96;5u"  # ⎋[ 96;5U  # 96 == 0o140 == ord("`")
+            d["⌃-"] = "\033[" "45;5u"  # ⎋[ 45;5U  # 45 == 0o055 == ord("-")
+            d["⌃="] = "\033[" "61;5u"  # ⎋[ 61;5U  # 61 == 0o075 == ord("=")
+            d["⌃;"] = "\033[" "59;5u"  # ⎋[ 59;5U  # 59 == 0o073 == ord(";")
+            d["⌃'"] = "\033[" "39;5u"  # ⎋[ 39;5U  # 39 == 0o047 == ord("'")
+            d["⌃,"] = "\033[" "44;5u"  # ⎋[ 44;5U  # 44 == 0o054 == ord(",")
+            d["⌃."] = "\033[" "46;5u"  # ⎋[ 46;5U  # 46 == 0o056 == ord(".")
+            d["⌃["] = "\033[" "91;5u"  # ⎋[ 91;5U  # 91 == 0o133 == ord("[")
+            d["⌃I"] = "\033[" "105;5" "u"  # ⎋[ 105;5U   # 105 == 0o151 == ord("i")
+            d["⌃M"] = "\033[" "109;5" "u"  # ⎋[ 109;5U   # 109 == 0o155 == ord("m")
 
     def _add_common_named_keys_(self) -> None:
         """Add the Esc, Tab, Delete, Return, Black Spacebar, and Arrow Key Chords"""
@@ -3675,12 +3675,14 @@ class KeyboardDecoder:
 
         esc = {
             "⎋": "\033",
-            "⌃⎋": "\033[" "27;5;27~",  # ⎋ [ 27;5;27⇧~  # 27 == 0o033
-            "⇧⎋": "\033[" "27;2;27~",  # ⎋ [ 27;2;27⇧~  # 27 == 0o033
+            "⌃⎋": "\033[" "27;5;27~",  # ⎋[ 27;5;27⇧~  # 27 == 0o033
+            "⌥⎋": "\033\033",  # ⎋⎋
+            "⇧⎋": "\033[" "27;2;27~",  # ⎋[ 27;2;27⇧~  # 27 == 0o033
         }
 
         if not flags.ghostty:
             esc["⌃⎋"] = esc["⎋"]
+            esc["⌥⎋"] = esc["⎋"]
             esc["⇧⎋"] = esc["⎋"]
 
         # Encode Backwards Delete
@@ -3688,29 +3690,38 @@ class KeyboardDecoder:
         delete = {
             "⌫": "\177",  # Delete for ⌃⇧?  # Erase To The Right
             "⌃⌫": "\010",  # ⌃Delete for ⌃H  # Erase To The Left
+            "⌥⌫": "\033\177",  # ⎋⌫
             "⇧⌫": "\177",
         }
 
         if flags.terminal:
             delete["⌃⌫"] = delete["⌫"]
 
+        if flags.terminal or flags.i_term_app:
+            delete["⌥⌫"] = delete["⌫"]
+
         # Encode Tab
 
         tab = {
             "⇥": "\t",
             "⌃⇥": "\t",
-            "⇧⇥": "\033[" "Z",  # ⎋ [ ⇧Z
+            "⌥⇥": "\033\t",  # ⎋⇥
+            "⇧⇥": "\033[" "Z",  # ⎋[ ⇧Z
         }
 
         if not flags.terminal:
             tab["⌃⇥"] = ""  # sends no bytes  # jumps to pinned browser tab
 
+        if not flags.ghostty:
+            tab["⌥⇥"] = tab["⇥"]
+
         # Encode Return
 
         _return_ = {
             "⏎": "\r",  # Return for ⌃M  # not Line Feed ⌃J  # not CR LF ⌃M ⌃J
-            "⌃⏎": "\033[" "27;5;13~",  # ⎋ [ 27;5;13⇧~  # 13 == 0x040 ^ ord("M")
-            "⇧⏎": "\033[" "27;2;13~",  # ⎋ [ 27;2;13⇧~  # 13 == 0x040 ^ ord("M")
+            "⌃⏎": "\033[" "27;5;13~",  # ⎋[ 27;5;13⇧~  # 13 == 0x040 ^ ord("M")
+            "⌥⏎": "\033\r",  # ⎋⏎
+            "⇧⏎": "\033[" "27;2;13~",  # ⎋[ 27;2;13⇧~  # 13 == 0x040 ^ ord("M")
         }
 
         if flags.terminal:
@@ -3720,20 +3731,21 @@ class KeyboardDecoder:
             _return_["⌃⏎"] = _return_["⏎"]
             _return_["⇧⏎"] = _return_["⏎"]
 
+        if flags.terminal or flags.i_term_app:
+            _return_["⌥⏎"] = _return_["⏎"]
+
+
         # Encode Spacebar
 
         spacebar = {
             "␢": "\040",  # Blank Spacebar for ⌃`  # Blank Symbol
             "⌃␢": "\0",  # ⌃⇧@
             "⇧␢": "\040",
-            # "⌥␢": "\240",  # U+00A0 No-Break Space Blank  # todo1:
+            "⌥␢": "\240",  # U+00A0 No-Break Space Blank  # todo1:
         }
 
-        # Encode Forwards Delete
-
-        d = {
-            # "⌦": "\033[3~",  # ⎋[3~  # Fn Delete  # Erase To The Right  # todo1:
-        }
+        if flags.ghostty:
+            spacebar["⌥␢"] = "\033\040"  # ⎋␢
 
         # Encode the Cardinal Arrows & Intercardinal Arrows, but no ⌃ Arrows
 
@@ -3748,6 +3760,11 @@ class KeyboardDecoder:
             "⇧→": "\033[" "1;2" "C",  # ⎋[1;2⇧C
             "⇧←": "\033[" "1;2" "D",  # ⎋[1;2⇧D
             #
+            "⌥↑": "\033[" "1;3" "A",  # ⎋[1;3⇧A
+            "⌥↓": "\033[" "1;3" "B",  # ⎋[1;3⇧C
+            "⌥→": "\033[" "1;3" "C",  # ⎋[1;3⇧C
+            "⌥←": "\033[" "1;3" "D",  # ⎋[1;3⇧D
+            #
             "↖": "\033[" "↖",  # ⎋[↖    # Intercardinal Arrows not yet standard
             "↗": "\033[" "↗",  # ⎋[↗
             "↘": "\033[" "↘",  # ⎋[↘
@@ -3757,19 +3774,38 @@ class KeyboardDecoder:
             "⇧↗": "\033[" "1;2" "↗",  # ⎋[↗
             "⇧↘": "\033[" "1;2" "↘",  # ⎋[↘
             "⇧↙": "\033[" "1;2" "↙",  # ⎋[↙
+            #
+            "⌥↖": "\033[" "1;3" "↖",  # ⎋[↖  # Intercardinal Arrows not yet standard
+            "⌥↗": "\033[" "1;3" "↗",  # ⎋[↗
+            "⌥↘": "\033[" "1;3" "↘",  # ⎋[↘
+            "⌥↙": "\033[" "1;3" "↙",  # ⎋[↙
         }
 
         if flags.terminal:
-            d["⇧↑"] = arrows["↑"]
-            d["⇧↓"] = arrows["↓"]
+            arrows["⇧↑"] = arrows["↑"]
+            arrows["⇧↓"] = arrows["↓"]
+            arrows["⌥↑"] = arrows["↑"]
+            arrows["⌥↓"] = arrows["↓"]
+
+        if flags.terminal or flags.ghostty:
+            arrows["⌥→"] = '\033f'
+            arrows["⌥←"] = '\033b'
 
         if flags.google:
             arrows["⇧↑"] = arrows["↑"]
             arrows["⇧↓"] = arrows["↓"]
             arrows["⇧→"] = arrows["→"]
             arrows["⇧←"] = arrows["←"]
+            arrows["⌥↑"] = "\033" + arrows["↑"]
+            arrows["⌥↓"] = "\033" + arrows["↓"]
+            arrows["⌥→"] = "\033" + arrows["→"]
+            arrows["⌥←"] = "\033" + arrows["←"]
 
         # Add these Byte Encodes of these Key Chords
+
+        d = {
+            # "⌦": "\033[3~",  # ⎋[3~  # Fn Delete  # Erase To The Right  # todo1:
+        }
 
         d.update(esc)
         d.update(tab)
@@ -3851,6 +3887,12 @@ class KeyboardDecoder:
         assert plain_printables.count("¥") == 2  # ␢ ⌫
         assert option_printables.count("¥") == 9  # ⌥␢ ⌥` ⌥E ⌥I ⌥N ⌥U ⌥Y ⌥⇧~ ⌥⌫
 
+        kseq = "⌥Y"
+        text = "\\"
+        assert kseq not in decode_by_kseq.keys(), (kseq,)
+        decode_by_kseq[kseq] = text
+        d[text].append(kseq)
+
         option_kseq_by_text = {  # upper "j́" is "J́" len 2 decode, led by plain U+004A 'J'
             # ⌥E
             "á": "⌥E A",  # ⌥⇧Y is Á is ⌥E ⇧A
@@ -3909,7 +3951,9 @@ class KeyboardDecoder:
                         decode_by_kseq[shift] = up
                         d[up].append(shift)
 
+        #
         # Add the "Use Option as Meta key" of macOS Terminal
+        #
 
         for code in range(0, 0x7F + 1):
             if code not in (0, 0x1E):  # ⎋⌃␢ and ⎋⌃⇧@ and ⎋⌃⇧^ don't
@@ -3944,7 +3988,9 @@ class KeyboardDecoder:
 
             # ⎋← hides behind ⎋B behind ⌥←, ⎋→ hides behind ⎋F behind ⌥→
 
+        #
         # Convert to immutable Tuples from mutable Lists
+        #
 
         for text, kseq_list in d.items():
             assert text not in kseqs_by_decode, (text, kseqs_by_decode[text], kseq_list)
@@ -3966,7 +4012,7 @@ CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R
 
 DSR0 = "\033[" "0n"  # DSR_PS Ps 0
 
-_NorthwestArrow_ = "\033[↖"  # ⎋ [ ↖↗↘↙  # not yet standard
+_NorthwestArrow_ = "\033[↖"  # ⎋[ ↖↗↘↙  # not yet standard
 _NortheastArrow_ = "\033[↗"
 _SoutheastArrow_ = "\033[↘"
 _SouthwestArrow_ = "\033[↙"
@@ -4333,7 +4379,7 @@ class KeyByteFrame:
             head.extend(data)
             return b""
 
-            # doesn't take ⇧M after \⎋ [ here
+            # doesn't take ⇧M after \⎋[ here
 
         # Take ⎋ Esc as an Emacs Meta Byte before 1..4 Bytes
 
@@ -5103,7 +5149,7 @@ def _try_unicode_source_texts_() -> None:
     # The Apple MacBook Keyboard
     #
     #   does send its ← ↑ → ↓ keys classically encoded as ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
-    #   doesn't send its ↖ ↗ ↘ ↙ double key jams encoded as ⎋ [ U+2196..U+2199 Diagonal Arrows
+    #   doesn't send its ↖ ↗ ↘ ↙ double key jams encoded as ⎋[ U+2196..U+2199 Diagonal Arrows
     #
     # June/1993 Unicode 1.1.0 gave us ↖ ↗ ↘ ↙, among its U+2190 .. U+219F Symbols And Arrows
     #
