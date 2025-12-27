@@ -779,7 +779,7 @@ class KeycapsGame:
 
         # Schedule tests
 
-        tested_shifters = [""] + "  ⎋ ⌃ ⌥ ⇧  ".split()
+        tested_shifters = [""] + "⎋ ⌃ ⌥ ⇧".split() + "⌥⇧".split()
         assert shifters in tested_shifters, (shifters, tested_shifters)
 
         # Scroll to make Rows in the South, if need be, like after:  seq 987
@@ -849,7 +849,7 @@ class KeycapsGame:
         # Add Key Caps
 
         keyboard = self.ShiftedKeyboard
-        if shifters != "⇧":
+        if "⇧" not in shifters:
 
             keyboard = self.PlainKeyboard
             if shifters:
@@ -3683,6 +3683,9 @@ class KeyboardDecoder:
                 kcap = "⌃⌥⇧" + t
                 d[kcap] = t
 
+        if not flags.ghostty:
+            d["⌥⇧~"] = "`"
+
     def _add_common_named_keys_(self) -> None:  # noqa  # C901 complex  # todo:
         """Add the Esc, Tab, Delete, Return, Black Spacebar, and Arrow Key Chords"""
 
@@ -3701,6 +3704,7 @@ class KeyboardDecoder:
             esc["⌃⎋"] = esc["⎋"]
             esc["⌥⎋"] = esc["⎋"]
             esc["⇧⎋"] = esc["⎋"]
+            esc["⌥⇧⎋"] = esc["⎋"]
 
         # Encode Backwards Delete
 
@@ -3708,6 +3712,7 @@ class KeyboardDecoder:
             "⌫": "\177",  # Delete for ⌃⇧?  # Erase To The Right
             "⌃⌫": "\010",  # ⌃Delete for ⌃H  # Erase To The Left
             "⌥⌫": "\033\177",  # ⎋⌫
+            "⌥⇧⌫": "\033\177",  # ⎋⌫
             "⇧⌫": "\177",
         }
 
@@ -3716,13 +3721,16 @@ class KeyboardDecoder:
 
         if flags.terminal or flags.i_term_app:
             delete["⌥⌫"] = delete["⌫"]
+            delete["⌥⇧⌫"] = delete["⌫"]
 
         # Encode Tab
+        # (for when not lost to Browser in ⌃M Mode of Google Cloud Shell)
 
         tab = {
             "⇥": "\t",
             "⌃⇥": "\t",
             "⌥⇥": "\033\t",  # ⎋⇥
+            "⇧⇥": "\033[" "Z", # ⎋[ ⇧Z
         }
 
         if not flags.terminal:
@@ -3730,9 +3738,7 @@ class KeyboardDecoder:
 
         if not flags.ghostty:
             tab["⌥⇥"] = tab["⇥"]
-
-        if not flags.google:
-            tab["⇧⇥"] = "\033[" "Z"  # ⎋[ ⇧Z
+            tab["⌥⇧⇥"] = tab["⇧⇥"]
 
         # Encode Return
 
@@ -3740,6 +3746,7 @@ class KeyboardDecoder:
             "⏎": "\r",  # Return for ⌃M  # not Line Feed ⌃J  # not CR LF ⌃M ⌃J
             "⌃⏎": "\033[" "27;5;13~",  # ⎋[ 27;5;13⇧~  # 13 == 0x040 ^ ord("M")
             "⌥⏎": "\033\r",  # ⎋⏎
+            "⌥⇧⏎": "\033\r",  # ⎋⏎
             "⇧⏎": "\033[" "27;2;13~",  # ⎋[ 27;2;13⇧~  # 13 == 0x040 ^ ord("M")
         }
 
@@ -3752,6 +3759,7 @@ class KeyboardDecoder:
 
         if flags.terminal or flags.i_term_app:
             _return_["⌥⏎"] = _return_["⏎"]
+            _return_["⌥⇧⏎"] = _return_["⏎"]
 
         # Encode Spacebar
 
@@ -3763,6 +3771,7 @@ class KeyboardDecoder:
 
         if not flags.ghostty:
             spacebar["⌥␢"] = "\240"  # U+00A0 No-Break Space Blank
+            spacebar["⌥⇧␢"] = "\240"  # U+00A0 No-Break Space Blank
 
         # Encode the Cardinal Arrows & Intercardinal Arrows, but no ⌃ Arrows
 
@@ -3776,6 +3785,11 @@ class KeyboardDecoder:
             "⇧↓": "\033[" "1;2" "B",  # ⎋[1;2⇧C
             "⇧→": "\033[" "1;2" "C",  # ⎋[1;2⇧C
             "⇧←": "\033[" "1;2" "D",  # ⎋[1;2⇧D
+            #
+            "⌥⇧↑": "\033[" "1;4" "A",  # ⎋[1;4⇧A
+            "⌥⇧↓": "\033[" "1;4" "B",  # ⎋[1;4⇧C
+            "⌥⇧→": "\033[" "1;4" "C",  # ⎋[1;4⇧C
+            "⌥⇧←": "\033[" "1;4" "D",  # ⎋[1;4⇧D
             #
             "↖": "\033[" "↖",  # ⎋[↖    # Intercardinal Arrows not yet standard
             "↗": "\033[" "↗",  # ⎋[↗
@@ -3797,10 +3811,10 @@ class KeyboardDecoder:
                     "⌥↘": "\033[" "1;3" "↘",  # ⎋[↘
                     "⌥↙": "\033[" "1;3" "↙",  # ⎋[↙
                     #
-                    "⎋↖": "\033[" "\033[" "A",  # ⎋⎋[⇧A
-                    "⎋↗": "\033[" "\033[" "B",  # ⎋⎋[⇧B
-                    "⎋↘": "\033[" "\033[" "C",  # ⎋⎋[⇧C
-                    "⎋↙": "\033[" "\033[" "D",  # ⎋⎋[⇧D
+                    "⎋↖": "\033[" "\033[" "↖",  # ⎋⎋[⇧↖
+                    "⎋↗": "\033[" "\033[" "↗",  # ⎋⎋[⇧↗
+                    "⎋↘": "\033[" "\033[" "↘",  # ⎋⎋[⇧↘
+                    "⎋↙": "\033[" "\033[" "↙",  # ⎋⎋[⇧↙
                 }
             )
 
@@ -3811,14 +3825,30 @@ class KeyboardDecoder:
                     "⌥↓": "\033[" "1;3" "B",  # ⎋[1;3⇧C
                     "⌥→": "\033[" "1;3" "C",  # ⎋[1;3⇧C
                     "⌥←": "\033[" "1;3" "D",  # ⎋[1;3⇧D
+                    #
+                    "⌥⇧↑": "\033[" "1;4" "A",  # ⎋[1;4⇧A
+                    "⌥⇧↓": "\033[" "1;4" "B",  # ⎋[1;4⇧C
+                    "⌥⇧→": "\033[" "1;4" "C",  # ⎋[1;4⇧C
+                    "⌥⇧←": "\033[" "1;4" "D",  # ⎋[1;4⇧D
                 }
             )
 
         if flags.terminal:
             arrows["⇧↑"] = arrows["↑"]
             arrows["⇧↓"] = arrows["↓"]
+            #
             arrows["⌥↑"] = arrows["↑"]
             arrows["⌥↓"] = arrows["↓"]
+            #
+            arrows["⌥⇧↑"] = arrows["↑"]
+            arrows["⌥⇧↓"] = arrows["↓"]
+            arrows["⌥⇧→"] = arrows["→"]
+            arrows["⌥⇧←"] = arrows["←"]
+            #
+            arrows["⌥⇧↖"] = arrows["↖"]
+            arrows["⌥⇧↗"] = arrows["↗"]
+            arrows["⌥⇧↘"] = arrows["↘"]
+            arrows["⌥⇧↙"] = arrows["↙"]
 
         if flags.terminal or flags.ghostty:
             arrows["⌥→"] = "\033f"
@@ -3829,10 +3859,16 @@ class KeyboardDecoder:
             arrows["⇧↓"] = ""
             arrows["⇧→"] = ""
             arrows["⇧←"] = ""
+            #
             arrows["⌥↑"] = "\033" + arrows["↑"]
             arrows["⌥↓"] = "\033" + arrows["↓"]
             arrows["⌥→"] = "\033" + arrows["→"]
             arrows["⌥←"] = "\033" + arrows["←"]
+            #
+            arrows["⌥⇧↑"] = ""
+            arrows["⌥⇧↓"] = ""
+            arrows["⌥⇧→"] = ""
+            arrows["⌥⇧←"] = ""
 
         # Add these Byte Encodes of these Key Chords
 
