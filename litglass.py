@@ -1030,6 +1030,8 @@ class KeycapsGame:
             return False
 
         if shifters == "⌃":
+            if "⌃⇧⇥" in kseqs:
+                return False
             if "⌃⌥⇧" in shifters_list:  # ⌃⌥⇧ 2 4 6 8 /
                 if flags.i_term_app:
                     return False
@@ -1112,10 +1114,13 @@ class KeycapsGame:
         (_shifters_, _cap_) = kd.kseq_to_shifters_cap(kseq)
 
         if not flags.ghostty:
+            if kseq == "⇧⇥":
+                if shifters == "⌃":
+                    return ("⌃", "⇥")
             if kseq == "⌃⇧@":
-                (_shifters_, _cap_) = ("⌃", "⇧@")
+                return ("⌃", "⇧@")
             if kseq == "⌃⇧^":
-                (_shifters_, _cap_) = ("⌃", "⇧^")
+                return ("⌃", "⇧^")
 
         if shifters == "⌃":
             if _shifters_ == "⌃⌥⇧":  # ⌃⌥⇧ 2 4 6 8 /
@@ -3669,7 +3674,7 @@ class KeyboardDecoder:
         if flags.google:
 
             d["⌃B"] = ""  # lost to browser's TMux ⌃B ⌃B at Google Cloud Shell
-            d["⌃M"] = ""  # lost to browser
+            d["⌃M"] = ""  # lost to browser at Google Cloud Shell
 
             d["⌃-"] = ""  # send no bytes
 
@@ -3742,10 +3747,11 @@ class KeyboardDecoder:
         }
 
         if not flags.terminal:
-            tab["⌃⇥"] = ""  # sends no bytes  # lost to browser
+            tab["⌃⇥"] = ""  # sends no bytes
 
         if not flags.ghostty:
             tab["⌥⇥"] = tab["⇥"]
+            tab["⌃⇧⇥"] = tab["⇧⇥"]
             tab["⌥⇧⇥"] = tab["⇧⇥"]
 
         # Encode Return
