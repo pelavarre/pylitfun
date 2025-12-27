@@ -3582,6 +3582,11 @@ class KeyboardDecoder:
     decode_by_kseq: dict[str, str]
     kseqs_by_decode: dict[str, tuple[str, ...]]
 
+    #
+    # Add the Key Cap Sequences at US MacBook,
+    #       across Apple macOS Terminal, macOS iTerm2, macOS Ghostty, & Google Cloud Shell
+    #
+
     def __init__(self) -> None:
 
         KeyboardDecoder.selves.append(self)
@@ -3595,86 +3600,6 @@ class KeyboardDecoder:
         self._add_esc_keys_()
 
         self._invert_decode_by_kseq_()
-
-        # todo1: disentangle 'def __init__' vs 'def __add_...' vs 'def _invert_...'
-
-    #
-    # Speak of a Byte Encoding as a Sequence of Chords of Key Caps
-    #
-
-    def frame_to_echo(self, data: bytes) -> str:
-        """Form a brief Repr of one Input Frame"""
-
-        assert data, (data,)
-
-        box = BytesBox(data)
-        text = box.text
-
-        # Show Key Caps, if available as ⌫ ⇧⇥ ⇥ etc, except show ⏎ as ⌃M
-
-        kseqs = self.bytes_to_kseqs_if(data)
-        if kseqs:
-            echo = kseqs[0]
-            assert echo.isprintable(), (echo,)
-            return echo  # ⌫  # ⇧⇥  # ⇥  # ⏎
-
-        # Show the unquoted Repr, if not decodable
-
-        if not text:
-            echo = repr(data)[1:-1]
-            assert echo.isprintable(), (echo,)
-            return echo
-
-        # Show one Key Cap per Character, if decodable
-
-        echo = ""
-        for t in text:
-            encode = t.encode()
-            kseqs = self.bytes_to_kseqs_if(encode)
-            kseq = kseqs[0] if kseqs else repr(t)[1:-1]
-            echo += kseq
-
-        assert echo.isprintable(), (echo,)
-        return echo
-
-    def kseq_to_shifters_cap(self, kseq: str) -> tuple[str, str]:
-        """Split out the Shifters at left, and add 'Fn' if Fn"""
-
-        shifters = ""
-        for t in kseq:
-            if t not in "⎋ ⌃ ⌥ ⇧ Fn".split():
-                break
-            shifters += t
-
-        cap = kseq[len(shifters) :]
-        if not cap and shifters.endswith("⎋"):
-            shifters = str_removesuffix(shifters, suffix="⎋")
-            cap = "⎋"
-        elif cap.startswith("F") and (cap != "F"):
-            shifters += "Fn"
-            if cap == "Fn":
-                cap = ""
-
-        return (shifters, cap)
-
-        # ('⇧', '⎋')  # ('Fn', '')  # ('⌃⇧', '@')  # ('⇧Fn', 'F1')
-
-    def bytes_to_kseqs_if(self, data: bytes) -> tuple[str, ...]:
-        """Speak of a Byte Encoding as a Sequence of Chords of Key Caps"""
-
-        text = data.decode()
-
-        kseqs_by_decode = self.kseqs_by_decode
-
-        if text in kseqs_by_decode.keys():
-            kseqs = kseqs_by_decode.get(text, tuple())
-            return kseqs
-
-        return tuple()
-
-    #
-    # Add the Key Cap Sequences for US-Ascii at MacBook
-    #
 
     def _add_common_text_keys_(self) -> None:
         """Add the Control, Shift, and Unshifted Key Chords"""
@@ -4111,6 +4036,80 @@ class KeyboardDecoder:
             kseqs_by_decode[text] = tuple(kseq_list)
 
         # no explicit mention of upper case ÁÉÍJ́ÓÚ ÂÊÎÔÛ ÃÑÕ ÄËÏÖÜŸ ÀÈÌÒÙ
+
+    #
+    # Speak of a Byte Encoding as a Sequence of Chords of Key Caps
+    #
+
+    def bytes_to_kseqs_if(self, data: bytes) -> tuple[str, ...]:
+        """Speak of a Byte Encoding as a Sequence of Chords of Key Caps"""
+
+        text = data.decode()
+
+        kseqs_by_decode = self.kseqs_by_decode
+
+        if text in kseqs_by_decode.keys():
+            kseqs = kseqs_by_decode.get(text, tuple())
+            return kseqs
+
+        return tuple()
+
+    def kseq_to_shifters_cap(self, kseq: str) -> tuple[str, str]:
+        """Split out the Shifters at left, and add 'Fn' if Fn"""
+
+        shifters = ""
+        for t in kseq:
+            if t not in "⎋ ⌃ ⌥ ⇧ Fn".split():
+                break
+            shifters += t
+
+        cap = kseq[len(shifters) :]
+        if not cap and shifters.endswith("⎋"):
+            shifters = str_removesuffix(shifters, suffix="⎋")
+            cap = "⎋"
+        elif cap.startswith("F") and (cap != "F"):
+            shifters += "Fn"
+            if cap == "Fn":
+                cap = ""
+
+        return (shifters, cap)
+
+        # ('⇧', '⎋')  # ('Fn', '')  # ('⌃⇧', '@')  # ('⇧Fn', 'F1')
+
+    def frame_to_echo(self, data: bytes) -> str:
+        """Form a brief Repr of one Input Frame"""
+
+        assert data, (data,)
+
+        box = BytesBox(data)
+        text = box.text
+
+        # Show Key Caps, if available as ⌫ ⇧⇥ ⇥ etc, except show ⏎ as ⌃M
+
+        kseqs = self.bytes_to_kseqs_if(data)
+        if kseqs:
+            echo = kseqs[0]
+            assert echo.isprintable(), (echo,)
+            return echo  # ⌫  # ⇧⇥  # ⇥  # ⏎
+
+        # Show the unquoted Repr, if not decodable
+
+        if not text:
+            echo = repr(data)[1:-1]
+            assert echo.isprintable(), (echo,)
+            return echo
+
+        # Show one Key Cap per Character, if decodable
+
+        echo = ""
+        for t in text:
+            encode = t.encode()
+            kseqs = self.bytes_to_kseqs_if(encode)
+            kseq = kseqs[0] if kseqs else repr(t)[1:-1]
+            echo += kseq
+
+        assert echo.isprintable(), (echo,)
+        return echo
 
 
 _FactorMark_ = "\025"  # 01/05 ⌃U Emacs Global-Map Universal-Argument
