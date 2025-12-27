@@ -849,6 +849,8 @@ class KeycapsGame:
                 keyboard = keyboard.upper()
                 keyboard = keyboard.replace("Spacebar".upper(), "Spacebar")
             if self_shifters == "⌃":
+                if "⌃2" not in decode_by_kseq.keys():
+                    keyboard = keyboard.replace("  2  ", " ⇧@  ")
                 if "⌃6" not in decode_by_kseq.keys():
                     keyboard = keyboard.replace("  6  ", " ⇧^  ")
 
@@ -864,6 +866,8 @@ class KeycapsGame:
 
                     tangible = True
                     (shifters, cap) = kd.kseq_to_shifters_cap(kseq_plus)
+                    if kseq_plus == "⌃⇧@":
+                        (shifters, cap) = ("⌃", "⇧@")
                     if kseq_plus == "⌃⇧^":
                         (shifters, cap) = ("⌃", "⇧^")
 
@@ -874,12 +878,13 @@ class KeycapsGame:
                             tangible = False
 
             if not tangible:
-                if kseq != shifters:
+                if kseq != self_shifters:
                     count_eq_1 = 1
                     keyboard = keyboard.replace(kseq, repl, count_eq_1)
 
         if self_shifters == "⌃":
             keyboard = keyboard.replace("⇧", " ")
+            keyboard = keyboard.replace("  @  ", " ⇧@  ")
             keyboard = keyboard.replace("  ^  ", " ⇧^  ")
 
         return keyboard
@@ -1046,6 +1051,8 @@ class KeycapsGame:
         shifters = self.shifters
         for kseq in kseqs:
             (kseq_shifters, cap) = kd.kseq_to_shifters_cap(kseq)
+            if kseq == "⌃⇧@":
+                (kseq_shifters, cap) = ("⌃", "⇧@")
             if kseq == "⌃⇧^":
                 (kseq_shifters, cap) = ("⌃", "⇧^")
             if shifters == "⌃":
@@ -5496,7 +5503,6 @@ if __name__ == "__main__":
 
 # todo1: Port --egg=keycaps across the 32 Keyboards of 2 ** (⎋ ⌃ ⌥ ⇧ Fn)
 
-# todo1: Terminal ⌃⇧@ should look like ⌃⇧^
 # todo1: Ghostty ⌃⇧_ should toggle 7 - / not just 7 /
 # todo1: Take up the many many 2 ** (⎋ ⌃ ⇧) Letter Keys of Ghostty
 # todo1: Take up the Fn Keys
