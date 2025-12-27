@@ -767,7 +767,7 @@ class KeycapsGame:
         kr = tb.keyboard_reader
 
         shifters = self.shifters
-        assert shifters in ("", "⌃", "⌥", "⇧"), (shifters,)
+        assert shifters in ("", "⎋", "⌃", "⌥", "⇧"), (shifters,)
 
         tb = self.terminal_boss
         sw = tb.screen_writer
@@ -3505,8 +3505,12 @@ class KeyboardDecoder:
 
         self._add_common_named_keys_()
         self._add_common_text_keys_()
+        self._add_option_keys_()
+        self._add_esc_keys_()
 
         self._invert_decode_by_kseq_()
+
+        # todo1: disentangle 'def __init__' vs 'def __add_...' vs 'def _invert_...'
 
     #
     # Speak of a Byte Encoding as a Sequence of Chords of Key Caps
@@ -3734,18 +3738,16 @@ class KeyboardDecoder:
         if flags.terminal or flags.i_term_app:
             _return_["⌥⏎"] = _return_["⏎"]
 
-
         # Encode Spacebar
 
         spacebar = {
             "␢": "\040",  # Blank Spacebar for ⌃`  # Blank Symbol
             "⌃␢": "\0",  # ⌃⇧@
             "⇧␢": "\040",
-            "⌥␢": "\240",  # U+00A0 No-Break Space Blank  # todo1:
         }
 
-        if flags.ghostty:
-            spacebar["⌥␢"] = "\033\040"  # ⎋␢
+        if not flags.ghostty:
+            spacebar["⌥␢"] = "\240"  # U+00A0 No-Break Space Blank
 
         # Encode the Cardinal Arrows & Intercardinal Arrows, but no ⌃ Arrows
 
@@ -3759,11 +3761,6 @@ class KeyboardDecoder:
             "⇧↓": "\033[" "1;2" "B",  # ⎋[1;2⇧C
             "⇧→": "\033[" "1;2" "C",  # ⎋[1;2⇧C
             "⇧←": "\033[" "1;2" "D",  # ⎋[1;2⇧D
-            #
-            "⌥↑": "\033[" "1;3" "A",  # ⎋[1;3⇧A
-            "⌥↓": "\033[" "1;3" "B",  # ⎋[1;3⇧C
-            "⌥→": "\033[" "1;3" "C",  # ⎋[1;3⇧C
-            "⌥←": "\033[" "1;3" "D",  # ⎋[1;3⇧D
             #
             "↖": "\033[" "↖",  # ⎋[↖    # Intercardinal Arrows not yet standard
             "↗": "\033[" "↗",  # ⎋[↗
@@ -3779,7 +3776,22 @@ class KeyboardDecoder:
             "⌥↗": "\033[" "1;3" "↗",  # ⎋[↗
             "⌥↘": "\033[" "1;3" "↘",  # ⎋[↘
             "⌥↙": "\033[" "1;3" "↙",  # ⎋[↙
+            #
+            "⎋↖": "\033[" "\033[" "A",  # ⎋⎋[⇧A
+            "⎋↗": "\033[" "\033[" "B",  # ⎋⎋[⇧B
+            "⎋↘": "\033[" "\033[" "C",  # ⎋⎋[⇧C
+            "⎋↙": "\033[" "\033[" "D",  # ⎋⎋[⇧D
         }
+
+        if not flags.ghostty:
+            arrows.update(
+                {
+                    "⌥↑": "\033[" "1;3" "A",  # ⎋[1;3⇧A
+                    "⌥↓": "\033[" "1;3" "B",  # ⎋[1;3⇧C
+                    "⌥→": "\033[" "1;3" "C",  # ⎋[1;3⇧C
+                    "⌥←": "\033[" "1;3" "D",  # ⎋[1;3⇧D
+                }
+            )
 
         if flags.terminal:
             arrows["⇧↑"] = arrows["↑"]
@@ -3788,8 +3800,8 @@ class KeyboardDecoder:
             arrows["⌥↓"] = arrows["↓"]
 
         if flags.terminal or flags.ghostty:
-            arrows["⌥→"] = '\033f'
-            arrows["⌥←"] = '\033b'
+            arrows["⌥→"] = "\033f"
+            arrows["⌥←"] = "\033b"
 
         if flags.google:
             arrows["⇧↑"] = arrows["↑"]
@@ -3827,22 +3839,14 @@ class KeyboardDecoder:
             assert k not in decode_by_kseq.keys(), (k,)
             decode_by_kseq[k] = v
 
-    #
-    # Index the Key Cap Sequences by their Decodes
-    #
-
     OptionAccents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧` ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
     OptionGraveGrave = "``"  # ⌥⇧` `
 
-    def _invert_decode_by_kseq_(self) -> None:
-        """Index the Key Cap Sequences by their Decodes"""
+    def _add_option_keys_(self) -> None:
 
         decode_by_kseq = self.decode_by_kseq
-        kseqs_by_decode = self.kseqs_by_decode
 
-        # Index the Sequences collected by now
-
-        d = collections.defaultdict(list)
+        d = collections.defaultdict(list)  # todo8: invert this less often
         for kseq, text in decode_by_kseq.items():
             d[text].append(kseq)
 
@@ -3880,8 +3884,6 @@ class KeyboardDecoder:
             assert kseq not in decode_by_kseq.keys(), (kseq,)
             decode_by_kseq[kseq] = text
 
-            d[text].append(kseq)
-
             # ⌥Y comes through as the U+005C Reverse-Solidus, not U+00A5 ¥ Yen-Sign
 
         assert plain_printables.count("¥") == 2  # ␢ ⌫
@@ -3891,7 +3893,6 @@ class KeyboardDecoder:
         text = "\\"
         assert kseq not in decode_by_kseq.keys(), (kseq,)
         decode_by_kseq[kseq] = text
-        d[text].append(kseq)
 
         option_kseq_by_text = {  # upper "j́" is "J́" len 2 decode, led by plain U+004A 'J'
             # ⌥E
@@ -3938,7 +3939,6 @@ class KeyboardDecoder:
                 assert decode_by_kseq[kseq] == text, (decode_by_kseq[kseq], text, kseq)
             else:
                 decode_by_kseq[kseq] = text
-                d[text].append(kseq)
 
             if " " in kseq:
                 up = text.upper()  # 'Á' from 'á'
@@ -3949,11 +3949,15 @@ class KeyboardDecoder:
                         assert decode_by_kseq[shift] == up, (decode_by_kseq[shift], up, shift)
                     else:
                         decode_by_kseq[shift] = up
-                        d[up].append(shift)
 
-        #
-        # Add the "Use Option as Meta key" of macOS Terminal
-        #
+    def _add_esc_keys_(self) -> None:
+        """Add the "Use Option as Meta key" of macOS Terminal"""
+
+        decode_by_kseq = self.decode_by_kseq
+
+        d = collections.defaultdict(list)  # todo8: invert this less often
+        for kseq, text in decode_by_kseq.items():
+            d[text].append(kseq)
 
         for code in range(0, 0x7F + 1):
             if code not in (0, 0x1E):  # ⎋⌃␢ and ⎋⌃⇧@ and ⎋⌃⇧^ don't
@@ -3969,8 +3973,6 @@ class KeyboardDecoder:
                     assert alt_kseq not in decode_by_kseq.keys(), (alt_kseq,)
                     decode_by_kseq[alt_kseq] = alt_decode
 
-                    d[alt_decode].append(alt_kseq)
-
                     # ⎋B hides behind ⌥←, ⎋F hides behind ⌥→
 
         kseqs = ("⇧⇥", "↑", "↓", "→", "←")
@@ -3980,17 +3982,33 @@ class KeyboardDecoder:
 
             alt_kseq = "⎋" + kseq  # '⎋␢'
             alt_decode = "\033" + text
+            if kseq in ("→", "←"):  # not '\033\033[C'  # not '\033\033[D'
+                if flags.terminal or flags.ghostty:  # not '\033\033f'  # not '\033\033b'
+                    alt_decode = "\033f" if (kseq == "→") else "\033b"
+                logger_print(f"{alt_kseq=} {alt_decode=}")
+            elif kseq in ("↑", "↓"):
+                if flags.ghostty:  # not '\033\033[A'  # not '\033\033[B'
+                    alt_decode = "\033[1;3A" if (kseq == "↑") else "\033[1;3B"
+                logger_print(f"{alt_kseq=} {alt_decode=}")
 
             assert alt_kseq not in decode_by_kseq.keys(), (alt_kseq,)
             decode_by_kseq[alt_kseq] = alt_decode
 
-            d[alt_decode].append(alt_kseq)
-
             # ⎋← hides behind ⎋B behind ⌥←, ⎋→ hides behind ⎋F behind ⌥→
 
-        #
+    def _invert_decode_by_kseq_(self) -> None:
+        """Index the Key Cap Sequences by their Decodes"""
+
+        decode_by_kseq = self.decode_by_kseq
+        kseqs_by_decode = self.kseqs_by_decode
+
+        # Index the Sequences collected by now
+
+        d = collections.defaultdict(list)
+        for kseq, text in decode_by_kseq.items():
+            d[text].append(kseq)
+
         # Convert to immutable Tuples from mutable Lists
-        #
 
         for text, kseq_list in d.items():
             assert text not in kseqs_by_decode, (text, kseqs_by_decode[text], kseq_list)
@@ -5406,7 +5424,7 @@ if __name__ == "__main__":
 
 # todo1: Port --egg=keycaps across the 32 Keyboards of 2 ** (⎋ ⌃ ⌥ ⇧ Fn)
 
-# todo1: Send ambiguities into where they fit, switch keyboards to random choice of elsewheres
+# todo1: Switch keyboards to random choice of elsewheres
 # todo1: Speak missed Keys as sourcelines to add
 # todo1: Draw the F11 as can't be reached, except indirectly via ⌥⇧F6 etc
 
