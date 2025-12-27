@@ -779,7 +779,7 @@ class KeycapsGame:
 
         # Schedule tests
 
-        tested_shifters = [""] + "⎋ ⌃ ⌥ ⇧".split() + "⌥⇧".split()
+        tested_shifters = [""] + "⎋ ⌃ ⌥ ⇧".split() + "⎋⇧ ⌥⇧".split()
         assert shifters in tested_shifters, (shifters, tested_shifters)
 
         # Scroll to make Rows in the South, if need be, like after:  seq 987
@@ -812,7 +812,7 @@ class KeycapsGame:
         dent = 4 * " "
         dedent = textwrap.dedent(keyboard).strip()
         if shifters == "⌃":
-            dedent += "\n\n"
+            dedent += "\n\n"  # all our ⌃ Keyboards have no ↖ ↗ ↘ ↙ Row
         splitlines = dedent.splitlines()
 
         # Print each Row
@@ -827,7 +827,9 @@ class KeycapsGame:
 
         # Print a Trailer in the far Southeast
 
-        sw.print()
+        sw.write_control("\033[K")
+        sw.write_some_controls(["\r", "\n"])
+
         sw.print("Press ⌃C")
         sw.print()
 
@@ -882,7 +884,6 @@ class KeycapsGame:
         kseqs = keyboard.split()
         for kseq in kseqs:
             kseq_plus = shifters + ("␢" if (kseq == "Spacebar") else kseq.upper())
-            repl = len(kseq) * " "
 
             tangible = False
             if kseq_plus in decode_by_kseq.keys():
@@ -897,7 +898,12 @@ class KeycapsGame:
                             tangible = False
 
             if not tangible:
-                if kseq != shifters:
+                if kseq not in tuple(shifters):
+
+                    repl = len(kseq) * " "
+                    if (kseq == "⌥") and ("⎋" in shifters):
+                        repl = "⎋"
+
                     count_eq_1 = 1
                     keyboard = keyboard.replace(kseq, repl, count_eq_1)
 
@@ -3602,9 +3608,13 @@ class KeyboardDecoder:
         self._add_common_named_keys_()
         self._add_common_text_keys_()
         self._add_option_keys_()
-        self._add_esc_keys_()
+        self._add_meta_keys_()
 
         self._invert_decode_by_kseq_()
+
+        d = self.decode_by_kseq
+        k = "⎋⇧⌫"
+        logger_print(f"{len(d)=} {d.get(k)!r}")
 
     def _add_common_text_keys_(self) -> None:
         """Add the Control, Shift, and Unshifted Key Chords"""
@@ -3689,9 +3699,7 @@ class KeyboardDecoder:
     def _add_common_named_keys_(self) -> None:  # noqa  # C901 complex  # todo:
         """Add the Esc, Tab, Delete, Return, Black Spacebar, and Arrow Key Chords"""
 
-        decode_by_kseq = self.decode_by_kseq
-
-        # Encode Esc
+        # Encode Esc  # apart from ._add_meta_keys_()
 
         esc = {
             "⎋": "\033",
@@ -3730,7 +3738,7 @@ class KeyboardDecoder:
             "⇥": "\t",
             "⌃⇥": "\t",
             "⌥⇥": "\033\t",  # ⎋⇥
-            "⇧⇥": "\033[" "Z", # ⎋[ ⇧Z
+            "⇧⇥": "\033[" "Z",  # ⎋[ ⇧Z
         }
 
         if not flags.terminal:
@@ -3795,6 +3803,11 @@ class KeyboardDecoder:
             "↗": "\033[" "↗",  # ⎋[↗
             "↘": "\033[" "↘",  # ⎋[↘
             "↙": "\033[" "↙",  # ⎋[↙
+            #
+            "⌥⇧↖": "\033[" "1;4" "↖",  # ⎋[1;4⇧A
+            "⌥⇧↗": "\033[" "1;4" "↗",  # ⎋[1;4⇧C
+            "⌥⇧↘": "\033[" "1;4" "↘",  # ⎋[1;4⇧C
+            "⌥⇧↙": "\033[" "1;4" "↙",  # ⎋[1;4⇧D
         }
 
         if not flags.google:
@@ -3883,9 +3896,7 @@ class KeyboardDecoder:
         d.update(spacebar)
         d.update(arrows)
 
-        for k, v in d.items():
-            assert k not in decode_by_kseq.keys(), (k,)
-            decode_by_kseq[k] = v
+        self._add_into_decode_by_kseq_(d_by_ks=d)
 
     def _add_into_decode_by_kseq_(self, d_by_ks: dict[str, str]) -> None:
         """Add more Key Cap Sequences"""
@@ -3893,7 +3904,7 @@ class KeyboardDecoder:
         decode_by_kseq = self.decode_by_kseq
 
         for k, v in d_by_ks.items():
-            assert k not in decode_by_kseq.keys(), (k,)
+            assert k not in decode_by_kseq.keys(), (k, decode_by_kseq[k])
             decode_by_kseq[k] = v
 
     OptionAccents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧` ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
@@ -3903,9 +3914,9 @@ class KeyboardDecoder:
 
         decode_by_kseq = self.decode_by_kseq
 
-        d = collections.defaultdict(list)  # todo8: invert this less often
+        di = collections.defaultdict(list)  # todo8: invert this less often
         for kseq, text in decode_by_kseq.items():
-            d[text].append(kseq)
+            di[text].append(kseq)
 
         # Add the ⌥ variants of Non-Blank Printable US-Ascii
 
@@ -3936,7 +3947,7 @@ class KeyboardDecoder:
             assert 0x20 == ord(" ") < ord(plain) <= ord("~") == 0x7E
             assert option not in plain_printables, (option,)
 
-            kseq = "⌥" + d[plain][0]
+            kseq = "⌥" + di[plain][0]
             text = option
 
             assert kseq not in decode_by_kseq.keys(), (kseq,)
@@ -4008,28 +4019,29 @@ class KeyboardDecoder:
                     else:
                         decode_by_kseq[shift] = up
 
-    def _add_esc_keys_(self) -> None:
+    def _add_meta_keys_(self) -> None:  # apart from ._add_common_named_keys_
         """Add the "Use Option as Meta key" of macOS Terminal"""
 
         decode_by_kseq = self.decode_by_kseq
 
-        d = collections.defaultdict(list)  # todo8: invert this less often
+        di = collections.defaultdict(list)  # todo8: invert this less often
         for kseq, text in decode_by_kseq.items():
-            d[text].append(kseq)
+            di[text].append(kseq)
 
         for code in range(0, 0x7F + 1):
             if code not in (0, 0x1E):  # ⎋⌃␢ and ⎋⌃⇧@ and ⎋⌃⇧^ don't
                 text = chr(code)
 
-                kseqs = tuple(d[text])
+                kseqs = tuple(di[text])
                 for kseq in kseqs:
                     assert " " not in kseq, (kseq,)
 
                     alt_kseq = "⎋" + kseq  # '⎋␢'
                     alt_decode = "\033" + text
 
-                    assert alt_kseq not in decode_by_kseq.keys(), (alt_kseq,)
-                    decode_by_kseq[alt_kseq] = alt_decode
+                    if alt_kseq != "⎋⇧⌫":
+                        assert alt_kseq not in decode_by_kseq.keys(), (alt_kseq,)
+                        decode_by_kseq[alt_kseq] = alt_decode
 
                     # ⎋B hides behind ⌥←, ⎋F hides behind ⌥→
 
@@ -4042,7 +4054,7 @@ class KeyboardDecoder:
 
             text = decode_by_kseq[kseq]
 
-            alt_kseq = "⎋" + kseq  # '⎋␢'
+            alt_kseq = "⎋" + kseq  # '⎋⇧⇥'
             alt_decode = "\033" + text
             if kseq in ("→", "←"):  # not '\033\033[C'  # not '\033\033[D'
                 if flags.terminal or flags.ghostty:  # not '\033\033f'  # not '\033\033b'
@@ -4058,6 +4070,28 @@ class KeyboardDecoder:
 
             # ⎋← hides behind ⎋B behind ⌥←, ⎋→ hides behind ⎋F behind ⌥→
 
+        # Add some ⎋⇧ Keys
+
+        d = decode_by_kseq
+
+        d_by_ks = {
+            "⎋⇧↑": "\033" + d["↑"],
+            "⎋⇧↓": "\033" + d["↓"],
+            "⎋⇧→": "\033" + d["→"],  # yes '\033\033[C'
+            "⎋⇧←": "\033" + d["←"],  # yes '\033\033[D'
+            #
+            "⎋⇧↖": "\033" + d["↖"],
+            "⎋⇧↗": "\033" + d["↗"],
+            "⎋⇧↘": "\033" + d["↘"],
+            "⎋⇧↙": "\033" + d["↙"],
+        }
+
+        d_by_ks["⎋⇧⌫"] = "\033\177"
+        if flags.terminal:
+            d_by_ks["⎋⇧⌫"] = "\033" + "\010"  # ⎋⌃H
+
+        self._add_into_decode_by_kseq_(d_by_ks)
+
     def _invert_decode_by_kseq_(self) -> None:
         """Index the Key Cap Sequences by their Decodes"""
 
@@ -4066,13 +4100,13 @@ class KeyboardDecoder:
 
         # Index the Sequences collected by now
 
-        d = collections.defaultdict(list)
+        di = collections.defaultdict(list)
         for kseq, text in decode_by_kseq.items():
-            d[text].append(kseq)
+            di[text].append(kseq)
 
         # Convert to immutable Tuples from mutable Lists
 
-        for text, kseq_list in d.items():
+        for text, kseq_list in di.items():
             assert text not in kseqs_by_decode, (text, kseqs_by_decode[text], kseq_list)
             kseqs_by_decode[text] = tuple(kseq_list)
 
