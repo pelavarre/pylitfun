@@ -794,7 +794,14 @@ class KeycapsGame:
 
         # Form the Rows of the Gameboards
 
+        enter = "\033[7m"  # ⎋[7m reverse
+        exit = "\033[27m"  # ⎋[27m reverse-not
+
         keyboard = self.kc_tangible_keyboard()
+        if self.shifters == "⌃":  # reverses the Exit Keys at ⌃C ⌃\ ⌃4
+            for cap in ("4", "C", "\\"):  # todo: assert these are the Exit Keys
+                repl = enter + cap + exit
+                keyboard = keyboard.replace(cap, repl)
 
         dent = 4 * " "
         dedent = textwrap.dedent(keyboard).strip()
@@ -806,9 +813,9 @@ class KeycapsGame:
 
         sw.print()
         for line in splitlines:
-            printable = dent + line + dent
+            text = dent + line + dent
 
-            sw.write_printable(printable)
+            sw.write_text(text)
             sw.write_control("\033[K")
             sw.write_some_controls(["\r", "\n"])
 
@@ -2736,7 +2743,7 @@ class ScreenWriter:
                 extras = frame.take_one_byte_if(byte)
                 ba[0:0] = extras
 
-            if frame.closed:
+            if frame.closed or not ba:
                 encodes = frame.encodes
                 box_text = encodes.decode()
                 if box_text:
@@ -5489,7 +5496,6 @@ if __name__ == "__main__":
 
 # todo1: Port --egg=keycaps across the 32 Keyboards of 2 ** (⎋ ⌃ ⌥ ⇧ Fn)
 
-# todo1: Bold the Exit Keys at ⌃C ⌃\ ⌃4
 # todo1: Terminal ⌃⇧@ should look like ⌃⇧^
 # todo1: Ghostty ⌃⇧_ should toggle 7 - / not just 7 /
 # todo1: Take up the many many 2 ** (⎋ ⌃ ⇧) Letter Keys of Ghostty
