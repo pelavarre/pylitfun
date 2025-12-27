@@ -901,23 +901,22 @@ class KeycapsGame:
             kseqs = kd.bytes_to_kseqs_if(frame)
 
             if not kseqs:
-                unhit_kseqs.append([frame, kseqs])
+                logger_print(f"{frame!r}  # dropped because undecodable")
             else:
                 switching = self.kc_switch_tab_if(kseqs)
                 if (not switching) or (switching and not tb.quitting):
-                    self.kc_press_keys_if(kseqs, unhit_kseqs)
+                    finds = self.kc_press_keys_if(kseqs, unhit_kseqs)
+                    logger_print(f"{frame!r} {finds} toggled")
 
         sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
-        if not unhit_kseqs:
-            logger_print(frames)
-        else:
+        if unhit_kseqs:
             if frames == (b"\003",):  # ⌃C
                 pass
             elif frames == (b"\034",):  # ⌃\
                 pass
             else:
-                self.kc_print(unhit_kseqs, "Key Cap not found", frames)
+                self.kc_print(unhit_kseqs, "not found", frames)
 
     def kc_print(self, *args: object) -> None:
 
@@ -993,6 +992,11 @@ class KeycapsGame:
         if shifters in shifters_list:
             return False
 
+        if shifters == "⌃":
+            if "⌃⌥⇧" in shifters_list:  # ⌃⌥⇧ 2 4 6 8 /
+                if flags.i_term_app:
+                    return False
+
         if tb.quitting:
             return True
 
@@ -1022,7 +1026,7 @@ class KeycapsGame:
 
     def kc_press_keys_if(  # noqa C901 too complex (27  # todo0:
         self, kseqs: tuple[str, ...], unhit_kseqs: list[object]
-    ) -> None:
+    ) -> list[str]:
         """Wipe out each Key Cap when pressed"""
 
         assert kseqs, (kseqs,)
@@ -1030,11 +1034,18 @@ class KeycapsGame:
         tb = self.terminal_boss
         kd = tb.keyboard_decoder
 
+        finds = list()
+
         shifters = self.shifters
         for kseq in kseqs:
             (kseq_shifters, cap) = kd.kseq_to_shifters_cap(kseq)
             if kseq == "⌃⇧^":
                 (kseq_shifters, cap) = ("⌃", "⇧^")
+            if shifters == "⌃":
+                if kseq_shifters == "⌃⌥⇧":  # ⌃⌥⇧ 2 4 6 8 /
+                    if flags.i_term_app:
+                        assert cap in "2468/", (cap,)
+                        kseq_shifters = "⌃"
 
             findable = cap
             if not kseq_shifters:
@@ -1043,11 +1054,17 @@ class KeycapsGame:
                 findable = "Spacebar"
 
             if kseq_shifters != shifters:
-                unhit_kseqs.append([cap, kseq])
+                logger_print(f"{cap} {kseq}  # dropped for {kseq_shifters!r} vs {shifters!r}")
             else:
                 hits = self.kc_wipeout_else_restore(findable)
+                finds += hits * [findable]
                 if not hits:
-                    unhit_kseqs.append([cap, kseq])
+                    logger_print(f"{cap} {kseq}  # dropped for not found")
+
+        if not finds:
+            unhit_kseqs.extend(kseqs)
+
+        return finds
 
     def kc_wipeout_else_restore(self, findable: str) -> int:
         """Wipe out each Key Cap, or restore, when found"""
@@ -3700,6 +3717,12 @@ class KeyboardDecoder:
             d["⌃I"] = "\033[" "105;5" "u"  # ⎋[ 105;5U   # 105 == 0o151 == ord("i")
             d["⌃M"] = "\033[" "109;5" "u"  # ⎋[ 109;5U   # 109 == 0o155 == ord("m")
 
+        if flags.i_term_app:
+
+            for t in "2468/":  # ⌃⌥⇧ 2 4 6 8 /
+                kcap = "⌃⌥⇧" + t
+                d[kcap] = t
+
     def _add_common_named_keys_(self) -> None:  # noqa  # C901 complex  # todo:
         """Add the Esc, Tab, Delete, Return, Black Spacebar, and Arrow Key Chords"""
 
@@ -5465,6 +5488,12 @@ if __name__ == "__main__":
 
 
 # todo1: Port --egg=keycaps across the 32 Keyboards of 2 ** (⎋ ⌃ ⌥ ⇧ Fn)
+
+# todo1: Bold the Exit Keys at ⌃C ⌃\ ⌃4
+# todo1: Terminal ⌃⇧@ should look like ⌃⇧^
+# todo1: Ghostty ⌃⇧_ should toggle 7 - / not just 7 /
+# todo1: Take up the many many 2 ** (⎋ ⌃ ⇧) Letter Keys of Ghostty
+# todo1: Take up the Fn Keys
 
 # todo1: Switch keyboards to random choice of elsewheres
 # todo1: Speak missed Keys as sourcelines to add
