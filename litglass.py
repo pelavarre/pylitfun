@@ -901,8 +901,6 @@ class KeycapsGame:
                     count_eq_1 = 1
                     keyboard = keyboard.replace(kseq, repl, count_eq_1)
 
-                    logger_print(f"{kseq} {kseq_plus}  # blanked")
-
         if shifters == "⌃":
             keyboard = keyboard.replace("⇧", " ")
             keyboard = keyboard.replace("  @  ", " ⇧@  ")
@@ -939,7 +937,7 @@ class KeycapsGame:
                 switching = self.kc_switch_tab_if(kseqs)
                 if (not switching) or (switching and not tb.quitting):
                     finds = self.kc_press_keys_if(kseqs, unhit_kseqs)
-                    logger_print(f"{frame!r} {finds} toggled")
+                    logger_print(f"{frame!r} {kseqs} toggled {finds}")
 
         sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
@@ -1065,15 +1063,22 @@ class KeycapsGame:
 
         assert kseqs, (kseqs,)
 
+        alt_kseqs = kseqs
+        if kseqs == ("⌃/", "⌃7"):
+            alt_kseqs = ("⌃/", "⌃7", "⌃_")
+
         finds = list()
 
         shifters = self.shifters
-        for kseq in kseqs:
+        for kseq in alt_kseqs:
             (_shifters_, _cap_) = self._kc_kseq_to_shifters_cap_(kseq)
 
             findable = _cap_
             if not _shifters_:
                 findable = _cap_.lower()
+            if shifters == "⌃":
+                if _cap_ == "_":
+                    findable = "-"
             if _cap_ == "␢":
                 findable = "Spacebar"
 
@@ -5523,7 +5528,6 @@ if __name__ == "__main__":
 
 # todo1: Port --egg=keycaps across the 32 Keyboards of 2 ** (⎋ ⌃ ⌥ ⇧ Fn)
 
-# todo1: Ghostty ⌃⇧_ should toggle 7 - / not just 7 /
 # todo1: Take up the many many 2 ** (⎋ ⌃ ⇧) Letter Keys of Ghostty
 # todo1: Take up the Fn Keys
 
