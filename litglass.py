@@ -770,14 +770,15 @@ class KeycapsGame:
         kr = tb.keyboard_reader
 
         shifters = self.shifters
-        keyboard = self.tangible_keyboard
+        tangible_keyboard = self.tangible_keyboard
 
         tb = self.terminal_boss
         sw = tb.screen_writer
 
         assert EL_PS == "\033[" "{}" "K"
 
-        # Schedule tests
+        # Schedule tests of ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧  # todo1: ⎋⌃
+        # but only combo ⌥⇧ and no distinct combo ⌃⌥ ⌃⇧ ⌃⌥⇧ outside of Ghostty
 
         tested_shifters = [""] + "⎋ ⌃ ⌥ ⇧".split() + "⎋⇧ ⌥⇧".split()
         assert shifters in tested_shifters, (shifters, tested_shifters)
@@ -804,6 +805,7 @@ class KeycapsGame:
         enter = "\033[7m"  # ⎋[7m reverse
         exit = "\033[27m"  # ⎋[27m reverse-not
 
+        keyboard = tangible_keyboard
         if self.shifters == "⌃":  # reverses the Exit Keys at ⌃C ⌃\ ⌃4
             for cap in ("4", "C", "\\"):  # todo: assert these are the Exit Keys
                 repl = enter + cap + exit
@@ -811,8 +813,6 @@ class KeycapsGame:
 
         dent = 4 * " "
         dedent = textwrap.dedent(keyboard).strip()
-        if shifters == "⌃":
-            dedent += "\n\n"  # all our ⌃ Keyboards have no ↖ ↗ ↘ ↙ Row
         splitlines = dedent.splitlines()
 
         # Print each Row
@@ -866,11 +866,11 @@ class KeycapsGame:
 
         # Drop Key Caps
 
-        keyboard = self._kc_blank_the_intangible_keys_(keyboard)
+        tangible_keyboard = self._kc_blank_the_intangible_keys_(keyboard)
 
         # Succeed
 
-        return keyboard
+        return tangible_keyboard
 
     def _kc_blank_the_intangible_keys_(self, keyboard: str) -> str:
         """Blank out the intangible Key Caps"""
@@ -885,9 +885,15 @@ class KeycapsGame:
         for kseq in kseqs:
             kseq_plus = shifters + ("␢" if (kseq == "Spacebar") else kseq.upper())
 
+            kseq_plus_key = kseq_plus
+            if shifters == "⌃":
+                if not flags.ghostty:
+                    if kseq in tuple("←↑→↓" "↖↗↘↙"):
+                        kseq_plus_key = "⌃⇧" + kseq
+
             tangible = False
-            if kseq_plus in decode_by_kseq.keys():
-                decode = decode_by_kseq[kseq_plus]
+            if kseq_plus_key in decode_by_kseq.keys():
+                decode = decode_by_kseq[kseq_plus_key]
                 if decode:
 
                     tangible = True
@@ -1030,8 +1036,9 @@ class KeycapsGame:
             return False
 
         if shifters == "⌃":
-            if "⌃⇧⇥" in kseqs:
-                return False
+            if "⌃⇧" in shifters_list:
+                if not flags.ghostty:
+                    return False
             if "⌃⌥⇧" in shifters_list:  # ⌃⌥⇧ 2 4 6 8 /
                 if flags.i_term_app:
                     return False
@@ -1067,34 +1074,45 @@ class KeycapsGame:
     ) -> list[str]:
         """Wipe out each Key Cap when pressed"""
 
+        tangible_keyboard = self.tangible_keyboard
+
         assert kseqs, (kseqs,)
 
         alt_kseqs = kseqs
         if kseqs == ("⌃/", "⌃7"):
             alt_kseqs = ("⌃/", "⌃7", "⌃_")
 
-        finds = list()
-
+        findables = list()
         shifters = self.shifters
         for kseq in alt_kseqs:
             (_shifters_, _cap_) = self._kc_kseq_to_shifters_cap_(kseq)
+            if shifters == "⌃":
+                if _shifters_ == "⌃⇧":
+                    if not flags.ghostty:
+                        _shifters_ = "⌃"
 
             findable = _cap_
             if not _shifters_:
                 findable = _cap_.lower()
-            if shifters == "⌃":
-                if _cap_ == "_":
-                    findable = "-"
+
             if _cap_ == "␢":
                 findable = "Spacebar"
 
             if _shifters_ != shifters:
-                logger_print(f"{_cap_} {kseq}  # dropped for {_shifters_!r} vs {shifters!r}")
+                logger_print(f"{_cap_!r} {kseq!r}  # dropped for {_shifters_!r} vs {shifters!r}")
+            elif findable not in tangible_keyboard:
+                logger_print(f"{_cap_!r} {kseq!r} {findable!r}  # dropped for not found")
             else:
-                hits = self.kc_wipeout_else_restore(findable)
-                finds += hits * [findable]
-                if not hits:
-                    logger_print(f"{_cap_} {kseq}  # dropped for not found")
+                findables.append(findable)
+
+        distinct_findables = list(collections.Counter(findables).keys())
+
+        finds = list()
+        for findable in distinct_findables:
+            hits = self.kc_wipeout_else_restore(findable)
+            finds += hits * [findable]
+            if not hits:
+                logger_print(f"{findable!r}  # dropped for not hit")  # todo: never happens?
 
         if not finds:
             unhit_kseqs.extend(kseqs)
@@ -3692,6 +3710,8 @@ class KeyboardDecoder:
 
         if flags.i_term_app:
 
+            d["⌃`"] = "`"
+
             for t in "2468/":  # ⌃⌥⇧ 2 4 6 8 /
                 kcap = "⌃⌥⇧" + t
                 d[kcap] = t
@@ -3792,61 +3812,60 @@ class KeyboardDecoder:
             "↓": "\033[" "B",  # ⎋[⇧B
             "→": "\033[" "C",  # ⎋[⇧C
             "←": "\033[" "D",  # ⎋[⇧D
-            #
-            "⇧↑": "\033[" "1;2" "A",  # ⎋[1;2⇧A
-            "⇧↓": "\033[" "1;2" "B",  # ⎋[1;2⇧C
-            "⇧→": "\033[" "1;2" "C",  # ⎋[1;2⇧C
-            "⇧←": "\033[" "1;2" "D",  # ⎋[1;2⇧D
-            #
-            "⌥⇧↑": "\033[" "1;4" "A",  # ⎋[1;4⇧A
-            "⌥⇧↓": "\033[" "1;4" "B",  # ⎋[1;4⇧C
-            "⌥⇧→": "\033[" "1;4" "C",  # ⎋[1;4⇧C
-            "⌥⇧←": "\033[" "1;4" "D",  # ⎋[1;4⇧D
-            #
-            "↖": "\033[" "↖",  # ⎋[↖    # Intercardinal Arrows not yet standard
-            "↗": "\033[" "↗",  # ⎋[↗
-            "↘": "\033[" "↘",  # ⎋[↘
-            "↙": "\033[" "↙",  # ⎋[↙
-            #
-            "⌥⇧↖": "\033[" "1;4" "↖",  # ⎋[1;4⇧A
-            "⌥⇧↗": "\033[" "1;4" "↗",  # ⎋[1;4⇧C
-            "⌥⇧↘": "\033[" "1;4" "↘",  # ⎋[1;4⇧C
-            "⌥⇧↙": "\033[" "1;4" "↙",  # ⎋[1;4⇧D
         }
 
         if not flags.google:
             arrows.update(
                 {
+                    "↖": "\033[" "↖",  # ⎋[↖    # Intercardinal Arrows not yet standard
+                    "↗": "\033[" "↗",  # ⎋[↗
+                    "↘": "\033[" "↘",  # ⎋[↘
+                    "↙": "\033[" "↙",  # ⎋[↙
                     #
-                    "⇧↖": "\033[" "1;2" "↖",  # ⎋[↖  # Intercardinal Arrows not yet standard
-                    "⇧↗": "\033[" "1;2" "↗",  # ⎋[↗
-                    "⇧↘": "\033[" "1;2" "↘",  # ⎋[↘
-                    "⇧↙": "\033[" "1;2" "↙",  # ⎋[↙
+                    "⇧↑": "\033[" "1;2" "A",  # ⎋[1;2⇧A
+                    "⇧↓": "\033[" "1;2" "B",  # ⎋[1;2⇧C
+                    "⇧→": "\033[" "1;2" "C",  # ⎋[1;2⇧C
+                    "⇧←": "\033[" "1;2" "D",  # ⎋[1;2⇧D
                     #
-                    "⌥↖": "\033[" "1;3" "↖",  # ⎋[↖  # Intercardinal Arrows not yet standard
-                    "⌥↗": "\033[" "1;3" "↗",  # ⎋[↗
-                    "⌥↘": "\033[" "1;3" "↘",  # ⎋[↘
-                    "⌥↙": "\033[" "1;3" "↙",  # ⎋[↙
+                    "⇧↖": "\033[" "1;2" "↖",  # ⎋[1;2↖
+                    "⇧↗": "\033[" "1;2" "↗",  # ⎋[1;2↗
+                    "⇧↘": "\033[" "1;2" "↘",  # ⎋[1;2↘
+                    "⇧↙": "\033[" "1;2" "↙",  # ⎋[1;2↙
                     #
-                    "⎋↖": "\033[" "\033[" "↖",  # ⎋⎋[⇧↖
-                    "⎋↗": "\033[" "\033[" "↗",  # ⎋⎋[⇧↗
-                    "⎋↘": "\033[" "\033[" "↘",  # ⎋⎋[⇧↘
-                    "⎋↙": "\033[" "\033[" "↙",  # ⎋⎋[⇧↙
-                }
-            )
-
-        if not flags.ghostty:
-            arrows.update(
-                {
                     "⌥↑": "\033[" "1;3" "A",  # ⎋[1;3⇧A
                     "⌥↓": "\033[" "1;3" "B",  # ⎋[1;3⇧C
                     "⌥→": "\033[" "1;3" "C",  # ⎋[1;3⇧C
                     "⌥←": "\033[" "1;3" "D",  # ⎋[1;3⇧D
                     #
+                    "⌥↖": "\033[" "1;3" "↖",  # ⎋[1;3↖
+                    "⌥↗": "\033[" "1;3" "↗",  # ⎋[1;3↗
+                    "⌥↘": "\033[" "1;3" "↘",  # ⎋[1;3↘
+                    "⌥↙": "\033[" "1;3" "↙",  # ⎋[1;3↙
+                    #
                     "⌥⇧↑": "\033[" "1;4" "A",  # ⎋[1;4⇧A
                     "⌥⇧↓": "\033[" "1;4" "B",  # ⎋[1;4⇧C
                     "⌥⇧→": "\033[" "1;4" "C",  # ⎋[1;4⇧C
                     "⌥⇧←": "\033[" "1;4" "D",  # ⎋[1;4⇧D
+                    #
+                    "⌥⇧↖": "\033[" "1;4" "↖",  # ⎋[1;4⇧A
+                    "⌥⇧↗": "\033[" "1;4" "↗",  # ⎋[1;4⇧C
+                    "⌥⇧↘": "\033[" "1;4" "↘",  # ⎋[1;4⇧C
+                    "⌥⇧↙": "\033[" "1;4" "↙",  # ⎋[1;4⇧D
+                    #
+                    "⌃⇧↑": "\033[" "1;6" "A",  # ⎋[1;6⇧A
+                    "⌃⇧↓": "\033[" "1;6" "B",  # ⎋[1;6⇧C
+                    "⌃⇧→": "\033[" "1;6" "C",  # ⎋[1;6⇧C
+                    "⌃⇧←": "\033[" "1;6" "D",  # ⎋[1;6⇧D
+                    #
+                    "⌃⇧↖": "\033[" "1;6" "↖",  # ⎋[1;6↖
+                    "⌃⇧↗": "\033[" "1;6" "↗",  # ⎋[1;6↗
+                    "⌃⇧↘": "\033[" "1;6" "↘",  # ⎋[1;6↘
+                    "⌃⇧↙": "\033[" "1;6" "↙",  # ⎋[1;6↙
+                    #
+                    "⎋↖": "\033[" "\033[" "↖",  # ⎋⎋[⇧↖
+                    "⎋↗": "\033[" "\033[" "↗",  # ⎋⎋[⇧↗
+                    "⎋↘": "\033[" "\033[" "↘",  # ⎋⎋[⇧↘
+                    "⎋↙": "\033[" "\033[" "↙",  # ⎋⎋[⇧↙
                 }
             )
 
@@ -3856,6 +3875,8 @@ class KeyboardDecoder:
             #
             arrows["⌥↑"] = arrows["↑"]
             arrows["⌥↓"] = arrows["↓"]
+            arrows["⌥→"] = "\033f"
+            arrows["⌥←"] = "\033b"
             #
             arrows["⌥⇧↑"] = arrows["↑"]
             arrows["⌥⇧↓"] = arrows["↓"]
@@ -3866,26 +3887,26 @@ class KeyboardDecoder:
             arrows["⌥⇧↗"] = arrows["↗"]
             arrows["⌥⇧↘"] = arrows["↘"]
             arrows["⌥⇧↙"] = arrows["↙"]
+            #
+            arrows["⌃⇧↑"] = arrows["↑"]
+            arrows["⌃⇧↓"] = arrows["↓"]
+            arrows["⌃⇧→"] = arrows["→"]
+            arrows["⌃⇧←"] = arrows["←"]
+            #
+            arrows["⌃⇧↖"] = arrows["↖"]
+            arrows["⌃⇧↗"] = arrows["↗"]
+            arrows["⌃⇧↘"] = arrows["↘"]
+            arrows["⌃⇧↙"] = arrows["↙"]
 
-        if flags.terminal or flags.ghostty:
+        if flags.ghostty:
             arrows["⌥→"] = "\033f"
             arrows["⌥←"] = "\033b"
 
         if flags.google:
-            arrows["⇧↑"] = ""
-            arrows["⇧↓"] = ""
-            arrows["⇧→"] = ""
-            arrows["⇧←"] = ""
-            #
             arrows["⌥↑"] = "\033" + arrows["↑"]
             arrows["⌥↓"] = "\033" + arrows["↓"]
             arrows["⌥→"] = "\033" + arrows["→"]
             arrows["⌥←"] = "\033" + arrows["←"]
-            #
-            arrows["⌥⇧↑"] = ""
-            arrows["⌥⇧↓"] = ""
-            arrows["⌥⇧→"] = ""
-            arrows["⌥⇧←"] = ""
 
         # Add these Byte Encodes of these Key Chords
 
@@ -3901,6 +3922,10 @@ class KeyboardDecoder:
         d.update(arrows)
 
         self._add_into_decode_by_kseq_(d_by_ks=d)
+
+        # todo: make a way to say ⌃⌥⇧F and ⌃⌥⇧B missing from Apple macOS Terminal
+        # todo: make a way to say ⌃⌥⇧ 3 5 7 mean 3 5 8 at macOS iTerm2
+        # todo: make a way to say we never speak of ⇧⌥⌃ ⇧⌥ ⇧⌃ ⌥⌃
 
     def _add_into_decode_by_kseq_(self, d_by_ks: dict[str, str]) -> None:
         """Add more Key Cap Sequences"""
@@ -5601,18 +5626,24 @@ if __name__ == "__main__":
 
 
 # todo1: Port --egg=keycaps across the 32 Keyboards of 2 ** (⎋ ⌃ ⌥ ⇧ Fn)
+# todo1: --egg=keycaps: add Key Caps of 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
 
+# todo1: Find the Cap to toggle it, else exit or switch Keyboards
+
+# todo1: Echo the Byte Code toggled
+
+# todo1: Split apart the ⌃ and ⌃⇧ Keyboards after all, especially for ⌃⇧^ without ⌃2
+# todo1: Take up the ⎋⌃ Keyboard
 # todo1: Take up the many many 2 ** (⎋ ⌃ ⇧) Letter Keys of Ghostty
 # todo1: Take up the Fn Keys
+
+# todo1: Solve iTerm2 Key Jams with ⎋[5N sent down, not written outside
+# todo1: Take up the Multichord Key Strikes with Shifter Keys
+# todo1: Take up the Intercardinal Arrows with Shifter Keys
 
 # todo1: Switch keyboards to random choice of elsewheres
 # todo1: Speak missed Keys as sourcelines to add
 # todo1: Draw the F11 as can't be reached, except indirectly via ⌥⇧F6 etc
-
-
-# todo2: drop Key Caps specific to macOS Terminal, when elsewhere
-# todo2: add iTerm2 Key Caps
-# todo2: add Google Cloud Shell Key Caps
 
 
 # todo6: take ⎋ or ⎋⎋ more as itself, don't force it into starting an Intricate Key Chord Sequence
@@ -5621,6 +5652,7 @@ if __name__ == "__main__":
 # todo6: <> could make button <F12> <⌥1⌥2⌥3>
 # todo6: revisit 'pm Tue 16/Dec' experiments in echo-in-place of Key Caps such as F12 and ⌥6⌥5
 
+
 # todo3: emulate macOS Terminal Writes at Google Cloud Shell OR vice versa
 # todo3: deletes while backlight, color filling from eastmost mirrored character write
 
@@ -5628,7 +5660,6 @@ if __name__ == "__main__":
 # todo8: take bracketed-paste as print vertically
 
 
-# todo9: --egg=keycaps: add Key Caps of 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
 # todo9: --egg=resize to fit the Terminal to the Gameboard and vice versa
 
 # todo9: pick apart text key jams and unbracketed text paste
