@@ -21,17 +21,31 @@ def func(o10: tuple[int, ...], o11: tuple[int, ...], o12: tuple[int, ...], t: st
     print(s, int(x), t, round(d10, 3), -round(d11, 3), round(d12, 3), o10, o11, o12)
 
 
+#
+
+# todo: Ghostty
+
+
+#
+
 t = "Dark iTerm2"
 func((0xDCAA, 0xDCAB, 0xDCAA), o11=(0x158E, 0x193A, 0x1E75), o12=(0xFFFD, 0xFFFE, 0xFFFe), t=t)
 
 t = "Light iTerm2"
 func((0x1010, 0x1010, 0x1010), o11=(0xFAE0, 0xFAE0, 0xFAE0), o12=(0x0000, 0x0000, 0x0000), t=t)
 
-t = "Dark Basic"
+
+#
+
+t = "Dark Basic"  # Basic in Darkmode
 func((0xFFFF, 0xFFFF, 0xFFFF), o11=(0x2020, 0x2020, 0x2020), o12=(0x9282, 0x9282, 0x9282), t=t)
 
-t = "Light Basic"
+t = "Light Basic"  # Basic in Lightmode
 func((0x0000, 0x0000, 0x0000), o11=(0xFFFF, 0xFFFF, 0xFFFF), o12=(0x9DD1, 0x9DD1, 0x9DD1), t=t)
+
+# todo: t = "Clear Dark"
+
+# todo: t = "Clear Light"
 
 t = "Grass"
 func((0xFFFF, 0xF0F0, 0xA5A5), o11=(0x1313, 0x7777, 0x3D3D), o12=(0x8E8E, 0x2828, 0x0000), t=t)
