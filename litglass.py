@@ -666,11 +666,11 @@ class KeycapsGame:
     game_yx: tuple[int, ...]  # Northwest Corner of the Gameboard
     scrollables: list[str]  # Rows of Messages
 
-    wipeout_set_by_shifters: dict[str, set[str]]
+    wipeouts_by_shifters: dict[str, list[str]]
 
     shifters: str
     tangible_keyboard: str
-    wipeout_set: set[str]  # Key Caps found and wiped, not yet found again and restored
+    wipeouts: list[str]  # Key Caps found and wiped, not yet found again and restored
 
     MAX_SCROLLABLES_3 = 3
 
@@ -707,16 +707,16 @@ class KeycapsGame:
         shifter_by_index = "⎋ ⌃ ⌥ ⇧ Fn".split()
         n = len(shifter_by_index)
 
-        d: dict[str, set[str]] = dict()
+        d: dict[str, list[str]] = dict()
         for bitsum in range(2**n):
             _shifters_ = ""
             for i in range(n):
                 if bitsum & (1 << i):
                     _shifters_ += shifter_by_index[i]  # ordered conventionally
 
-            d[_shifters_] = set()  # ['']  # ['⎋']  # ['⎋⌃']  # ['⌥']  # ...
+            d[_shifters_] = list()  # ['']  # ['⎋']  # ['⎋⌃']  # ['⌥']  # ...
 
-        wipeout_set_by_shifters = d
+        wipeouts_by_shifters = d
 
         # Init the Fields
 
@@ -726,11 +726,11 @@ class KeycapsGame:
         self.game_yx = tuple()
         self.scrollables = list()
 
-        self.wipeout_set_by_shifters = wipeout_set_by_shifters
+        self.wipeouts_by_shifters = wipeouts_by_shifters
 
         self.shifters = shifters
         self.tangible_keyboard = self.kc_tangible_keyboard()
-        self.wipeout_set = wipeout_set_by_shifters[shifters]
+        self.wipeouts = wipeouts_by_shifters[shifters]
 
     def kc_run_awhile(self) -> None:
         """Trace Key Releases till ⌃C"""
@@ -1002,12 +1002,12 @@ class KeycapsGame:
         tb = self.terminal_boss
         game_yx = self.game_yx
         shifters = self.shifters
-        wipeout_set = self.wipeout_set
-        wipeout_set_by_shifters = self.wipeout_set_by_shifters
+        wipeouts = self.wipeouts
+        wipeouts_by_shifters = self.wipeouts_by_shifters
 
         sw = tb.screen_writer
         (game_y, game_x) = game_yx
-        assert wipeout_set is wipeout_set_by_shifters[shifters]
+        assert wipeouts is wipeouts_by_shifters[shifters]
 
         # Don't switch Tabs when Keyboard Choice doesn't indisputably change
 
@@ -1048,19 +1048,17 @@ class KeycapsGame:
         self.shifters = next_shifters  # replaces
         self.tangible_keyboard = self.kc_tangible_keyboard()
 
-        wipeout_set = self.wipeout_set_by_shifters[next_shifters]  # replaces
-        self.wipeout_set = wipeout_set
+        wipeouts = self.wipeouts_by_shifters[next_shifters]  # replaces
+        self.wipeouts = wipeouts
 
         sw.write_control(f"\033[{game_y};{game_x}H")  # row-column-leap ⎋[⇧H
         self.kc_game_draw()
 
-        caps = sorted(wipeout_set)  # todo1: nahh get back to ordered list
-        wipeout_set.clear()
+        caps = list(wipeouts)
+        wipeouts.clear()
         for cap in caps:
             self.kc_wipeout_else_restore(cap)
-
-        recaps = sorted(wipeout_set)
-        assert recaps == caps, (recaps, caps)
+        assert wipeouts == caps, (wipeouts, caps)
 
         return True
 
@@ -1137,7 +1135,7 @@ class KeycapsGame:
         game_yx = self.game_yx
 
         keyboard = self.tangible_keyboard
-        wipeout_set = self.wipeout_set
+        wipeouts = self.wipeouts
 
         sw = tb.screen_writer
         (game_y, game_x) = game_yx
@@ -1172,13 +1170,13 @@ class KeycapsGame:
 
             # Restore this Key Cap later, else wipe it out to begin with
 
-            if findable in wipeout_set:
-                wipeout_set.remove(findable)
+            if findable in wipeouts:
+                wipeouts.remove(findable)
 
                 sw.write_printable(findable)
 
             else:
-                wipeout_set.add(findable)
+                wipeouts.append(findable)
 
                 width = len(findable)  # 1  # len("Spacebar")  # len("F12")
 
