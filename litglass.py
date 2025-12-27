@@ -3639,9 +3639,6 @@ class KeyboardDecoder:
                 assert kcap not in d.keys(), (kcap,)
                 d[kcap] = text
 
-        if flags.i_term_app:
-            d["`"] = "`"
-
         if flags.i_term_app or flags.ghostty:
 
             for t in "190=;',.":
@@ -3649,13 +3646,23 @@ class KeyboardDecoder:
                 d[kcap] = t
 
             d["⌃2"] = d["⌃⇧@"]
+            d["⌃/"] = d["⌃-"]
+
+        if flags.i_term_app or flags.ghostty or flags.google:
+
             d["⌃3"] = d["⌃["]
             d["⌃4"] = d[r"⌃\ ".rstrip()]
             d["⌃5"] = d["⌃]"]
             d["⌃6"] = d["⌃⇧^"]
             d["⌃7"] = d["⌃-"]
-            d["⌃8"] = "\177"  # ⌃8 as ⌫ as ⌃⌫
-            d["⌃/"] = d["⌃-"]
+            d["⌃8"] = "\177"  # ⌃8 as ⌫
+
+        if flags.google:
+
+            d["⌃B"] = ""  # lost to browser's TMux ⌃B ⌃B at Google Cloud Shell
+            d["⌃M"] = ""  # lost to browser
+
+            d["⌃-"] = ""  # send no bytes
 
         if flags.ghostty:
 
@@ -3670,7 +3677,7 @@ class KeyboardDecoder:
             d["⌃I"] = "\033[" "105;5" "u"  # ⎋[ 105;5U   # 105 == 0o151 == ord("i")
             d["⌃M"] = "\033[" "109;5" "u"  # ⎋[ 109;5U   # 109 == 0o155 == ord("m")
 
-    def _add_common_named_keys_(self) -> None:
+    def _add_common_named_keys_(self) -> None:  # noqa  # C901 complex  # todo:
         """Add the Esc, Tab, Delete, Return, Black Spacebar, and Arrow Key Chords"""
 
         decode_by_kseq = self.decode_by_kseq
@@ -3710,14 +3717,16 @@ class KeyboardDecoder:
             "⇥": "\t",
             "⌃⇥": "\t",
             "⌥⇥": "\033\t",  # ⎋⇥
-            "⇧⇥": "\033[" "Z",  # ⎋[ ⇧Z
         }
 
         if not flags.terminal:
-            tab["⌃⇥"] = ""  # sends no bytes  # jumps to pinned browser tab
+            tab["⌃⇥"] = ""  # sends no bytes  # lost to browser
 
         if not flags.ghostty:
             tab["⌥⇥"] = tab["⇥"]
+
+        if not flags.google:
+            tab["⇧⇥"] = "\033[" "Z"  # ⎋[ ⇧Z
 
         # Encode Return
 
@@ -3766,22 +3775,28 @@ class KeyboardDecoder:
             "↗": "\033[" "↗",  # ⎋[↗
             "↘": "\033[" "↘",  # ⎋[↘
             "↙": "\033[" "↙",  # ⎋[↙
-            #
-            "⇧↖": "\033[" "1;2" "↖",  # ⎋[↖  # Intercardinal Arrows not yet standard
-            "⇧↗": "\033[" "1;2" "↗",  # ⎋[↗
-            "⇧↘": "\033[" "1;2" "↘",  # ⎋[↘
-            "⇧↙": "\033[" "1;2" "↙",  # ⎋[↙
-            #
-            "⌥↖": "\033[" "1;3" "↖",  # ⎋[↖  # Intercardinal Arrows not yet standard
-            "⌥↗": "\033[" "1;3" "↗",  # ⎋[↗
-            "⌥↘": "\033[" "1;3" "↘",  # ⎋[↘
-            "⌥↙": "\033[" "1;3" "↙",  # ⎋[↙
-            #
-            "⎋↖": "\033[" "\033[" "A",  # ⎋⎋[⇧A
-            "⎋↗": "\033[" "\033[" "B",  # ⎋⎋[⇧B
-            "⎋↘": "\033[" "\033[" "C",  # ⎋⎋[⇧C
-            "⎋↙": "\033[" "\033[" "D",  # ⎋⎋[⇧D
         }
+
+        if not flags.google:
+            arrows.update(
+                {
+                    #
+                    "⇧↖": "\033[" "1;2" "↖",  # ⎋[↖  # Intercardinal Arrows not yet standard
+                    "⇧↗": "\033[" "1;2" "↗",  # ⎋[↗
+                    "⇧↘": "\033[" "1;2" "↘",  # ⎋[↘
+                    "⇧↙": "\033[" "1;2" "↙",  # ⎋[↙
+                    #
+                    "⌥↖": "\033[" "1;3" "↖",  # ⎋[↖  # Intercardinal Arrows not yet standard
+                    "⌥↗": "\033[" "1;3" "↗",  # ⎋[↗
+                    "⌥↘": "\033[" "1;3" "↘",  # ⎋[↘
+                    "⌥↙": "\033[" "1;3" "↙",  # ⎋[↙
+                    #
+                    "⎋↖": "\033[" "\033[" "A",  # ⎋⎋[⇧A
+                    "⎋↗": "\033[" "\033[" "B",  # ⎋⎋[⇧B
+                    "⎋↘": "\033[" "\033[" "C",  # ⎋⎋[⇧C
+                    "⎋↙": "\033[" "\033[" "D",  # ⎋⎋[⇧D
+                }
+            )
 
         if not flags.ghostty:
             arrows.update(
@@ -3804,10 +3819,10 @@ class KeyboardDecoder:
             arrows["⌥←"] = "\033b"
 
         if flags.google:
-            arrows["⇧↑"] = arrows["↑"]
-            arrows["⇧↓"] = arrows["↓"]
-            arrows["⇧→"] = arrows["→"]
-            arrows["⇧←"] = arrows["←"]
+            arrows["⇧↑"] = ""
+            arrows["⇧↓"] = ""
+            arrows["⇧→"] = ""
+            arrows["⇧←"] = ""
             arrows["⌥↑"] = "\033" + arrows["↑"]
             arrows["⌥↓"] = "\033" + arrows["↓"]
             arrows["⌥→"] = "\033" + arrows["→"]
@@ -3890,7 +3905,7 @@ class KeyboardDecoder:
         assert option_printables.count("¥") == 9  # ⌥␢ ⌥` ⌥E ⌥I ⌥N ⌥U ⌥Y ⌥⇧~ ⌥⌫
 
         kseq = "⌥Y"
-        text = "\\"
+        text = "¥" if flags.google else "\\"
         assert kseq not in decode_by_kseq.keys(), (kseq,)
         decode_by_kseq[kseq] = text
 
@@ -3978,6 +3993,10 @@ class KeyboardDecoder:
         kseqs = ("⇧⇥", "↑", "↓", "→", "←")
         for kseq in kseqs:
             assert " " not in kseq, (kseq,)
+            if kseq == "⇧⇥":
+                if flags.google:
+                    continue
+
             text = decode_by_kseq[kseq]
 
             alt_kseq = "⎋" + kseq  # '⎋␢'
