@@ -767,7 +767,8 @@ class KeycapsGame:
         kr = tb.keyboard_reader
 
         shifters = self.shifters
-        assert shifters in ("", "⎋", "⌃", "⌥", "⇧"), (shifters,)
+        tested_shifters = [""] + "  ⎋ ⌃ ⌥ ⇧  ".split()
+        assert shifters in tested_shifters, (shifters, tested_shifters)
 
         tb = self.terminal_boss
         sw = tb.screen_writer
@@ -840,6 +841,9 @@ class KeycapsGame:
             if self_shifters:
                 keyboard = keyboard.upper()
                 keyboard = keyboard.replace("Spacebar".upper(), "Spacebar")
+            if self_shifters == "⌃":
+                if "⌃6" not in decode_by_kseq.keys():
+                    keyboard = keyboard.replace("  6  ", " ⇧^  ")
 
         kseqs = keyboard.split()
         for kseq in kseqs:
@@ -853,6 +857,9 @@ class KeycapsGame:
 
                     tangible = True
                     (shifters, cap) = kd.kseq_to_shifters_cap(kseq_plus)
+                    if kseq_plus == "⌃⇧^":
+                        (shifters, cap) = ("⌃", "⇧^")
+
                     assert shifters or cap, (shifters, cap)
                     if (shifters != self_shifters) or (not cap) or (cap == "<>") or (kseq == "⇪"):
                         if kseq != self_shifters:
@@ -860,8 +867,13 @@ class KeycapsGame:
                             tangible = False
 
             if not tangible:
-                count_eq_1 = 1
-                keyboard = keyboard.replace(kseq, repl, count_eq_1)
+                if kseq != shifters:
+                    count_eq_1 = 1
+                    keyboard = keyboard.replace(kseq, repl, count_eq_1)
+
+        if self_shifters == "⌃":
+            keyboard = keyboard.replace("⇧", " ")
+            keyboard = keyboard.replace("  ^  ", " ⇧^  ")
 
         return keyboard
 
@@ -963,8 +975,14 @@ class KeycapsGame:
 
         # Don't switch Tabs when Keyboard Choice doesn't indisputably change
 
+        alt_kseqs = kseqs
+        if kseqs == ("⌃⇧@",):
+            alt_kseqs = ("⌃⇧@", "⌃2")
+        if kseqs == ("⌃⇧^",):
+            alt_kseqs = ("⌃⇧^", "⌃6")
+
         shifters_list = list()
-        for kseq in kseqs:
+        for kseq in alt_kseqs:
             text = ""
             for t in kseq[:-1]:  # todo1: "⎋" by itself is not "⎋" Shifter
                 if t not in "⎋ ⌃ ⌥ ⇧ Fn".split():  # todo1: Fn Shifter
@@ -1015,6 +1033,8 @@ class KeycapsGame:
         shifters = self.shifters
         for kseq in kseqs:
             (kseq_shifters, cap) = kd.kseq_to_shifters_cap(kseq)
+            if kseq == "⌃⇧^":
+                (kseq_shifters, cap) = ("⌃", "⇧^")
 
             findable = cap
             if not kseq_shifters:
@@ -1022,7 +1042,9 @@ class KeycapsGame:
             if cap == "␢":
                 findable = "Spacebar"
 
-            if kseq_shifters == shifters:
+            if kseq_shifters != shifters:
+                unhit_kseqs.append([cap, kseq])
+            else:
                 hits = self.kc_wipeout_else_restore(findable)
                 if not hits:
                     unhit_kseqs.append([cap, kseq])
@@ -3667,6 +3689,7 @@ class KeyboardDecoder:
         if flags.ghostty:
 
             d["⌃`"] = "\033[" "96;5u"  # ⎋[ 96;5U  # 96 == 0o140 == ord("`")
+            d["⌃⇧@"] = "\033[" "64;5u"  # ⎋[ 65;5U  # 64 == 0o100 == ord("@")
             d["⌃-"] = "\033[" "45;5u"  # ⎋[ 45;5U  # 45 == 0o055 == ord("-")
             d["⌃="] = "\033[" "61;5u"  # ⎋[ 61;5U  # 61 == 0o075 == ord("=")
             d["⌃;"] = "\033[" "59;5u"  # ⎋[ 59;5U  # 59 == 0o073 == ord(";")
