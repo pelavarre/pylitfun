@@ -791,10 +791,6 @@ class KeycapsGame:
         # Schedule tests of ⎋ and ⌃ ⌥ ⇧
         #
         #   todo: make a way to say ⌃⌥⇧ and ⌃⌥ Apple macOS Terminals have no distinct Key Chords
-        #   todo: reach the ⌃⌥⇧ and ⌃⌥ Apple macOS Terminals without distinct Key Chords in them
-        #   todo: make a way to say ⌃⌥⇧F and ⌃⌥⇧B missing from ⌃⌥⇧ Apple macOS Terminal
-        #
-        #   todo: make a way to say ⌃⌥⇧ 3 5 7 mean 3 5 8 at macOS iTerm2
         #
         #   todo: never speak of ⌃⌥⇧ reversed ⇧⌥⌃|⇧⌥|⇧⌃|⌥⌃
         #   todo: never speak of ⌃⌥⇧ shuffled ⌃⇧⌥|⌥⌃⇧|⇧⌃⌥
@@ -914,7 +910,7 @@ class KeycapsGame:
                             tangible = False
 
             if not tangible:
-                if echo not in tuple(shifters):
+                if (echo == "⎋") or (echo not in tuple(shifters)):
 
                     repl = len(echo) * " "
                     if (echo == "⌥") and ("⎋" in shifters):
@@ -963,7 +959,7 @@ class KeycapsGame:
                 echoes = kd.bytes_to_echoes_if(frame)
                 join = " ".join(_.replace(" ", "") for _ in echoes)
 
-                self.kc_print(frame, join, self.kc_echo_index)
+                self.kc_print(frame, " " + join + " ", self.kc_echo_index)
                 self.kc_echo_index += 1
 
                 y = kr.row_y
@@ -3596,9 +3592,16 @@ class KeyboardDecoder:
 
         self._invert_decode_by_echo_()
 
-        d = self.decode_by_echo
-        k = "⎋⌃`"
-        logger_print(f"{len(d)=} {d.get(k)!r}")
+        _debug_ = False
+        if _debug_:
+
+            d1 = self.decode_by_echo
+            k1 = "⎋⇧⎋"
+            logger_print(f"{len(d1)=} [{k1!r}] = {d1.get(k1)!r}  # KeyboardDecoder.__init__")
+
+            d2 = self.echoes_by_decode
+            k2 = "⎋⇧⎋"
+            logger_print(f"{len(d2)=} [{k2!r}] = {d2.get(k2)!r}  # KeyboardDecoder.__init__")
 
     def _add_common_text_keys_(self) -> None:
         """Add the Control, Shift, and Unshifted Key Chords"""
@@ -3707,6 +3710,9 @@ class KeyboardDecoder:
             esc["⇧⎋"] = esc["⎋"]
             esc["⌥⇧⎋"] = esc["⎋"]
 
+        if flags.ghostty:
+            esc["⌃⇧⎋"] = ""  # sends no Bytes
+
         # Encode Backwards Delete
 
         delete = {
@@ -3725,6 +3731,9 @@ class KeyboardDecoder:
             delete["⌥⌫"] = delete["⌫"]
             delete["⌥⇧⌫"] = delete["⌫"]
 
+        if flags.i_term_app or flags.ghostty:
+            delete["⌃⇧⌫"] = delete["⌃⌫"]
+
         # Encode Tab
         # (for when not lost to Browser in ⌃M Mode of Google Cloud Shell)
 
@@ -3736,12 +3745,13 @@ class KeyboardDecoder:
         }
 
         if not flags.terminal:
-            tab["⌃⇥"] = ""  # sends no bytes
+            tab["⌃⇥"] = ""  # sends no Bytes
 
         if not flags.ghostty:
             tab["⌥⇥"] = tab["⇥"]
-            tab["⌃⇧⇥"] = tab["⇧⇥"]
             tab["⌥⇧⇥"] = tab["⇧⇥"]
+            if not flags.i_term_app:
+                tab["⌃⇧⇥"] = tab["⇧⇥"]
 
         # Encode Return
 
@@ -3759,10 +3769,14 @@ class KeyboardDecoder:
         elif not flags.ghostty:
             _return_["⌃⏎"] = _return_["⏎"]
             _return_["⇧⏎"] = _return_["⏎"]
+            _return_["⌃⇧⏎"] = _return_["⏎"]
 
         if flags.terminal or flags.i_term_app:
             _return_["⌥⏎"] = _return_["⏎"]
             _return_["⌥⇧⏎"] = _return_["⏎"]
+
+        if flags.ghostty:
+            _return_["⌃⇧⏎"] = "\033[27;6;13~"  # ⎋[ 27;6;13⇧~  # 13 == 0x040 ^ ord("M")
 
         # Encode Spacebar
 
@@ -5624,42 +5638,40 @@ if __name__ == "__main__":
     main()
 
 
-# todo1: revive passing test of buffer key input in sleep before launch
+# todo0: Take up the many many 2 ** (⎋ ⌃ ⇧) Letter Keys of Ghostty
 
+# todo1: Go ahead and take the ⎋⌃P Encode of ⎋⌃⇧Fn
 
-# todo1: Port --egg=keycaps across the 32 Keyboards of 2 ** (⎋ ⌃ ⌥ ⇧ Fn)
-# todo1: --egg=keycaps: add Key Caps of 8 at ⌃ ⌥ ⇧ including the Fn, 8 more at ⎋
+# todo1: Paste any of (⎋ ⌃ ⌥ ⇧ ⌘ Fn) to go to specifically that Keyboard
+# todo1: Say ⌃⌥⇧F and ⌃⌥⇧B missing from ⌃⌥⇧ Apple macOS Terminal
+# todo1: Say ⌃⌥⇧ 3 5 7 mean 3 5 7 at macOS iTerm2
 
-# todo1: Take up the many many 2 ** (⎋ ⌃ ⇧) Letter Keys of Ghostty
-# todo1: Take up the Fn Keys
-
-# todo1: Echo the Byte Encoding and its many possible Echoes
-
-# todo1: Solve iTerm2 Key Jams with ⎋[5N sent down, not written outside
-# todo1: Take up the Multichord Key Strikes with Shifter Keys
-# todo1: Take up the Intercardinal Arrows with Shifter Keys
-
-# todo1: Switch keyboards to random choice of elsewheres
-# todo1: Speak missed Keys as sourcelines to add
+# todo1: Take up the Fn Keys, especially the ⎋⌃P Encode of ⎋⌃⇧Fn F1..F12
 # todo1: Draw the F11 as can't be reached, except indirectly via ⌥⇧F6 etc
 
 
-# todo6: take ⎋ or ⎋⎋ more as itself, don't force it into starting an Intricate Key Chord Sequence
+# todo2: Revive passing test of buffer key input jam in sleep before launch
+# todo2: Solve iTerm2 Key Jams with ⎋[5N sent down, not written outside
+# todo2: Take up the Multichord Key Strikes with Shifter Keys
+# todo2: Take up the Intercardinal Arrows with Shifter Keys
 
+
+# todo3: Sort the Echoes of each Encode by (⎋ ⌃ ⌥ ⇧ Fn)
+
+# todo4: Switch keyboards to random choice of elsewheres
+# todo4: Speak missed Keys as sourcelines to add
+
+# todo5: emulate macOS Terminal Writes at Google Cloud Shell OR vice versa
+# todo5: deletes while backlight, color filling from eastmost mirrored character write
+
+# todo6: take ⎋ or ⎋⎋ more as itself, don't force it into starting an Intricate Key Chord Sequence
 # todo6: Alt + Number ⌥1⌥2⌥3 key cap
 # todo6: <> could make button <F12> <⌥1⌥2⌥3>
 # todo6: revisit 'pm Tue 16/Dec' experiments in echo-in-place of Key Caps such as F12 and ⌥6⌥5
 
-
-# todo3: emulate macOS Terminal Writes at Google Cloud Shell OR vice versa
-# todo3: deletes while backlight, color filling from eastmost mirrored character write
-
-
 # todo8: take bracketed-paste as print vertically
 
-
 # todo9: --egg=resize to fit the Terminal to the Gameboard and vice versa
-
 # todo9: pick apart text key jams and unbracketed text paste
 
 # todo9: show settings
