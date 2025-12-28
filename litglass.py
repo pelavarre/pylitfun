@@ -673,6 +673,8 @@ class KeycapsGame:
     tangible_keyboard: str
     wipeouts: list[str]  # Key Caps found and wiped, not yet found again and restored
 
+    kc_echo_index: int  # distinguish one input from the next
+
     MAX_SCROLLABLES_1 = 1
 
     # Lay out 6 Rows per Keyboard  # todo: measure how high, don't guess
@@ -734,6 +736,8 @@ class KeycapsGame:
         self.tangible_keyboard = self.kc_tangible_keyboard()
         self.wipeouts = wipeouts_by_shifters[shifters]
 
+        self.kc_echo_index = 0
+
     def kc_run_awhile(self) -> None:
         """Trace Key Releases till ⌃C"""
 
@@ -743,6 +747,8 @@ class KeycapsGame:
         kr = tb.keyboard_reader
 
         # Draw the Gameboard, scrolling if need be
+
+        sw.write_control("\033[?25l")
 
         game_yx = self.kc_game_draw()
         self.game_yx = game_yx  # replaces
@@ -790,7 +796,9 @@ class KeycapsGame:
         #
         #   todo: make a way to say ⌃⌥⇧ 3 5 7 mean 3 5 8 at macOS iTerm2
         #
-        #   todo: make a way to say we never speak of reversed ⇧⌥⌃ ⇧⌥ ⇧⌃ ⌥⌃
+        #   todo: never speak of ⌃⌥⇧ reversed ⇧⌥⌃|⇧⌥|⇧⌃|⌥⌃
+        #   todo: never speak of ⌃⌥⇧ shuffled ⌃⇧⌥|⌥⌃⇧|⇧⌃⌥
+        #   todo: never speak of ⇧`|⇧-|⇧=|⇧\[|⇧\]|⇧\\|⇧;|⇧'|⇧,|⇧\.|⇧/
         #
 
         tested_shifters = [""] + "⎋ ⎋⇧ ⎋⌃ ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧".split()
@@ -847,7 +855,7 @@ class KeycapsGame:
         sw.write_control("\033[K")
         sw.write_some_controls(["\r", "\n"])
 
-        sw.print(r"Press ⌃C or ⌃\ or ⌃⇧| or ⌃⇧⌥|")
+        sw.print(r"Press ⌃C or ⌃\ or ⌃⇧| or ⌃⌥⇧|")
         sw.print()
 
         # Succeed
@@ -952,8 +960,11 @@ class KeycapsGame:
 
                 logger_print(f"{frame!r} {echoes} toggled {finds}")
 
-                echo = kd.bytes_to_one_main_echo(frame)
-                self.kc_print(echo, frame)
+                echoes = kd.bytes_to_echoes_if(frame)
+                join = " ".join(_.replace(" ", "") for _ in echoes)
+
+                self.kc_print(frame, join, self.kc_echo_index)
+                self.kc_echo_index += 1
 
                 y = kr.row_y
 
@@ -2467,7 +2478,7 @@ class TerminalBoss:
         alt_kseqs = echoes
         if echoes:
             if (frame == b"`") and frames[1:]:
-                alt_kseqs = tuple(reversed(echoes))  # ('⌥⇧`', '`') 0 `
+                alt_kseqs = tuple(reversed(echoes))  # ('⌥⇧~', '`') 0 `
 
         # Choose which details to print
 
@@ -3222,17 +3233,17 @@ class KeyboardReader:
 
         text = KeyByteFrame.bytes_decode_if(data)
 
-        # Accept the b"``" as the Frame of ⌥⇧`
+        # Accept the b"``" as the Frame of ⌥⇧~
 
         if len(text) == 2:
-            if text == "``":  # ⌥⇧` `
+            if text == "``":  # ⌥⇧~ `
                 start = data
                 end = b""
                 return (start, end)
 
             # Split the ⌥ Accents arriving together with an Unaccented Decode
 
-            accents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧` ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
+            accents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧~ ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
             if text[0] in accents:
                 start = text[0].encode()
                 end = text[1:].encode()
@@ -3893,8 +3904,8 @@ class KeyboardDecoder:
             assert k not in decode_by_echo.keys(), (k, decode_by_echo[k])
             decode_by_echo[k] = v
 
-    OptionAccents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧` ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
-    OptionGraveGrave = "``"  # ⌥⇧` `
+    OptionAccents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧~ ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
+    OptionGraveGrave = "``"  # ⌥⇧~ `
 
     def _add_option_keys_(self) -> None:
 
@@ -3985,7 +3996,7 @@ class KeyboardDecoder:
             "ò": "⌥` O",  # ⌥⇧L is Ò is ⌥` ⇧O
             "ù": "⌥` U",
             "``": "⌥` `",  # len 2 decode, two copies of plain U+0060 ` Grave Accent
-            "`": "⌥⇧`",  # the U+0060 ` Grave Accent keycapped as ` and ⌥⇧`
+            "`": "⌥⇧~",  # the U+0060 ` Grave Accent keycapped as ` and ⌥⇧~
         }
 
         for text, echo in option_echo_by_text.items():
@@ -5611,6 +5622,9 @@ _ = """  # more famous Python Imports to run in place of our Code here
 
 if __name__ == "__main__":
     main()
+
+
+# todo1: revive passing test of buffer key input in sleep before launch
 
 
 # todo1: Port --egg=keycaps across the 32 Keyboards of 2 ** (⎋ ⌃ ⌥ ⇧ Fn)
