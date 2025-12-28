@@ -952,8 +952,8 @@ class KeycapsGame:
 
                 logger_print(f"{frame!r} {echoes} toggled {finds}")
 
-                echo = kd.bytes_to_one_main_echo(frame)
-                self.kc_print(echo, frame)
+                kseq = kd.bytes_to_one_main_echo(frame)
+                self.kc_print(kseq, frame)
 
                 y = kr.row_y
 
@@ -2163,8 +2163,8 @@ class TerminalBoss:
         sw = self.screen_writer
         kd = self.keyboard_decoder
 
-        echo = kd.bytes_to_one_main_echo(data)
-        assert echo.isprintable(), (echo,)
+        kseq = kd.bytes_to_one_main_echo(data)
+        assert kseq.isprintable(), (kseq,)
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
 
@@ -2225,7 +2225,7 @@ class TerminalBoss:
                     # todo9: solve .clickruns Frames as fully as not, across Wrapped Lines
 
         if bouncing:
-            sw.write_printable("<" + echo + ">")  # <⌃C>  # <⌃\>
+            sw.write_printable("<" + kseq + ">")  # <⌃C>  # <⌃\>
             return
 
         # Loop back well-known Csi & Osc Byte Sequences
@@ -2235,14 +2235,14 @@ class TerminalBoss:
 
         # Else echo vertically down southward
 
-        self.tb_write_echo_southward(echo)
+        self.tb_write_echo_southward(kseq)
 
-    def tb_write_echo_southward(self, echo: str) -> None:
+    def tb_write_echo_southward(self, kseq: str) -> None:
 
         sw = self.screen_writer
         kr = self.keyboard_reader
 
-        for e in echo:
+        for e in kseq:
 
             sw.write_printable(e)
             if kr.row_y >= kr.y_high:
@@ -2423,8 +2423,8 @@ class TerminalBoss:
         sw = self.screen_writer
         kd = self.keyboard_decoder
 
-        echo = kd.bytes_to_one_main_echo(frame)
-        sw.write_printable(echo)
+        kseq = kd.bytes_to_one_main_echo(frame)
+        sw.write_printable(kseq)
 
     def tb_print_repr_frame_per_row(self, frames: tuple[bytes, ...], t1t0: float) -> None:
         """Print the Repr of each Frame, but mark the Frames as framed together"""
@@ -4158,8 +4158,8 @@ class KeyboardDecoder:
         for t in text:
             encode = t.encode()
             echoes = self.bytes_to_echoes_if(encode)
-            kseq = echoes[0] if echoes else repr(t)[1:-1]
-            echo += kseq
+            e = echoes[0] if echoes else repr(t)[1:-1]
+            echo += e
 
         assert echo.isprintable(), (echo,)
         return echo
