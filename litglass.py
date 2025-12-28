@@ -608,8 +608,8 @@ class ColorPickerGame:
 
         note_to_self = True
         for frame in frames:
-            kseqs = kd.bytes_to_echoes_if(frame)
-            kseq = kseqs[0] if kseqs else ""
+            echoes = kd.bytes_to_echoes_if(frame)
+            kseq = echoes[0] if echoes else ""
             if kseq not in ("←", "↑", "→", "↓"):
                 note_to_self = False
                 break
@@ -635,8 +635,8 @@ class ColorPickerGame:
 
         tb = self.terminal_boss
         kd = tb.keyboard_decoder
-        kseqs = kd.bytes_to_echoes_if(frame)
-        kseq = kseqs[0] if kseqs else ""
+        echoes = kd.bytes_to_echoes_if(frame)
+        kseq = echoes[0] if echoes else ""
 
         assert kseq in ("←", "↑", "→", "↓"), (kseq,)
 
@@ -889,8 +889,8 @@ class KeycapsGame:
 
         shifters = self.shifters
 
-        kseqs = keyboard.split()
-        for kseq in kseqs:
+        echoes = keyboard.split()
+        for kseq in echoes:
             kseq_plus = shifters + ("␢" if (kseq == "Spacebar") else kseq.upper())
 
             tangible = False
@@ -938,19 +938,19 @@ class KeycapsGame:
         (h, w, y, x) = kr.sample_hwyx()
 
         for frame in frames:
-            kseqs = kd.bytes_to_echoes_if(frame)
-            if not kseqs:
+            echoes = kd.bytes_to_echoes_if(frame)
+            if not echoes:
                 logger_print(f"{frame!r}  # dropped because undecodable")
             else:
 
-                finds = self.kc_press_keys_if(kseqs, unhit_kseqs)
+                finds = self.kc_press_keys_if(echoes, unhit_kseqs)
                 if not finds:
                     unhit_kseqs.clear()
                     if not tb.quitting:
-                        self.kc_switch_tab_if(kseqs)
-                        finds = self.kc_press_keys_if(kseqs, unhit_kseqs)
+                        self.kc_switch_tab_if(echoes)
+                        finds = self.kc_press_keys_if(echoes, unhit_kseqs)
 
-                logger_print(f"{frame!r} {kseqs} toggled {finds}")
+                logger_print(f"{frame!r} {echoes} toggled {finds}")
 
                 echo = kd.bytes_to_one_main_echo(frame)
                 self.kc_print(echo, frame)
@@ -1015,7 +1015,7 @@ class KeycapsGame:
 
         scrollables.append(printable)
 
-    def kc_switch_tab_if(self, kseqs: tuple[str, ...]) -> None:
+    def kc_switch_tab_if(self, echoes: tuple[str, ...]) -> None:
         """Switch to next Keyboard View when a Key is struck out there"""
 
         tb = self.terminal_boss
@@ -1030,7 +1030,7 @@ class KeycapsGame:
 
         # Switch Tabs
 
-        kseq = kseqs[0]
+        kseq = echoes[0]
 
         text = ""
         for t in kseq[:-1]:  # todo1: "⎋" by itself is not "⎋" Shifter
@@ -1040,7 +1040,7 @@ class KeycapsGame:
 
         _shifters_ = text
 
-        logger_print(f"{_shifters_=} {kseqs=}  # kc_switch_tab_if")
+        logger_print(f"{_shifters_=} {echoes=}  # kc_switch_tab_if")
 
         self.shifters = _shifters_  # replaces
         self.tangible_keyboard = self.kc_tangible_keyboard()
@@ -1060,7 +1060,7 @@ class KeycapsGame:
         assert wipeouts == caps, (wipeouts, caps)
 
     def kc_press_keys_if(  # noqa C901 too complex (27  # todo0:
-        self, kseqs: tuple[str, ...], unhit_kseqs: list[object]
+        self, echoes: tuple[str, ...], unhit_kseqs: list[object]
     ) -> list[str]:
         """Wipe out each Key Cap when pressed"""
 
@@ -1069,11 +1069,11 @@ class KeycapsGame:
 
         tangible_keyboard = self.tangible_keyboard
 
-        assert kseqs, (kseqs,)
+        assert echoes, (echoes,)
 
         findables = list()
         shifters = self.shifters
-        for kseq in kseqs:
+        for kseq in echoes:
             (_shifters_, _cap_) = kd.echo_to_shifters_cap(kseq)
 
             findable = _cap_ if _shifters_ else _cap_.lower()
@@ -1097,7 +1097,7 @@ class KeycapsGame:
                 logger_print(f"{findable!r}  # dropped for not hit")  # todo: never happens?
 
         if not finds:
-            unhit_kseqs.extend(kseqs)
+            unhit_kseqs.extend(echoes)
 
         return finds
 
@@ -2262,11 +2262,11 @@ class TerminalBoss:
         kr = self.keyboard_reader
         kd = self.keyboard_decoder
 
-        kseqs = kd.bytes_to_echoes_if(data)
-        if not kseqs:
+        echoes = kd.bytes_to_echoes_if(data)
+        if not echoes:
             return False
 
-        kseq = kseqs[0]  # only search for the first Key Cap
+        kseq = echoes[0]  # only search for the first Key Cap
 
         sw = self.screen_writer
         kd = self.keyboard_decoder
@@ -2317,7 +2317,7 @@ class TerminalBoss:
 
         # Loop back as a Cardinal Arrow, no matter the shifting Keys
 
-        join = str(kseqs)
+        join = str(echoes)
         if not intricate_order:
 
             arrows = tuple(_ for _ in ("←", "↑", "→", "↓") if _ in join)
@@ -2462,12 +2462,12 @@ class TerminalBoss:
 
         # Choose which Key Caps to put out front
 
-        kseqs = kd.bytes_to_echoes_if(frame)
+        echoes = kd.bytes_to_echoes_if(frame)
 
-        alt_kseqs = kseqs
-        if kseqs:
+        alt_kseqs = echoes
+        if echoes:
             if (frame == b"`") and frames[1:]:
-                alt_kseqs = tuple(reversed(kseqs))  # ('⌥⇧`', '`') 0 `
+                alt_kseqs = tuple(reversed(echoes))  # ('⌥⇧`', '`') 0 `
 
         # Choose which details to print
 
@@ -4018,8 +4018,8 @@ class KeyboardDecoder:
             if code not in (0, 0x1E):  # ⎋⌃␢ and ⎋⌃⇧@ and ⎋⌃⇧^ don't
                 text = chr(code)
 
-                kseqs = tuple(di[text])
-                for kseq in kseqs:
+                echoes = tuple(di[text])
+                for kseq in echoes:
                     assert " " not in kseq, (kseq,)
 
                     if kseq == "⌃⌫":  # ⎋⌃⌫ defined separately
@@ -4042,8 +4042,8 @@ class KeyboardDecoder:
 
         # Add some ⎋ Keys
 
-        kseqs = ("⇧⇥", "↑", "↓", "→", "←")
-        for kseq in kseqs:
+        echoes = ("⇧⇥", "↑", "↓", "→", "←")
+        for kseq in echoes:
             assert " " not in kseq, (kseq,)
 
             if kseq == "⇧⇥":  # ⎋⇧⇥ defined separately
@@ -4139,9 +4139,9 @@ class KeyboardDecoder:
 
         # Show Key Caps, if available as ⌫ ⇧⇥ ⇥ etc
 
-        kseqs = self.bytes_to_echoes_if(data)
-        if kseqs:
-            echo = kseqs[0]
+        echoes = self.bytes_to_echoes_if(data)
+        if echoes:
+            echo = echoes[0]
             assert echo.isprintable(), (echo,)
             return echo  # ⌫  # ⇧⇥  # ⇥  # ⏎
 
@@ -4157,8 +4157,8 @@ class KeyboardDecoder:
         echo = ""
         for t in text:
             encode = t.encode()
-            kseqs = self.bytes_to_echoes_if(encode)
-            kseq = kseqs[0] if kseqs else repr(t)[1:-1]
+            echoes = self.bytes_to_echoes_if(encode)
+            kseq = echoes[0] if echoes else repr(t)[1:-1]
             echo += kseq
 
         assert echo.isprintable(), (echo,)
@@ -4196,8 +4196,8 @@ class KeyboardDecoder:
         echoes_by_decode = self.echoes_by_decode
 
         if text in echoes_by_decode.keys():
-            kseqs = echoes_by_decode.get(text, tuple())
-            return kseqs
+            echoes = echoes_by_decode.get(text, tuple())
+            return echoes
 
             # tuple of '⎋', of '␢', of '⌥` E', of '⌥⇧⇥', of '⌃⌥⇧Fn'
 
