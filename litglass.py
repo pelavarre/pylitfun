@@ -797,7 +797,7 @@ class KeycapsGame:
         #   todo: never speak of ⇧`|⇧-|⇧=|⇧\[|⇧\]|⇧\\|⇧;|⇧'|⇧,|⇧\.|⇧/
         #
 
-        tested_shifters = [""] + "⎋ ⎋⇧ ⎋⌃ ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧".split()
+        tested_shifters = [""] + "⎋ ⎋⌃ ⎋⌃⇧ ⎋⇧".split() + "⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧".split()
         assert shifters in tested_shifters, (shifters, tested_shifters)
 
         # Scroll to make Rows in the South, if need be, like after:  seq 987
@@ -823,14 +823,19 @@ class KeycapsGame:
         exit = "\033[27m"  # ⎋[27m reverse-not
 
         exit_caps: tuple[str, ...] = tuple()
-        if self.shifters == "⌃":
-            exit_caps = ("4", "C", "\\")
-        elif self.shifters == "⌃⇧":
+        if shifters == "⌃":
+            exit_caps = ("C", "\\")
+            if flags.i_term_app:
+                exit_caps = ("4", "C", "\\")
+        elif shifters == "⌃⇧":
             exit_caps = ("|",)
+        elif shifters == "⌃⌥⇧":
+            exit_caps = ("C", "|")
 
         keyboard = tangible_keyboard
         for cap in exit_caps:
             repl = enter + cap + exit
+            assert keyboard.count(cap) == 1, (keyboard.count(cap), cap, shifters)
             keyboard = keyboard.replace(cap, repl)
 
         dent = 4 * " "
@@ -903,7 +908,7 @@ class KeycapsGame:
                 if decode:
 
                     tangible = True
-                    (_shifters_, _cap_) = kd.echo_to_shifters_cap(echo_plus)
+                    (_shifters_, _cap_) = kd.echo_split_shifters_cap(echo_plus)
                     if (_shifters_ != shifters) or (not _cap_):
                         if echo != shifters:
 
@@ -926,9 +931,10 @@ class KeycapsGame:
 
         tb = self.terminal_boss
         sw = tb.screen_writer
-
         kr = tb.keyboard_reader
         kd = tb.keyboard_decoder
+
+        wipeouts_by_shifters = self.wipeouts_by_shifters
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
         assert ord("\\") ^ 0x40 == ord("\034")  # ⌃\
@@ -943,26 +949,49 @@ class KeycapsGame:
 
         for frame in frames:
             echoes = kd.bytes_to_echoes_if(frame)
-            if not echoes:
-                logger_print(f"{frame!r}  # dropped because undecodable")
-            else:
+
+            # Strike the Key Caps from which the Bytes may have come
+
+            if echoes:
 
                 finds = self.kc_press_keys_if(echoes, unhit_kseqs)
                 if not finds:
                     unhit_kseqs.clear()
                     if not tb.quitting:
-                        self.kc_switch_tab_if(echoes)
+                        self.kc_switch_tab(echoes)
                         finds = self.kc_press_keys_if(echoes, unhit_kseqs)
 
-                logger_print(f"{frame!r} {echoes} toggled {finds}")
+                s = "s" if finds[1:] else ""
+                logger_print(f"{frame!r} {echoes} toggled {finds} Key Cap{s}")
 
-                echoes = kd.bytes_to_echoes_if(frame)
-                join = " ".join(_.replace(" ", "") for _ in echoes)
+            # Switch to the Keyboard Tab named by Paste
 
-                self.kc_print(frame, " " + join + " ", self.kc_echo_index)
-                self.kc_echo_index += 1
+            else:
 
-                y = kr.row_y
+                shifters = ""
+                if len(frames) == 1:  # todo: Shifters pasted as multiple Frames
+                    frame = frames[-1]
+                    text = frame.decode()  # todo: UnicodeDecodeError from Paste
+                    if text in wipeouts_by_shifters.keys():
+                        shifters = text
+
+                if not shifters:
+                    logger_print(f"{frame!r}  # dropped because found on no keyboard")
+                    continue
+
+                self.kc_switch_tab(echoes=(shifters,))
+
+            # Trace the Bytes taken in
+
+            echoes = kd.bytes_to_echoes_if(frame)
+            join = " ".join(_.replace(" ", "") for _ in echoes)
+            if not echoes:
+                join = kd.bytes_to_one_main_echo(frame)
+
+            self.kc_print(frame, " " + join + " ", self.kc_echo_index)
+            self.kc_echo_index += 1
+
+            y = kr.row_y
 
         sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
@@ -973,6 +1002,12 @@ class KeycapsGame:
                 pass
             else:
                 self.kc_print(unhit_kseqs, "not found", frames)
+
+        # todo1: Take up the ⎋[ U and ⎋[ ~ Key Codes from iTerm2 & Ghostty
+        # todo1: Test & grow the nearly unreachable ⌃⌥ Keyboard
+        # todo2: Shuffle the Byte Trace Panel up above the Panel of Press ⌃C etc
+
+        # todo2: Test KeyCaps vs Bracketed Paste, not only vs Unbracketed Paste
 
     def kc_print(self, *args: object) -> None:
 
@@ -1022,31 +1057,28 @@ class KeycapsGame:
 
         scrollables.append(printable)
 
-    def kc_switch_tab_if(self, echoes: tuple[str, ...]) -> None:
+    def kc_switch_tab(self, echoes: tuple[str, ...]) -> None:
         """Switch to next Keyboard View when a Key is struck out there"""
 
         tb = self.terminal_boss
+        kd = tb.keyboard_decoder
+        sw = tb.screen_writer
+
         game_yx = self.game_yx
         shifters = self.shifters
         wipeouts = self.wipeouts
         wipeouts_by_shifters = self.wipeouts_by_shifters
 
-        sw = tb.screen_writer
         (game_y, game_x) = game_yx
         assert wipeouts is wipeouts_by_shifters[shifters]
 
         # Switch Tabs
 
+        assert echoes, (echoes,)
+
         echo = echoes[0]
 
-        text = ""
-        for t in echo[:-1]:  # todo1: "⎋" by itself is not "⎋" Shifter
-            if t not in "⎋ ⌃ ⌥ ⇧ Fn".split():  # todo1: Fn Shifter
-                break
-            text += t
-
-        _shifters_ = text
-
+        (_shifters_, _cap_) = kd.echo_split_shifters_cap(echo)
         logger_print(f"{_shifters_=} {echoes=}  # kc_switch_tab_if")
 
         self.shifters = _shifters_  # replaces
@@ -1081,7 +1113,7 @@ class KeycapsGame:
         findables = list()
         shifters = self.shifters
         for echo in echoes:
-            (_shifters_, _cap_) = kd.echo_to_shifters_cap(echo)
+            (_shifters_, _cap_) = kd.echo_split_shifters_cap(echo)
 
             findable = _cap_ if _shifters_ else _cap_.lower()
             if _cap_ == "␢":
@@ -3586,9 +3618,13 @@ class KeyboardDecoder:
 
         self._add_common_named_keys_()
         self._add_common_text_keys_()
+        self._add_control_option_shift_of_common_text_keys_()
+
         self._add_option_keys_()
         self._add_7bit_meta_keys_()
         self._add_shifted_meta_keys_()
+
+        self._add_fn_keys()
 
         self._invert_decode_by_echo_()
 
@@ -3608,7 +3644,9 @@ class KeyboardDecoder:
 
         decode_by_echo = self.decode_by_echo
 
-        echo = r"""
+        # Add Keys encoded as 7-bit Bytes \000 .. \177
+
+        unshifted_echoes_join = r"""
 
             ⌃⇧@  ⌃A  ⌃B  ⌃C  ⌃D  ⌃E  ⌃F  ⌃G  ⌃H  ⌃I  ⌃J  ⌃K  ⌃L  ⌃M  ⌃N  ⌃O
             ⌃P  ⌃Q  ⌃R  ⌃S  ⌃T  ⌃U  ⌃V  ⌃W  ⌃X  ⌃Y  ⌃Z  ⌃[  ⌃\  ⌃]  ⌃⇧^  ⌃-
@@ -3622,41 +3660,40 @@ class KeyboardDecoder:
             `  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
             P  Q  R  S  T  U  V  W  X  Y  Z  ⇧{  ⇧|  ⇧}  ⇧~  ⌃⇧?
 
-        """
+        """  # first 0o40 ends with ⌃ [ \ ] ⇧^ - which is not ⌃⇧ { | } ^_
 
-        d = decode_by_echo  # alias
+        d: dict[str, str] = dict()
 
-        code = -1  # Upper ⇧A..⇧Z, Lower A..Z, Digits 0..9, and the Punctuation Marks
-        for kcap in echo.split():
+        code = -1
+        for echo in unshifted_echoes_join.split():
             code += 1
-            text = chr(code)
+            t = chr(code)
 
-            if kcap not in ("⌃`", "⌃⇧?"):  # not in ␢ \040, ⌫ \177
-                assert kcap not in d.keys(), (kcap,)
-                d[kcap] = text
+            if echo not in ("⌃`", "⌃⇧?"):  # not in ␢ \040, ⌫ \177
+                assert echo not in d.keys(), (echo,)
+                d[echo] = t
 
-        if not flags.ghostty:
-            d["⌃⇧_"] = d["⌃-"]
-            d["⌃⇧{"] = d["⌃["]
-            d["⌃⇧}"] = d["⌃]"]
-            d["⌃⇧|"] = d[r"⌃\ ".rstrip()]
+        self._add_into_decode_by_echo_(d)
+        d.clear()
+
+        # Add ⌃ Keys encoded same as other ⌃ or ⌃⇧ Keys or Unshifted Keys
 
         if flags.i_term_app or flags.ghostty:
 
             for t in "190=;',.":
-                kcap = "⌃" + t
-                d[kcap] = t
+                echo = "⌃" + t
+                d[echo] = t
 
-            d["⌃2"] = d["⌃⇧@"]
-            d["⌃/"] = d["⌃-"]
+            d["⌃2"] = decode_by_echo["⌃⇧@"]
+            d["⌃/"] = decode_by_echo["⌃-"]
 
         if flags.i_term_app or flags.ghostty or flags.google:
 
-            d["⌃3"] = d["⌃["]
-            d["⌃4"] = d[r"⌃\ ".rstrip()]
-            d["⌃5"] = d["⌃]"]
-            d["⌃6"] = d["⌃⇧^"]
-            d["⌃7"] = d["⌃-"]
+            d["⌃3"] = decode_by_echo["⌃["]
+            d["⌃4"] = decode_by_echo[r"⌃\ ".rstrip()]
+            d["⌃5"] = decode_by_echo["⌃]"]
+            d["⌃6"] = decode_by_echo["⌃⇧^"]
+            d["⌃7"] = decode_by_echo["⌃-"]
             d["⌃8"] = "\177"  # ⌃8 as ⌫
 
         if flags.google:
@@ -3666,30 +3703,60 @@ class KeyboardDecoder:
 
             d["⌃-"] = ""  # send no bytes
 
-        if flags.ghostty:
-
-            d["⌃`"] = "\033[" "96;5u"  # ⎋[ 96;5U  # 96 == 0o140 == ord("`")
-            d["⌃⇧@"] = "\033[" "64;5u"  # ⎋[ 65;5U  # 64 == 0o100 == ord("@")
-            d["⌃-"] = "\033[" "45;5u"  # ⎋[ 45;5U  # 45 == 0o055 == ord("-")
-            d["⌃="] = "\033[" "61;5u"  # ⎋[ 61;5U  # 61 == 0o075 == ord("=")
-            d["⌃;"] = "\033[" "59;5u"  # ⎋[ 59;5U  # 59 == 0o073 == ord(";")
-            d["⌃'"] = "\033[" "39;5u"  # ⎋[ 39;5U  # 39 == 0o047 == ord("'")
-            d["⌃,"] = "\033[" "44;5u"  # ⎋[ 44;5U  # 44 == 0o054 == ord(",")
-            d["⌃."] = "\033[" "46;5u"  # ⎋[ 46;5U  # 46 == 0o056 == ord(".")
-            d["⌃["] = "\033[" "91;5u"  # ⎋[ 91;5U  # 91 == 0o133 == ord("[")
-            d["⌃I"] = "\033[" "105;5" "u"  # ⎋[ 105;5U   # 105 == 0o151 == ord("i")
-            d["⌃M"] = "\033[" "109;5" "u"  # ⎋[ 109;5U   # 109 == 0o155 == ord("m")
-
         if flags.i_term_app:
 
             d["⌃`"] = "`"
 
-            for t in "2468/":  # ⌃⌥⇧ 2 4 6 8 /
-                kcap = "⌃⌥⇧" + t
-                d[kcap] = t
+        # Add ⌃⇧ Keys encoded same as other ⌃ Keys
+
+        if not flags.ghostty:
+            d["⌃⇧_"] = decode_by_echo["⌃-"]
+            d["⌃⇧{"] = decode_by_echo["⌃["]
+            d["⌃⇧}"] = decode_by_echo["⌃]"]
+            d["⌃⇧|"] = decode_by_echo[r"⌃\ ".rstrip()]
+
+        self._add_into_decode_by_echo_(d)
+
+    def _add_control_option_shift_of_common_text_keys_(self) -> None:
+        """Add ⌃⌥⇧ Keys encoded same as ⌃ Keys, or same as Unshifted Keys"""
+
+        shifted_echoes_join = r"""
+
+            ⌃⇧@  ⌃A  ⌃B  ⌃C  ⌃D  ⌃E  ⌃F  ⌃G  ⌃H  ⌃I  ⌃J  ⌃K  ⌃L  ⌃M  ⌃N  ⌃O
+            ⌃P  ⌃Q  ⌃R  ⌃S  ⌃T  ⌃U  ⌃V  ⌃W  ⌃X  ⌃Y  ⌃Z  ⌃⇧{  ⌃⇧|  ⌃⇧}  ⌃⇧^  ⌃⇧_
+
+        """  # 0o40 caps ending with ⌃⇧ { | } ^ _ which is not ⌃ [ \ ] ⇧^ -
+
+        d = dict()
 
         if not flags.ghostty:
             d["⌥⇧~"] = "`"
+
+        code = -1
+        for echo in shifted_echoes_join.split():
+            code += 1
+
+            echo_plus = "⌃⌥⇧" + echo.lstrip("⌃⌥⇧")  # although '⌥' never actually found
+            t = chr(code)
+
+            if flags.terminal:
+                if echo_plus in ("⌃⌥⇧B", "⌃⌥⇧F"):  # censored near to ⎋B ⎋F Encodes of ⌥← ⌥→
+                    continue
+
+            d[echo_plus] = t
+
+        caps = "~!" "@#$%^" "&*()" "+" ':"' "<>?"
+        text = "`1" "23456" "7890" "=" ";'" ",./"
+        for cap, t in zip(caps, text):
+            echo_plus = "⌃⌥⇧" + cap
+
+            if flags.terminal:
+                if echo_plus in ("⌃⌥⇧@", "⌃⌥⇧^"):  # sent as ⌃⇧@ ⌃⇧^
+                    continue
+
+            d[echo_plus] = t
+
+        self._add_into_decode_by_echo_(d)
 
     def _add_common_named_keys_(self) -> None:  # noqa  # C901 complex  # todo:
         """Add the Esc, Tab, Delete, Return, Black Spacebar, and Arrow Key Chords"""
@@ -3698,10 +3765,8 @@ class KeyboardDecoder:
 
         esc = {
             "⎋": "\033",
-            "⌃⎋": "\033[" "27;5;27~",  # ⎋[ 27;5;27⇧~  # 27 == 0o033
             "⌃⇧⎋": "\033",
             "⌥⎋": "\033\033",  # ⎋⎋
-            "⇧⎋": "\033[" "27;2;27~",  # ⎋[ 27;2;27⇧~  # 27 == 0o033
         }
 
         if not flags.ghostty:
@@ -3757,10 +3822,8 @@ class KeyboardDecoder:
 
         _return_ = {
             "⏎": "\r",  # Return for ⌃M  # not Line Feed ⌃J  # not CR LF ⌃M ⌃J
-            "⌃⏎": "\033[" "27;5;13~",  # ⎋[ 27;5;13⇧~  # 13 == 0x040 ^ ord("M")
             "⌥⏎": "\033\r",  # ⎋⏎
             "⌥⇧⏎": "\033\r",  # ⎋⏎
-            "⇧⏎": "\033[" "27;2;13~",  # ⎋[ 27;2;13⇧~  # 13 == 0x040 ^ ord("M")
         }
 
         if flags.terminal:
@@ -3774,9 +3837,6 @@ class KeyboardDecoder:
         if flags.terminal or flags.i_term_app:
             _return_["⌥⏎"] = _return_["⏎"]
             _return_["⌥⇧⏎"] = _return_["⏎"]
-
-        if flags.ghostty:
-            _return_["⌃⇧⏎"] = "\033[27;6;13~"  # ⎋[ 27;6;13⇧~  # 13 == 0x040 ^ ord("M")
 
         # Encode Spacebar
 
@@ -3896,9 +3956,7 @@ class KeyboardDecoder:
 
         # Add these Byte Encodes of these Key Chords
 
-        d = {
-            # "⌦": "\033[3~",  # ⎋[3~  # Fn Delete  # Erase To The Right  # todo1:
-        }
+        d = dict()
 
         d.update(esc)
         d.update(tab)
@@ -4082,11 +4140,9 @@ class KeyboardDecoder:
             if echo in ("→", "←"):  # not '\033\033[C'  # not '\033\033[D'
                 if flags.terminal or flags.ghostty:  # not '\033\033f'  # not '\033\033b'
                     alt_decode = "\033f" if (echo == "→") else "\033b"
-                logger_print(f"{alt_kseq=} {alt_decode=}")
             elif echo in ("↑", "↓"):
                 if flags.ghostty:  # not '\033\033[A'  # not '\033\033[B'
                     alt_decode = "\033[1;3A" if (echo == "↑") else "\033[1;3B"
-                logger_print(f"{alt_kseq=} {alt_decode=}")
 
             assert alt_kseq not in decode_by_echo.keys(), (alt_kseq,)
             decode_by_echo[alt_kseq] = alt_decode
@@ -4129,6 +4185,15 @@ class KeyboardDecoder:
                 d_by_ks["⎋⌃⏎"] = "\033" + "\r"  # ⎋⏎
 
         self._add_into_decode_by_echo_(d_by_ks)
+
+    def _add_fn_keys(self) -> None:
+        """Add some Fn Keys"""
+
+        d = dict()
+        for fn in range(1, 12 + 1, 3):  # todo2: all twelve despite kc_print width
+            d[f"⎋⌃⇧F{fn}"] = "\033\020"  # ⎋⌃P
+
+        self._add_into_decode_by_echo_(d)
 
     def _invert_decode_by_echo_(self) -> None:
         """Index the Echoes by their Decodes"""
@@ -4189,7 +4254,7 @@ class KeyboardDecoder:
         assert echo.isprintable(), (echo,)
         return echo
 
-    def echo_to_shifters_cap(self, echo: str) -> tuple[str, str]:
+    def echo_split_shifters_cap(self, echo: str) -> tuple[str, str]:
         """Split out the Shifters at left, and add 'Fn' if Fn"""
 
         shifters = ""
@@ -5640,13 +5705,8 @@ if __name__ == "__main__":
 
 # todo0: Take up the many many 2 ** (⎋ ⌃ ⇧) Letter Keys of Ghostty
 
-# todo1: Go ahead and take the ⎋⌃P Encode of ⎋⌃⇧Fn
 
-# todo1: Paste any of (⎋ ⌃ ⌥ ⇧ ⌘ Fn) to go to specifically that Keyboard
-# todo1: Say ⌃⌥⇧F and ⌃⌥⇧B missing from ⌃⌥⇧ Apple macOS Terminal
-# todo1: Say ⌃⌥⇧ 3 5 7 mean 3 5 7 at macOS iTerm2
-
-# todo1: Take up the Fn Keys, especially the ⎋⌃P Encode of ⎋⌃⇧Fn F1..F12
+# todo1: Take up the Fn Keys
 # todo1: Draw the F11 as can't be reached, except indirectly via ⌥⇧F6 etc
 
 
