@@ -429,6 +429,7 @@ class LitGlass:
         t0 = time.time()
 
         _try_chop_()
+        _try_keyboard_decoder_()
         _try_key_byte_frame_()
         _try_unicode_source_texts_()
 
@@ -824,15 +825,7 @@ class KeycapsGame:
         enter = "\033[7m"  # ⎋[7m reverse
         exit = "\033[27m"  # ⎋[27m reverse-not
 
-        exit_caps: tuple[str, ...] = tuple()
-        if shifters == "⌃":
-            exit_caps = ("C", "\\")
-            if flags.i_term_app:
-                exit_caps = ("4", "C", "\\")
-        elif shifters == "⌃⇧":
-            exit_caps = ("|",)
-        elif shifters == "⌃⌥⇧":
-            exit_caps = ("C", "|")
+        exit_caps = self.kc_exit_caps()
 
         keyboard = tangible_keyboard
         for cap in exit_caps:
@@ -866,6 +859,28 @@ class KeycapsGame:
         return (y, x)
 
         # todo: .kc_game_draw well onto larger & smaller Screens
+
+    def kc_exit_caps(self) -> tuple[str, ...]:
+        """Find the Key Caps that will quit the Game"""
+
+        shifters = self.shifters
+
+        exit_caps: tuple[str, ...] = tuple()
+        if shifters == "⌃":
+            exit_caps = ("C", "\\")
+            if flags.i_term_app or flags.ghostty:
+                exit_caps = ("4", "C", "\\")
+        elif shifters == "⌃⇧":
+            if flags.i_term_app:
+                exit_caps = ("C", "|")
+            elif flags.ghostty:
+                exit_caps = ("$",)
+            else:
+                exit_caps = ("|",)
+        elif shifters == "⌃⌥⇧":
+            exit_caps = ("C", "|")
+
+        return exit_caps
 
     def kc_tangible_keyboard(self) -> str:
         """Draw a Keyboard but blank out its intangible Key Caps"""
@@ -978,7 +993,7 @@ class KeycapsGame:
                         shifters = text
 
                 if not shifters:
-                    logger_print(f"{frame!r}  # dropped because found on no keyboard")
+                    logger_print(f"{frame!r}  # dropped because defined on no keyboard")
                     continue
 
                 self.kc_switch_tab(echoes=(shifters,))
@@ -3598,6 +3613,19 @@ class KeyboardReader:
 #
 
 
+def _try_keyboard_decoder_() -> None:
+
+    kd = KeyboardDecoder()
+
+    d1 = kd.decode_by_echo
+    k1 = "⎋⇧⎋"
+    logger_print(f"{len(d1)=} [{k1!r}] = {d1.get(k1)!r}  # _try_keyboard_decoder_")
+
+    d2 = kd.echoes_by_decode
+    k2 = "⎋⇧⎋"
+    logger_print(f"{len(d2)=} [{k2!r}] = {d2.get(k2)!r}  # _try_keyboard_decoder_")
+
+
 class KeyboardDecoder:
     """Speak of a Byte Encoding as a Sequence of Chords of Key Caps"""
 
@@ -3619,7 +3647,10 @@ class KeyboardDecoder:
         self.echoes_by_decode = dict()
 
         self._add_common_named_keys_()
+
         self._add_common_text_keys_()
+        self._add_control_of_common_text_keys_()
+        self._add_control_shift_of_common_text_keys_()
         self._add_control_option_shift_of_common_text_keys_()
 
         self._add_option_keys_()
@@ -3630,28 +3661,15 @@ class KeyboardDecoder:
 
         self._invert_decode_by_echo_()
 
-        _debug_ = False
-        if _debug_:
-
-            d1 = self.decode_by_echo
-            k1 = "⎋⇧⎋"
-            logger_print(f"{len(d1)=} [{k1!r}] = {d1.get(k1)!r}  # KeyboardDecoder.__init__")
-
-            d2 = self.echoes_by_decode
-            k2 = "⎋⇧⎋"
-            logger_print(f"{len(d2)=} [{k2!r}] = {d2.get(k2)!r}  # KeyboardDecoder.__init__")
-
     def _add_common_text_keys_(self) -> None:
         """Add the Control, Shift, and Unshifted Key Chords"""
-
-        decode_by_echo = self.decode_by_echo
 
         # Add Keys encoded as 7-bit Bytes \000 .. \177
 
         unshifted_echoes_join = r"""
 
             ⌃⇧@  ⌃A  ⌃B  ⌃C  ⌃D  ⌃E  ⌃F  ⌃G  ⌃H  ⌃I  ⌃J  ⌃K  ⌃L  ⌃M  ⌃N  ⌃O
-            ⌃P  ⌃Q  ⌃R  ⌃S  ⌃T  ⌃U  ⌃V  ⌃W  ⌃X  ⌃Y  ⌃Z  ⌃[  ⌃\  ⌃]  ⌃⇧^  ⌃-
+            ⌃P  ⌃Q  ⌃R  ⌃S  ⌃T  ⌃U  ⌃V  ⌃W  ⌃X  ⌃Y  ⌃Z  ⌃[  ⌃\  ⌃]  ⌃⇧^  ⌃⇧_
 
             ⌃`  ⇧!  ⇧"  ⇧#  ⇧$  ⇧%  ⇧&  '  ⇧(  ⇧)  ⇧*  ⇧+  ,  -  .  /
             0  1  2  3  4  5  6  7  8  9  ⇧:  ;  ⇧<  =  ⇧>  ⇧?
@@ -3666,37 +3684,81 @@ class KeyboardDecoder:
 
         d: dict[str, str] = dict()
 
+        if flags.terminal or flags.i_term_app:
+            d["⌃-"] = "\037"  # ⌃⇧_ U+001F
+
         code = -1
         for echo in unshifted_echoes_join.split():
             code += 1
             t = chr(code)
 
-            if echo not in ("⌃`", "⌃⇧?"):  # not in ␢ \040, ⌫ \177
+            if echo not in ("⌃`", "⌃⇧?"):  # if not ␢ \040 and not ⌫ \177
                 assert echo not in d.keys(), (echo,)
                 d[echo] = t
+
+                if echo.startswith("⌃") and not echo.startswith("⌃⇧"):
+                    if flags.i_term_app:
+                        echo_plus = "⌃⇧" + echo.lstrip("⌃⌥⇧")  # although '⌥' never actually found
+                        d[echo_plus] = t
+
+        if flags.ghostty:
+
+            d["⌃-"] = "\033[" "45;5u"  # ⎋[ 45;5U  # 45 == 0o55 == ord("-")
+            d["⌃`"] = "\033[" "96;5u"  # ⎋[ 96;5U  # 96 == 0o140 == ord("`")
+            d["⌃⇧@"] = "\033[" "64;5u"  # ⎋[ 65;5U  # 64 == 0o100 == ord("@")
+            d["⌃["] = "\033[" "91;5u"  # ⎋[ 91;5U  # 91 == 0o133 == ord("[")
+            d["⌃I"] = "\033[" "105;5" "u"  # ⎋[ 105;5U   # 105 == 0o151 == ord("i")
+            d["⌃M"] = "\033[" "109;5" "u"  # ⎋[ 109;5U   # 109 == 0o155 == ord("m")
+            d["⌃⇧?"] = "\037"  # ⌃⇧_ U+001F
 
         self._add_into_decode_by_echo_(d)
         d.clear()
 
+    def _add_control_of_common_text_keys_(self) -> None:
+        """Add ⌃⇧ Keys encoded same as ⌃ Keys, or same as Unshifted Keys"""
+
+        decode_by_echo = self.decode_by_echo
+
+        d = dict()
+
         # Add ⌃ Keys encoded same as other ⌃ or ⌃⇧ Keys or Unshifted Keys
 
-        if flags.i_term_app or flags.ghostty:
+        if flags.i_term_app:
 
-            for t in "190=;',.":
+            for t in "`;',.=":
                 echo = "⌃" + t
                 d[echo] = t
 
-            d["⌃2"] = decode_by_echo["⌃⇧@"]
-            d["⌃/"] = decode_by_echo["⌃-"]
+        if flags.ghostty:
+
+            d["⌃;"] = "\033[" "59;5u"  # ⎋[ 59;5U  # 59 == 0o073 == ord(";")
+            d["⌃'"] = "\033[" "39;5u"  # ⎋[ 39;5U  # 39 == 0o047 == ord("'")
+            d["⌃,"] = "\033[" "44;5u"  # ⎋[ 44;5U  # 44 == 0o054 == ord(",")
+            d["⌃."] = (
+                "\033[" "46;5u"
+            )  # ⎋[ 46;5U  # 46 == 0o056 == ord(".")       if flags.i_term_app or flags.ghostty:
+
+        if flags.i_term_app or flags.ghostty:
+
+            for t in "190":
+                echo = "⌃" + t
+                d[echo] = t
+
+            d["⌃2"] = decode_by_echo["⌃␢"]  # not Ghostty ⌃⇧@
+            d["⌃/"] = "\037"  # ⌃⇧_ U+001F
 
         if flags.i_term_app or flags.ghostty or flags.google:
 
-            d["⌃3"] = decode_by_echo["⌃["]
+            d["⌃3"] = decode_by_echo["⎋"]  # not Ghostty ⌃[
             d["⌃4"] = decode_by_echo[r"⌃\ ".rstrip()]
             d["⌃5"] = decode_by_echo["⌃]"]
             d["⌃6"] = decode_by_echo["⌃⇧^"]
-            d["⌃7"] = decode_by_echo["⌃-"]
+            d["⌃7"] = "\037"  # ⌃⇧_ U+001F
             d["⌃8"] = "\177"  # ⌃8 as ⌫
+
+        if flags.ghostty:
+
+            d["⌃="] = "\033[" "61;5u"  # ⎋[ 61;5U  # 61 == 0o75 == ord("=")
 
         if flags.google:
 
@@ -3705,19 +3767,52 @@ class KeyboardDecoder:
 
             d["⌃-"] = ""  # send no bytes
 
-        if flags.i_term_app:
-
-            d["⌃`"] = "`"
-
         # Add ⌃⇧ Keys encoded same as other ⌃ Keys
 
         if not flags.ghostty:
-            d["⌃⇧_"] = decode_by_echo["⌃-"]
             d["⌃⇧{"] = decode_by_echo["⌃["]
             d["⌃⇧}"] = decode_by_echo["⌃]"]
             d["⌃⇧|"] = decode_by_echo[r"⌃\ ".rstrip()]
 
         self._add_into_decode_by_echo_(d)
+
+    def _add_control_shift_of_common_text_keys_(self) -> None:
+        """Add ⌃⇧ Keys encoded same as ⌃ Keys, or same as Unshifted Keys"""
+
+        decode_by_echo = self.decode_by_echo
+
+        d: dict[str, str] = dict()
+
+        d.clear()
+        if flags.i_term_app:
+
+            caps = "~!" "#$%" "&*()"
+            text = "`1" "345" "7890"
+            for cap, t in zip(caps, text):
+                echo_plus = "⌃⇧" + cap
+                d[echo_plus] = t
+
+            self._add_into_decode_by_echo_(d)
+
+        d.clear()
+        if flags.ghostty:
+
+            caps = "!"
+            text = "1"
+            for cap, t in zip(caps, text):
+                echo_plus = "⌃⇧" + cap
+                d[echo_plus] = t
+
+            caps = "#$%" "&*()"
+            text = "345" "7890"
+            for cap, t in zip(caps, text):
+                echo = "⌃" + t
+                echo_plus = "⌃⇧" + cap
+                d[echo_plus] = decode_by_echo[echo]
+
+            self._add_into_decode_by_echo_(d)
+
+            # todo0: more of ⌃⇧ Ghostty
 
     def _add_control_option_shift_of_common_text_keys_(self) -> None:
         """Add ⌃⌥⇧ Keys encoded same as ⌃ Keys, or same as Unshifted Keys"""
@@ -3747,6 +3842,10 @@ class KeyboardDecoder:
 
             d[echo_plus] = t
 
+            if echo in "⌃⇧{  ⌃⇧|  ⌃⇧}  ⌃⇧^  ⌃⇧_".split():
+                if flags.ghostty:  # Ghostty takes only ⌃⇧@ and ⌃A .. ⌃Z here
+                    break
+
         caps = "~!" "@#$%^" "&*()" "+" ':"' "<>?"
         text = "`1" "23456" "7890" "=" ";'" ",./"
         for cap, t in zip(caps, text):
@@ -3773,11 +3872,13 @@ class KeyboardDecoder:
 
         if not flags.ghostty:
             esc["⌃⎋"] = esc["⎋"]
+            esc["⌃⇧⎋"] = "\033[" "27;6;27" "~"  # ⎋[ 27;6;27~  # 27 == 0o33 == ord("]")
             esc["⌥⎋"] = esc["⎋"]
-            esc["⇧⎋"] = esc["⎋"]
             esc["⌥⇧⎋"] = esc["⎋"]
+            esc["⇧⎋"] = esc["⎋"]
 
         if flags.ghostty:
+            esc["⌃⎋"] = "\033[" "27;5;27" "~"  # ⎋[ 27;5;27~  # 27 == 0o33 == ord("]")
             esc["⌃⇧⎋"] = ""  # sends no Bytes
 
         # Encode Backwards Delete
