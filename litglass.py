@@ -79,6 +79,8 @@ if not __debug__:
     raise NotImplementedError([__debug__])  # because 'python3 better than python3 -O'
 
 
+Apple = "\uf8ff"  # Apple  occupies U+F8FF = last of U+E000 .. U+F8FF Private Use Area (PUA)
+
 default_eq_None = None  # spells out 'default=None' where Python forbids that
 
 logger = logging.getLogger(__name__)
@@ -2823,10 +2825,11 @@ class ScreenWriter:
         ks = self.keyboard_screen_i_o_wrapper
 
         printable = text  # alias
-        assert printable.replace("", "-").isprintable(), (printable,)
+        assert printable.replace(Apple, "-").isprintable(), (printable,)
 
         assert CUF_X == "\033[" "{}" "C"
         assert CUB_X == "\033[" "{}" "D"
+        assert Apple == "\uf8ff"
 
         # Trust the Terminal to write well
 
@@ -2864,7 +2867,6 @@ class ScreenWriter:
         # also Wide are ♿ ⚪⚫ ⬛⬜ 🔰 🔴🔵 😃 🛼 🟠🟡🟢🟣🟤 🟥🟦🟧🟨🟩🟪🟫
 
         # todo: every mention of  in Source makes Code Patches difficult to send across platforms
-        # todo: shrink the distribution of '.replace("", "-").isprintable'
 
     def write_some_controls(self, texts: typing.Iterable[str]) -> None:
         """Write the Byte Encodings of >= 0 Unprintable Control Texts"""
@@ -3989,7 +3991,7 @@ class KeyboardDecoder:
 
         # Add the ⌥ variants of Non-Blank Printable US-Ascii
 
-        assert "" == "\uf8ff"  # U+F8FF  # also tested by ._try_unicode_source_texts_
+        assert Apple == "\uf8ff"
         assert "¤" == unicodedata.lookup("Currency Sign")  # absent from Macbook ⌥ Keyboard
 
         plain_printables = r"""
@@ -4000,12 +4002,12 @@ class KeyboardDecoder:
 
         option_printables = r"""
             ¤⁄Æ‹›ﬁ‡æ·‚°±≤–≥÷  º¡™£¢∞§¶•ªÚ…¯≠˘¿
-            €ÅıÇÎ´Ï˝ÓˆÔÒÂ˜Ø  ∏Œ‰Íˇ¨◊„˛Á¸“«‘ﬂ—
+            €ÅıÇÎ´Ï˝ÓˆÔ¤ÒÂ˜Ø  ∏Œ‰Íˇ¨◊„˛Á¸“«‘ﬂ—
             ¤å∫ç∂¤ƒ©˙¤∆˚¬µ¤ø  πœ®ß†¤√∑≈¤Ω”»’¤¤
         """
 
         join = "".join(_[0] for _ in zip(plain_printables, option_printables) if _[-1] == "¤")
-        assert join == "¤`einuy~¤"  # ⌥Y can send just b"\\"  # ⌥⇧~ can send just b"`"`
+        assert join == "¤K`einuy~¤"  # ⌥Y can send just b"\\"  # ⌥⇧~ can send just b"`"`
 
         assert len(plain_printables) == len(option_printables)
 
@@ -4025,7 +4027,12 @@ class KeyboardDecoder:
             # ⌥Y often arrives as U+005C Reverse-Solidus, sometimes as U+00A5 ¥ Yen-Sign
 
         assert plain_printables.count("¤") == 2  # ␢ ⌫
-        assert option_printables.count("¤") == 9  # ⌥␢ ⌥` ⌥E ⌥I ⌥N ⌥U ⌥Y ⌥⇧~ ⌥⌫
+        assert option_printables.count("¤") == 10  # ⌥␢ ⌥` ⌥E ⌥I ⌥K ⌥N ⌥U ⌥Y ⌥⇧~ ⌥⌫
+
+        echo = "⌥⇧K"
+        text = "\uf8ff"
+        assert echo not in decode_by_echo.keys(), (echo,)
+        decode_by_echo[echo] = text
 
         echo = "⌥Y"
         text = "¥" if flags.google else "\\"
@@ -5158,6 +5165,8 @@ class BytesBox:
         data = self.data
         text = self.text
 
+        assert Apple == "\uf8ff"
+
         if not data:
             assert not text, (data, text)
             return True
@@ -5165,11 +5174,9 @@ class BytesBox:
         if not text:
             return False
 
-        printable = text.replace("", "-").isprintable()
+        printable = text.replace(Apple, "-").isprintable()
 
         return printable
-
-        # todo: shrink the distribution of '.replace("", "-").isprintable'
 
 
 #
@@ -5396,7 +5403,7 @@ def _try_unicode_source_texts_() -> None:
 
     # not yet an official standard
 
-    assert "" == "\uf8ff"  # U+F8FF  # last of U+E000 .. U+F8FF Private Use Area (PUA)
+    assert Apple == "\uf8ff"  # U+F8FF  # last of U+E000 .. U+F8FF Private Use Area (PUA)
 
     # 2 Comic Colors from Apr/2008 Unicode 5.1
 
