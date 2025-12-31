@@ -62,6 +62,7 @@ import re
 import select
 import shlex
 import signal
+import string
 import sys
 import termios
 import textwrap
@@ -1022,8 +1023,6 @@ class KeycapsGame:
             else:
                 self.kc_print(unhit_kseqs, "not found", frames)
 
-        # todo1: Take up the ⎋[ U and ⎋[ ~ Key Codes from iTerm2 & Ghostty
-        # todo1: Test & grow the nearly unreachable ⌃⌥ Keyboard
         # todo2: Shuffle the Byte Trace Panel up above the Panel of Press ⌃C etc
 
         # todo2: Test KeyCaps vs Bracketed Paste, not only vs Unbracketed Paste
@@ -1141,7 +1140,7 @@ class KeycapsGame:
             if _shifters_ != shifters:
                 pass  # logger_print(f"{_cap_!r} {echo!r}  # dropped for {_shifters_!r} vs {shifters!r}")
             elif findable not in tangible_keyboard:
-                logger_print(f"{_cap_!r} {echo!r} {findable!r}  # dropped for not found")
+                logger_print(f"{_cap_!r} {echo!r} {findable!r} {echoes}  # dropped for not found")
             else:
                 findables.append(findable)
 
@@ -3620,15 +3619,16 @@ def _try_keyboard_decoder_() -> None:
 
     kd = KeyboardDecoder()
 
-    d1 = kd.decode_by_echo
-    k1 = "⌃⇧@"
-    logger_print(f"{len(d1)=} [{k1!r}] = {d1.get(k1)!r}  # _try_keyboard_decoder_")
+    debugging = False  # '= False' does save time, but too little to measure easily
+    if debugging:
 
-    d2 = kd.echoes_by_decode
-    k2 = "⌃⇧@"
-    logger_print(f"{len(d2)=} [{k2!r}] = {d2.get(k2)!r}  # _try_keyboard_decoder_")
+        d1 = kd.decode_by_echo
+        k1 = "⌃⇧@"
+        logger_print(f"{len(d1)=} [{k1!r}] = {d1.get(k1)!r}  # _try_keyboard_decoder_")
 
-    # todo1: measure time cost
+        d2 = kd.echoes_by_decode
+        k2 = "⌃⇧@"
+        logger_print(f"{len(d2)=} [{k2!r}] = {d2.get(k2)!r}  # _try_keyboard_decoder_")
 
 
 class KeyboardDecoder:
@@ -3643,7 +3643,6 @@ class KeyboardDecoder:
     OptionGraveGrave = "``"
 
     def __init__(self) -> None:
-        """Form a Keyboard for each Terminal App"""
 
         KeyboardDecoder.selves.append(self)
 
@@ -3659,9 +3658,11 @@ class KeyboardDecoder:
 
         if flags.i_term_app:
             self._form_i_term_app_keyboards_()
+        if flags.ghostty:
+            self._form_ghostty_keyboards_()
 
     def _form_apple_terminal_keyboards_(self) -> None:
-        """Form an Apple macOS Terminal Keyboard"""
+        """Form an Apple macOS Terminal Keyboard, out of Octets"""
 
         assert Apple == "\uf8ff"
 
@@ -3676,6 +3677,8 @@ class KeyboardDecoder:
             033.172 033.170 033.143 033.166 033.142 033.156 033.155 033.054 033.056 033.057
             033.040 033.142 033.033.133.101 033.146 033.033.133.102
         """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
 
         # 1.2 ⎋⌃
 
@@ -3852,6 +3855,7 @@ class KeyboardDecoder:
     )
 
     def _add_keyboard_(self, shifts: str, strikes: str) -> None:
+        """Add in 1 Keyboard of Key Caps and their Strikes"""
 
         strikes_split = strikes.split()
 
@@ -3902,6 +3906,7 @@ class KeyboardDecoder:
         self._keyboard_add_(echo, cap_strikes=cap_strikes)
 
     def _keyboard_add_(self, echo: str, cap_strikes: str) -> None:
+        """Add a Key Cap and its Octets to a Keyboard"""
 
         decode = self.cap_strikes_to_decode(cap_strikes, echo=echo)
         self._keyboard_add_decode_(decode, echo=echo)
@@ -3937,7 +3942,7 @@ class KeyboardDecoder:
         echoes_by_decode[old_decode] = tuple(old_echoes)
 
     def _form_i_term_app_keyboards_(self) -> None:
-        """Form a macOS iTerm2 Keyboard"""
+        """Form a macOS iTerm2 Keyboard, as a diff from Apple Terminal"""
 
         decode_by_echo = self.decode_by_echo
         plain_caps = KeyboardDecoder.PlainCaps
@@ -3954,7 +3959,7 @@ class KeyboardDecoder:
 
         pass
 
-        # 2.2 ⌃
+        # 2.2 ⌃  # todo: merge with ⌃ Ghostty
 
         self._keyboard_patch_("⌃⌫", cap_strikes="010")  # ⌃H
 
@@ -4021,6 +4026,7 @@ class KeyboardDecoder:
         self._keyboard_arrow_patch_("⇧", caps="↑↓", shifts_index=2)
 
     def _keyboard_arrow_patch_(self, shifts: str, caps: str, shifts_index: int) -> None:
+        """Patch the Keyboard with like 4 more or 2 more Arrow Keys, all at once"""
 
         octet_by_arrow = {"←": "104", "↑": "101", "→": "103", "↓": "102"}  # 'ABCD'
 
@@ -4038,6 +4044,203 @@ class KeyboardDecoder:
 
             # todo: patch vs add in ._keyboard_arrow_patch_
 
+    def _form_ghostty_keyboards_(self) -> None:
+        """Form a macOS Ghostty Keyboard, as a diff from Apple Terminal"""
+
+        # 1.1 ⎋
+
+        self._keyboard_arrow_patch_("⎋", caps="↑↓", shifts_index=3)
+
+        # 1.2 ⎋⌃  # todo: merge with ⌃ Ghostty
+
+        self._keyboard_patch_("⎋⌃⌫", cap_strikes="033.010")  # ⌃H
+        self._keyboard_remove_("⎋⌃⇥")
+
+        self._keyboard_patch_("⎋⌃`", cap_strikes="140")  # `
+        self._keyboard_patch_("⎋⌃1", cap_strikes="033.061")  # ⎋ 1
+        self._keyboard_patch_("⎋⌃2", cap_strikes="033.000")  # ⎋ ⌃⇧@
+        self._keyboard_patch_("⎋⌃3", cap_strikes="033.033")  # ⎋ ⌃[
+        self._keyboard_patch_("⎋⌃4", cap_strikes="033.034")  # ⎋ ⌃\
+        self._keyboard_patch_("⎋⌃5", cap_strikes="033.035")  # ⎋ ⌃]
+        self._keyboard_patch_("⎋⌃6", cap_strikes="033.036")  # ⎋ ⌃⇧^
+        self._keyboard_patch_("⎋⌃7", cap_strikes="033.037")  # ⎋ ⌃⇧_
+        self._keyboard_patch_("⎋⌃8", cap_strikes="033.177")  # ⎋ ⌫
+        self._keyboard_patch_("⎋⌃9", cap_strikes="033.071")  # ⎋ 9
+        self._keyboard_patch_("⎋⌃0", cap_strikes="033.060")  # ⎋ 0
+        self._keyboard_patch_("⎋⌃=", cap_strikes="075")  # =
+        self._keyboard_patch_("⎋⌃/", cap_strikes="033.037")  # ⌃⇧_  # beeps 🙄
+
+        self._keyboard_shifts_patch_("⎋⌃⎋", octet="033", csi="~", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃`", octet="140", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃-", octet="055", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃=", octet="075", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃I", octet="151", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃[", octet="133", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃M", octet="155", csi="u", shifts_index=7)
+
+        self._keyboard_shifts_patch_("⎋⌃;", octet="073", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃'", octet="047", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃⏎", octet="015", csi="~", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃,", octet="054", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃.", octet="056", csi="u", shifts_index=7)
+
+        self._keyboard_patch_("⎋⌃␢", cap_strikes="033.000")  # Spacebar
+
+        self._keyboard_arrow_patch_("⎋⌃", caps="←↑→↓", shifts_index=7)
+
+        # 1.3 ⎋⇧
+
+        self._keyboard_shifts_patch_("⎋⇧⎋", octet="033", csi="~", shifts_index=4)
+        self._keyboard_shifts_patch_("⎋⇧⇥", octet="011", csi="~", shifts_index=4)
+        self._keyboard_patch_("⎋⇧⌫", cap_strikes="033.177")  # ⎋⌫
+        self._keyboard_shifts_patch_("⎋⇧⏎", octet="015", csi="~", shifts_index=4)
+
+        self._keyboard_arrow_patch_("⎋⇧", caps="←↑→↓", shifts_index=4)
+
+        # 1.4 ⎋⌃⇧  # mixes shifts_index=7 into mainly shifts_index=8  # todo2: Ghostty bug?
+
+        self._keyboard_shifts_patch_("⎋⌃⇧⎋", octet="033", csi="~", shifts_index=8)
+        self._keyboard_remove_("⎋⌃⇧⇥")
+
+        self._keyboard_shifts_patch_("⎋⌃⇧~", octet="140", csi="u", shifts_index=8)
+        self._keyboard_patch_("⎋⌃⇧@", cap_strikes="033.000")  # ⎋ ⌃⇧@
+        self._keyboard_patch_("⎋⌃⇧#", cap_strikes="033.033")  # ⎋ ⎋  # ⎋ ⌃[
+        self._keyboard_patch_("⎋⌃⇧$", cap_strikes="033.034")  # ⎋ ⌃\
+        self._keyboard_patch_("⎋⌃⇧%", cap_strikes="033.035")  # ⎋ ⌃]
+        self._keyboard_patch_("⎋⌃⇧^", cap_strikes="033.036")  # ⎋ ⌃⇧^
+        self._keyboard_patch_("⎋⌃⇧&", cap_strikes="033.037")  # ⎋ ⌃⇧_
+        self._keyboard_patch_("⎋⌃⇧*", cap_strikes="033.177")  # ⎋ ⌫
+        self._keyboard_shifts_patch_("⎋⌃⇧+", octet="075", csi="u", shifts_index=8)
+        self._keyboard_patch_("⎋⌃⇧⌫", cap_strikes="177")  # ⌫
+
+        self._keyboard_shifts_patch_("⎋⌃⇧{", octet="173", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃⇧}", octet="175", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃⇧|", octet="174", csi="u", shifts_index=7)
+
+        self._keyboard_shifts_patch_("⎋⌃⇧:", octet="073", csi="u", shifts_index=8)
+        self._keyboard_shifts_patch_('⎋⌃⇧"', octet="047", csi="u", shifts_index=8)
+        self._keyboard_shifts_patch_("⎋⌃⇧⏎", octet="015", csi="~", shifts_index=8)
+        self._keyboard_shifts_patch_("⎋⌃⇧<", octet="054", csi="u", shifts_index=8)
+        self._keyboard_shifts_patch_("⎋⌃⇧>", octet="056", csi="u", shifts_index=8)
+        self._keyboard_patch_("⎋⌃⇧?", cap_strikes="033.037")  # ⎋ ⌃⇧_
+
+        for cap in string.ascii_uppercase:
+            echo = f"⎋⌃⇧{cap}"
+            octet = f"{ord(cap.lower()):03o}"
+            cap.lower()
+            self._keyboard_shifts_patch_(echo, octet=octet, csi="u", shifts_index=8)
+
+        self._keyboard_arrow_patch_("⎋⌃⇧", caps="←↑→↓", shifts_index=8)
+
+        # 2.1 ''
+
+        pass
+
+        # 2.2 ⌃  # todo: merge with ⌃ iTerm2  # todo: merge with ⎋⌃ Ghostty
+
+        self._keyboard_patch_("⌃⌫", cap_strikes="010")  # ⌃H
+
+        self._keyboard_remove_("⌃⇥")
+
+        self._keyboard_add_("⌃`", cap_strikes="140")  # `
+        self._keyboard_add_("⌃1", cap_strikes="061")  # 1
+        self._keyboard_add_("⌃2", cap_strikes="000")  # ⌃⇧@
+        self._keyboard_add_("⌃3", cap_strikes="033")  # ⌃[
+        self._keyboard_add_("⌃4", cap_strikes="134")  # ⌃\
+        self._keyboard_add_("⌃5", cap_strikes="035")  # ⌃]
+        self._keyboard_add_("⌃6", cap_strikes="036")  # ⌃⇧^
+        self._keyboard_add_("⌃7", cap_strikes="037")  # ⌃⇧_
+        self._keyboard_add_("⌃8", cap_strikes="177")  # ⌫
+        self._keyboard_add_("⌃9", cap_strikes="071")  # 9
+        self._keyboard_add_("⌃0", cap_strikes="060")  # 0
+        self._keyboard_add_("⌃=", cap_strikes="075")  # =
+        self._keyboard_add_("⌃/", cap_strikes="037")  # ⌃⇧_
+
+        self._keyboard_shifts_patch_("⌃⎋", octet="033", csi="~", shifts_index=5)
+        self._keyboard_shifts_patch_("⌃`", octet="140", csi="u", shifts_index=5)
+        self._keyboard_shifts_patch_("⌃=", octet="075", csi="u", shifts_index=5)
+        self._keyboard_shifts_patch_("⌃I", octet="151", csi="u", shifts_index=5)
+        self._keyboard_shifts_patch_("⌃;", octet="073", csi="u", shifts_index=5)
+        self._keyboard_shifts_patch_("⌃'", octet="047", csi="u", shifts_index=5)
+        self._keyboard_shifts_patch_("⌃M", octet="155", csi="u", shifts_index=5)
+        self._keyboard_shifts_patch_("⌃,", octet="054", csi="u", shifts_index=5)
+        self._keyboard_shifts_patch_("⌃.", octet="056", csi="u", shifts_index=5)
+
+        # 2.3 ⌃⌥
+        # 2.4 ⌃⌥⇧
+
+        pass  # todo: "Use Option as Meta key = No" not found in macOS Ghostty
+
+        # 2.5 ⌃⇧  # mixes shifts_index=5 into mainly shifts_index=6  # todo2: Ghostty bug?
+
+        self._keyboard_shifts_patch_("⌃⇧⎋", octet="033", csi="~", shifts_index=6)
+        self._keyboard_remove_("⌃⇧⇥")
+        self._keyboard_patch_("⌃⇧⌫", cap_strikes="010")  # ⌃H
+        self._keyboard_shifts_patch_("⌃⇧⏎", octet="015", csi="~", shifts_index=6)
+
+        self._keyboard_add_("⌃⇧!", cap_strikes="061")  # 1
+        self._keyboard_shifts_patch_("⌃⇧@", octet="100", csi="u", shifts_index=5)
+        self._keyboard_add_("⌃⇧#", cap_strikes="033")  # ⌃[
+        self._keyboard_add_("⌃⇧$", cap_strikes="134")  # ⌃\
+        self._keyboard_add_("⌃⇧%", cap_strikes="035")  # ⌃]
+        self._keyboard_add_("⌃⇧&", cap_strikes="037")  # ⌃⇧_
+        self._keyboard_add_("⌃⇧*", cap_strikes="177")  # ⌫
+        self._keyboard_add_("⌃⇧(", cap_strikes="071")  # 9
+        self._keyboard_add_("⌃⇧)", cap_strikes="060")  # 0
+
+        for cap in string.ascii_uppercase:
+            echo = f"⌃⇧{cap}"
+            octet = f"{ord(cap.lower()):03o}"
+            cap.lower()
+            self._keyboard_shifts_patch_(echo, octet=octet, csi="u", shifts_index=6)
+
+        self._keyboard_shifts_patch_("⌃⇧=", octet="075", csi="u", shifts_index=6)
+        self._keyboard_shifts_patch_("⌃⇧{", octet="173", csi="u", shifts_index=5)
+        self._keyboard_shifts_patch_("⌃⇧}", octet="175", csi="u", shifts_index=5)
+        self._keyboard_shifts_patch_("⌃⇧|", octet="174", csi="u", shifts_index=5)
+
+        self._keyboard_shifts_patch_("⌃⇧:", octet="073", csi="u", shifts_index=6)
+        self._keyboard_shifts_patch_('⌃⇧"', octet="047", csi="u", shifts_index=6)
+        self._keyboard_shifts_patch_("⌃⇧<", octet="054", csi="u", shifts_index=6)
+        self._keyboard_shifts_patch_("⌃⇧>", octet="056", csi="u", shifts_index=6)
+        self._keyboard_add_("⌃⇧?", cap_strikes="037")  # ⌃⇧_
+
+        self._keyboard_arrow_patch_("⌃⇧", caps="←↑→↓", shifts_index=6)
+
+        # 2.6 ⌥
+        # 2.7 ⌥⇧
+
+        pass  # todo: "Use Option as Meta key = No" not found in macOS Ghostty
+
+        # 2.8 ⇧
+
+        self._keyboard_shifts_patch_("⇧⎋", octet="033", csi="~", shifts_index=2)
+        self._keyboard_shifts_patch_("⇧⏎", octet="015", csi="~", shifts_index=2)
+
+        self._keyboard_arrow_patch_("⇧", caps="↑↓", shifts_index=2)
+
+        # todo1: reject the patches that change nothing
+        # todo2: learn & teach the art of reaching the different keyboards without pasting
+        # todo2: sort the possible Key Caps for each Decode in some great consistent way
+
+    def _keyboard_shifts_patch_(self, echo: str, octet: str, csi: str, shifts_index: int) -> None:
+        """Patch the Keyboard with a Key Cap and its Strikes"""
+
+        decode_by_echo = self.decode_by_echo
+
+        _ord_ = int(octet, base=0o010)
+        if csi == "~":
+            decode = f"\033[27;{shifts_index};{_ord_}" "~"
+        else:
+            assert csi == "u", (csi, echo, octet, shifts_index)
+            decode = f"\033[{_ord_};{shifts_index}" "u"
+
+        if echo in decode_by_echo.keys():
+            self._keyboard_remove_(echo)
+
+        self._keyboard_add_decode_(decode, echo=echo)
+
+        # todo: dig up docs for Csi u and for Csi ~
 
     #
     # Speak of a Byte Encoding as a Sequence of Chords of Key Caps
@@ -5525,16 +5728,6 @@ _ = """  # more famous Python Imports to run in place of our Code here
 
 if __name__ == "__main__":
     main()
-
-
-# todo0: Take up the many many 2 ** (⎋ ⌃ ⇧) Letter Keys of Ghostty
-
-
-# todo0: Fork the KeyboardDecoder
-# todo0: Write out the test results in order, with ¤ for Chords that send no Bytes
-# todo0: Diff each vs Terminal and mention the Ghostty ⎋⌃/ Bell
-
-# todo0: Name the Terminal Results, for copy-editing into the rest
 
 
 # todo1: Take up the Fn Keys
