@@ -852,7 +852,7 @@ class KeycapsGame:
         sw.write_control("\033[K")
         sw.write_some_controls(["\r", "\n"])
 
-        sw.print(r"Press ⌃C or ⌃\ or ⌃⇧| or ⌃⌥⇧|")
+        sw.print(r"Press ⌃C or ⌃\ or ⌃⇧| or ⌃⌥⇧|")  # todo1: calculate this accurately
         sw.print()
 
         # Succeed
@@ -3660,6 +3660,10 @@ class KeyboardDecoder:
             self._form_i_term_app_keyboards_()
         if flags.ghostty:
             self._form_ghostty_keyboards_()
+        if flags.google:
+            self._form_google_keyboards_()
+
+        # todo2: say something about Slow Esc and doubled ⌃B at Google Shell
 
     def _form_apple_terminal_keyboards_(self) -> None:
         """Form an Apple macOS Terminal Keyboard, out of Octets"""
@@ -4220,6 +4224,7 @@ class KeyboardDecoder:
         self._keyboard_arrow_patch_("⇧", caps="↑↓", shifts_index=2)
 
         # todo1: reject the patches that change nothing
+        # todo1: look before & after the drops of whole keyboards for like ⌃⌥⇧ Google and ⌃⌥ Google
         # todo2: learn & teach the art of reaching the different keyboards without pasting
         # todo2: sort the possible Key Caps for each Decode in some great consistent way
 
@@ -4241,6 +4246,100 @@ class KeyboardDecoder:
         self._keyboard_add_decode_(decode, echo=echo)
 
         # todo: dig up docs for Csi u and for Csi ~
+
+    def _form_google_keyboards_(self) -> None:
+        """Form a Google Cloud Shell Keyboard, as a diff from Apple Terminal"""
+
+        decode_by_echo = self.decode_by_echo
+
+        # 1.1 ⎋
+        # 1.2 ⎋⌃
+        # 1.3 ⎋⇧
+        # 1.4 ⎋⌃⇧
+
+        pass  # todo: no working "Alt is Meta" found in Google Cloud Shell
+
+        # 2.1 ''
+
+        pass
+
+        # 2.2 ⌃
+
+        self._keyboard_patch_("⌃⌫", cap_strikes="010")  # ⌃H
+        self._keyboard_remove_("⌃-")
+        self._keyboard_remove_("⌃⇥")
+        self._keyboard_remove_("⌃B")
+        self._keyboard_add_("⌃⏎", cap_strikes="015")  # ⏎
+        self._keyboard_remove_("⌃M")
+
+        # 2.3 ⌃⌥
+
+        echoes = list(decode_by_echo.keys())
+        for echo in echoes:
+            if echo.startswith("⌃⌥"):
+                self._keyboard_remove_(echo)
+
+        self._keyboard_add_("⌃⌥⎋", cap_strikes="033.033")  # ⎋ ⎋
+        self._keyboard_add_("⌃⌥⌫", cap_strikes="033.010")  # ⌃H
+        self._keyboard_add_("⌃⌥⏎", cap_strikes="033.015")  # ⎋ ⏎
+
+        # 2.4 ⌃⌥⇧
+
+        echoes = list(decode_by_echo.keys())
+        for echo in echoes:
+            if echo.startswith("⌃⌥⇧"):
+                self._keyboard_remove_(echo)
+
+        self._keyboard_add_("⌃⌥⇧⎋", cap_strikes="033.033")  # ⎋ ⎋
+        self._keyboard_add_("⌃⌥⇧⌫", cap_strikes="033.010")  # ⌃H
+        self._keyboard_add_("⌃⌥⇧⏎", cap_strikes="033.015")  # ⎋ ⏎
+        self._keyboard_add_("⌃⌥⇧@", cap_strikes="000")  # ⌃⇧@
+        self._keyboard_add_("⌃⌥⇧_", cap_strikes="037")  # ⌃⇧_
+
+        # 2.5 ⌃⇧  # not much here except ⌃⇧@ and ⌃⇧_
+
+        self._keyboard_patch_("⌃⇧⎋", cap_strikes="033.033")  # ⎋ ⎋
+        self._keyboard_patch_("⌃⇧⌫", cap_strikes="010")  # ⌃H
+        self._keyboard_add_("⌃⇧⏎", cap_strikes="015")  # ⏎
+
+        self._keyboard_remove_("⌃⇧^")
+        self._keyboard_remove_("⌃⇧⇥")
+        self._keyboard_remove_("⌃⇧|")
+        self._keyboard_remove_("⌃⇧␢")
+        self._keyboard_remove_("⌃⇧{")
+        self._keyboard_remove_("⌃⇧}")
+
+        self._keyboard_remove_("⌃⇧←")
+        self._keyboard_remove_("⌃⇧↑")
+        self._keyboard_remove_("⌃⇧→")
+        self._keyboard_remove_("⌃⇧↓")
+
+        # 2.6 ⌥
+
+        self._keyboard_patch_("⌥Y", cap_strikes="302.245")  # ¥
+        self._keyboard_patch_("⌥⌫", cap_strikes="033.177")  # ⎋ ⌫
+        self._keyboard_patch_("⌥⏎", cap_strikes="033.015")  # ⎋ ⏎
+
+        self._keyboard_patch_("⌥←", cap_strikes="033.033.133.104")  # ⎋ ⎋[D
+        self._keyboard_patch_("⌥↑", cap_strikes="033.033.133.101")  # ⎋ ⎋[A
+        self._keyboard_patch_("⌥→", cap_strikes="033.033.133.103")  # ⎋ ⎋[C
+        self._keyboard_patch_("⌥↓", cap_strikes="033.033.133.102")  # ⎋ ⎋[B
+
+        # 2.7 ⌥⇧
+
+        self._keyboard_remove_("⌥⇧←")
+        self._keyboard_remove_("⌥⇧↑")
+        self._keyboard_remove_("⌥⇧→")
+        self._keyboard_remove_("⌥⇧↓")
+
+        # 2.8 ⇧
+
+        self._keyboard_remove_("⇧←")
+        self._keyboard_remove_("⇧↑")
+        self._keyboard_remove_("⇧→")
+        self._keyboard_remove_("⇧↓")
+
+        # todo2: fix the slow ⌥⎋ of Google that breaks the Key Byte Frame of b"⎋⎋"
 
     #
     # Speak of a Byte Encoding as a Sequence of Chords of Key Caps
