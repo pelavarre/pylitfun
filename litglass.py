@@ -978,8 +978,8 @@ class KeycapsGame:
                         self.kc_switch_tab(echoes)
                         finds = self.kc_press_keys_if(echoes, unhit_kseqs)
 
-                s = "s" if finds[1:] else ""
-                logger_print(f"{frame!r} {echoes} toggled {finds} Key Cap{s}")
+                # s = "s" if finds[1:] else ""
+                # logger_print(f"{frame!r} {echoes} toggled {finds} Key Cap{s}")
 
             # Switch to the Keyboard Tab named by Paste
 
@@ -1137,7 +1137,7 @@ class KeycapsGame:
                 findable = "Spacebar"
 
             if _shifters_ != shifters:
-                logger_print(f"{_cap_!r} {echo!r}  # dropped for {_shifters_!r} vs {shifters!r}")
+                pass  # logger_print(f"{_cap_!r} {echo!r}  # dropped for {_shifters_!r} vs {shifters!r}")
             elif findable not in tangible_keyboard:
                 logger_print(f"{_cap_!r} {echo!r} {findable!r}  # dropped for not found")
             else:
@@ -3614,16 +3614,19 @@ class KeyboardReader:
 
 
 def _try_keyboard_decoder_() -> None:
+    """Try KeyboardDecoder things, or don't bother"""
 
-    kd = KeyboardDecoder()
+    pass
 
-    d1 = kd.decode_by_echo
-    k1 = "⎋⇧⎋"
-    logger_print(f"{len(d1)=} [{k1!r}] = {d1.get(k1)!r}  # _try_keyboard_decoder_")
+    # kd = KeyboardDecoder()
 
-    d2 = kd.echoes_by_decode
-    k2 = "⎋⇧⎋"
-    logger_print(f"{len(d2)=} [{k2!r}] = {d2.get(k2)!r}  # _try_keyboard_decoder_")
+    # d1 = kd.decode_by_echo
+    # k1 = "⎋⇧⎋"
+    # logger_print(f"{len(d1)=} [{k1!r}] = {d1.get(k1)!r}  # _try_keyboard_decoder_")
+
+    # d2 = kd.echoes_by_decode
+    # k2 = "⎋⇧⎋"
+    # logger_print(f"{len(d2)=} [{k2!r}] = {d2.get(k2)!r}  # _try_keyboard_decoder_")
 
 
 class KeyboardDecoder:
@@ -3654,8 +3657,8 @@ class KeyboardDecoder:
         self._add_control_option_shift_of_common_text_keys_()
 
         self._add_option_keys_()
-        self._add_7bit_meta_keys_()
-        self._add_shifted_meta_keys_()
+        self._add_few_bit_meta_keys_()
+        self._add_many_bit_meta_keys_()
 
         self._add_fn_keys()
 
@@ -3703,7 +3706,7 @@ class KeyboardDecoder:
 
         if flags.ghostty:
 
-            d["⌃-"] = "\033[" "45;5u"  # ⎋[ 45;5U  # 45 == 0o55 == ord("-")
+            d["⌃-"] = "\033[" "45;5u"  # ⎋[ 45;5U  # 45 == 0o055 == ord("-")
             d["⌃`"] = "\033[" "96;5u"  # ⎋[ 96;5U  # 96 == 0o140 == ord("`")
             d["⌃⇧@"] = "\033[" "64;5u"  # ⎋[ 65;5U  # 64 == 0o100 == ord("@")
             d["⌃["] = "\033[" "91;5u"  # ⎋[ 91;5U  # 91 == 0o133 == ord("[")
@@ -3758,7 +3761,7 @@ class KeyboardDecoder:
 
         if flags.ghostty:
 
-            d["⌃="] = "\033[" "61;5u"  # ⎋[ 61;5U  # 61 == 0o75 == ord("=")
+            d["⌃="] = "\033[" "61;5u"  # ⎋[ 61;5U  # 61 == 0o075 == ord("=")
 
         if flags.google:
 
@@ -3812,8 +3815,6 @@ class KeyboardDecoder:
 
             self._add_into_decode_by_echo_(d)
 
-            # todo0: more of ⌃⇧ Ghostty
-
     def _add_control_option_shift_of_common_text_keys_(self) -> None:
         """Add ⌃⌥⇧ Keys encoded same as ⌃ Keys, or same as Unshifted Keys"""
 
@@ -3859,7 +3860,7 @@ class KeyboardDecoder:
 
         self._add_into_decode_by_echo_(d)
 
-    def _add_common_named_keys_(self) -> None:  # noqa  # C901 complex  # todo:
+    def _add_common_named_keys_(self) -> None:  # noqa  # C901 complex  # todo2:
         """Add the Esc, Tab, Delete, Return, Black Spacebar, and Arrow Key Chords"""
 
         # Encode Esc  # apart from ._add_meta_keys_()
@@ -3872,13 +3873,14 @@ class KeyboardDecoder:
 
         if not flags.ghostty:
             esc["⌃⎋"] = esc["⎋"]
-            esc["⌃⇧⎋"] = "\033[" "27;6;27" "~"  # ⎋[ 27;6;27~  # 27 == 0o33 == ord("]")
+            esc["⌃⇧⎋"] = "\033[" "27;6;27" "~"  # ⎋[ 27;6;27~  # 27 == 0o033 == 0x40 ^ ord("]")
             esc["⌥⎋"] = esc["⎋"]
             esc["⌥⇧⎋"] = esc["⎋"]
             esc["⇧⎋"] = esc["⎋"]
 
         if flags.ghostty:
-            esc["⌃⎋"] = "\033[" "27;5;27" "~"  # ⎋[ 27;5;27~  # 27 == 0o33 == ord("]")
+            esc["⇧⎋"] = "\033[" "27;2;27" "~"  # ⎋[ 27;2;27~  # 27 == 0o033 == 0x40 ^ ord("]")
+            esc["⌃⎋"] = "\033[" "27;5;27" "~"  # ⎋[ 27;5;27~  # 27 == 0o033 == 0x40 ^ ord("]")
             esc["⌃⇧⎋"] = ""  # sends no Bytes
 
         # Encode Backwards Delete
@@ -3941,6 +3943,9 @@ class KeyboardDecoder:
             _return_["⌥⏎"] = _return_["⏎"]
             _return_["⌥⇧⏎"] = _return_["⏎"]
 
+        if flags.ghostty:
+            _return_["⇧⏎"] = "\033[" "27;2;13" "~"  # ⎋[ 27;2;13~  # 13 == 0o015 == ord("\r")
+
         # Encode Spacebar
 
         spacebar = {
@@ -3981,26 +3986,6 @@ class KeyboardDecoder:
                     "⇧↘": "\033[" "1;2" "↘",  # ⎋[1;2↘
                     "⇧↙": "\033[" "1;2" "↙",  # ⎋[1;2↙
                     #
-                    "⌥↑": "\033[" "1;3" "A",  # ⎋[1;3⇧A
-                    "⌥↓": "\033[" "1;3" "B",  # ⎋[1;3⇧C
-                    "⌥→": "\033[" "1;3" "C",  # ⎋[1;3⇧C
-                    "⌥←": "\033[" "1;3" "D",  # ⎋[1;3⇧D
-                    #
-                    "⌥↖": "\033[" "1;3" "↖",  # ⎋[1;3↖
-                    "⌥↗": "\033[" "1;3" "↗",  # ⎋[1;3↗
-                    "⌥↘": "\033[" "1;3" "↘",  # ⎋[1;3↘
-                    "⌥↙": "\033[" "1;3" "↙",  # ⎋[1;3↙
-                    #
-                    "⌥⇧↑": "\033[" "1;4" "A",  # ⎋[1;4⇧A
-                    "⌥⇧↓": "\033[" "1;4" "B",  # ⎋[1;4⇧C
-                    "⌥⇧→": "\033[" "1;4" "C",  # ⎋[1;4⇧C
-                    "⌥⇧←": "\033[" "1;4" "D",  # ⎋[1;4⇧D
-                    #
-                    "⌥⇧↖": "\033[" "1;4" "↖",  # ⎋[1;4⇧A
-                    "⌥⇧↗": "\033[" "1;4" "↗",  # ⎋[1;4⇧C
-                    "⌥⇧↘": "\033[" "1;4" "↘",  # ⎋[1;4⇧C
-                    "⌥⇧↙": "\033[" "1;4" "↙",  # ⎋[1;4⇧D
-                    #
                     "⌃⇧↑": "\033[" "1;6" "A",  # ⎋[1;6⇧A
                     "⌃⇧↓": "\033[" "1;6" "B",  # ⎋[1;6⇧C
                     "⌃⇧→": "\033[" "1;6" "C",  # ⎋[1;6⇧C
@@ -4019,6 +4004,7 @@ class KeyboardDecoder:
             )
 
         if flags.terminal:
+            #
             arrows["⇧↑"] = arrows["↑"]
             arrows["⇧↓"] = arrows["↓"]
             #
@@ -4056,6 +4042,60 @@ class KeyboardDecoder:
             arrows["⌥↓"] = "\033" + arrows["↓"]
             arrows["⌥→"] = "\033" + arrows["→"]
             arrows["⌥←"] = "\033" + arrows["←"]
+
+        if flags.i_term_app:
+            #
+            arrows["⌥↑"] = "\033[" "1;3" "A"  # ⎋[1;3⇧A
+            arrows["⌥↓"] = "\033[" "1;3" "B"  # ⎋[1;3⇧C
+            arrows["⌥→"] = "\033[" "1;3" "C"  # ⎋[1;3⇧C
+            arrows["⌥←"] = "\033[" "1;3" "D"  # ⎋[1;3⇧D
+            #
+            arrows["⌥↖"] = "\033[" "1;3" "↖"  # ⎋[1;3↖
+            arrows["⌥↗"] = "\033[" "1;3" "↗"  # ⎋[1;3↗
+            arrows["⌥↘"] = "\033[" "1;3" "↘"  # ⎋[1;3↘
+            arrows["⌥↙"] = "\033[" "1;3" "↙"  # ⎋[1;3↙
+            #
+            arrows["⌥⇧↑"] = "\033[" "1;4" "A"  # ⎋[1;4⇧A
+            arrows["⌥⇧↓"] = "\033[" "1;4" "B"  # ⎋[1;4⇧C
+            arrows["⌥⇧→"] = "\033[" "1;4" "C"  # ⎋[1;4⇧C
+            arrows["⌥⇧←"] = "\033[" "1;4" "D"  # ⎋[1;4⇧D
+            #
+            arrows["⌥⇧↖"] = "\033[" "1;4" "↖"  # ⎋[1;4⇧A
+            arrows["⌥⇧↗"] = "\033[" "1;4" "↗"  # ⎋[1;4⇧C
+            arrows["⌥⇧↘"] = "\033[" "1;4" "↘"  # ⎋[1;4⇧C
+            arrows["⌥⇧↙"] = "\033[" "1;4" "↙"  # ⎋[1;4⇧D
+
+        if flags.ghostty:
+            #
+            arrows["⎋↑"] = "\033[" "1;3" "A"  # ⎋[1;3⇧A
+            arrows["⎋↓"] = "\033[" "1;3" "B"  # ⎋[1;3⇧C
+            arrows["⎋→"] = "\033[" "1;3" "C"  # ⎋[1;3⇧C
+            arrows["⎋←"] = "\033[" "1;3" "D"  # ⎋[1;3⇧D
+            #
+            arrows["⎋↖"] = "\033[" "1;3" "↖"  # ⎋[1;3↖
+            arrows["⎋↗"] = "\033[" "1;3" "↗"  # ⎋[1;3↗
+            arrows["⎋↘"] = "\033[" "1;3" "↘"  # ⎋[1;3↘
+            arrows["⎋↙"] = "\033[" "1;3" "↙"  # ⎋[1;3↙
+            #
+            arrows["⎋⇧↑"] = "\033[" "1;4" "A"  # ⎋[1;4⇧A
+            arrows["⎋⇧↓"] = "\033[" "1;4" "B"  # ⎋[1;4⇧C
+            arrows["⎋⇧→"] = "\033[" "1;4" "C"  # ⎋[1;4⇧C
+            arrows["⎋⇧←"] = "\033[" "1;4" "D"  # ⎋[1;4⇧D
+            #
+            arrows["⎋⇧↖"] = "\033[" "1;4" "↖"  # ⎋[1;4⇧A
+            arrows["⎋⇧↗"] = "\033[" "1;4" "↗"  # ⎋[1;4⇧C
+            arrows["⎋⇧↘"] = "\033[" "1;4" "↘"  # ⎋[1;4⇧C
+            arrows["⎋⇧↙"] = "\033[" "1;4" "↙"  # ⎋[1;4⇧D
+            #
+            arrows["⎋⌃↑"] = "\033[" "1;7" "A"  # ⎋[1;7⇧A
+            arrows["⎋⌃↓"] = "\033[" "1;7" "B"  # ⎋[1;7⇧C
+            arrows["⎋⌃→"] = "\033[" "1;7" "C"  # ⎋[1;7⇧C
+            arrows["⎋⌃←"] = "\033[" "1;7" "D"  # ⎋[1;7⇧D
+            #
+            arrows["⎋⌃↖"] = "\033[" "1;7" "↖"  # ⎋[1;7⇧A
+            arrows["⎋⌃↗"] = "\033[" "1;7" "↗"  # ⎋[1;7⇧C
+            arrows["⎋⌃↘"] = "\033[" "1;7" "↘"  # ⎋[1;7⇧C
+            arrows["⎋⌃↙"] = "\033[" "1;7" "↙"  # ⎋[1;7⇧D
 
         # Add these Byte Encodes of these Key Chords
 
@@ -4196,8 +4236,8 @@ class KeyboardDecoder:
                     else:
                         decode_by_echo[shift] = up
 
-    def _add_7bit_meta_keys_(self) -> None:
-        """Add the "Use Option as Meta key" of macOS Terminal"""
+    def _add_few_bit_meta_keys_(self) -> None:
+        """Add the "Use Option as Meta key" of macOS Terminal to 7-bit Keys"""
 
         decode_by_echo = self.decode_by_echo
 
@@ -4217,6 +4257,10 @@ class KeyboardDecoder:
                         if (not flags.ghostty) and (not flags.google):
                             continue
 
+                    if echo in "⌃/".split():  # ⎋⌃/ defined separately
+                        if flags.ghostty:
+                            continue
+
                     alt_kseq = "⎋" + echo  # '⎋␢'
                     alt_decode = "\033" + text
 
@@ -4226,73 +4270,93 @@ class KeyboardDecoder:
 
                     # ⎋B hides behind ⌥←, ⎋F hides behind ⌥→
 
-    def _add_shifted_meta_keys_(self) -> None:  # apart from ._add_common_named_keys_
-        """Add the "Use Option as Meta key" of macOS Terminal"""
+    def _add_many_bit_meta_keys_(self) -> None:  # todo: apart from ._add_common_named_keys_
+        """Add the "Use Option as Meta key" of macOS Terminal to > 7-bit Keys"""
 
         decode_by_echo = self.decode_by_echo
 
+        d = dict()
+
         # Add some ⎋ Keys
 
-        echoes = ("⇧⇥", "↑", "↓", "→", "←")
-        for echo in echoes:
-            assert " " not in echo, (echo,)
+        if not flags.ghostty:
 
-            if echo == "⇧⇥":  # ⎋⇧⇥ defined separately
-                if flags.google:
-                    continue
+            echoes = ("⇧⇥",) if flags.google else ("⇧⇥", "↑", "↓", "→", "←")
 
-            text = decode_by_echo[echo]
+            for echo in echoes:
+                assert " " not in echo, (echo,)
 
-            alt_kseq = "⎋" + echo  # '⎋⇧⇥'
-            alt_decode = "\033" + text
-            if echo in ("→", "←"):  # not '\033\033[C'  # not '\033\033[D'
-                if flags.terminal or flags.ghostty:  # not '\033\033f'  # not '\033\033b'
-                    alt_decode = "\033f" if (echo == "→") else "\033b"
-            elif echo in ("↑", "↓"):
-                if flags.ghostty:  # not '\033\033[A'  # not '\033\033[B'
-                    alt_decode = "\033[1;3A" if (echo == "↑") else "\033[1;3B"
+                text = decode_by_echo[echo]
 
-            assert alt_kseq not in decode_by_echo.keys(), (alt_kseq,)
-            decode_by_echo[alt_kseq] = alt_decode
+                alt_kseq = "⎋" + echo  # '⎋⇧⇥'
+                alt_decode = "\033" + text
+                if echo in ("→", "←"):  # not '\033\033[C'  # not '\033\033[D'
+                    if flags.terminal:
+                        alt_decode = "\033f" if (echo == "→") else "\033b"
+
+                d[alt_kseq] = alt_decode
 
             # ⎋← hides behind ⎋B behind ⌥←, ⎋→ hides behind ⎋F behind ⌥→
 
+        if flags.ghostty:
+            d["⎋⇧⎋"] = "\033[" "27;4;27" "~"  # ⎋[ 27;4;27~  # 27 == 0o033 == 0x40 ^ ord("]")
+            d["⎋⇧⇥"] = "\033[" "27;4;9" "~"  # ⎋[ 27;4;9~  # 9 == 0o011 == ord("\t")
+            d["⎋⇧⏎"] = "\033[" "27;4;13" "~"  # ⎋[ 27;4;13~  # 13 == 0o015 == ord("\r")
+
         # Add some ⎋⇧ Keys
 
-        d = decode_by_echo
-
-        d_by_ks = dict()
-        if not flags.google:
-            d_by_ks.update(
+        if flags.terminal or flags.i_term_app:
+            d.update(
                 {
-                    "⎋⇧↑": "\033" + d["↑"],
-                    "⎋⇧↓": "\033" + d["↓"],
-                    "⎋⇧→": "\033" + d["→"],  # yes '\033\033[C'
-                    "⎋⇧←": "\033" + d["←"],  # yes '\033\033[D'
+                    "⎋⇧↑": "\033" + decode_by_echo["↑"],
+                    "⎋⇧↓": "\033" + decode_by_echo["↓"],
+                    "⎋⇧→": "\033" + decode_by_echo["→"],  # yes '\033\033[C'
+                    "⎋⇧←": "\033" + decode_by_echo["←"],  # yes '\033\033[D'
                     #
-                    "⎋⇧↖": "\033" + d["↖"],
-                    "⎋⇧↗": "\033" + d["↗"],
-                    "⎋⇧↘": "\033" + d["↘"],
-                    "⎋⇧↙": "\033" + d["↙"],
+                    "⎋⇧↖": "\033" + decode_by_echo["↖"],
+                    "⎋⇧↗": "\033" + decode_by_echo["↗"],
+                    "⎋⇧↘": "\033" + decode_by_echo["↘"],
+                    "⎋⇧↙": "\033" + decode_by_echo["↙"],
                 }
             )
 
-        d_by_ks["⎋⇧⌫"] = "\033\177"
+        d["⎋⇧⌫"] = "\033\177"
         if flags.terminal:
-            d_by_ks["⎋⇧⌫"] = "\033" + "\010"  # ⎋⌃H
+            d["⎋⇧⌫"] = "\033" + "\010"  # ⎋⌃H
 
         # Add some ⎋⌃ Keys
 
         if (not flags.ghostty) and (not flags.google):
-            d_by_ks["⎋⌃⌫"] = "\033" + "\010"  # ⎋⌃H
-            if "⎋⌃`" not in d.keys():
-                assert flags.terminal
-                d_by_ks["⎋⌃`"] = "\033" + "`"  # ⎋`
-            if "⎋⌃⏎" not in d.keys():
-                assert flags.terminal
-                d_by_ks["⎋⌃⏎"] = "\033" + "\r"  # ⎋⏎
+            d["⎋⌃⌫"] = "\033" + "\010"  # ⎋⌃H
+            if flags.terminal:
+                d["⎋⌃`"] = "\033" + "`"  # ⎋`
+                d["⎋⌃⏎"] = "\033" + "\r"  # ⎋⏎
 
-        self._add_into_decode_by_echo_(d_by_ks)
+        if flags.ghostty:
+
+            d["⎋⌃⎋"] = "\033[" "27;7;27" "~"  # ⎋[ 27;7;27~  # 27 == 0o033 == 0x40 ^ ord("]")
+            d["⎋⌃⏎"] = "\033[" "27;7;13" "~"  # ⎋[ 27;7;13~  # 13 == 0o015 == ord("\r")
+
+            d["⎋⌃2"] = "\033\000"  # as if ⎋⌃⇧@
+            d["⎋⌃6"] = "\033\036"  # as if ⎋⌃⇧^
+            d["⎋⌃/"] = "\033\037"  # as if ⎋⌃⇧_
+
+            d["⎋⌃`"] = "\033[" "96;7" "u"  # ⎋[ 96;7U  # 96 == 0o140 == ord("`")
+            d["⎋⌃-"] = "\033[" "45;7" "u"  # ⎋[ 45;7U  # 45 == 0o055 == ord("-")
+            d["⎋⌃="] = "\033[" "61;7" "u"  # ⎋[ 61;7U  # 61 == 0o075 == ord("=")
+            d["⎋⌃I"] = "\033[" "105;7" "u"  # ⎋[ 105;7U  # 105 == 0o151 == ord("i")
+            d["⎋⌃["] = "\033[" "91;7" "u"  # ⎋[ 91;7U  # 91 == 0o133 == ord("[")
+            d["⎋⌃;"] = "\033[" "59;7" "u"  # ⎋[ 59;7U  # 59 == 0o073 == ord(";")
+            d["⎋⌃'"] = "\033[" "39;7" "u"  # ⎋[ 39;7U  # 39 == 0o047 == ord("'")
+            d["⎋⌃M"] = "\033[" "109;7" "u"  # ⎋[ 109;7U  # 109 == 0o155 == ord("m")
+            d["⎋⌃,"] = "\033[" "44;7" "u"  # ⎋[ 44;7U  # 44 == 0o054 == ord(",")
+            d["⎋⌃."] = "\033[" "46;7" "u"  # ⎋[ 46;7U  # 46 == 0o056 == ord(".")
+
+            # indeed there is no Ghostty ⎋⌃⇥   # todo1: and no Ghostty ⎋⌃/
+
+        # Succeed
+
+        self._add_into_decode_by_echo_(d)
 
     def _add_fn_keys(self) -> None:
         """Add some Fn Keys"""
