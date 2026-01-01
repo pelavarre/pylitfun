@@ -783,25 +783,27 @@ class KeycapsGame:
 
         tb = self.terminal_boss
         kr = tb.keyboard_reader
+        kd = tb.keyboard_decoder
+        sw = tb.screen_writer
+
+        echoes_by_decode = kd.echoes_by_decode
 
         shifters = self.shifters
         tangible_keyboard = self.tangible_keyboard
-
-        tb = self.terminal_boss
-        sw = tb.screen_writer
 
         assert EL_PS == "\033[" "{}" "K"
 
         # Schedule tests of ⎋ and ⌃ ⌥ ⇧
         #
-        #   todo: make a way to say ⌃⌥⇧ and ⌃⌥ Apple macOS Terminals have no distinct Key Chords
+        #   todo: sort
         #
-        #   todo: never speak of ⌃⌥⇧ reversed ⇧⌥⌃|⇧⌥|⇧⌃|⌥⌃
-        #   todo: never speak of ⌃⌥⇧ shuffled ⌃⇧⌥|⌥⌃⇧|⇧⌃⌥
-        #   todo: never speak of ⇧`|⇧-|⇧=|⇧\[|⇧\]|⇧\\|⇧;|⇧'|⇧,|⇧\.|⇧/
+        #   todo: say which Keyboards have no distinct Echoes - ⌃⌥⇧ Terminal, ⌃⌥ Terminal, and what?
+        #
+        #   todo: never speak of ⌃⌥⇧ reversed ⇧⌥⌃|⇧⌥|⇧⌃|⌥⌃ or shuffled ⌃⇧⌥|⌥⌃⇧|⇧⌃⌥
+        #   todo: never speak of downshifted ⇧`|⇧-|⇧=|⇧\[|⇧\]|⇧\\|⇧;|⇧'|⇧,|⇧\.|⇧/
         #
 
-        tested_shifters = [""] + "⎋ ⎋⌃ ⎋⌃⇧ ⎋⇧".split() + "⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧".split()
+        tested_shifters = [""] + "⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧".split() + "⎋ ⎋⌃ ⎋⌃⇧ ⎋⇧".split()
         assert shifters in tested_shifters, (shifters, tested_shifters)
 
         # Scroll to make Rows in the South, if need be, like after:  seq 987
@@ -849,10 +851,13 @@ class KeycapsGame:
 
         # Print a Trailer in the far Southeast
 
+        echoes = echoes_by_decode["\003"] + echoes_by_decode["\034"]
+        join = " or ".join(sorted(echoes))
+
         sw.write_control("\033[K")
         sw.write_some_controls(["\r", "\n"])
 
-        sw.print(r"Press ⌃C or ⌃\ or ⌃⇧| or ⌃⌥⇧|")  # todo1: calculate this accurately
+        sw.print(r"Press", join)  # Press ⌃C or ⌃\ or ...
         sw.print()
 
         # Succeed
@@ -3617,10 +3622,10 @@ class KeyboardReader:
 def _try_keyboard_decoder_() -> None:
     """Try KeyboardDecoder things, or don't bother"""
 
-    kd = KeyboardDecoder()
-
-    debugging = False  # '= False' does save time, but too little to measure easily
+    debugging = False  # '= False' saves like 1ms
     if debugging:
+
+        kd = KeyboardDecoder()
 
         d1 = kd.decode_by_echo
         k1 = "⌃⇧@"
@@ -3638,6 +3643,7 @@ class KeyboardDecoder:
 
     decode_by_echo: dict[str, str]
     echoes_by_decode: dict[str, tuple[str, ...]]
+    removals_by_echo: dict[str, str]
 
     OptionAccents = ("`", "´", "¨", "ˆ", "˜")
     OptionGraveGrave = "``"
@@ -3648,6 +3654,7 @@ class KeyboardDecoder:
 
         self.decode_by_echo = dict()
         self.echoes_by_decode = dict()
+        self.removals_by_echo = dict()
 
         self._form_some_keyboards_()
 
@@ -3930,11 +3937,22 @@ class KeyboardDecoder:
             echoes_by_decode[decode] = tuple()
         echoes_by_decode[decode] += (echo,)  # todo: struggling with tuple
 
+    def _keyboard_remove_if_(self, echo: str) -> None:
+        """Remove a Key Cap and its Byte Encoding from a Keyboard, if it exists"""
+
+        decode_by_echo = self.decode_by_echo
+        if echo in decode_by_echo.keys():
+            self._keyboard_remove_(echo)
+
     def _keyboard_remove_(self, echo: str) -> None:
         """Remove a Key Cap and its Byte Encoding from a Keyboard"""
 
         decode_by_echo = self.decode_by_echo
         echoes_by_decode = self.echoes_by_decode
+        removals_by_echo = self.removals_by_echo
+
+        assert echo not in removals_by_echo, (echo,)
+        removals_by_echo[echo] = echo
 
         assert echo in decode_by_echo.keys(), (echo,)
         old_decode = decode_by_echo[echo]
@@ -3963,17 +3981,16 @@ class KeyboardDecoder:
 
         pass
 
-        # 2.2 ⌃  # todo: merge with ⌃ Ghostty
+        # 2.2 ⌃  # much the same as ⌃ Ghostty, except that Ghostty patches & adds more
 
         self._keyboard_patch_("⌃⌫", cap_strikes="010")  # ⌃H
-
         self._keyboard_remove_("⌃⇥")
 
         self._keyboard_add_("⌃`", cap_strikes="140")  # `
         self._keyboard_add_("⌃1", cap_strikes="061")  # 1
         self._keyboard_add_("⌃2", cap_strikes="000")  # ⌃⇧@
         self._keyboard_add_("⌃3", cap_strikes="033")  # ⌃[
-        self._keyboard_add_("⌃4", cap_strikes="003")  # ⌃C
+        self._keyboard_add_("⌃4", cap_strikes="134")  # ⌃\
         self._keyboard_add_("⌃5", cap_strikes="035")  # ⌃]
         self._keyboard_add_("⌃6", cap_strikes="036")  # ⌃⇧^
         self._keyboard_add_("⌃7", cap_strikes="037")  # ⌃⇧_
@@ -3982,6 +3999,11 @@ class KeyboardDecoder:
         self._keyboard_add_("⌃0", cap_strikes="060")  # 0
         self._keyboard_add_("⌃=", cap_strikes="075")  # =
         self._keyboard_add_("⌃/", cap_strikes="037")  # ⌃⇧_
+
+        self._keyboard_add_("⌃,", cap_strikes="054")  # ,
+        self._keyboard_add_("⌃.", cap_strikes="056")  # .
+        self._keyboard_add_("⌃;", cap_strikes="073")  # ;
+        self._keyboard_add_("⌃'", cap_strikes="047")  # '
 
         # 2.3 ⌃⌥
 
@@ -3992,25 +4014,16 @@ class KeyboardDecoder:
 
         self._keyboard_arrow_patch_("⌃⌥⇧", caps="←↑→↓", shifts_index=8)
 
-        # 2.5 ⌃⇧ # todo2: less struggle to form iTerm2 ⌃⇧ Keyboard
+        # 2.5 ⌃⇧
 
         for old_cap, new_cap in zip(plain_caps, shift_caps):
-            old_echo = "⌃⌥" + old_cap
             new_echo = "⌃⇧" + new_cap
+            if new_echo not in ("⌃⇧⇥", "⌃⇧@", "⌃⇧^", "⌃⇧←", "⌃⇧↑", "⌃⇧→", "⌃⇧↓"):
+                old_echo = "⌃⌥" + old_cap
+                decode = decode_by_echo[old_echo]
 
-            decode = decode_by_echo[old_echo]
-            if new_echo in decode_by_echo.keys():
-                self._keyboard_remove_(new_echo)
-
-            self._keyboard_add_decode_(decode, echo=new_echo)
-
-        self._keyboard_remove_("⌃⇧⇥")
-
-        self._keyboard_patch_("⌃⇧@", cap_strikes="000")  # ⌃⇧@
-
-        self._keyboard_patch_("⌃⇧^", cap_strikes="036")  # ⌃⇧^
-        self._keyboard_patch_("⌃6", cap_strikes="036")  # ⌃⇧^
-        self._keyboard_patch_("⌃⌥⇧^", cap_strikes="036")  # ⌃⇧^
+                self._keyboard_remove_if_(new_echo)
+                self._keyboard_add_decode_(decode, echo=new_echo)
 
         self._keyboard_patch_("⌃⇧⌫", cap_strikes="010")  # ⌃H
         self._keyboard_patch_("⌃⇧?", cap_strikes="177")  # ⌫
@@ -4060,7 +4073,8 @@ class KeyboardDecoder:
         self._keyboard_patch_("⎋⌃⌫", cap_strikes="033.010")  # ⌃H
         self._keyboard_remove_("⎋⌃⇥")
 
-        self._keyboard_patch_("⎋⌃`", cap_strikes="140")  # `
+        self._keyboard_shifts_patch_("⎋⌃`", octet="140", csi="u", shifts_index=7)
+
         self._keyboard_patch_("⎋⌃1", cap_strikes="033.061")  # ⎋ 1
         self._keyboard_patch_("⎋⌃2", cap_strikes="033.000")  # ⎋ ⌃⇧@
         self._keyboard_patch_("⎋⌃3", cap_strikes="033.033")  # ⎋ ⌃[
@@ -4071,22 +4085,20 @@ class KeyboardDecoder:
         self._keyboard_patch_("⎋⌃8", cap_strikes="033.177")  # ⎋ ⌫
         self._keyboard_patch_("⎋⌃9", cap_strikes="033.071")  # ⎋ 9
         self._keyboard_patch_("⎋⌃0", cap_strikes="033.060")  # ⎋ 0
-        self._keyboard_patch_("⎋⌃=", cap_strikes="075")  # =
         self._keyboard_patch_("⎋⌃/", cap_strikes="033.037")  # ⌃⇧_  # beeps 🙄
 
+        self._keyboard_shifts_patch_("⎋⌃;", octet="073", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃'", octet="047", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃,", octet="054", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃.", octet="056", csi="u", shifts_index=7)
+
         self._keyboard_shifts_patch_("⎋⌃⎋", octet="033", csi="~", shifts_index=7)
-        self._keyboard_shifts_patch_("⎋⌃`", octet="140", csi="u", shifts_index=7)
         self._keyboard_shifts_patch_("⎋⌃-", octet="055", csi="u", shifts_index=7)
         self._keyboard_shifts_patch_("⎋⌃=", octet="075", csi="u", shifts_index=7)
         self._keyboard_shifts_patch_("⎋⌃I", octet="151", csi="u", shifts_index=7)
         self._keyboard_shifts_patch_("⎋⌃[", octet="133", csi="u", shifts_index=7)
         self._keyboard_shifts_patch_("⎋⌃M", octet="155", csi="u", shifts_index=7)
-
-        self._keyboard_shifts_patch_("⎋⌃;", octet="073", csi="u", shifts_index=7)
-        self._keyboard_shifts_patch_("⎋⌃'", octet="047", csi="u", shifts_index=7)
         self._keyboard_shifts_patch_("⎋⌃⏎", octet="015", csi="~", shifts_index=7)
-        self._keyboard_shifts_patch_("⎋⌃,", octet="054", csi="u", shifts_index=7)
-        self._keyboard_shifts_patch_("⎋⌃.", octet="056", csi="u", shifts_index=7)
 
         self._keyboard_patch_("⎋⌃␢", cap_strikes="033.000")  # Spacebar
 
@@ -4140,10 +4152,9 @@ class KeyboardDecoder:
 
         pass
 
-        # 2.2 ⌃  # todo: merge with ⌃ iTerm2  # todo: merge with ⎋⌃ Ghostty
+        # 2.2 ⌃  # much the same as ⌃ iTerm2, except that Ghostty patches & adds more
 
         self._keyboard_patch_("⌃⌫", cap_strikes="010")  # ⌃H
-
         self._keyboard_remove_("⌃⇥")
 
         self._keyboard_add_("⌃`", cap_strikes="140")  # `
@@ -4160,15 +4171,19 @@ class KeyboardDecoder:
         self._keyboard_add_("⌃=", cap_strikes="075")  # =
         self._keyboard_add_("⌃/", cap_strikes="037")  # ⌃⇧_
 
+        self._keyboard_shifts_add_("⌃;", octet="073", csi="u", shifts_index=5)
+        self._keyboard_shifts_add_("⌃'", octet="047", csi="u", shifts_index=5)
+        self._keyboard_shifts_add_("⌃,", octet="054", csi="u", shifts_index=5)
+        self._keyboard_shifts_add_("⌃.", octet="056", csi="u", shifts_index=5)
+
         self._keyboard_shifts_patch_("⌃⎋", octet="033", csi="~", shifts_index=5)
         self._keyboard_shifts_patch_("⌃`", octet="140", csi="u", shifts_index=5)
         self._keyboard_shifts_patch_("⌃=", octet="075", csi="u", shifts_index=5)
         self._keyboard_shifts_patch_("⌃I", octet="151", csi="u", shifts_index=5)
-        self._keyboard_shifts_patch_("⌃;", octet="073", csi="u", shifts_index=5)
-        self._keyboard_shifts_patch_("⌃'", octet="047", csi="u", shifts_index=5)
         self._keyboard_shifts_patch_("⌃M", octet="155", csi="u", shifts_index=5)
-        self._keyboard_shifts_patch_("⌃,", octet="054", csi="u", shifts_index=5)
-        self._keyboard_shifts_patch_("⌃.", octet="056", csi="u", shifts_index=5)
+
+        # todo1: why "⌃\'" in place of "⌃'" in our logs
+        logger_print(repr("⌃'"), repr('⌃⇧"'), "overly escaped : -(")  # todo3
 
         # 2.3 ⌃⌥
         # 2.4 ⌃⌥⇧
@@ -4180,7 +4195,7 @@ class KeyboardDecoder:
         self._keyboard_shifts_patch_("⌃⇧⎋", octet="033", csi="~", shifts_index=6)
         self._keyboard_remove_("⌃⇧⇥")
         self._keyboard_patch_("⌃⇧⌫", cap_strikes="010")  # ⌃H
-        self._keyboard_shifts_patch_("⌃⇧⏎", octet="015", csi="~", shifts_index=6)
+        self._keyboard_shifts_add_("⌃⇧⏎", octet="015", csi="~", shifts_index=6)
 
         self._keyboard_add_("⌃⇧!", cap_strikes="061")  # 1
         self._keyboard_shifts_patch_("⌃⇧@", octet="100", csi="u", shifts_index=5)
@@ -4196,17 +4211,17 @@ class KeyboardDecoder:
             echo = f"⌃⇧{cap}"
             octet = f"{ord(cap.lower()):03o}"
             cap.lower()
-            self._keyboard_shifts_patch_(echo, octet=octet, csi="u", shifts_index=6)
+            self._keyboard_shifts_add_(echo, octet=octet, csi="u", shifts_index=6)
 
-        self._keyboard_shifts_patch_("⌃⇧=", octet="075", csi="u", shifts_index=6)
+        self._keyboard_shifts_add_("⌃⇧+", octet="075", csi="u", shifts_index=6)
         self._keyboard_shifts_patch_("⌃⇧{", octet="173", csi="u", shifts_index=5)
         self._keyboard_shifts_patch_("⌃⇧}", octet="175", csi="u", shifts_index=5)
         self._keyboard_shifts_patch_("⌃⇧|", octet="174", csi="u", shifts_index=5)
 
-        self._keyboard_shifts_patch_("⌃⇧:", octet="073", csi="u", shifts_index=6)
-        self._keyboard_shifts_patch_('⌃⇧"', octet="047", csi="u", shifts_index=6)
-        self._keyboard_shifts_patch_("⌃⇧<", octet="054", csi="u", shifts_index=6)
-        self._keyboard_shifts_patch_("⌃⇧>", octet="056", csi="u", shifts_index=6)
+        self._keyboard_shifts_add_("⌃⇧:", octet="073", csi="u", shifts_index=6)
+        self._keyboard_shifts_add_('⌃⇧"', octet="047", csi="u", shifts_index=6)
+        self._keyboard_shifts_add_("⌃⇧<", octet="054", csi="u", shifts_index=6)
+        self._keyboard_shifts_add_("⌃⇧>", octet="056", csi="u", shifts_index=6)
         self._keyboard_add_("⌃⇧?", cap_strikes="037")  # ⌃⇧_
 
         self._keyboard_arrow_patch_("⌃⇧", caps="←↑→↓", shifts_index=6)
@@ -4223,27 +4238,36 @@ class KeyboardDecoder:
 
         self._keyboard_arrow_patch_("⇧", caps="↑↓", shifts_index=2)
 
-        # todo1: reject the patches that change nothing
-        # todo1: look before & after the drops of whole keyboards for like ⌃⌥⇧ Google and ⌃⌥ Google
+        # todo2: reject the patches that change nothing
+        # todo2: look before & after the drops of whole keyboards for like ⌃⌥⇧ Google and ⌃⌥ Google
         # todo2: learn & teach the art of reaching the different keyboards without pasting
         # todo2: sort the possible Key Caps for each Decode in some great consistent way
 
     def _keyboard_shifts_patch_(self, echo: str, octet: str, csi: str, shifts_index: int) -> None:
         """Patch the Keyboard with a Key Cap and its Strikes"""
 
-        decode_by_echo = self.decode_by_echo
+        decode = self._shifts_to_decode_(octet, csi=csi, shifts_index=shifts_index)
+
+        self._keyboard_remove_(echo)
+        self._keyboard_add_decode_(decode, echo=echo)
+
+    def _keyboard_shifts_add_(self, echo: str, octet: str, csi: str, shifts_index: int) -> None:
+        """Add a Key Cap and its Strikes to the Keyboard"""
+
+        decode = self._shifts_to_decode_(octet, csi=csi, shifts_index=shifts_index)
+        self._keyboard_add_decode_(decode, echo=echo)
+
+    def _shifts_to_decode_(self, octet: str, csi: str, shifts_index: int) -> str:
+        """Form a Csi U or ⇧~ Decode from its Octet & Shifts_Index"""
 
         _ord_ = int(octet, base=0o010)
         if csi == "~":
             decode = f"\033[27;{shifts_index};{_ord_}" "~"
         else:
-            assert csi == "u", (csi, echo, octet, shifts_index)
+            assert csi == "u", (csi, octet, shifts_index)
             decode = f"\033[{_ord_};{shifts_index}" "u"
 
-        if echo in decode_by_echo.keys():
-            self._keyboard_remove_(echo)
-
-        self._keyboard_add_decode_(decode, echo=echo)
+        return decode
 
         # todo: dig up docs for Csi u and for Csi ~
 
