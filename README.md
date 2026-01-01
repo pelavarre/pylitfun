@@ -196,6 +196,11 @@ Broken and know how to fix
     ~/bin/c sh script of litshell.py
        prompt before blocking till Tty Stdin Line complete
 
+    % d <(seq 3) <(seq 3)
+    + diff -brpu /dev/fd/11 /dev/fd/12
+    diff: /dev/fd/11: Bad file descriptor
+    %
+
     ~/bin/o sh script of litshell.py - counting _.strip()'s
        |o| filter = |o|
        |o filter & dump = |o

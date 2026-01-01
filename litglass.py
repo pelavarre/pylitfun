@@ -3648,6 +3648,28 @@ class KeyboardDecoder:
     OptionAccents = ("`", "´", "¨", "ˆ", "˜")
     OptionGraveGrave = "``"
 
+    PlainCaps = tuple(
+        r"""
+        ⎋
+        ` 1 2 3 4 5 6 7 8 9 0 - = ⌫
+        ⇥ Q W E R T Y U I O P [ ] \
+        A S D F G H J K L ; ' ⏎
+        Z X C V B N M , . /
+        ␢ ← ↑ → ↓
+    """.split()
+    )
+
+    ShiftCaps = tuple(
+        """
+        ⎋
+        ~ ! @ # $ % ^ & * ( ) _ + ⌫
+        ⇥ Q W E R T Y U I O P { } |
+        A S D F G H J K L : " ⏎
+        Z X C V B N M < > ?
+        ␢ ← ↑ → ↓
+    """.split()
+    )
+
     def __init__(self) -> None:
 
         KeyboardDecoder.selves.append(self)
@@ -3670,6 +3692,7 @@ class KeyboardDecoder:
         if flags.google:
             self._form_google_keyboards_()
 
+        # todo2: say something about ⇧Fn⏎ sending KeyboardInterrupt at iTerm2
         # todo2: say something about Missing ⌃⇧6 and Slow Esc and Doubled ⌃B at Google Shell
 
     def _form_apple_terminal_keyboards_(self) -> None:
@@ -3843,126 +3866,6 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-    PlainCaps = tuple(
-        r"""
-        ⎋
-        ` 1 2 3 4 5 6 7 8 9 0 - = ⌫
-        ⇥ Q W E R T Y U I O P [ ] \
-        A S D F G H J K L ; ' ⏎
-        Z X C V B N M , . /
-        ␢ ← ↑ → ↓
-    """.split()
-    )
-
-    ShiftCaps = tuple(
-        """
-        ⎋
-        ~ ! @ # $ % ^ & * ( ) _ + ⌫
-        ⇥ Q W E R T Y U I O P { } |
-        A S D F G H J K L : " ⏎
-        Z X C V B N M < > ?
-        ␢ ← ↑ → ↓
-    """.split()
-    )
-
-    def _add_keyboard_(self, shifts: str, strikes: str) -> None:
-        """Add in 1 Keyboard of Key Caps and their Strikes"""
-
-        strikes_split = strikes.split()
-
-        if not strikes_split:
-            return
-
-        plain_caps = KeyboardDecoder.PlainCaps
-        shift_caps = KeyboardDecoder.ShiftCaps
-
-        o = (len(plain_caps), len(shift_caps), len(strikes_split))
-        assert len(plain_caps) == len(shift_caps) == len(strikes_split), o
-
-        caps = shift_caps if ("⇧" in shifts) else plain_caps
-        for cap, cap_strikes in zip(caps, strikes_split):
-            echo = shifts + cap
-            decode = self.cap_strikes_to_decode(cap_strikes, echo=echo)
-            if decode:
-
-                self._keyboard_add_decode_(decode, echo=echo)
-
-        # todo2: insist on conventional Shifts, at least here
-
-    def cap_strikes_to_decode(self, cap_strikes: str, echo: str) -> str:
-        """Convert to Decode of Byte Encoding of Key Strike"""
-
-        if cap_strikes in ("...", "¤"):
-            return ""
-
-        ba = bytearray()
-
-        octets = cap_strikes.split(".")
-        for octet in octets:
-            if len(octet) == 3:
-                ba.append(int(octet, base=0o010))
-            else:
-                octet_data = octet.encode()
-                ba.extend(octet_data)
-
-        decode = ba.decode()
-        assert ba and decode, (ba, decode)
-
-        return decode
-
-    def _keyboard_patch_(self, echo: str, cap_strikes: str) -> None:
-        """Patch the Keyboard with a Key Cap and its Strikes"""
-
-        self._keyboard_remove_(echo)
-        self._keyboard_add_(echo, cap_strikes=cap_strikes)
-
-    def _keyboard_add_(self, echo: str, cap_strikes: str) -> None:
-        """Add a Key Cap and its Octets to a Keyboard"""
-
-        decode = self.cap_strikes_to_decode(cap_strikes, echo=echo)
-        self._keyboard_add_decode_(decode, echo=echo)
-
-    def _keyboard_add_decode_(self, decode: str, echo: str) -> None:
-        """Add a Key Cap and its Byte Encoding to a Keyboard"""
-
-        assert decode, (decode, echo)
-
-        decode_by_echo = self.decode_by_echo
-        echoes_by_decode = self.echoes_by_decode
-
-        assert echo not in decode_by_echo, (echo, decode_by_echo[echo])
-        decode_by_echo[echo] = decode
-
-        if decode not in echoes_by_decode:
-            echoes_by_decode[decode] = tuple()
-        echoes_by_decode[decode] += (echo,)  # todo: struggling with tuple
-
-    def _keyboard_remove_if_(self, echo: str) -> None:
-        """Remove a Key Cap and its Byte Encoding from a Keyboard, if it exists"""
-
-        decode_by_echo = self.decode_by_echo
-        if echo in decode_by_echo.keys():
-            self._keyboard_remove_(echo)
-
-    def _keyboard_remove_(self, echo: str) -> None:
-        """Remove a Key Cap and its Byte Encoding from a Keyboard"""
-
-        decode_by_echo = self.decode_by_echo
-        echoes_by_decode = self.echoes_by_decode
-        removals_by_echo = self.removals_by_echo
-
-        assert echo not in removals_by_echo, (echo,)
-        removals_by_echo[echo] = echo
-
-        assert echo in decode_by_echo.keys(), (echo,)
-        old_decode = decode_by_echo[echo]
-        del decode_by_echo[echo]  # todo: 'del ...' vs '... = ""'
-
-        assert old_decode in echoes_by_decode.keys(), (old_decode,)
-        old_echoes = list(echoes_by_decode[old_decode])  # todo: struggling with tuple
-        old_echoes.remove(echo)
-        echoes_by_decode[old_decode] = tuple(old_echoes)
-
     def _form_i_term_app_keyboards_(self) -> None:
         """Form a macOS iTerm2 Keyboard, as a diff from Apple Terminal"""
 
@@ -4041,25 +3944,6 @@ class KeyboardDecoder:
         # 2.8 ⇧
 
         self._keyboard_arrow_patch_("⇧", caps="↑↓", shifts_index=2)
-
-    def _keyboard_arrow_patch_(self, shifts: str, caps: str, shifts_index: int) -> None:
-        """Patch the Keyboard with like 4 more or 2 more Arrow Keys, all at once"""
-
-        octet_by_arrow = {"←": "104", "↑": "101", "→": "103", "↓": "102"}  # 'ABCD'
-
-        for cap in caps:
-            echo = shifts + cap
-
-            arrow_octet = octet_by_arrow[cap]
-
-            shifts_code = ord(str(shifts_index))
-            shifts_octet = f"{shifts_code:03o}"
-
-            cap_strikes = f"033.133.061.073.{shifts_octet}.{arrow_octet}"
-
-            self._keyboard_patch_(echo, cap_strikes=cap_strikes)
-
-            # todo: patch vs add in ._keyboard_arrow_patch_
 
     def _form_ghostty_keyboards_(self) -> None:
         """Form a macOS Ghostty Keyboard, as a diff from Apple Terminal"""
@@ -4243,33 +4127,29 @@ class KeyboardDecoder:
         # todo2: learn & teach the art of reaching the different keyboards without pasting
         # todo2: sort the possible Key Caps for each Decode in some great consistent way
 
-    def _keyboard_shifts_patch_(self, echo: str, octet: str, csi: str, shifts_index: int) -> None:
-        """Patch the Keyboard with a Key Cap and its Strikes"""
+    def _add_keyboard_(self, shifts: str, strikes: str) -> None:
+        """Add in 1 Keyboard of Key Caps and their Strikes"""
 
-        decode = self._shifts_to_decode_(octet, csi=csi, shifts_index=shifts_index)
+        strikes_split = strikes.split()
 
-        self._keyboard_remove_(echo)
-        self._keyboard_add_decode_(decode, echo=echo)
+        if not strikes_split:
+            return
 
-    def _keyboard_shifts_add_(self, echo: str, octet: str, csi: str, shifts_index: int) -> None:
-        """Add a Key Cap and its Strikes to the Keyboard"""
+        plain_caps = KeyboardDecoder.PlainCaps
+        shift_caps = KeyboardDecoder.ShiftCaps
 
-        decode = self._shifts_to_decode_(octet, csi=csi, shifts_index=shifts_index)
-        self._keyboard_add_decode_(decode, echo=echo)
+        o = (len(plain_caps), len(shift_caps), len(strikes_split))
+        assert len(plain_caps) == len(shift_caps) == len(strikes_split), o
 
-    def _shifts_to_decode_(self, octet: str, csi: str, shifts_index: int) -> str:
-        """Form a Csi U or ⇧~ Decode from its Octet & Shifts_Index"""
+        caps = shift_caps if ("⇧" in shifts) else plain_caps
+        for cap, cap_strikes in zip(caps, strikes_split):
+            echo = shifts + cap
+            decode = self._cap_strikes_to_decode_(cap_strikes, echo=echo)
+            if decode:
 
-        _ord_ = int(octet, base=0o010)
-        if csi == "~":
-            decode = f"\033[27;{shifts_index};{_ord_}" "~"
-        else:
-            assert csi == "u", (csi, octet, shifts_index)
-            decode = f"\033[{_ord_};{shifts_index}" "u"
+                self._keyboard_add_decode_(decode, echo=echo)
 
-        return decode
-
-        # todo: dig up docs for Csi u and for Csi ~
+        # todo2: insist on conventional Shifts, at least here
 
     def _form_google_keyboards_(self) -> None:
         """Form a Google Cloud Shell Keyboard, as a diff from Apple Terminal"""
@@ -4370,6 +4250,127 @@ class KeyboardDecoder:
         self._keyboard_remove_("⇧↓")
 
         # todo2: fix the slow ⌥⎋ of Google that breaks the Key Byte Frame of b"⎋⎋"
+
+    def _cap_strikes_to_decode_(self, cap_strikes: str, echo: str) -> str:
+        """Convert to Decode of Byte Encoding of Key Strike"""
+
+        if cap_strikes in ("...", "¤"):
+            return ""
+
+        ba = bytearray()
+
+        octets = cap_strikes.split(".")
+        for octet in octets:
+            if len(octet) == 3:
+                ba.append(int(octet, base=0o010))
+            else:
+                octet_data = octet.encode()
+                ba.extend(octet_data)
+
+        decode = ba.decode()
+        assert ba and decode, (ba, decode)
+
+        return decode
+
+    def _keyboard_patch_(self, echo: str, cap_strikes: str) -> None:
+        """Patch the Keyboard with a Key Cap and its Strikes"""
+
+        self._keyboard_remove_(echo)
+        self._keyboard_add_(echo, cap_strikes=cap_strikes)
+
+    def _keyboard_add_(self, echo: str, cap_strikes: str) -> None:
+        """Add a Key Cap and its Octets to a Keyboard"""
+
+        decode = self._cap_strikes_to_decode_(cap_strikes, echo=echo)
+        self._keyboard_add_decode_(decode, echo=echo)
+
+    def _keyboard_add_decode_(self, decode: str, echo: str) -> None:
+        """Add a Key Cap and its Byte Encoding to a Keyboard"""
+
+        assert decode, (decode, echo)
+
+        decode_by_echo = self.decode_by_echo
+        echoes_by_decode = self.echoes_by_decode
+
+        assert echo not in decode_by_echo, (echo, decode_by_echo[echo])
+        decode_by_echo[echo] = decode
+
+        if decode not in echoes_by_decode:
+            echoes_by_decode[decode] = tuple()
+        echoes_by_decode[decode] += (echo,)  # todo: struggling with tuple
+
+    def _keyboard_remove_if_(self, echo: str) -> None:
+        """Remove a Key Cap and its Byte Encoding from a Keyboard, if it exists"""
+
+        decode_by_echo = self.decode_by_echo
+        if echo in decode_by_echo.keys():
+            self._keyboard_remove_(echo)
+
+    def _keyboard_remove_(self, echo: str) -> None:
+        """Remove a Key Cap and its Byte Encoding from a Keyboard"""
+
+        decode_by_echo = self.decode_by_echo
+        echoes_by_decode = self.echoes_by_decode
+        removals_by_echo = self.removals_by_echo
+
+        assert echo not in removals_by_echo, (echo,)
+        removals_by_echo[echo] = echo
+
+        assert echo in decode_by_echo.keys(), (echo,)
+        old_decode = decode_by_echo[echo]
+        del decode_by_echo[echo]  # todo: 'del ...' vs '... = ""'
+
+        assert old_decode in echoes_by_decode.keys(), (old_decode,)
+        old_echoes = list(echoes_by_decode[old_decode])  # todo: struggling with tuple
+        old_echoes.remove(echo)
+        echoes_by_decode[old_decode] = tuple(old_echoes)
+
+    def _keyboard_arrow_patch_(self, shifts: str, caps: str, shifts_index: int) -> None:
+        """Patch the Keyboard with like 4 more or 2 more Arrow Keys, all at once"""
+
+        octet_by_arrow = {"←": "104", "↑": "101", "→": "103", "↓": "102"}  # 'ABCD'
+
+        for cap in caps:
+            echo = shifts + cap
+
+            arrow_octet = octet_by_arrow[cap]
+
+            shifts_code = ord(str(shifts_index))
+            shifts_octet = f"{shifts_code:03o}"
+
+            cap_strikes = f"033.133.061.073.{shifts_octet}.{arrow_octet}"
+
+            self._keyboard_patch_(echo, cap_strikes=cap_strikes)
+
+            # todo: patch vs add in ._keyboard_arrow_patch_
+
+    def _keyboard_shifts_patch_(self, echo: str, octet: str, csi: str, shifts_index: int) -> None:
+        """Patch the Keyboard with a Key Cap and its Strikes"""
+
+        decode = self._shifts_to_decode_(octet, csi=csi, shifts_index=shifts_index)
+
+        self._keyboard_remove_(echo)
+        self._keyboard_add_decode_(decode, echo=echo)
+
+    def _keyboard_shifts_add_(self, echo: str, octet: str, csi: str, shifts_index: int) -> None:
+        """Add a Key Cap and its Strikes to the Keyboard"""
+
+        decode = self._shifts_to_decode_(octet, csi=csi, shifts_index=shifts_index)
+        self._keyboard_add_decode_(decode, echo=echo)
+
+    def _shifts_to_decode_(self, octet: str, csi: str, shifts_index: int) -> str:
+        """Form a Csi U or ⇧~ Decode from its Octet & Shifts_Index"""
+
+        _ord_ = int(octet, base=0o010)
+        if csi == "~":
+            decode = f"\033[27;{shifts_index};{_ord_}" "~"
+        else:
+            assert csi == "u", (csi, octet, shifts_index)
+            decode = f"\033[{_ord_};{shifts_index}" "u"
+
+        return decode
+
+        # todo: dig up docs for Csi u and for Csi ~
 
     #
     # Speak of a Byte Encoding as a Sequence of Chords of Key Caps
@@ -5859,7 +5860,9 @@ if __name__ == "__main__":
     main()
 
 
-# todo1: Take up the Fn Keys
+# todo1: debug iTerm2 ⇧F3 corrupting --egg=repr display
+# todo1: Take up the Fn Keys - everybody adds, some add same, nobody patches
+# todo1: Take up the Fn Keys - _add_ten_fn_ _add_four_shift_fn_ _add_twelve_shifts_fn_
 # todo1: Draw the F11 as can't be reached, except indirectly via ⌥⇧F6 etc
 
 
