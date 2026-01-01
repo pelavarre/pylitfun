@@ -874,7 +874,7 @@ class KeycapsGame:
         exit_caps: tuple[str, ...] = tuple()
         if shifters == "⌃":
             exit_caps = ("C", "\\")
-            if flags.i_term_app or flags.ghostty:
+            if flags.i_term_app or flags.ghostty or flags.google:
                 exit_caps = ("4", "C", "\\")
         elif shifters == "⌃⌥":
             exit_caps = ("C", "\\")
