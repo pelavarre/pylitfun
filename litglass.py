@@ -3670,7 +3670,7 @@ class KeyboardDecoder:
         if flags.google:
             self._form_google_keyboards_()
 
-        # todo2: say something about Slow Esc and doubled ⌃B at Google Shell
+        # todo2: say something about Missing ⌃⇧6 and Slow Esc and Doubled ⌃B at Google Shell
 
     def _form_apple_terminal_keyboards_(self) -> None:
         """Form an Apple macOS Terminal Keyboard, out of Octets"""
@@ -4182,7 +4182,7 @@ class KeyboardDecoder:
         self._keyboard_shifts_patch_("⌃I", octet="151", csi="u", shifts_index=5)
         self._keyboard_shifts_patch_("⌃M", octet="155", csi="u", shifts_index=5)
 
-        # todo1: why "⌃\'" in place of "⌃'" in our logs
+        # todo2: why "⌃\'" in place of "⌃'" in our logs
         logger_print(repr("⌃'"), repr('⌃⇧"'), "overly escaped : -(")  # todo3
 
         # 2.3 ⌃⌥
@@ -4287,9 +4287,15 @@ class KeyboardDecoder:
 
         pass
 
-        # 2.2 ⌃
+        # 2.2 ⌃  # todo: mark which No-Code Keys do beep, such as ⌃/ vs ⌃=
 
         self._keyboard_patch_("⌃⌫", cap_strikes="010")  # ⌃H
+
+        self._keyboard_add_("⌃3", cap_strikes="033")  # ⌃[
+        self._keyboard_add_("⌃4", cap_strikes="134")  # ⌃\
+        self._keyboard_add_("⌃5", cap_strikes="035")  # ⌃]
+        self._keyboard_add_("⌃7", cap_strikes="037")  # ⌃⇧_
+
         self._keyboard_remove_("⌃-")
         self._keyboard_remove_("⌃⇥")
         self._keyboard_remove_("⌃B")
