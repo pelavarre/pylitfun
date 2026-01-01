@@ -4018,7 +4018,7 @@ class KeyboardDecoder:
 
         for old_cap, new_cap in zip(plain_caps, shift_caps):
             new_echo = "⌃⇧" + new_cap
-            if new_echo not in ("⌃⇧⇥", "⌃⇧@", "⌃⇧^", "⌃⇧←", "⌃⇧↑", "⌃⇧→", "⌃⇧↓"):
+            if new_echo not in ("⌃⇧⌫", "⌃⇧⇥", "⌃⇧@", "⌃⇧^", "⌃⇧←", "⌃⇧↑", "⌃⇧→", "⌃⇧↓"):
                 old_echo = "⌃⌥" + old_cap
                 decode = decode_by_echo[old_echo]
 
