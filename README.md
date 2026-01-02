@@ -202,6 +202,8 @@ Broken and know how to fix
        o| source & filter = pbpaste |o|
        o source & filter & sink = pbpaste |o |pbcopy
 
+    ~/bin/o could toggle frame on and off
+
     ~/bin/-1 sh script of litshell.py
        |-1| capture & re/publish & dump = >-1 && -1 |pbcopy && pbpaste
        |-1 capture & publish & sink = >-1 && -1 |pbcopy

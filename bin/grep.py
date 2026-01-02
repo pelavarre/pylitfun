@@ -58,7 +58,10 @@ class GrepGopher:
         alt_shverb = shverb_shargv[0]
         if alt_shverb != "g":
             _ = NotImplementedError(alt_shverb)
-            print(f"NotImplementedError: {alt_shverb!r} in a pipe", file=sys.stderr)
+            print(
+                f"grep.py: NotImplementedError: |{alt_shverb} in a pipe, not from </dev/tty",
+                file=sys.stderr,
+            )
             sys.exit(2)  # exits 2 for bad args
 
         if not shverb_shargv[1:]:
@@ -72,11 +75,24 @@ class GrepGopher:
         join = shlex.join(argv)
         print("|" + join, file=sys.stderr)
 
-        run = subprocess.run(argv)
+        pass_fds = tuple(int(_) for _ in os.listdir("/dev/fd"))
+        run = subprocess.run(argv, pass_fds=pass_fds)
         if run.returncode:
             print("+ exit", run.returncode, file=sys.stderr)
 
         sys.exit(run.returncode)
+
+        # todo: do we ever call Grep so that it needs its Stdin & Stdin Fd cut off ?
+
+        #
+        # Passing down the 'pass_fds=' ducks out of this kind of failure
+        #
+        #   % echo |bin/grep.py alf brav -- <(echo alfa bravo)
+        #   |grep -ai -e alf -e brav -- /dev/fd/12
+        #   grep: /dev/fd/12: Bad file descriptor
+        #   + exit 2
+        #   %
+        #
 
     def exit_if_dash_dash_help(self) -> None:
         """Print the Doc and exit zero, if '--help' in the Shell Args"""

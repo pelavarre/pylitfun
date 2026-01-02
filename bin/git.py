@@ -196,6 +196,9 @@ class GitGopher:
         # todo: shrink back down such voluminous expanded ShArgV as *.py
         # todo: run without without shlex.quote
 
+        # todo: do we ever call Git so that it needs a .pass_fds= to fill out /dev/fd ?
+        # todo: do we ever call Git so that it needs its Stdin cut off ?
+
     def exit_if_dash_dash_help(self) -> None:
         """Print the Doc and exit zero, if '--help' in the Shell Args"""
 
@@ -519,7 +522,7 @@ class GitGopher:
 
         gtop_run = subprocess.run(
             shlex.split(gtop_shline),
-            stdin=None,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,  # small 2 Lines here, vs like 129 Lines from "git diff"
         )
@@ -576,7 +579,7 @@ class GitGopher:
 
         gdno_run = subprocess.run(
             shlex.split(gdno_shline),
-            stdin=None,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -754,8 +757,6 @@ _ = """  # todo
 
 # todo: add:  git checkout -, git push, git rebase, local/remote mkdir/rmdir of git branches, ...
 # todo: no 'git checkout' on purpose:  without args it cancels cherry-pick and hides rebase
-
-# todo: what did i mean by saying "g in a pipe is 'grep.py'"? sure, true, but why mention it?
 
 """
 
