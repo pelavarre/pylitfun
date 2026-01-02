@@ -64,12 +64,12 @@ ShlinePlusByShverb = {  # sorted by key
     "gg/n": "git grep -ai -e ... -e ...",  # "gg": but with Sh Args
     # 15
     "ggl": "git grep -l -ai -e ... -e ...",
-    "gl": "git log --pretty=fuller --no-decorate [...]",
+    "gl": "git log --pretty=fuller --no-decorate --color-moved [...]",
     "glf": "git ls-files |grep -ai -e ... -e ...",
-    "glq": "git log --oneline --no-decorate [...]",
-    "gls": "git log --pretty=fuller --no-decorate --numstat [...]",
+    "glq": "git log --oneline --no-decorate --color-moved [...]",
+    "gls": "git log --pretty=fuller --no-decorate --color-moved --numstat [...]",
     # 20
-    "glv": "git log --oneline --decorate [...]",
+    "glv": "git log --oneline --decorate --color-moved [...]",
     "gno": "git diff/show --pretty= --name-only [...]",  # 'qdno' when truthy, else 'qspno'
     "grh": "git reset --hard ...",  # actual no args 'git reset hard' would mean to Head
     "grh1": "git reset HEAD~1",  # inverts : gcam && git commit --all -m wip
@@ -85,6 +85,8 @@ ShlinePlusByShverb = {  # sorted by key
     "gspno": "git show --pretty= --name-only [...]",
     # 32
 }
+
+# say '--color-moved' when helpful, but never say '--color=moved'
 
 
 _a_ = list(ShlinePlusByShverb.keys())
@@ -427,7 +429,7 @@ class GitGopher:
                 assert shverb in ("gcf",), (shverb, shline)
                 shline += " HEAD"  # tilts into:  git commit --fixup HEAD
 
-            elif shverb_shline_plus == "git log --pretty=fuller --no-decorate [...]":
+            elif shverb_shline_plus == "git log --pretty=fuller --no-decorate --color-moved [...]":
                 assert shverb == "gl", (shverb, shline)
                 shline += " -1"  # tilts into:  gl -1
 
