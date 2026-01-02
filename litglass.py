@@ -691,7 +691,7 @@ class KeycapsGame:
         ⇧      z  x  c  v  b  n  m   ,  .  /         ⇧
         Fn  ⌃  ⌥  ⌘   Spacebar    ⌘   ⌥        ← ↑ → ↓
                                                 ↖ ↗ ↘ ↙
-    """
+    """  # has F1..F12 and Fn, unlike KeyboardDecoder.PlainCaps
 
     ShiftedKeyboard = r"""
         ⎋    F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>
@@ -701,7 +701,7 @@ class KeycapsGame:
         ⇧      Z  X  C  V  B  N  M   <  >  ?         ⇧
         Fn  ⌃  ⌥  ⌘   Spacebar    ⌘   ⌥        ← ↑ → ↓
                                                 ↖ ↗ ↘ ↙
-    """
+    """  # has F1..F12 and Fn, unlike KeyboardDecoder.PlainCaps
 
     # . 123456789 123456789 123456789 123456789 12345678
 
@@ -750,6 +750,10 @@ class KeycapsGame:
         sw = tb.screen_writer
         kr = tb.keyboard_reader
 
+        sw.print()
+        sw.print(r"Paste your choice of '' ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧ ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧")
+        sw.print()
+
         # Draw the Gameboard, scrolling if need be
 
         sw.write_control("\033[?25l")
@@ -778,6 +782,8 @@ class KeycapsGame:
         # todo9: --egg=keycaps: toggle back out of @@@@@@@@@ or @@ or @
         # todo9: --egg=keycaps: take mouse hits to the Keyboard viewed
 
+    # todo1: move 'def kc_step_once' here
+
     def kc_game_draw(self) -> tuple[int, int]:
         """Draw the Gameboard, scrolling if need be"""
 
@@ -803,7 +809,7 @@ class KeycapsGame:
         #   todo: never speak of downshifted ⇧`|⇧-|⇧=|⇧\[|⇧\]|⇧\\|⇧;|⇧'|⇧,|⇧\.|⇧/
         #
 
-        tested_shifters = [""] + "⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧".split() + "⎋ ⎋⌃ ⎋⌃⇧ ⎋⇧".split()
+        tested_shifters = [""] + "⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧".split() + "⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧".split()
         assert shifters in tested_shifters, (shifters, tested_shifters)
 
         # Scroll to make Rows in the South, if need be, like after:  seq 987
@@ -857,7 +863,7 @@ class KeycapsGame:
         sw.write_control("\033[K")
         sw.write_some_controls(["\r", "\n"])
 
-        sw.print(r"Press", join)  # Press ⌃C or ⌃\ or ...
+        sw.print(r"Press", join, "to quit")  # Press ⌃C or ⌃\ or ... to quit
         sw.print()
 
         # Succeed
@@ -926,18 +932,19 @@ class KeycapsGame:
         echoes = keyboard.split()
         for echo in echoes:
             echo_plus = shifters + ("␢" if (echo == "Spacebar") else echo.upper())
+            echo_plus_key = (shifters + "F5") if (echo == "Fn") else echo_plus
 
             tangible = False
-            if echo_plus in decode_by_echo.keys():
-                decode = decode_by_echo[echo_plus]
-                if decode:
+            if echo_plus_key in decode_by_echo.keys():
+                decode = decode_by_echo[echo_plus_key]
+                assert decode, (decode, echo_plus_key)
 
-                    tangible = True
-                    (_shifters_, _cap_) = kd.echo_split_shifters_cap(echo_plus)
-                    if (_shifters_ != shifters) or (not _cap_):
-                        if echo != shifters:
+                tangible = True  # todo: why split the .echo_plus that we joined?
+                (_shifters_, _cap_) = kd.echo_split_shifters_cap(echo_plus)
+                if (_shifters_ != shifters) or (not _cap_):
+                    if echo != shifters:
 
-                            tangible = False
+                        tangible = False
 
             if not tangible:
                 if (echo == "⎋") or (echo not in tuple(shifters)):
@@ -997,14 +1004,12 @@ class KeycapsGame:
                 if len(frames) == 1:  # todo: Shifters pasted as multiple Frames
                     frame = frames[-1]
                     text = frame.decode()  # todo: UnicodeDecodeError from Paste
-                    if text in wipeouts_by_shifters.keys():
-                        shifters = text
+                    key = text.replace("//", "").strip().strip('"').strip("'")
+                    if key in wipeouts_by_shifters.keys():
+                        shifters = key
 
-                if not shifters:
-                    logger_print(f"{frame!r}  # dropped because defined on no keyboard")
-                    continue
-
-                self.kc_switch_tab(echoes=(shifters,))
+                if shifters:
+                    self.kc_switch_tab(echoes=(shifters,))
 
             # Trace the Bytes taken in
 
@@ -1012,8 +1017,11 @@ class KeycapsGame:
             join = " ".join(_.replace(" ", "") for _ in echoes)
             if not echoes:
                 join = kd.bytes_to_one_main_echo(frame)
+            if frame == b"\033\020":
+                join = "⎋⌃P ⎋⌃Fn ⎋⌃⇧Fn"
 
-            self.kc_print(frame, " " + join + " ", self.kc_echo_index)
+            str_shifters = str(self.shifters) if self.shifters else "''"
+            self.kc_print(str_shifters, frame, " " + join + " ", self.kc_echo_index)
             self.kc_echo_index += 1
 
             y = kr.row_y
@@ -1138,14 +1146,20 @@ class KeycapsGame:
         for echo in echoes:
             (_shifters_, _cap_) = kd.echo_split_shifters_cap(echo)
 
-            findable = _cap_ if _shifters_ else _cap_.lower()
+            findable = _cap_
+            if (not _shifters_) and (not _cap_[1:]):
+                findable = _cap_.lower()
             if _cap_ == "␢":
                 findable = "Spacebar"
 
+            findable_plus = " " + findable
+
             if _shifters_ != shifters:
                 pass  # logger_print(f"{_cap_!r} {echo!r}  # dropped for {_shifters_!r} vs {shifters!r}")
-            elif findable not in tangible_keyboard:
-                logger_print(f"{_cap_!r} {echo!r} {findable!r} {echoes}  # dropped for not found")
+            elif findable_plus not in tangible_keyboard:
+                logger_print(
+                    f"{_cap_!r} {echo!r} {findable_plus!r} {echoes}  # dropped for not found"
+                )
             else:
                 findables.append(findable)
 
@@ -1166,6 +1180,9 @@ class KeycapsGame:
     def kc_wipeout_else_restore(self, findable: str) -> int:
         """Wipe out each Key Cap, or restore, when found"""
 
+        findable_plus = " " + findable
+        findable_plus_plus = (findable_plus + " ") if (findable == "F") else findable_plus
+
         tb = self.terminal_boss
         game_yx = self.game_yx
 
@@ -1179,53 +1196,56 @@ class KeycapsGame:
 
         dent = 4 * " "
 
-        find = -1
+        find = keyboard.find(findable_plus_plus)
+        if find < 0:
+            return 0
 
-        hits = 0
-        while True:
+        find += len(" ")  # todo1: re.search \b \b in place of .find _plus_plus and _plus
 
-            start = find + 1
-            find = keyboard.find(findable, start)
-            if find < 0:
-                break
+        found_lines = keyboard[: find + 1].splitlines()
+        assert found_lines, (found_lines, find, findable)
 
-            hits += 1
+        # Leap to this found Key Cap
 
-            found_lines = keyboard[: find + 1].splitlines()
-            assert found_lines, (found_lines, find, findable)
+        y = game_y + len(found_lines)
+        x = game_x + len(dent) + len(found_lines[-1]) - 1
 
-            # Leap to this found Key Cap
+        sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
-            y = game_y + len(found_lines)
-            x = game_x + len(dent) + len(found_lines[-1]) - 1
+        # Restore this Key Cap later, else wipe it out to begin with
 
-            sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
+        if findable in wipeouts:
+            wipeouts.remove(findable)
 
-            # Restore this Key Cap later, else wipe it out to begin with
+            sw.write_printable(findable)
 
-            if findable in wipeouts:
-                wipeouts.remove(findable)
+        else:
+            wipeouts.append(findable)
 
-                sw.write_printable(findable)
+            width = len(findable)  # 1  # len("Spacebar")  # len("F12")
 
-            else:
-                wipeouts.append(findable)
+            sw.write_control("\033[1m")  # ⎋[1M style-bold
+            sw.write_printable(width * "¤")
+            sw.write_control("\033[m")  # ⎋[M style-plain
 
-                width = len(findable)  # 1  # len("Spacebar")  # len("F12")
-
-                sw.write_control("\033[1m")  # ⎋[1M style-bold
-                sw.write_printable(width * "¤")
-                sw.write_control("\033[m")  # ⎋[M style-plain
-
-            # Flip once and done  # Don't find "a" in Spacebar, etc
-
-            break
-
-        return hits
+        return 1
 
     # todo9: --egg=keycaps: restart in each Keyboard viewed
     # todo9: --egg=keycaps: save/ load progress in each Keyboard viewed
     # todo9: --egg=keycaps: celebrate near to winning, and celebrate winning
+
+    #
+    # Our Fn is for F1..F12 only, we don't test
+    #
+    #   Fn B, G, I J K L, O P, R S T U V W X Y Z
+    #   Fn ⇧ B C, G H I J K L, N O P Q R S T U V W X Y Z
+    #   Fn ⌃ A B, D E, G H I J K L M N O P Q, S T U V W X Y Z
+    #   Fn ⌃ R has a sideband with Fn ⌃ F C Fn ⌃ when first struck, but comes through thereafter
+    #
+    #   iTerm2 agrees, Ghostty agrees
+    #
+    #   Google Cloud Shell adds Fn D E F M, Fn ⇧ D E F M, Fn ⌃ C F, and has no sideband on its Fn ⌃ R
+    #
 
 
 #
@@ -3627,11 +3647,16 @@ def _try_keyboard_decoder_() -> None:
 
         kd = KeyboardDecoder()
 
-        d1 = kd.decode_by_echo
+        decode_by_echo = kd.decode_by_echo
+        echoes_by_decode = kd.echoes_by_decode
+
+        assert "" not in echoes_by_decode.keys()
+
+        d1 = decode_by_echo
         k1 = "⌃⇧@"
         logger_print(f"{len(d1)=} [{k1!r}] = {d1.get(k1)!r}  # _try_keyboard_decoder_")
 
-        d2 = kd.echoes_by_decode
+        d2 = echoes_by_decode
         k2 = "⌃⇧@"
         logger_print(f"{len(d2)=} [{k2!r}] = {d2.get(k2)!r}  # _try_keyboard_decoder_")
 
@@ -3656,7 +3681,7 @@ class KeyboardDecoder:
         A S D F G H J K L ; ' ⏎
         Z X C V B N M , . /
         ␢ ← ↑ → ↓
-    """.split()
+    """.split()  # caps apart from F1 .. F12 etc
     )
 
     ShiftCaps = tuple(
@@ -3667,18 +3692,23 @@ class KeyboardDecoder:
         A S D F G H J K L : " ⏎
         Z X C V B N M < > ?
         ␢ ← ↑ → ↓
-    """.split()
+    """.split()  # caps apart from F1 .. F12 etc
     )
 
     def __init__(self) -> None:
 
         KeyboardDecoder.selves.append(self)
 
-        self.decode_by_echo = dict()
-        self.echoes_by_decode = dict()
+        decode_by_echo: dict[str, str] = dict()
+        echoes_by_decode: dict[str, tuple[str, ...]] = dict()
+
+        self.decode_by_echo = decode_by_echo
+        self.echoes_by_decode = echoes_by_decode
         self.removals_by_echo = dict()
 
         self._form_some_keyboards_()
+
+        assert "" not in echoes_by_decode.keys(), (echoes_by_decode[""],)
 
     def _form_some_keyboards_(self) -> None:
         """Form a Keyboard for the present Terminal App only"""  # todo: more test
@@ -3714,6 +3744,16 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
+        meta_caps = "F1 F2 F3 F4" + " F5 F6 F7 F8" + " F9 F10 F11 F12"
+        meta_strikes = """
+                033.133.061.067.176 033.133.061.070.176 033.133.061.071.176 033.133.062.060.176
+                033.133.062.061.176 033.133.062.063.176 033.133.062.064.176 033.133.062.065.176
+                033.133.062.066.176 033.133.062.070.176 033.133.062.071.176 033.133.063.061.176
+            """  # 21 23 24 25, not 21 22 23 24  # 26 28 29 31, not 26 27 28 29
+
+        if flags.terminal:
+            self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
+
         # 1.2 ⎋⌃
 
         shifts = "⎋⌃"
@@ -3727,8 +3767,10 @@ class KeyboardDecoder:
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
+        if flags.terminal:
+            self._add_twelve_fn_(shifts=shifts)
 
-        # 1.3 ⎋⇧
+        # 1.3 ⎋⇧  # 033.117 ⎋O stops without closing its Key Byte Frame
 
         shifts = "⎋⇧"
         strikes = """
@@ -3741,6 +3783,8 @@ class KeyboardDecoder:
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
+        if flags.terminal:
+            self._add_twelve_fn_(shifts=shifts)
 
         # 1.4 ⎋⌃⇧
 
@@ -3755,6 +3799,8 @@ class KeyboardDecoder:
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
+        if flags.terminal:
+            self._add_twelve_fn_(shifts=shifts)
 
         # 2.1 ''
 
@@ -3770,7 +3816,11 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        # 2.2 ⌃
+        if flags.terminal:
+            self._add_ten_fn_()
+            self._keyboard_add_("F12", cap_strikes="033.133.062.064.176")  # ⎋[24⇧~
+
+        # 2.2 ⌃  # Sideband Bells on ⌃ F2 F3 F4 F5 F6, ⌃ F9 F10 F11 F12
 
         shifts = "⌃"
         strikes = """
@@ -3784,7 +3834,7 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        # 2.3 ⌃⌥
+        # 2.3 ⌃⌥  # Sideband Bells on ⌃⌥ F1..F12
 
         shifts = "⌃⌥"
         strikes = """
@@ -3797,7 +3847,7 @@ class KeyboardDecoder:
         """
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        # 2.4 ⌃⌥⇧
+        # 2.4 ⌃⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
 
         shifts = "⌃⌥⇧"
         strikes = """
@@ -3810,7 +3860,7 @@ class KeyboardDecoder:
         """
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        # 2.5 ⌃⇧
+        # 2.5 ⌃⇧  # Sideband Bells on ⌥⇧ F1..F6, ⌥⇧ F8..F12
 
         shifts = "⌃⇧"
         strikes = """
@@ -3838,7 +3888,10 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        # 2.7 ⌥⇧
+        if flags.terminal:
+            self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
+
+        # 2.7 ⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
 
         shifts = "⌥⇧"  # ⌥⇧K sends Apple Logo, coded here as \uf8ff
         strikes = """
@@ -3852,7 +3905,7 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        # 2.8 ⇧
+        # 2.8 ⇧  # Sideband Bells on ⌃ F1 F2 F3 F4
 
         shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2D and ⎋[1;2C
         strikes = """
@@ -3865,6 +3918,20 @@ class KeyboardDecoder:
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        if flags.terminal:
+            caps = "F5 F6 F7 F8" + " F9 F10 F11 F12"
+            strikes = """
+                033.133.062.065.176 033.133.062.066.176 033.133.062.070.176 033.133.062.071.176
+                033.133.063.061.176 033.133.063.062.176 033.133.063.063.176 033.133.063.064.176
+            """  # 25 26 28 29, not 25 26 27 28  # 31 32 33 34, not 30 31 32 33
+            self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+            # no encodes of ⇧F1 ⇧F2 ⇧F3 ⇧F4 in Apple Terminal without distributing configuration
+
+            # Terminal ⇧Fn = ⎋[ 25 26 28 29 ⇧~, ⎋[ 31 32 33 34 ⇧~,
+
+        # Apple ⌃ ⌃⌥ ⌃⇧ ⌃⌥⇧ Keyboards and ⌥⇧ Keyboard have no ⌃ Fn Key Chords
 
     def _form_i_term_app_keyboards_(self) -> None:
         """Form a macOS iTerm2 Keyboard, as a diff from Apple Terminal"""
@@ -3882,7 +3949,8 @@ class KeyboardDecoder:
 
         # 2.1 ''
 
-        pass
+        self._add_ten_fn_()
+        self._keyboard_add_("F12", cap_strikes="033.133.062.064.176")  # ⎋[24⇧~
 
         # 2.2 ⌃  # much the same as ⌃ Ghostty, except that Ghostty patches & adds more
 
@@ -3943,7 +4011,24 @@ class KeyboardDecoder:
 
         # 2.8 ⇧
 
+        shifts = "⇧"
+
         self._keyboard_arrow_patch_("⇧", caps="↑↓", shifts_index=2)
+
+        caps = "F1 F2 F3 F4" + " F5 F6 F7 F8" + " F9 F10 F11 F12"
+        strikes = """
+            033.133.061.073.062.120 033.133.061.073.062.121 033.133.061.073.062.122 033.133.061.073.062.123
+            033.133.061.065.073.062.176 033.133.061.067.073.062.176 033.133.061.070.073.062.176 033.133.061.071.073.062.176
+            033.133.062.060.073.062.176 033.133.062.061.073.062.176 033.133.062.063.073.062.176 033.133.062.064.073.062.176
+        """  # 15 17 18 19, not 15 16 17 18  # 20 21 23 24, not 20 21 22 23
+
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+        # iTerm2 ⇧Fn = ⎋[1;2 ⇧P ⇧Q ⇧R ⇧S, ⎋[ 15 17 18 9 ;2⇧~, ⎋[ 20 21 23 24 ;2⇧~ = Ghostty ⇧Fn
+
+        # todo1: Add in the many many variations of 033.133.---.---.073.{shifts_octet}..176 at iTerm2
+        # todo1: Add in the many many variations of 033.133.---.---.073.{shifts_octet}..176 at Ghostty
+        # todo1: Test to affirm we have tabulated all the Google Fn Key Chords, and all the Apple Terminal
 
     def _form_ghostty_keyboards_(self) -> None:
         """Form a macOS Ghostty Keyboard, as a diff from Apple Terminal"""
@@ -4034,7 +4119,8 @@ class KeyboardDecoder:
 
         # 2.1 ''
 
-        pass
+        self._add_ten_fn_()
+        self._keyboard_add_("F12", cap_strikes="033.133.062.064.176")  # ⎋[24⇧~
 
         # 2.2 ⌃  # much the same as ⌃ iTerm2, except that Ghostty patches & adds more
 
@@ -4117,10 +4203,23 @@ class KeyboardDecoder:
 
         # 2.8 ⇧
 
+        shifts = "⇧"
+
         self._keyboard_shifts_patch_("⇧⎋", octet="033", csi="~", shifts_index=2)
         self._keyboard_shifts_patch_("⇧⏎", octet="015", csi="~", shifts_index=2)
 
         self._keyboard_arrow_patch_("⇧", caps="↑↓", shifts_index=2)
+
+        caps = "F1 F2 F3 F4" + " F5 F6 F7 F8" + " F9 F10 F11 F12"
+        strikes = """
+            033.133.061.073.062.120 033.133.061.073.062.121 033.133.061.063.073.062.176 033.133.061.073.062.123
+            033.133.061.065.073.062.176 033.133.061.067.073.062.176 033.133.061.070.073.062.176 033.133.061.071.073.062.176
+            033.133.062.060.073.062.176 033.133.062.061.073.062.176 033.133.062.063.073.062.176 033.133.062.064.073.062.176
+        """  # 15 17 18 19, not 15 16 17 18  # 20 21 23 24, not 20 21 22 23
+
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+        # Ghostty ⇧Fn = ⎋[1;2 ⇧P ⇧Q ⇧R ⇧S, ⎋[ 15 17 18 9 ;2⇧~, ⎋[ 20 21 23 24 ;2⇧~ = iTerm2 ⇧Fn
 
         # todo2: reject the patches that change nothing
         # todo2: look before & after the drops of whole keyboards for like ⌃⌥⇧ Google and ⌃⌥ Google
@@ -4165,7 +4264,8 @@ class KeyboardDecoder:
 
         # 2.1 ''
 
-        pass
+        self._add_ten_fn_()
+        self._keyboard_add_("F12", cap_strikes="033.133.062.064.176")  # ⎋[24⇧~
 
         # 2.2 ⌃  # todo: mark which No-Code Keys do beep, such as ⌃/ vs ⌃=
 
@@ -4244,12 +4344,46 @@ class KeyboardDecoder:
 
         # 2.8 ⇧
 
+        shifts = "⇧"
+
         self._keyboard_remove_("⇧←")
         self._keyboard_remove_("⇧↑")
         self._keyboard_remove_("⇧→")
         self._keyboard_remove_("⇧↓")
 
+        caps = "F1 F2 F3 F4" + " F5 F6 F7 F8"
+        strikes = """
+            033.133.062.065.176 033.133.062.066.176 033.133.062.070.176 033.133.062.071.176
+            033.133.062.060.176 033.133.062.061.176 033.133.062.062.176 033.133.062.063.176
+        """  # 25 26 28 29, not 25 26 27 28  # 20 21 23 24, not 20 21 22 23
+
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+        # Google ⇧Fn = [ 25 26 28 29 ⇧~, 31 32 33 34 ⇧~
+
         # todo2: fix the slow ⌥⎋ of Google that breaks the Key Byte Frame of b"⎋⎋"
+
+    def _add_ten_fn_(self) -> None:
+        """Add the first Ten F Keys, held in common across all our Unshifted Keyboards"""
+
+        shifts = ""
+
+        caps = "F1 F2 F3 F4"
+        strikes = "033.117.120 033.117.121 033.117.122 033.117.123"
+
+        caps += " F5 F6 F7 F8 F9 F10"
+        strikes += " " + " ".join(
+            f"033.133.{_}.176" for _ in "061.065 061.067 061.070 061.071 062.060 062.061".split()
+        )
+
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+    def _add_twelve_fn_(self, shifts: str) -> None:
+        """Add the  Twelve F Keys at the one Decode"""
+
+        caps = "F1 F2 F3 F4" + " F5 F6 F7 F8" + " F9 F10 F11 F12"
+        strikes = 12 * " 033.020"  # ⎋⌃P
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
     def _cap_strikes_to_decode_(self, cap_strikes: str, echo: str) -> str:
         """Convert to Decode of Byte Encoding of Key Strike"""
@@ -4277,6 +4411,16 @@ class KeyboardDecoder:
 
         self._keyboard_remove_(echo)
         self._keyboard_add_(echo, cap_strikes=cap_strikes)
+
+    def _keyboard_add_some_(self, caps: str, strikes: str, shifts: str) -> None:
+
+        caps_split = caps.split()
+        strikes_split = strikes.split()
+
+        assert len(caps_split) == len(strikes_split), (len(caps_split), len(strikes_split))
+        for cap, cap_strikes in zip(caps_split, strikes_split):
+            echo = shifts + cap
+            self._keyboard_add_(echo, cap_strikes=cap_strikes)
 
     def _keyboard_add_(self, echo: str, cap_strikes: str) -> None:
         """Add a Key Cap and its Octets to a Keyboard"""
@@ -4426,14 +4570,10 @@ class KeyboardDecoder:
         elif not cap and shifters.endswith("⎋"):
             shifters = str_removesuffix(shifters, suffix="⎋")
             cap = "⎋"  # ('', '⎋') from '⎋'
-        elif cap.startswith("F") and (cap != "F"):
-            shifters += "Fn"
-            if cap == "Fn":
-                cap = ""  # ('Fn', '') from 'Fn'
 
         return (shifters, cap)
 
-        # ('', '')  # ('⇧', '⎋')  # ('Fn', '')  # ('⌃⇧', '@')  # ('⇧Fn', 'F1')
+        # ('', '')  # ('⇧', '⎋')  # ('⇧', 'F5')  # ('⌃⇧', '@')
 
     def bytes_to_echoes_if(self, data: bytes) -> tuple[str, ...]:
         """Speak of a Byte Encoding as Sequences of Chords of Key Caps"""
@@ -5860,16 +6000,15 @@ if __name__ == "__main__":
     main()
 
 
-# todo1: debug iTerm2 ⇧F3 corrupting --egg=repr display
-# todo1: Take up the Fn Keys - everybody adds, some add same, nobody patches
-# todo1: Take up the Fn Keys - _add_ten_fn_ _add_four_shift_fn_ _add_twelve_shifts_fn_
-# todo1: Draw the F11 as can't be reached, except indirectly via ⌥⇧F6 etc
+# todo1: rename to _shifts_ from _shifters_, .shifts from .shifters, etc
 
 
+# todo1: debug ⇧F3 of iTerm2 because ⎋[ ⇧R i/o k/s collision
+# todo1: Solve iTerm2 Key Jams with ⎋[5N sent down, not written outside
 # todo2: Revive passing test of buffer key input jam in sleep before launch
-# todo2: Solve iTerm2 Key Jams with ⎋[5N sent down, not written outside
-# todo2: Take up the Multichord Key Strikes with Shifter Keys
-# todo2: Take up the Intercardinal Arrows with Shifter Keys
+
+# todo2: Take up the Multichord Key Strikes with Shifts
+# todo2: Take up the Intercardinal Arrows with Shifts
 
 
 # todo3: Sort the Echoes of each Encode by (⎋ ⌃ ⌥ ⇧ Fn)
