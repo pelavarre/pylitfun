@@ -3320,6 +3320,8 @@ class KeyboardReader:
                 end = text[1:].encode()
                 return (start, end)
 
+            # todo8: discuss ⌥` ⌥` codes as early ` vs ⌥` ⌥` o as ` ò but ⌥` ⌥` P as ` ⌥⇧~ P
+
         # Split one Text or Control Frame off the Start of the Bytes
 
         end = b""
@@ -3662,16 +3664,16 @@ def _try_keyboard_decoder_() -> None:
 
 
 class KeyboardDecoder:
-    """Speak of a Byte Encoding as a Combination of Chords of Key Caps"""
+    """Speak of a Byte Sequence as a Strike of macBook Key Caps"""
 
     selves: list[KeyboardDecoder] = list()
 
     decode_by_echo: dict[str, str]
-    echoes_by_decode: dict[str, tuple[str, ...]]
+    echoes_by_decode: dict[str, tuple[str, ...]]  # todo1: invert only at exit of __init__
     removals_by_echo: dict[str, str]
 
-    OptionAccents = ("`", "´", "¨", "ˆ", "˜")
-    OptionGraveGrave = "``"
+    OptionAccents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧~ ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
+    OptionGraveGrave = "``"  # ⌥` `
 
     PlainCaps = tuple(
         r"""
@@ -3713,8 +3715,10 @@ class KeyboardDecoder:
     def _form_some_keyboards_(self) -> None:
         """Form a Keyboard for the present Terminal App only"""  # todo: more test
 
-        self._form_apple_terminal_keyboards_()
+        self._form_macos_keyboards_()
 
+        if flags.terminal:
+            self._form_apple_terminal_keyboards_()
         if flags.i_term_app:
             self._form_i_term_app_keyboards_()
         if flags.ghostty:
@@ -3725,14 +3729,15 @@ class KeyboardDecoder:
         # todo2: say something about ⇧Fn⏎ sending KeyboardInterrupt at iTerm2
         # todo2: say something about Missing ⌃⇧6 and Slow Esc and Doubled ⌃B at Google Shell
 
-    def _form_apple_terminal_keyboards_(self) -> None:
-        """Form an Apple macOS Terminal Keyboard, out of Octets"""
+    def _form_macos_keyboards_(self) -> None:
+        """Form the ordinary Apple macBook Keyboards of Codes sent by Caps"""
 
         assert Apple == "\uf8ff"
 
         # 1.1 ⎋
 
         shifts = "⎋"
+
         strikes = """
             033.033
             033.140 033.061 033.062 033.063 033.064 033.065 033.066 033.067 033.070 033.071 033.060 033.055 033.075 033.177
@@ -3744,19 +3749,10 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        meta_caps = "F1 F2 F3 F4" + " F5 F6 F7 F8" + " F9 F10 F11 F12"
-        meta_strikes = """
-                033.133.061.067.176 033.133.061.070.176 033.133.061.071.176 033.133.062.060.176
-                033.133.062.061.176 033.133.062.063.176 033.133.062.064.176 033.133.062.065.176
-                033.133.062.066.176 033.133.062.070.176 033.133.062.071.176 033.133.063.061.176
-            """  # 21 23 24 25, not 21 22 23 24  # 26 28 29 31, not 26 27 28 29
-
-        if flags.terminal:
-            self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
-
         # 1.2 ⎋⌃
 
         shifts = "⎋⌃"
+
         strikes = """
             033.033
             033.140 033.061 033.062 033.063 033.064 033.065 033.066 033.067 033.070 033.071 033.060 033.037 033.075 033.010
@@ -3767,8 +3763,6 @@ class KeyboardDecoder:
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
-        if flags.terminal:
-            self._add_twelve_fn_(shifts=shifts)
 
         # 1.3 ⎋⇧  # 033.117 ⎋O stops without closing its Key Byte Frame
 
@@ -3783,8 +3777,6 @@ class KeyboardDecoder:
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
-        if flags.terminal:
-            self._add_twelve_fn_(shifts=shifts)
 
         # 1.4 ⎋⌃⇧
 
@@ -3799,8 +3791,6 @@ class KeyboardDecoder:
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
-        if flags.terminal:
-            self._add_twelve_fn_(shifts=shifts)
 
         # 2.1 ''
 
@@ -3816,11 +3806,7 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        if flags.terminal:
-            self._add_ten_fn_()
-            self._keyboard_add_("F12", cap_strikes="033.133.062.064.176")  # ⎋[24⇧~
-
-        # 2.2 ⌃  # Sideband Bells on ⌃ F2 F3 F4 F5 F6, ⌃ F9 F10 F11 F12
+        # 2.2 ⌃
 
         shifts = "⌃"
         strikes = """
@@ -3834,7 +3820,7 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        # 2.3 ⌃⌥  # Sideband Bells on ⌃⌥ F1..F12
+        # 2.3 ⌃⌥
 
         shifts = "⌃⌥"
         strikes = """
@@ -3847,7 +3833,7 @@ class KeyboardDecoder:
         """
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        # 2.4 ⌃⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
+        # 2.4 ⌃⌥⇧
 
         shifts = "⌃⌥⇧"
         strikes = """
@@ -3860,7 +3846,7 @@ class KeyboardDecoder:
         """
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        # 2.5 ⌃⇧  # Sideband Bells on ⌥⇧ F1..F6, ⌥⇧ F8..F12
+        # 2.5 ⌃⇧
 
         shifts = "⌃⇧"
         strikes = """
@@ -3888,10 +3874,7 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        if flags.terminal:
-            self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
-
-        # 2.7 ⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
+        # 2.7 ⌥⇧
 
         shifts = "⌥⇧"  # ⌥⇧K sends Apple Logo, coded here as \uf8ff
         strikes = """
@@ -3905,9 +3888,10 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        # 2.8 ⇧  # Sideband Bells on ⌃ F1 F2 F3 F4
+        # 2.8 ⇧
 
         shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2D and ⎋[1;2C
+
         strikes = """
             033
             176 041 100 043 044 045 136 046 052 050 051 137 053 177
@@ -3919,19 +3903,72 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        if flags.terminal:
-            caps = "F5 F6 F7 F8" + " F9 F10 F11 F12"
-            strikes = """
-                033.133.062.065.176 033.133.062.066.176 033.133.062.070.176 033.133.062.071.176
-                033.133.063.061.176 033.133.063.062.176 033.133.063.063.176 033.133.063.064.176
-            """  # 25 26 28 29, not 25 26 27 28  # 31 32 33 34, not 30 31 32 33
-            self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+    def _form_apple_terminal_keyboards_(self) -> None:
+        """Form an Apple macOS Terminal Keyboard, out of Octets"""
 
-            # no encodes of ⇧F1 ⇧F2 ⇧F3 ⇧F4 in Apple Terminal without distributing configuration
+        # 1.1 ⎋
 
-            # Terminal ⇧Fn = ⎋[ 25 26 28 29 ⇧~, ⎋[ 31 32 33 34 ⇧~,
+        shifts = "⎋"
 
-        # Apple ⌃ ⌃⌥ ⌃⇧ ⌃⌥⇧ Keyboards and ⌥⇧ Keyboard have no ⌃ Fn Key Chords
+        meta_caps = "F1 F2 F3 F4" + " F5 F6 F7 F8" + " F9 F10 F11 F12"
+        meta_strikes = """
+                033.133.061.067.176 033.133.061.070.176 033.133.061.071.176 033.133.062.060.176
+                033.133.062.061.176 033.133.062.063.176 033.133.062.064.176 033.133.062.065.176
+                033.133.062.066.176 033.133.062.070.176 033.133.062.071.176 033.133.063.061.176
+        """  # 21 23 24 25, not 21 22 23 24  # 26 28 29 31, not 26 27 28 29
+
+        self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
+
+        # 1.2 ⎋⌃
+
+        shifts = "⎋⌃"
+        self._add_twelve_fn_(shifts=shifts)
+
+        # 1.3 ⎋⇧
+
+        shifts = "⎋⇧"
+        self._add_twelve_fn_(shifts=shifts)
+
+        # 1.4 ⎋⌃⇧
+
+        shifts = "⎋⌃⇧"
+        self._add_twelve_fn_(shifts=shifts)
+
+        # 2.1 ''
+
+        self._add_ten_fn_()
+        self._keyboard_add_("F12", cap_strikes="033.133.062.064.176")  # ⎋[24⇧~
+
+        # 2.2 ⌃  # Sideband Bells on ⌃ F2 F3 F4 F5 F6, ⌃ F9 F10 F11 F12  # No Codes on ⌃ F7 F8
+        # 2.3 ⌃⌥  # Sideband Bells on ⌃⌥ F1..F12
+        # 2.4 ⌃⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
+        # 2.5 ⌃⇧  # Sideband Bells on ⌥⇧ F1..F6, ⌥⇧ F8..F12  # No Codes on ⌥⇧ F7
+
+        pass
+
+        # 2.6 ⌥
+
+        shifts = "⌥"
+        self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
+
+        # 2.7 ⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
+
+        pass
+
+        # 2.8 ⇧  # Sideband Bells on ⌃ F1 F2 F3 F4
+
+        shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2D and ⎋[1;2C
+
+        caps = "F5 F6 F7 F8" + " F9 F10 F11 F12"
+        strikes = """
+            033.133.062.065.176 033.133.062.066.176 033.133.062.070.176 033.133.062.071.176
+            033.133.063.061.176 033.133.063.062.176 033.133.063.063.176 033.133.063.064.176
+        """  # 25 26 28 29, not 25 26 27 28  # 31 32 33 34, not 30 31 32 33
+
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+        # Terminal ⇧Fn = ⎋[ 25 26 28 29 ⇧~, ⎋[ 31 32 33 34 ⇧~,
+        # no encodes of ⇧F1 ⇧F2 ⇧F3 ⇧F4 in Apple Terminal without distributing configuration
 
     def _form_i_term_app_keyboards_(self) -> None:
         """Form a macOS iTerm2 Keyboard, as a diff from Apple Terminal"""
@@ -4028,7 +4065,7 @@ class KeyboardDecoder:
 
         # todo1: Add in the many many variations of 033.133.---.---.073.{shifts_octet}..176 at iTerm2
         # todo1: Add in the many many variations of 033.133.---.---.073.{shifts_octet}..176 at Ghostty
-        # todo1: Test to affirm we have tabulated all the Google Fn Key Chords, and all the Apple Terminal
+        # todo1: Test to affirm we have tabulated all the Google Fn Key Chords
 
     def _form_ghostty_keyboards_(self) -> None:
         """Form a macOS Ghostty Keyboard, as a diff from Apple Terminal"""
@@ -5738,7 +5775,7 @@ def _try_unicode_source_texts_() -> None:
     #
 
     #
-    # The Apple MacBook Keyboard
+    # The Apple macBook Keyboard
     #
     #   does send its ← ↑ → ↓ keys classically encoded as ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
     #   doesn't send its ↖ ↗ ↘ ↙ double key jams encoded as ⎋[ U+2196..U+2199 Diagonal Arrows
