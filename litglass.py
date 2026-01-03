@@ -438,7 +438,7 @@ class LitGlass:
         t1t0 = t1 - t0
         logger_print(f"spent {chop(t1t0)}s on self-test")
 
-        # todo2: log time since last touch of log file, and touch it at Sh Launch
+        # todo1: log time since last touch of log file, and touch it at Sh Launch
 
 
 #
@@ -753,9 +753,12 @@ class KeycapsGame:
         sw = tb.screen_writer
         kr = tb.keyboard_reader
 
+        keyboard_tabs = KeyboardDecoder.KeyboardTabs
+        join = " ".join((_ if _ else "''") for _ in keyboard_tabs)
+
         sw.print()
-        sw.print(r"Paste your choice of '' ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧ ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧")
-        sw.print()
+        sw.print(r"Paste your choice of", join)
+        sw.print()  # '' ⇧ ⎋ ⎋⇧ ⌃ ⌃⇧ ⎋⌃ ⎋⌃⇧ is the order of 2 3 4 5 6 7 Shift Indexes
 
         # Draw the Gameboard, scrolling if need be
 
@@ -860,7 +863,7 @@ class KeycapsGame:
             else:
                 self.kc_print(unhit_kseqs, frames, "not found")
 
-        # todo2: Shuffle the Byte Trace Panel up above the Panel of Press ⌃C etc
+        # todo9: Shuffle the Byte Trace Panel up above the Panel of Press ⌃C etc, or don't
 
         # todo2: Test KeyCaps vs Bracketed Paste, not only vs Unbracketed Paste
 
@@ -920,7 +923,7 @@ class KeycapsGame:
         text = tangible_keyboard
         for cap in exit_caps:
             repl = enter + cap + exit
-            # assert text.count(cap) == 1, (text.count(cap), cap, shifts)  # todo1:
+            assert text.count(cap) == 1, (text.count(cap), cap, shifts)
             text = text.replace(cap, repl)
 
         dent = 4 * " "
@@ -1146,9 +1149,7 @@ class KeycapsGame:
 
         assert wipeouts == renders, (wipeouts, renders)
 
-    def kc_press_keys_if(  # noqa C901 too complex (27  # todo1:
-        self, echoes: tuple[str, ...], unhit_kseqs: list[object]
-    ) -> int:
+    def kc_press_keys_if(self, echoes: tuple[str, ...], unhit_kseqs: list[object]) -> int:
         """Wipe out each Key Cap when pressed"""
 
         tb = self.terminal_boss
@@ -3698,6 +3699,8 @@ class KeyboardDecoder:
     removals_by_echo: dict[str, str]
     echoes_by_decode: dict[str, tuple[str, ...]]
 
+    KeyboardTabs = ("", "⌃", "⌥", "⌃⌥", "⇧", "⌃⇧", "⌥⇧", "⌃⌥⇧", "⎋", "⎋⌃", "⎋⇧", "⎋⌃⇧")
+
     OptionAccents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧~ ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
     OptionGraveGrave = "``"  # ⌥` `
 
@@ -4316,13 +4319,13 @@ class KeyboardDecoder:
         # todo2: reject the patches that change nothing
         # todo2: look before & after the drops of whole keyboards for like ⌃⌥⇧ Google and ⌃⌥ Google
         # todo2: learn & teach the art of reaching the different keyboards without pasting
-        # todo2: sort the possible Key Caps for each Decode in some great consistent way
 
     def _add_keyboard_(self, shifts: str, strikes: str) -> None:
         """Add in 1 Keyboard of Key Caps and their Strikes"""
 
-        strikes_split = strikes.split()
+        assert shifts in KeyboardDecoder.KeyboardTabs, (shifts,)
 
+        strikes_split = strikes.split()
         if not strikes_split:
             return
 
@@ -4339,8 +4342,6 @@ class KeyboardDecoder:
             if decode:
 
                 self._keyboard_add_decode_(decode, echo=echo)
-
-        # todo2: insist on conventional Shifts, at least here
 
     def _form_google_keyboards_(self) -> None:
         """Form a Google Cloud Shell Keyboard, as a diff from Apple Terminal"""
@@ -4471,7 +4472,9 @@ class KeyboardDecoder:
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
     def _add_twelve_fn_(self, shifts: str) -> None:
-        """Add the  Twelve F Keys at the one Decode"""
+        """Add the Twelve F Keys at the one Decode"""
+
+        assert shifts in KeyboardDecoder.KeyboardTabs, (shifts,)
 
         caps = "F1 F2 F3 F4" + " F5 F6 F7 F8" + " F9 F10 F11 F12"
         strikes = 12 * " 033.020"  # ⎋⌃P
@@ -4505,9 +4508,11 @@ class KeyboardDecoder:
         self._keyboard_add_(echo, cap_strikes=cap_strikes)
 
     def _keyboard_add_some_(self, caps: str, strikes: str, shifts: str) -> None:
+        """Add some Key Caps at Strikes to a Keyboard"""
 
         caps_split = caps.split()
         strikes_split = strikes.split()
+        assert shifts in KeyboardDecoder.KeyboardTabs, (shifts,)
 
         assert len(caps_split) == len(strikes_split), (len(caps_split), len(strikes_split))
         for cap, cap_strikes in zip(caps_split, strikes_split):
@@ -4552,6 +4557,9 @@ class KeyboardDecoder:
     def _keyboard_arrow_patch_(self, shifts: str, caps: str, shifts_index: int) -> None:
         """Patch the Keyboard with like 4 more or 2 more Arrow Keys, all at once"""
 
+        assert shifts in KeyboardDecoder.KeyboardTabs, (shifts,)
+        assert 2 <= shifts_index <= 8, (shifts_index,)
+
         octet_by_arrow = {"←": "104", "↑": "101", "→": "103", "↓": "102"}  # 'ABCD'
 
         for cap in caps:
@@ -4571,6 +4579,7 @@ class KeyboardDecoder:
     def _keyboard_shifts_patch_(self, echo: str, octet: str, csi: str, shifts_index: int) -> None:
         """Patch the Keyboard with a Key Cap and its Strikes"""
 
+        assert 2 <= shifts_index <= 8, (shifts_index,)
         decode = self._shifts_to_decode_(octet, csi=csi, shifts_index=shifts_index)
 
         self._keyboard_remove_(echo)
@@ -4579,11 +4588,14 @@ class KeyboardDecoder:
     def _keyboard_shifts_add_(self, echo: str, octet: str, csi: str, shifts_index: int) -> None:
         """Add a Key Cap and its Strikes to the Keyboard"""
 
+        assert 2 <= shifts_index <= 8, (shifts_index,)
         decode = self._shifts_to_decode_(octet, csi=csi, shifts_index=shifts_index)
         self._keyboard_add_decode_(decode, echo=echo)
 
     def _shifts_to_decode_(self, octet: str, csi: str, shifts_index: int) -> str:
         """Form a Csi U or ⇧~ Decode from its Octet & Shifts_Index"""
+
+        assert 2 <= shifts_index <= 8, (shifts_index,)
 
         _ord_ = int(octet, base=0o010)
         if csi == "~":
@@ -6080,7 +6092,7 @@ if __name__ == "__main__":
     main()
 
 
-# todo1: debug ⇧F3 of iTerm2 because ⎋[ ⇧R i/o k/s collision
+# todo1: Debug ⇧F3 of iTerm2 because ⎋[ ⇧R i/o k/s collision
 # todo1: Solve iTerm2 Key Jams with ⎋[5N sent down, not written outside
 # todo2: Revive passing test of buffer key input jam in sleep before launch
 
