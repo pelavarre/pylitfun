@@ -438,6 +438,8 @@ class LitGlass:
         t1t0 = t1 - t0
         logger_print(f"spent {chop(t1t0)}s on self-test")
 
+        # todo2: log time since last touch of log file, and touch it at Sh Launch
+
 
 #
 # Play for --egg=color-picker
@@ -691,7 +693,7 @@ class KeycapsGame:
         ⇧      z  x  c  v  b  n  m   ,  .  /         ⇧
         Fn  ⌃  ⌥  ⌘   Spacebar    ⌘   ⌥        ← ↑ → ↓
                                                 ↖ ↗ ↘ ↙
-    """  # has F1..F12 and Fn, unlike KeyboardDecoder.PlainCaps
+    """
 
     ShiftedKeyboard = r"""
         ⎋    F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 <>
@@ -701,7 +703,7 @@ class KeycapsGame:
         ⇧      Z  X  C  V  B  N  M   <  >  ?         ⇧
         Fn  ⌃  ⌥  ⌘   Spacebar    ⌘   ⌥        ← ↑ → ↓
                                                 ↖ ↗ ↘ ↙
-    """  # has F1..F12 and Fn, unlike KeyboardDecoder.PlainCaps
+    """
 
     # . 123456789 123456789 123456789 123456789 12345678
 
@@ -1021,7 +1023,7 @@ class KeycapsGame:
                 join = "⎋⌃P ⎋⌃Fn ⎋⌃⇧Fn"
 
             str_shifters = str(self.shifters) if self.shifters else "''"
-            self.kc_print(str_shifters, frame, " " + join + " ", self.kc_echo_index)
+            self.kc_print(str_shifters, " " + str(frame), " " + join + " ", self.kc_echo_index)
             self.kc_echo_index += 1
 
             y = kr.row_y
@@ -3652,8 +3654,6 @@ def _try_keyboard_decoder_() -> None:
         decode_by_echo = kd.decode_by_echo
         echoes_by_decode = kd.echoes_by_decode
 
-        assert "" not in echoes_by_decode.keys()
-
         d1 = decode_by_echo
         k1 = "⌃⇧@"
         logger_print(f"{len(d1)=} [{k1!r}] = {d1.get(k1)!r}  # _try_keyboard_decoder_")
@@ -3664,53 +3664,44 @@ def _try_keyboard_decoder_() -> None:
 
 
 class KeyboardDecoder:
-    """Speak of a Byte Sequence as a Strike of macBook Key Caps"""
+    """Speak of a Byte Sequence as a Strike of Key Caps at a macBook"""
 
     selves: list[KeyboardDecoder] = list()
 
     decode_by_echo: dict[str, str]
-    echoes_by_decode: dict[str, tuple[str, ...]]  # todo1: invert only at exit of __init__
     removals_by_echo: dict[str, str]
+    echoes_by_decode: dict[str, tuple[str, ...]]
 
     OptionAccents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧~ ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
     OptionGraveGrave = "``"  # ⌥` `
 
-    PlainCaps = tuple(
-        r"""
+    PlainCapsWithoutFn = r"""
         ⎋
         ` 1 2 3 4 5 6 7 8 9 0 - = ⌫
         ⇥ Q W E R T Y U I O P [ ] \
         A S D F G H J K L ; ' ⏎
         Z X C V B N M , . /
         ␢ ← ↑ → ↓
-    """.split()  # caps apart from F1 .. F12 etc
-    )
+    """  # Plain Caps apart from F1 .. F12 etc
 
-    ShiftCaps = tuple(
-        """
+    ShiftCapsWithoutFn = """
         ⎋
         ~ ! @ # $ % ^ & * ( ) _ + ⌫
         ⇥ Q W E R T Y U I O P { } |
         A S D F G H J K L : " ⏎
         Z X C V B N M < > ?
         ␢ ← ↑ → ↓
-    """.split()  # caps apart from F1 .. F12 etc
-    )
+    """  # Shift Caps apart from ⇧ F1 .. ⇧ F12 etc
 
     def __init__(self) -> None:
 
         KeyboardDecoder.selves.append(self)
 
-        decode_by_echo: dict[str, str] = dict()
-        echoes_by_decode: dict[str, tuple[str, ...]] = dict()
-
-        self.decode_by_echo = decode_by_echo
-        self.echoes_by_decode = echoes_by_decode
+        self.decode_by_echo = dict()
         self.removals_by_echo = dict()
-
         self._form_some_keyboards_()
 
-        assert "" not in echoes_by_decode.keys(), (echoes_by_decode[""],)
+        self.echoes_by_decode = self._form_echoes_by_decode_()
 
     def _form_some_keyboards_(self) -> None:
         """Form a Keyboard for the present Terminal App only"""  # todo: more test
@@ -3728,6 +3719,44 @@ class KeyboardDecoder:
 
         # todo2: say something about ⇧Fn⏎ sending KeyboardInterrupt at iTerm2
         # todo2: say something about Missing ⌃⇧6 and Slow Esc and Doubled ⌃B at Google Shell
+
+    def _form_echoes_by_decode_(self) -> dict[str, tuple[str, ...]]:
+        """Sort and invert our Decode_by_Echo Dict"""
+
+        decode_by_echo = self.decode_by_echo
+
+        def echo_to_echo_key(echo: str) -> tuple[str, ...]:
+            """Sort Key Caps from least to most celebrated"""
+
+            lstrip = echo.lstrip("⎋⌃⌥⇧")
+            cap = lstrip if lstrip else echo[-1:]
+            shifts = echo[: -len(cap)]
+
+            # order = "  ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧ ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧ "  # not Apple Keyboard Shortcut Name order
+            order = "  ⇧ ⌃ ⌥ ⌃⇧ ⌥⇧ ⌃⌥ ⌃⌥⇧ ⎋ ⎋⇧ ⎋⌃ ⎋⌃⇧ "  # least to most celebrated
+            assert (" " + shifts + " ") in order, (shifts, order, cap, echo)
+            index = order.index(" " + shifts + " ")
+
+            echo_key = (chr(index), cap)
+            return echo_key
+
+        vxk = decode_by_echo
+
+        kkxv = collections.defaultdict(list)
+        for k, v in vxk.items():
+            assert k and v, (k, v)
+            kkxv[v].append(k)
+
+        assert "" not in vxk.keys()
+
+        d = dict()
+        for v, kk in kkxv.items():
+            assert kk, (v, kk)
+            d[v] = tuple(sorted(kk, key=echo_to_echo_key))
+
+        assert "" not in d.keys()
+
+        return d
 
     def _form_macos_keyboards_(self) -> None:
         """Form the ordinary Apple macBook Keyboards of Codes sent by Caps"""
@@ -3974,8 +4003,8 @@ class KeyboardDecoder:
         """Form a macOS iTerm2 Keyboard, as a diff from Apple Terminal"""
 
         decode_by_echo = self.decode_by_echo
-        plain_caps = KeyboardDecoder.PlainCaps
-        shift_caps = KeyboardDecoder.ShiftCaps
+        plain_caps = tuple(KeyboardDecoder.PlainCapsWithoutFn.split())
+        shift_caps = tuple(KeyboardDecoder.ShiftCapsWithoutFn.split())
 
         # 1.1 ⎋
         # 1.2 ⎋⌃
@@ -4271,8 +4300,8 @@ class KeyboardDecoder:
         if not strikes_split:
             return
 
-        plain_caps = KeyboardDecoder.PlainCaps
-        shift_caps = KeyboardDecoder.ShiftCaps
+        plain_caps = tuple(KeyboardDecoder.PlainCapsWithoutFn.split())
+        shift_caps = tuple(KeyboardDecoder.ShiftCapsWithoutFn.split())
 
         o = (len(plain_caps), len(shift_caps), len(strikes_split))
         assert len(plain_caps) == len(shift_caps) == len(strikes_split), o
@@ -4471,14 +4500,9 @@ class KeyboardDecoder:
         assert decode, (decode, echo)
 
         decode_by_echo = self.decode_by_echo
-        echoes_by_decode = self.echoes_by_decode
 
         assert echo not in decode_by_echo, (echo, decode_by_echo[echo])
         decode_by_echo[echo] = decode
-
-        if decode not in echoes_by_decode:
-            echoes_by_decode[decode] = tuple()
-        echoes_by_decode[decode] += (echo,)  # todo: struggling with tuple
 
     def _keyboard_remove_if_(self, echo: str) -> None:
         """Remove a Key Cap and its Byte Encoding from a Keyboard, if it exists"""
@@ -4491,20 +4515,13 @@ class KeyboardDecoder:
         """Remove a Key Cap and its Byte Encoding from a Keyboard"""
 
         decode_by_echo = self.decode_by_echo
-        echoes_by_decode = self.echoes_by_decode
         removals_by_echo = self.removals_by_echo
 
         assert echo not in removals_by_echo, (echo,)
         removals_by_echo[echo] = echo
 
         assert echo in decode_by_echo.keys(), (echo,)
-        old_decode = decode_by_echo[echo]
         del decode_by_echo[echo]  # todo: 'del ...' vs '... = ""'
-
-        assert old_decode in echoes_by_decode.keys(), (old_decode,)
-        old_echoes = list(echoes_by_decode[old_decode])  # todo: struggling with tuple
-        old_echoes.remove(echo)
-        echoes_by_decode[old_decode] = tuple(old_echoes)
 
     def _keyboard_arrow_patch_(self, shifts: str, caps: str, shifts_index: int) -> None:
         """Patch the Keyboard with like 4 more or 2 more Arrow Keys, all at once"""
