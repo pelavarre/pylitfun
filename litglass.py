@@ -784,7 +784,84 @@ class KeycapsGame:
         # todo9: --egg=keycaps: toggle back out of @@@@@@@@@ or @@ or @
         # todo9: --egg=keycaps: take mouse hits to the Keyboard viewed
 
-    # todo1: move 'def kc_step_once' here
+    def kc_step_once(self, frames: tuple[bytes, ...]) -> None:
+        """Eval Input and print Output"""
+
+        tb = self.terminal_boss
+        sw = tb.screen_writer
+        kr = tb.keyboard_reader
+        kd = tb.keyboard_decoder
+
+        wipeouts_by_shifters = self.wipeouts_by_shifters
+
+        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
+        assert ord("\\") ^ 0x40 == ord("\034")  # ⌃\
+
+        assert unicodedata.name("¤").title() == "Currency Sign".title()
+
+        # Eval each Input Frame
+
+        unhit_kseqs: list[object] = list()
+
+        (h, w, y, x) = kr.sample_hwyx()
+
+        for frame in frames:
+            echoes = kd.bytes_to_echoes_if(frame)
+
+            # Strike the Key Caps from which the Bytes may have come
+
+            if echoes:
+
+                finds = self.kc_press_keys_if(echoes, unhit_kseqs)
+                if not finds:
+                    unhit_kseqs.clear()
+                    if not tb.quitting:
+                        self.kc_switch_tab(echoes)
+                        self.kc_press_keys_if(echoes, unhit_kseqs)
+
+            # Switch to the Keyboard Tab named by Paste
+
+            else:
+
+                shifters = ""
+                if len(frames) == 1:  # todo: Shifters pasted as multiple Frames
+                    frame = frames[-1]
+                    text = frame.decode()  # todo: UnicodeDecodeError from Paste
+                    key = text.replace("//", "").strip().strip('"').strip("'")
+                    if key in wipeouts_by_shifters.keys():
+                        shifters = key
+
+                if shifters:
+                    self.kc_switch_tab(echoes=(shifters,))
+
+            # Trace the Bytes taken in
+
+            echoes = kd.bytes_to_echoes_if(frame)
+            join = " ".join(_.replace(" ", "") for _ in echoes)
+            if not echoes:
+                join = kd.bytes_to_one_main_echo(frame)
+            if frame == b"\033\020":
+                join = "⎋⌃P ⎋⌃Fn ⎋⌃⇧Fn"
+
+            str_shifters = str(self.shifters) if self.shifters else "''"
+            self.kc_print(str_shifters, " " + str(frame), " " + join + " ", self.kc_echo_index)
+            self.kc_echo_index += 1
+
+            y = kr.row_y
+
+        sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
+
+        if unhit_kseqs:
+            if frames == (b"\003",):  # ⌃C
+                pass
+            elif frames == (b"\034",):  # ⌃\
+                pass
+            else:
+                self.kc_print(unhit_kseqs, frames, "not found")
+
+        # todo2: Shuffle the Byte Trace Panel up above the Panel of Press ⌃C etc
+
+        # todo2: Test KeyCaps vs Bracketed Paste, not only vs Unbracketed Paste
 
     def kc_game_draw(self) -> tuple[int, int]:
         """Draw the Gameboard, scrolling if need be"""
@@ -960,85 +1037,6 @@ class KeycapsGame:
                     keyboard = keyboard.replace(echo, repl, count_eq_1)
 
         return keyboard
-
-    def kc_step_once(self, frames: tuple[bytes, ...]) -> None:
-        """Eval Input and print Output"""
-
-        tb = self.terminal_boss
-        sw = tb.screen_writer
-        kr = tb.keyboard_reader
-        kd = tb.keyboard_decoder
-
-        wipeouts_by_shifters = self.wipeouts_by_shifters
-
-        assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
-        assert ord("\\") ^ 0x40 == ord("\034")  # ⌃\
-
-        assert unicodedata.name("¤").title() == "Currency Sign".title()
-
-        # Eval each Input Frame
-
-        unhit_kseqs: list[object] = list()
-
-        (h, w, y, x) = kr.sample_hwyx()
-
-        for frame in frames:
-            echoes = kd.bytes_to_echoes_if(frame)
-
-            # Strike the Key Caps from which the Bytes may have come
-
-            if echoes:
-
-                finds = self.kc_press_keys_if(echoes, unhit_kseqs)
-                if not finds:
-                    unhit_kseqs.clear()
-                    if not tb.quitting:
-                        self.kc_switch_tab(echoes)
-                        self.kc_press_keys_if(echoes, unhit_kseqs)
-
-            # Switch to the Keyboard Tab named by Paste
-
-            else:
-
-                shifters = ""
-                if len(frames) == 1:  # todo: Shifters pasted as multiple Frames
-                    frame = frames[-1]
-                    text = frame.decode()  # todo: UnicodeDecodeError from Paste
-                    key = text.replace("//", "").strip().strip('"').strip("'")
-                    if key in wipeouts_by_shifters.keys():
-                        shifters = key
-
-                if shifters:
-                    self.kc_switch_tab(echoes=(shifters,))
-
-            # Trace the Bytes taken in
-
-            echoes = kd.bytes_to_echoes_if(frame)
-            join = " ".join(_.replace(" ", "") for _ in echoes)
-            if not echoes:
-                join = kd.bytes_to_one_main_echo(frame)
-            if frame == b"\033\020":
-                join = "⎋⌃P ⎋⌃Fn ⎋⌃⇧Fn"
-
-            str_shifters = str(self.shifters) if self.shifters else "''"
-            self.kc_print(str_shifters, " " + str(frame), " " + join + " ", self.kc_echo_index)
-            self.kc_echo_index += 1
-
-            y = kr.row_y
-
-        sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
-
-        if unhit_kseqs:
-            if frames == (b"\003",):  # ⌃C
-                pass
-            elif frames == (b"\034",):  # ⌃\
-                pass
-            else:
-                self.kc_print(unhit_kseqs, frames, "not found")
-
-        # todo2: Shuffle the Byte Trace Panel up above the Panel of Press ⌃C etc
-
-        # todo2: Test KeyCaps vs Bracketed Paste, not only vs Unbracketed Paste
 
     def kc_print(self, *args: object) -> None:
 
