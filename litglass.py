@@ -673,9 +673,9 @@ class KeycapsGame:
     chat_yx: tuple[int, ...]  # Just below the Southwest Corner of the Gameboard
     scrollables: list[str]  # Rows of Messages
 
-    wipeouts_by_shifters: dict[str, list[str]]
+    wipeouts_by_shifts: dict[str, list[str]]
 
-    shifters: str
+    shifts: str
     tangible_keyboard: str
     wipeouts: list[str]  # Key Caps found and wiped, not yet found again and restored
 
@@ -713,34 +713,35 @@ class KeycapsGame:
 
         # Form 1 Wipeout Set per Shifting Key Chord
 
-        shifter_by_index = "⎋ ⌃ ⌥ ⇧ Fn".split()
-        n = len(shifter_by_index)
+        shift_by_index = "⎋ ⌃ ⌥ ⇧".split()
+        n = len(shift_by_index)
 
         d: dict[str, list[str]] = dict()
         for bitsum in range(2**n):
-            _shifters_ = ""
+            _shifts_ = ""
             for i in range(n):
+                ri = -1 - i
                 if bitsum & (1 << i):
-                    _shifters_ += shifter_by_index[i]  # ordered conventionally
+                    _shifts_ += shift_by_index[ri]
 
-            d[_shifters_] = list()  # ['']  # ['⎋']  # ['⎋⌃']  # ['⌥']  # ...
+            d[_shifts_] = list()  # ['']  # ['⇧']  # ['⌥']  # ['⇧⌥']  # ['⌃']  # ...
 
-        wipeouts_by_shifters = d
+        wipeouts_by_shifts = d
 
         # Init the Fields
 
-        shifters = ""  # none of ⎋ ⌃ ⌥ ⇧
+        shifts = ""  # none of ⎋ ⌃ ⌥ ⇧
 
         self.terminal_boss = terminal_boss
         self.game_yx = tuple()
         self.chat_yx = tuple()
         self.scrollables = list()
 
-        self.wipeouts_by_shifters = wipeouts_by_shifters
+        self.wipeouts_by_shifts = wipeouts_by_shifts
 
-        self.shifters = shifters
+        self.shifts = shifts
         self.tangible_keyboard = self.kc_tangible_keyboard()
-        self.wipeouts = wipeouts_by_shifters[shifters]
+        self.wipeouts = wipeouts_by_shifts[shifts]
 
         self.kc_echo_index = 0
 
@@ -792,7 +793,7 @@ class KeycapsGame:
         kr = tb.keyboard_reader
         kd = tb.keyboard_decoder
 
-        wipeouts_by_shifters = self.wipeouts_by_shifters
+        wipeouts_by_shifts = self.wipeouts_by_shifts
 
         assert ord("C") ^ 0x40 == ord("\003")  # ⌃C
         assert ord("\\") ^ 0x40 == ord("\034")  # ⌃\
@@ -823,16 +824,16 @@ class KeycapsGame:
 
             else:
 
-                shifters = ""
-                if len(frames) == 1:  # todo: Shifters pasted as multiple Frames
+                shifts = ""
+                if len(frames) == 1:  # todo: Shifts pasted as multiple Frames
                     frame = frames[-1]
                     text = frame.decode()  # todo: UnicodeDecodeError from Paste
                     key = text.replace("//", "").strip().strip('"').strip("'")
-                    if key in wipeouts_by_shifters.keys():
-                        shifters = key
+                    if key in wipeouts_by_shifts.keys():
+                        shifts = key
 
-                if shifters:
-                    self.kc_switch_tab(echoes=(shifters,))
+                if shifts:
+                    self.kc_switch_tab(echoes=(shifts,))
 
             # Trace the Bytes taken in
 
@@ -843,8 +844,8 @@ class KeycapsGame:
             if frame == b"\033\020":
                 join = "⎋⌃P ⎋⌃Fn ⎋⌃⇧Fn"
 
-            str_shifters = str(self.shifters) if self.shifters else "''"
-            self.kc_print(str_shifters, " " + str(frame), " " + join + " ", self.kc_echo_index)
+            str_shifts = str(self.shifts) if self.shifts else "''"
+            self.kc_print(str_shifts, " " + str(frame), " " + join + " ", self.kc_echo_index)
             self.kc_echo_index += 1
 
             y = kr.row_y
@@ -873,7 +874,7 @@ class KeycapsGame:
 
         echoes_by_decode = kd.echoes_by_decode
 
-        shifters = self.shifters
+        shifts = self.shifts
         tangible_keyboard = self.tangible_keyboard
 
         assert EL_PS == "\033[" "{}" "K"
@@ -889,8 +890,8 @@ class KeycapsGame:
         #   ⇧ ⌃ ⌥ ⌃⇧ ⌥⇧ ⌃⌥ ⌃⌥⇧ ⎋ ⎋⇧ ⎋⌃ ⎋⌃⇧
         #
 
-        tested_shifters = [""] + "⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧".split() + "⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧".split()
-        assert shifters in tested_shifters, (shifters, tested_shifters)
+        tested_shifts = [""] + "⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧".split() + "⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧".split()
+        assert shifts in tested_shifts, (shifts, tested_shifts)
 
         # Scroll to make Rows in the South, if need be, like after:  seq 987
 
@@ -919,7 +920,7 @@ class KeycapsGame:
         text = tangible_keyboard
         for cap in exit_caps:
             repl = enter + cap + exit
-            # assert text.count(cap) == 1, (text.count(cap), cap, shifters)  # todo1:
+            # assert text.count(cap) == 1, (text.count(cap), cap, shifts)  # todo1:
             text = text.replace(cap, repl)
 
         dent = 4 * " "
@@ -955,23 +956,23 @@ class KeycapsGame:
     def kc_exit_caps(self) -> tuple[str, ...]:
         """Find the Key Caps that will quit the Game"""
 
-        shifters = self.shifters
+        shifts = self.shifts
 
         exit_caps: tuple[str, ...] = tuple()
-        if shifters == "⌃":
+        if shifts == "⌃":
             exit_caps = ("C", "\\")
             if flags.i_term_app or flags.ghostty or flags.google:
                 exit_caps = ("4", "C", "\\")
-        elif shifters == "⌃⌥":
+        elif shifts == "⌃⌥":
             exit_caps = ("C", "\\")
-        elif shifters == "⌃⇧":
+        elif shifts == "⌃⇧":
             if flags.i_term_app:
                 exit_caps = ("C", "|")
             elif flags.ghostty:
                 exit_caps = ("$",)
             else:
                 exit_caps = ("|",)
-        elif shifters == "⌃⌥⇧":
+        elif shifts == "⌃⌥⇧":
             exit_caps = ("C", "|")
 
         return exit_caps
@@ -979,14 +980,14 @@ class KeycapsGame:
     def kc_tangible_keyboard(self) -> str:
         """Draw a Keyboard but blank out its intangible Key Caps"""
 
-        shifters = self.shifters
+        shifts = self.shifts
 
         # Add Key Caps
 
         keyboard = self.ShiftedKeyboard
-        if "⇧" not in shifters:
+        if "⇧" not in shifts:
             keyboard = self.PlainKeyboard
-            if shifters:
+            if shifts:
                 keyboard = keyboard.upper()
                 keyboard = keyboard.replace("Spacebar".upper(), "Spacebar")
 
@@ -1007,12 +1008,12 @@ class KeycapsGame:
         kd = tb.keyboard_decoder
         decode_by_echo = kd.decode_by_echo
 
-        shifters = self.shifters
+        shifts = self.shifts
 
         echoes = keyboard.split()
         for echo in echoes:
-            echo_plus = shifters + ("␢" if (echo == "Spacebar") else echo.upper())
-            echo_plus_key = (shifters + "F5") if (echo == "Fn") else echo_plus
+            echo_plus = shifts + ("␢" if (echo == "Spacebar") else echo.upper())
+            echo_plus_key = (shifts + "F5") if (echo == "Fn") else echo_plus
 
             tangible = False
             if echo_plus_key in decode_by_echo.keys():
@@ -1020,17 +1021,17 @@ class KeycapsGame:
                 assert decode, (decode, echo_plus_key)
 
                 tangible = True  # todo: why split the .echo_plus that we joined?
-                (_shifters_, _cap_) = kd.echo_split_shifters_cap(echo_plus)
-                if (_shifters_ != shifters) or (not _cap_):
-                    if echo != shifters:
+                (_shifts_, _cap_) = kd.echo_split_shifts_cap(echo_plus)
+                if (_shifts_ != shifts) or (not _cap_):
+                    if echo != shifts:
 
                         tangible = False
 
             if not tangible:
-                if (echo == "⎋") or (echo not in tuple(shifters)):
+                if (echo == "⎋") or (echo not in tuple(shifts)):
 
                     repl = len(echo) * " "
-                    if (echo == "⌥") and ("⎋" in shifters):
+                    if (echo == "⌥") and ("⎋" in shifts):
                         repl = "⎋"
 
                     count_eq_1 = 1
@@ -1105,12 +1106,12 @@ class KeycapsGame:
         sw = tb.screen_writer
 
         game_yx = self.game_yx
-        shifters = self.shifters
+        shifts = self.shifts
         wipeouts = self.wipeouts
-        wipeouts_by_shifters = self.wipeouts_by_shifters
+        wipeouts_by_shifts = self.wipeouts_by_shifts
 
         (game_y, game_x) = game_yx
-        assert wipeouts is wipeouts_by_shifters[shifters]
+        assert wipeouts is wipeouts_by_shifts[shifts]
 
         # Switch Tabs
 
@@ -1118,16 +1119,16 @@ class KeycapsGame:
 
         echo = echoes[0]
 
-        (_shifters_, _cap_) = kd.echo_split_shifters_cap(echo)
-        logger_print(f"{_shifters_=} {echoes=}  # kc_switch_tab_if")
+        (_shifts_, _cap_) = kd.echo_split_shifts_cap(echo)
+        logger_print(f"{_shifts_=} {echoes=}  # kc_switch_tab_if")
 
-        self.shifters = _shifters_  # replaces
+        self.shifts = _shifts_  # replaces
         tangible_keyboard = self.kc_tangible_keyboard()
         self.tangible_keyboard = tangible_keyboard
 
         # Replay Wipeouts
 
-        wipeouts = self.wipeouts_by_shifters[_shifters_]  # replaces
+        wipeouts = self.wipeouts_by_shifts[_shifts_]  # replaces
         self.wipeouts = wipeouts
 
         sw.write_control(f"\033[{game_y};{game_x}H")  # row-column-leap ⎋[⇧H
@@ -1160,14 +1161,14 @@ class KeycapsGame:
         renders = list()
         matches = list()
 
-        shifters = self.shifters
+        shifts = self.shifts
         for echo in echoes:
-            (_shifters_, _cap_) = kd.echo_split_shifters_cap(echo)
+            (_shifts_, _cap_) = kd.echo_split_shifts_cap(echo)
 
             # Search only once for each rendering of a Key Cap
 
             render = _cap_
-            if (not _shifters_) and (not _cap_[1:]):
+            if (not _shifts_) and (not _cap_[1:]):
                 render = _cap_.lower()
             if _cap_ == "␢":
                 render = "Spacebar"
@@ -1177,8 +1178,8 @@ class KeycapsGame:
             regex = r"( |\n|^)(" + re.escape(render) + r")( |\n|$)"  # merge both copies
             m = re.search(regex, string=tangible_keyboard)
 
-            if _shifters_ != shifters:
-                pass  # logger_print(f"{_cap_!r} {echo!r}  # dropped for {_shifters_!r} vs {shifters!r}")
+            if _shifts_ != shifts:
+                pass  # logger_print(f"{_cap_!r} {echo!r}  # dropped for {_shifts_!r} vs {shifts!r}")
             elif not m:
                 logger_print(f"{_cap_!r} {echo!r} {render!r} {echoes}  # dropped for not found")
             elif render in renders:
@@ -4634,23 +4635,23 @@ class KeyboardDecoder:
         assert echo.isprintable(), (echo,)
         return echo
 
-    def echo_split_shifters_cap(self, echo: str) -> tuple[str, str]:
-        """Split out the Shifters at left, and add 'Fn' if Fn"""
+    def echo_split_shifts_cap(self, echo: str) -> tuple[str, str]:
+        """Split out the Shifts at left, and add 'Fn' if Fn"""
 
-        shifters = ""
+        shifts = ""
         for t in echo:
             if t not in "⎋ ⌃ ⌥ ⇧".split():  # .t can be 'F' or 'n' but never 'Fn'
                 break
-            shifters += t
+            shifts += t
 
-        cap = echo[len(shifters) :]
+        cap = echo[len(shifts) :]
         if cap == "<>":
             cap = ""  # ('', '') from '<>'
-        elif not cap and shifters.endswith("⎋"):
-            shifters = str_removesuffix(shifters, suffix="⎋")
+        elif not cap and shifts.endswith("⎋"):
+            shifts = str_removesuffix(shifts, suffix="⎋")
             cap = "⎋"  # ('', '⎋') from '⎋'
 
-        return (shifters, cap)
+        return (shifts, cap)
 
         # ('', '')  # ('⇧', '⎋')  # ('⇧', 'F5')  # ('⌃⇧', '@')
 
@@ -6077,9 +6078,6 @@ _ = """  # more famous Python Imports to run in place of our Code here
 
 if __name__ == "__main__":
     main()
-
-
-# todo1: rename to _shifts_ from _shifters_, .shifts from .shifters, etc
 
 
 # todo1: debug ⇧F3 of iTerm2 because ⎋[ ⇧R i/o k/s collision
