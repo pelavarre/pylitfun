@@ -56,6 +56,7 @@ import itertools
 import logging
 import math
 import os
+import pathlib
 import pdb
 import random
 import re
@@ -78,6 +79,9 @@ _: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
 
 if not __debug__:
     raise NotImplementedError([__debug__])  # because 'python3 better than python3 -O'
+
+
+ImportStamp = dt.datetime.now().astimezone()
 
 
 Apple = "\uf8ff"  # Apple  occupies U+F8FF = last of U+E000 .. U+F8FF Private Use Area (PUA)
@@ -237,6 +241,11 @@ class LitGlass:
             kcg = KeycapsGame(tb)
             sqg = SquaresGame(tb)
 
+            now = dt.datetime.now().astimezone()
+            boss = (now - MainStamp).total_seconds()
+            boss_chop = chop(boss)
+            logger.info("%s", f"boss_chop={boss_chop}")
+
             if flags.byteloop:
                 tb.tb_run_byteloop()
             elif flags.color_picker:
@@ -251,17 +260,46 @@ class LitGlass:
     def logging_resume(self) -> None:
         """Open up a new Logging Session at our .logger"""
 
+        pathname = "__pycache__/litglass.log"
         os.makedirs("__pycache__", exist_ok=True)
-
         logging.basicConfig(
-            filename="__pycache__/litglass.log",  # appends, doesn't restart
+            filename=pathname,  # appends, doesn't restart
             level=logging.INFO,  # .INFO and above
             format="%(message)s",  # omits '%(levelname)s:%(name)s:'
         )
 
-        logger_print("")
-        logger_print("")
-        logger_print("launched")
+        path = pathlib.Path(pathname)
+        if not path.is_file():
+
+            logger_print("")
+            logger_print("")
+            logger_print("launched")
+            logger_print("")
+
+        else:
+            stat = path.stat()
+            mtime = stat.st_mtime
+            naive = dt.datetime.fromtimestamp(mtime)
+            aware = naive.astimezone()
+
+            now = dt.datetime.now().astimezone()
+
+            _import_ = (ImportStamp - aware).total_seconds()
+            import_chop = chop(_import_)
+
+            _main_ = (MainStamp - aware).total_seconds()
+            main_chop = chop(_main_)
+
+            launch = (now - aware).total_seconds()
+            launch_chop = chop(launch)
+
+            logger_print("")
+            logger_print("")
+            logger_print("launched")
+            logger_print(f"{import_chop=}")
+            logger_print(f"{main_chop=}")
+            logger_print(f"{launch_chop=}")
+
         logger_print("")
 
         #
@@ -437,8 +475,6 @@ class LitGlass:
         t1 = time.time()
         t1t0 = t1 - t0
         logger_print(f"spent {chop(t1t0)}s on self-test")
-
-        # todo1: log time since last touch of log file, and touch it at Sh Launch
 
 
 #
@@ -6087,6 +6123,8 @@ _ = """  # more famous Python Imports to run in place of our Code here
 # Run from the Shell Command Line, if not imported
 #
 
+
+MainStamp = dt.datetime.now().astimezone()
 
 if __name__ == "__main__":
     main()

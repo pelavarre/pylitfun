@@ -1,7 +1,9 @@
 if [ $# -eq 0 ]; then
     set -xe
+    touch __pycache__/litglass.log 2>/dev/null ||:
     ./litglass.py --egg=logging
 else
     set -xe
+    touch __pycache__/litglass.log 2>/dev/null ||:
     ./litglass.py "$@"
 fi
