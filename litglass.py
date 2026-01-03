@@ -803,12 +803,13 @@ class KeycapsGame:
 
         # Schedule tests of ⎋ and ⌃ ⌥ ⇧
         #
-        #   todo: sort
-        #
         #   todo: say which Keyboards have no distinct Echoes - ⌃⌥⇧ Terminal, ⌃⌥ Terminal, and what?
         #
         #   todo: never speak of ⌃⌥⇧ reversed ⇧⌥⌃|⇧⌥|⇧⌃|⌥⌃ or shuffled ⌃⇧⌥|⌥⌃⇧|⇧⌃⌥
         #   todo: never speak of downshifted ⇧`|⇧-|⇧=|⇧\[|⇧\]|⇧\\|⇧;|⇧'|⇧,|⇧\.|⇧/
+        #
+        #   ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧ ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧
+        #   ⇧ ⌃ ⌥ ⌃⇧ ⌥⇧ ⌃⌥ ⌃⌥⇧ ⎋ ⎋⇧ ⎋⌃ ⎋⌃⇧
         #
 
         tested_shifters = [""] + "⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧".split() + "⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧".split()
@@ -838,14 +839,14 @@ class KeycapsGame:
 
         exit_caps = self.kc_exit_caps()
 
-        keyboard = tangible_keyboard
+        text = tangible_keyboard
         for cap in exit_caps:
             repl = enter + cap + exit
-            # assert keyboard.count(cap) == 1, (keyboard.count(cap), cap, shifters)  # todo0:
-            keyboard = keyboard.replace(cap, repl)
+            # assert text.count(cap) == 1, (text.count(cap), cap, shifters)  # todo1:
+            text = text.replace(cap, repl)
 
         dent = 4 * " "
-        splitlines = keyboard.splitlines()
+        splitlines = text.splitlines()
 
         # Print each Row
 
@@ -993,10 +994,7 @@ class KeycapsGame:
                     unhit_kseqs.clear()
                     if not tb.quitting:
                         self.kc_switch_tab(echoes)
-                        finds = self.kc_press_keys_if(echoes, unhit_kseqs)
-
-                # s = "s" if finds[1:] else ""
-                # logger_print(f"{frame!r} {echoes} toggled {finds} Key Cap{s}")
+                        self.kc_press_keys_if(echoes, unhit_kseqs)
 
             # Switch to the Keyboard Tab named by Paste
 
@@ -1036,7 +1034,7 @@ class KeycapsGame:
             elif frames == (b"\034",):  # ⌃\
                 pass
             else:
-                self.kc_print(unhit_kseqs, "not found", frames)
+                self.kc_print(unhit_kseqs, frames, "not found")
 
         # todo2: Shuffle the Byte Trace Panel up above the Panel of Press ⌃C etc
 
@@ -1050,9 +1048,20 @@ class KeycapsGame:
         kr = tb.keyboard_reader
         sw = tb.screen_writer
 
+        x_wide = kr.x_wide
+
         scrollables = self.scrollables
 
-        printable = " ".join(str(_) for _ in args)
+        join = " ".join(str(_) for _ in args)
+        logger_print("kc_print", join)
+
+        printable = join
+        widest = x_wide - 1
+        if len(join) > widest:
+            i0 = widest - 10 - len(" ... ")
+            printable = join[:i0] + " ... " + join[-10:]
+
+            # todo8: solve for Screens less wide than 10 Columns
 
         (y, x) = chat_yx
         y += len(scrollables)
@@ -1115,7 +1124,8 @@ class KeycapsGame:
         logger_print(f"{_shifters_=} {echoes=}  # kc_switch_tab_if")
 
         self.shifters = _shifters_  # replaces
-        self.tangible_keyboard = self.kc_tangible_keyboard()
+        tangible_keyboard = self.kc_tangible_keyboard()
+        self.tangible_keyboard = tangible_keyboard
 
         # Replay Wipeouts
 
@@ -1125,15 +1135,21 @@ class KeycapsGame:
         sw.write_control(f"\033[{game_y};{game_x}H")  # row-column-leap ⎋[⇧H
         self.kc_game_draw()
 
-        caps = list(wipeouts)
+        renders = list(wipeouts)
         wipeouts.clear()
-        for cap in caps:
-            self.kc_wipeout_else_restore(cap)
-        assert wipeouts == caps, (wipeouts, caps)
 
-    def kc_press_keys_if(  # noqa C901 too complex (27  # todo0:
+        for render in renders:
+            regex = r"( |\n|^)(" + re.escape(render) + r")( |\n|$)"  # merge both copies
+            m = re.search(regex, string=tangible_keyboard)
+
+            assert m, (m, regex, render, tangible_keyboard)
+            self.kc_wipeout_else_restore(m)
+
+        assert wipeouts == renders, (wipeouts, renders)
+
+    def kc_press_keys_if(  # noqa C901 too complex (27  # todo1:
         self, echoes: tuple[str, ...], unhit_kseqs: list[object]
-    ) -> list[str]:
+    ) -> int:
         """Wipe out each Key Cap when pressed"""
 
         tb = self.terminal_boss
@@ -1143,52 +1159,53 @@ class KeycapsGame:
 
         assert echoes, (echoes,)
 
-        findables = list()
+        renders = list()
+        matches = list()
+
         shifters = self.shifters
         for echo in echoes:
             (_shifters_, _cap_) = kd.echo_split_shifters_cap(echo)
 
-            findable = _cap_
-            if (not _shifters_) and (not _cap_[1:]):
-                findable = _cap_.lower()
-            if _cap_ == "␢":
-                findable = "Spacebar"
+            # Search only once for each rendering of a Key Cap
 
-            findable_plus = " " + findable
+            render = _cap_
+            if (not _shifters_) and (not _cap_[1:]):
+                render = _cap_.lower()
+            if _cap_ == "␢":
+                render = "Spacebar"
+
+            # Remember where found
+
+            regex = r"( |\n|^)(" + re.escape(render) + r")( |\n|$)"  # merge both copies
+            m = re.search(regex, string=tangible_keyboard)
 
             if _shifters_ != shifters:
                 pass  # logger_print(f"{_cap_!r} {echo!r}  # dropped for {_shifters_!r} vs {shifters!r}")
-            elif findable_plus not in tangible_keyboard:
-                logger_print(
-                    f"{_cap_!r} {echo!r} {findable_plus!r} {echoes}  # dropped for not found"
-                )
+            elif not m:
+                logger_print(f"{_cap_!r} {echo!r} {render!r} {echoes}  # dropped for not found")
+            elif render in renders:
+                continue
             else:
-                findables.append(findable)
+                renders.append(render)
+                matches.append(m)
 
-        distinct_findables = list(collections.Counter(findables).keys())
+        for m in matches:
+            self.kc_wipeout_else_restore(m)
 
-        finds = list()
-        for findable in distinct_findables:
-            hits = self.kc_wipeout_else_restore(findable)
-            finds += hits * [findable]
-            if not hits:
-                logger_print(f"{findable!r}  # dropped for not hit")  # todo: never happens?
-
-        if not finds:
+        if not matches:
             unhit_kseqs.extend(echoes)
 
-        return finds
+        return len(matches)
 
-    def kc_wipeout_else_restore(self, findable: str) -> int:
+    def kc_wipeout_else_restore(self, m: re.Match[str]) -> None:
         """Wipe out each Key Cap, or restore, when found"""
 
-        findable_plus = " " + findable
-        findable_plus_plus = (findable_plus + " ") if (findable == "F") else findable_plus
+        render = m.group(2)
 
         tb = self.terminal_boss
         game_yx = self.game_yx
 
-        keyboard = self.tangible_keyboard
+        tangible_keyboard = self.tangible_keyboard
         wipeouts = self.wipeouts
 
         sw = tb.screen_writer
@@ -1196,18 +1213,15 @@ class KeycapsGame:
 
         # Form the Rows of the Gameboards
 
-        dent = 4 * " "
+        find = m.start() + len(m.group(1))
+        find_plus = find + 1
 
-        find = keyboard.find(findable_plus_plus)
-        if find < 0:
-            return 0
-
-        find += len(" ")  # todo1: re.search \b \b in place of .find _plus_plus and _plus
-
-        found_lines = keyboard[: find + 1].splitlines()
-        assert found_lines, (found_lines, find, findable)
+        found_lines = tangible_keyboard[:find_plus].splitlines()
+        assert found_lines, (found_lines, find_plus, render)
 
         # Leap to this found Key Cap
+
+        dent = 4 * " "
 
         y = game_y + len(found_lines)
         x = game_x + len(dent) + len(found_lines[-1]) - 1
@@ -1216,21 +1230,19 @@ class KeycapsGame:
 
         # Restore this Key Cap later, else wipe it out to begin with
 
-        if findable in wipeouts:
-            wipeouts.remove(findable)
+        if render in wipeouts:
+            wipeouts.remove(render)
 
-            sw.write_printable(findable)
+            sw.write_printable(render)
 
         else:
-            wipeouts.append(findable)
+            wipeouts.append(render)
 
-            width = len(findable)  # 1  # len("Spacebar")  # len("F12")
+            width = len(render)  # 1  # len("Spacebar")  # len("F12")
 
             sw.write_control("\033[1m")  # ⎋[1M style-bold
             sw.write_printable(width * "¤")
             sw.write_control("\033[m")  # ⎋[M style-plain
-
-        return 1
 
     # todo9: --egg=keycaps: restart in each Keyboard viewed
     # todo9: --egg=keycaps: save/ load progress in each Keyboard viewed
@@ -1934,6 +1946,21 @@ class TerminalBoss:
         self.quitting = False
 
         # todo: limit fanout of pretending ⎋[5N came as last Input before Launch
+
+    @staticmethod
+    def _breakpoint_() -> None:
+        """Exit for just long enough to breakpoint then re-enter"""
+
+        tb = TerminalBoss.selves[-1]
+        tb.__exit__()
+
+        breakpoint()  # Pdb likes:  where, up, down, tb = None, continue
+        pass  # Pdb likes:  where, up, down, tb = None, continue
+
+        if tb:
+            tb.__enter__()
+
+        # TerminalBoss._breakpoint_()
 
     def __enter__(self) -> TerminalBoss:
 
