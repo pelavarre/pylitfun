@@ -43,6 +43,9 @@ examples:
 
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
 
+# import time
+# t0 = time.time()
+
 import __main__
 import argparse
 import bdb
@@ -73,6 +76,10 @@ import tty
 import types
 import typing
 import unicodedata  # of a .unicodedata.unidata_version for friends of 웃 襾 ¤
+
+# t1 = time.time()
+# print(t1 - t0)  # ~50ms for 30 Imports at 3/Jan/2026
+# sys.exit(2)
 
 
 _: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
@@ -244,7 +251,7 @@ class LitGlass:
             now = dt.datetime.now().astimezone()
             boss = (now - MainStamp).total_seconds()
             boss_chop = chop(boss)
-            logger.info("%s", f"boss_chop={boss_chop}")
+            logger.info("%s", f"and spent {boss_chop}s to launch TerminalBoss")
 
             if flags.byteloop:
                 tb.tb_run_byteloop()
@@ -279,26 +286,32 @@ class LitGlass:
         else:
             stat = path.stat()
             mtime = stat.st_mtime
-            naive = dt.datetime.fromtimestamp(mtime)
-            aware = naive.astimezone()
 
-            now = dt.datetime.now().astimezone()
+            # naive = dt.datetime.fromtimestamp(mtime)
+            # aware = naive.astimezone()
 
-            _import_ = (ImportStamp - aware).total_seconds()
-            import_chop = chop(_import_)
+            # now = dt.datetime.now().astimezone()
 
-            _main_ = (MainStamp - aware).total_seconds()
-            main_chop = chop(_main_)
+            # _import_ = (ImportStamp - aware).total_seconds()
+            # import_chop = chop(_import_)
 
-            launch = (now - aware).total_seconds()
-            launch_chop = chop(launch)
+            # _main_ = (MainStamp - aware).total_seconds()
+            # main_chop = chop(_main_)
+
+            # launch = (now - aware).total_seconds()
+            # launch_chop = chop(launch)
+
+            t = time.time() - mtime
 
             logger_print("")
             logger_print("")
-            logger_print("launched")
-            logger_print(f"{import_chop=}")
-            logger_print(f"{main_chop=}")
-            logger_print(f"{launch_chop=}")
+            logger_print(f"launched and spent {chop(t)}s since {mtime=}")
+            # logger_print(f"{mtime=}")
+            # logger_print(f"{globals().get("t0")=}")
+            # logger_print(f"{import_chop=}")
+            # logger_print(f"{main_chop=}")
+            # logger_print(f"{launch_chop=}")
+            # logger_print(f"{time.time()=}")
 
         logger_print("")
 
@@ -474,7 +487,8 @@ class LitGlass:
 
         t1 = time.time()
         t1t0 = t1 - t0
-        logger_print(f"spent {chop(t1t0)}s on self-test")
+        if t1t0 > 250e-6:
+            logger_print(f"spent {chop(t1t0)}s on self-test")
 
 
 #
@@ -807,6 +821,11 @@ class KeycapsGame:
         self.chat_yx = (y, x)  # replaces
 
         # Run till Quit
+
+        now = dt.datetime.now().astimezone()
+        kc = (now - MainStamp).total_seconds()
+        kc_chop = chop(kc)
+        logger.info("%s", f"and spent {kc_chop}s to launch KeycapsGame")
 
         while not tb.quitting:
 
