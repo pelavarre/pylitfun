@@ -723,10 +723,10 @@ class KeycapsGame:
     chat_yx: tuple[int, ...]  # Just below the Southwest Corner of the Gameboard
     scrollables: list[str]  # Rows of Messages
 
-    wipeouts_by_shifts: dict[str, list[str]]
+    tangible_keyboard: str
 
     shifts: str
-    tangible_keyboard: str
+    wipeouts_by_shifts: dict[str, list[str]]
     wipeouts: list[str]  # Key Caps found and wiped, not yet found again and restored
 
     kc_echo_index: int  # distinguish one input from the next
@@ -761,39 +761,23 @@ class KeycapsGame:
 
     def __init__(self, terminal_boss: TerminalBoss) -> None:
 
-        # Form 1 Wipeout Set per Shifting Key Chord
-
-        shift_by_index = "⎋ ⌃ ⌥ ⇧".split()
-        n = len(shift_by_index)
-
-        d: dict[str, list[str]] = dict()
-        for bitsum in range(2**n):
-            _shifts_ = ""
-            for i in range(n):
-                ri = -1 - i
-                if bitsum & (1 << i):
-                    _shifts_ += shift_by_index[ri]
-
-            d[_shifts_] = list()  # ['']  # ['⇧']  # ['⌥']  # ['⇧⌥']  # ['⌃']  # ...
-
-        wipeouts_by_shifts = d
-
-        # Init the Fields
-
-        shifts = ""  # none of ⎋ ⌃ ⌥ ⇧
-
         self.terminal_boss = terminal_boss
         self.game_yx = tuple()
         self.chat_yx = tuple()
         self.scrollables = list()
 
-        self.wipeouts_by_shifts = wipeouts_by_shifts
+        self.tangible_keyboard = ""  # mostly unneeded
 
+        shifts = ""  # none of ⎋ ⌃ ⌥ ⇧
         self.shifts = shifts
-        self.tangible_keyboard = self.kc_tangible_keyboard()
-        self.wipeouts = wipeouts_by_shifts[shifts]
+
+        self.wipeouts_by_shifts = dict((_, list()) for _ in KeyboardDecoder.ShortcutShifts)
+        self.wipeouts = self.wipeouts_by_shifts[shifts]
 
         self.kc_echo_index = 0
+
+        tangible_keyboard = self.kc_tangible_keyboard()
+        self.tangible_keyboard = tangible_keyboard
 
     def kc_run_awhile(self) -> None:
         """Trace Key Releases till ⌃C"""
@@ -803,12 +787,15 @@ class KeycapsGame:
         sw = tb.screen_writer
         kr = tb.keyboard_reader
 
-        keyboard_tabs = KeyboardDecoder.KeyboardTabs
-        join = " ".join((_ if _ else "''") for _ in keyboard_tabs)
+        shortcut_shifts = KeyboardDecoder.ShortcutShifts
+        if flags.ghostty:
+            shortcut_shifts = tuple(_ for _ in KeyboardDecoder.ShortcutShifts if "⌥" not in _)
+
+        join = " ".join((_ if _ else "''") for _ in shortcut_shifts)
 
         sw.print()
         sw.print(r"Paste your choice of", join)
-        sw.print()  # '' ⇧ ⎋ ⎋⇧ ⌃ ⌃⇧ ⎋⌃ ⎋⌃⇧ is the order of 2 3 4 5 6 7 Shift Indexes
+        sw.print()
 
         # Draw the Gameboard, scrolling if need be
 
@@ -900,7 +887,8 @@ class KeycapsGame:
             if not echoes:
                 join = kd.bytes_to_one_main_echo(frame)
             if frame == b"\033\020":
-                join = "⎋⌃P ⎋⌃Fn ⎋⌃⇧Fn"
+                assert join.split() == KeycapsGame.MetaControlP.split()
+                join = "⎋⌃P ⎋⌃⇧P ⎋⇧F1 ... ⎋⌃... ⎋⌃⇧... ⎋⌃⇧F12"
 
             str_shifts = str(self.shifts) if self.shifts else "''"
             self.kc_print(str_shifts, " " + str(frame), " " + join + " ", self.kc_echo_index)
@@ -922,6 +910,13 @@ class KeycapsGame:
 
         # todo2: Test KeyCaps vs Bracketed Paste, not only vs Unbracketed Paste
 
+    MetaControlP = """
+        ⎋⌃P    ⎋⌃⇧P
+        ⎋⇧F1   ⎋⇧F2   ⎋⇧F3   ⎋⇧F4   ⎋⇧F5   ⎋⇧F6   ⎋⇧F7   ⎋⇧F8   ⎋⇧F9   ⎋⇧F10   ⎋⇧F11   ⎋⇧F12
+        ⎋⌃F1   ⎋⌃F2   ⎋⌃F3   ⎋⌃F4   ⎋⌃F5   ⎋⌃F6   ⎋⌃F7   ⎋⌃F8   ⎋⌃F9   ⎋⌃F10   ⎋⌃F11   ⎋⌃F12
+        ⎋⌃⇧F1  ⎋⌃⇧F2  ⎋⌃⇧F3  ⎋⌃⇧F4  ⎋⌃⇧F5  ⎋⌃⇧F6  ⎋⌃⇧F7  ⎋⌃⇧F8  ⎋⌃⇧F9  ⎋⌃⇧F10  ⎋⌃⇧F11  ⎋⌃⇧F12
+    """
+
     def kc_game_draw(self) -> tuple[int, int]:
         """Draw the Gameboard, scrolling if need be"""
 
@@ -940,12 +935,8 @@ class KeycapsGame:
         # Schedule tests of ⎋ and ⌃ ⌥ ⇧
         #
         #   todo: say which Keyboards have no distinct Echoes - ⌃⌥⇧ Terminal, ⌃⌥ Terminal, and what?
-        #
         #   todo: never speak of ⌃⌥⇧ reversed ⇧⌥⌃|⇧⌥|⇧⌃|⌥⌃ or shuffled ⌃⇧⌥|⌥⌃⇧|⇧⌃⌥
-        #   todo: never speak of downshifted ⇧`|⇧-|⇧=|⇧\[|⇧\]|⇧\\|⇧;|⇧'|⇧,|⇧\.|⇧/
-        #
-        #   ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧ ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧
-        #   ⇧ ⌃ ⌥ ⌃⇧ ⌥⇧ ⌃⌥ ⌃⌥⇧ ⎋ ⎋⇧ ⎋⌃ ⎋⌃⇧
+        #   todo: never speak of ⌃⌥⇧ downshifted ⇧`|⇧-|⇧=|⇧\[|⇧\]|⇧\\|⇧;|⇧'|⇧,|⇧\.|⇧/
         #
 
         tested_shifts = [""] + "⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧".split() + "⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧".split()
@@ -1176,9 +1167,11 @@ class KeycapsGame:
         assert echoes, (echoes,)
 
         echo = echoes[0]
-
         (_shifts_, _cap_) = kd.echo_split_shifts_cap(echo)
-        logger_print(f"{_shifts_=} {echoes=}  # kc_switch_tab_if")
+        if echo == "⎋":
+            _shifts_ = "⎋"  # takes "⎋" as a Shifts Key, not as a Cap
+
+        logger_print(f"{_shifts_=} {echoes=}  # kc_switch_tab")
 
         self.shifts = _shifts_  # replaces
         tangible_keyboard = self.kc_tangible_keyboard()
@@ -2404,6 +2397,9 @@ class TerminalBoss:
         self.tb_write_echo_southward(echo)
 
     def tb_write_echo_southward(self, echo: str) -> None:
+        """Write the Echo vertically, southward, so it stands out"""
+
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
 
         sw = self.screen_writer
         kr = self.keyboard_reader
@@ -3754,11 +3750,6 @@ class KeyboardDecoder:
     removals_by_echo: dict[str, str]
     echoes_by_decode: dict[str, tuple[str, ...]]
 
-    KeyboardTabs = ("", "⌃", "⌥", "⌃⌥", "⇧", "⌃⇧", "⌥⇧", "⌃⌥⇧", "⎋", "⎋⌃", "⎋⇧", "⎋⌃⇧")
-
-    OptionAccents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧~ ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
-    OptionGraveGrave = "``"  # ⌥` `
-
     PlainCapsWithoutFn = r"""
         ⎋
         ` 1 2 3 4 5 6 7 8 9 0 - = ⌫
@@ -3777,6 +3768,22 @@ class KeyboardDecoder:
         ␢ ← ↑ → ↓
     """  # Shift Caps apart from ⇧ F1 .. ⇧ F12 etc
 
+    ShortcutShifts: tuple[str, ...]  # ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧ ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧
+    ShortcutShifts = ("", "⌃", "⌥", "⌃⌥", "⇧", "⌃⇧", "⌥⇧", "⌃⌥⇧", "⎋", "⎋⌃", "⎋⇧", "⎋⌃⇧")
+
+    FamiliarShifts: tuple[str, ...]  # ⇧ ⌃ ⌥ ⌃⇧ ⌥⇧ ⌃⌥ ⌃⌥⇧ ⎋ ⎋⇧ ⎋⌃ ⎋⌃⇧
+    FamiliarShifts = ("", "⇧", "⌃", "⌥", "⌃⇧", "⌥⇧", "⌃⌥", "⌃⌥⇧", "⎋", "⎋⇧", "⎋⌃", "⎋⌃⇧")
+
+    NumberedShifts: tuple[str, ...]  # ...  1 ''  2 ⇧  3 ⌥  4 ⌥⇧  5 ⌃  6 ⌃⇧  7 ⌃⌥  8 ⌃⌥⇧  ...
+    NumberedShifts = ("", "⇧", "⌥", "⌥⇧", "⌃", "⌃⇧", "⌃⌥", "⌃⌥⇧")  # when numbered as Option/Alt
+    # = ("", "⇧", "⎋", "⎋⇧", "⌃", "⌃⇧", "⎋⌃", "⎋⌃⇧")  # when numbered as Meta
+
+    assert sorted(ShortcutShifts) == sorted(FamiliarShifts)
+    assert sorted(NumberedShifts) == sorted(ShortcutShifts[:8])
+
+    OptionAccents = ("`", "´", "¨", "ˆ", "˜")  # ⌥⇧~ ⌥⇧E ⌥⇧U ⌥⇧I ⌥⇧N
+    OptionGraveGrave = "``"  # ⌥` `
+
     def __init__(self) -> None:
 
         KeyboardDecoder.selves.append(self)
@@ -3788,7 +3795,7 @@ class KeyboardDecoder:
         self.echoes_by_decode = self._form_echoes_by_decode_()
 
     def _form_some_keyboards_(self) -> None:
-        """Form a Keyboard for the present Terminal App only"""  # todo: more test
+        """Form a Keyboard for the present Terminal App only"""
 
         self._form_macos_keyboards_()
 
@@ -3809,20 +3816,26 @@ class KeyboardDecoder:
 
         decode_by_echo = self.decode_by_echo
 
+        familiar_shifts = KeyboardDecoder.FamiliarShifts
+
         def echo_to_echo_key(echo: str) -> tuple[str, ...]:
             """Sort Key Caps from least to most celebrated"""
 
+            assert len(echo.split()) == 1, (len(echo.split()), echo)
+
             lstrip = echo.lstrip("⎋⌃⌥⇧")
             cap = lstrip if lstrip else echo[-1:]
+
             shifts = echo[: -len(cap)]
+            chr_index = chr(familiar_shifts.index(shifts))
 
-            # order = "  ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧ ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧ "  # not Apple Keyboard Shortcut Name order
-            order = "  ⇧ ⌃ ⌥ ⌃⇧ ⌥⇧ ⌃⌥ ⌃⌥⇧ ⎋ ⎋⇧ ⎋⌃ ⎋⌃⇧ "  # least to most celebrated
-            assert (" " + shifts + " ") in order, (shifts, order, cap, echo)
-            index = order.index(" " + shifts + " ")
+            chr_wide_cap = chr(len(cap) > 1)
+            chr_len_cap = chr(len(cap))
 
-            echo_key = (chr(index), cap)
+            echo_key = (chr_wide_cap, chr_index, chr_len_cap, cap)
             return echo_key
+
+            # ⎋⌃P ⎋⌃⇧P before ⎋⇧F2 before ⎋⇧F12, for example
 
         vxk = decode_by_echo
 
@@ -4128,17 +4141,26 @@ class KeyboardDecoder:
 
         # 2.3 ⌃⌥
 
+        shifts = "⌃⌥"
+        shifts_index = 7
+
         self._keyboard_patch_("⌃⌥␢", cap_strikes="040")  # Spacebar
-        self._keyboard_arrow_patch_("⌃⌥", caps="←↑→↓", shifts_index=7)
+        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
         # 2.4 ⌃⌥⇧
 
-        self._keyboard_arrow_patch_("⌃⌥⇧", caps="←↑→↓", shifts_index=8)
+        shifts = "⌃⌥⇧"
+        shifts_index = 8
+
+        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
         # 2.5 ⌃⇧
 
+        shifts = "⌃⇧"
+        shifts_index = 6
+
         for old_cap, new_cap in zip(plain_caps, shift_caps):
-            new_echo = "⌃⇧" + new_cap
+            new_echo = shifts + new_cap
             if new_echo not in ("⌃⇧⌫", "⌃⇧⇥", "⌃⇧@", "⌃⇧^", "⌃⇧←", "⌃⇧↑", "⌃⇧→", "⌃⇧↓"):
                 old_echo = "⌃⌥" + old_cap
                 decode = decode_by_echo[old_echo]
@@ -4149,21 +4171,28 @@ class KeyboardDecoder:
         self._keyboard_patch_("⌃⇧⌫", cap_strikes="010")  # ⌃H
         self._keyboard_patch_("⌃⇧?", cap_strikes="177")  # ⌫
 
-        self._keyboard_arrow_patch_("⌃⇧", caps="←↑→↓", shifts_index=6)
+        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
         # 2.6 ⌥
 
-        self._keyboard_arrow_patch_("⌥", caps="←↑→↓", shifts_index=3)
+        shifts = "⌥"
+        shifts_index = 3
+
+        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
         # 2.7 ⌥⇧
 
-        self._keyboard_arrow_patch_("⌥⇧", caps="←↑→↓", shifts_index=4)
+        shifts = "⌥⇧"
+        shifts_index = 4
+
+        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
         # 2.8 ⇧
 
         shifts = "⇧"
+        shifts_index = 2
 
-        self._keyboard_arrow_patch_("⇧", caps="↑↓", shifts_index=2)
+        self._keyboard_arrow_patch_(shifts, caps="↑↓", shifts_index=shifts_index)
 
         caps = "F1 F2 F3 F4" + " F5 F6 F7 F8" + " F9 F10 F11 F12"
         strikes = """
@@ -4185,14 +4214,20 @@ class KeyboardDecoder:
 
         # 1.1 ⎋
 
-        self._keyboard_arrow_patch_("⎋", caps="↑↓", shifts_index=3)
+        shifts = "⎋"
+        shifts_index = 3
 
-        # 1.2 ⎋⌃  # todo: merge with ⌃ Ghostty
+        self._keyboard_arrow_patch_(shifts, caps="↑↓", shifts_index=shifts_index)
+
+        # 1.2 ⎋⌃
+
+        shifts = "⎋⌃"
+        shifts_index = 7
 
         self._keyboard_patch_("⎋⌃⌫", cap_strikes="033.010")  # ⌃H
         self._keyboard_remove_("⎋⌃⇥")
 
-        self._keyboard_shifts_patch_("⎋⌃`", octet="140", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃`", octet="140", csi="u", shifts_index=shifts_index)
 
         self._keyboard_patch_("⎋⌃1", cap_strikes="033.061")  # ⎋ 1
         self._keyboard_patch_("⎋⌃2", cap_strikes="033.000")  # ⎋ ⌃⇧@
@@ -4206,38 +4241,46 @@ class KeyboardDecoder:
         self._keyboard_patch_("⎋⌃0", cap_strikes="033.060")  # ⎋ 0
         self._keyboard_patch_("⎋⌃/", cap_strikes="033.037")  # ⌃⇧_  # beeps 🙄
 
-        self._keyboard_shifts_patch_("⎋⌃;", octet="073", csi="u", shifts_index=7)
-        self._keyboard_shifts_patch_("⎋⌃'", octet="047", csi="u", shifts_index=7)
-        self._keyboard_shifts_patch_("⎋⌃,", octet="054", csi="u", shifts_index=7)
-        self._keyboard_shifts_patch_("⎋⌃.", octet="056", csi="u", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃;", octet="073", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⎋⌃'", octet="047", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⎋⌃,", octet="054", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⎋⌃.", octet="056", csi="u", shifts_index=shifts_index)
 
-        self._keyboard_shifts_patch_("⎋⌃⎋", octet="033", csi="~", shifts_index=7)
-        self._keyboard_shifts_patch_("⎋⌃-", octet="055", csi="u", shifts_index=7)
-        self._keyboard_shifts_patch_("⎋⌃=", octet="075", csi="u", shifts_index=7)
-        self._keyboard_shifts_patch_("⎋⌃I", octet="151", csi="u", shifts_index=7)
-        self._keyboard_shifts_patch_("⎋⌃[", octet="133", csi="u", shifts_index=7)
-        self._keyboard_shifts_patch_("⎋⌃M", octet="155", csi="u", shifts_index=7)
-        self._keyboard_shifts_patch_("⎋⌃⏎", octet="015", csi="~", shifts_index=7)
+        self._keyboard_shifts_patch_("⎋⌃⎋", octet="033", csi="~", shifts_index=shifts_index)
+
+        self._keyboard_shifts_patch_("⎋⌃-", octet="055", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⎋⌃=", octet="075", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⎋⌃I", octet="151", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⎋⌃[", octet="133", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⎋⌃M", octet="155", csi="u", shifts_index=shifts_index)
+
+        self._keyboard_shifts_patch_("⎋⌃⏎", octet="015", csi="~", shifts_index=shifts_index)
 
         self._keyboard_patch_("⎋⌃␢", cap_strikes="033.000")  # Spacebar
 
-        self._keyboard_arrow_patch_("⎋⌃", caps="←↑→↓", shifts_index=7)
+        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
         # 1.3 ⎋⇧
 
-        self._keyboard_shifts_patch_("⎋⇧⎋", octet="033", csi="~", shifts_index=4)
-        self._keyboard_shifts_patch_("⎋⇧⇥", octet="011", csi="~", shifts_index=4)
+        shifts = "⎋⇧"
+        shifts_index = 4
+
+        self._keyboard_shifts_patch_("⎋⇧⎋", octet="033", csi="~", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⎋⇧⇥", octet="011", csi="~", shifts_index=shifts_index)
         self._keyboard_patch_("⎋⇧⌫", cap_strikes="033.177")  # ⎋⌫
-        self._keyboard_shifts_patch_("⎋⇧⏎", octet="015", csi="~", shifts_index=4)
+        self._keyboard_shifts_patch_("⎋⇧⏎", octet="015", csi="~", shifts_index=shifts_index)
 
-        self._keyboard_arrow_patch_("⎋⇧", caps="←↑→↓", shifts_index=4)
+        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
-        # 1.4 ⎋⌃⇧  # mixes shifts_index=7 into mainly shifts_index=8  # todo2: Ghostty bug?
+        # 1.4 ⎋⌃⇧  # mixes in ⎋⌃ shifts_index=7  # todo2: Ghostty bug?
 
-        self._keyboard_shifts_patch_("⎋⌃⇧⎋", octet="033", csi="~", shifts_index=8)
+        shifts = "⎋⌃⇧"
+        shifts_index = 8
+
+        self._keyboard_shifts_patch_("⎋⌃⇧⎋", octet="033", csi="~", shifts_index=shifts_index)
         self._keyboard_remove_("⎋⌃⇧⇥")
 
-        self._keyboard_shifts_patch_("⎋⌃⇧~", octet="140", csi="u", shifts_index=8)
+        self._keyboard_shifts_patch_("⎋⌃⇧~", octet="140", csi="u", shifts_index=shifts_index)
         self._keyboard_patch_("⎋⌃⇧@", cap_strikes="033.000")  # ⎋ ⌃⇧@
         self._keyboard_patch_("⎋⌃⇧#", cap_strikes="033.033")  # ⎋ ⎋  # ⎋ ⌃[
         self._keyboard_patch_("⎋⌃⇧$", cap_strikes="033.034")  # ⎋ ⌃\
@@ -4245,27 +4288,27 @@ class KeyboardDecoder:
         self._keyboard_patch_("⎋⌃⇧^", cap_strikes="033.036")  # ⎋ ⌃⇧^
         self._keyboard_patch_("⎋⌃⇧&", cap_strikes="033.037")  # ⎋ ⌃⇧_
         self._keyboard_patch_("⎋⌃⇧*", cap_strikes="033.177")  # ⎋ ⌫
-        self._keyboard_shifts_patch_("⎋⌃⇧+", octet="075", csi="u", shifts_index=8)
+        self._keyboard_shifts_patch_("⎋⌃⇧+", octet="075", csi="u", shifts_index=shifts_index)
         self._keyboard_patch_("⎋⌃⇧⌫", cap_strikes="177")  # ⌫
 
         self._keyboard_shifts_patch_("⎋⌃⇧{", octet="173", csi="u", shifts_index=7)
         self._keyboard_shifts_patch_("⎋⌃⇧}", octet="175", csi="u", shifts_index=7)
         self._keyboard_shifts_patch_("⎋⌃⇧|", octet="174", csi="u", shifts_index=7)
 
-        self._keyboard_shifts_patch_("⎋⌃⇧:", octet="073", csi="u", shifts_index=8)
-        self._keyboard_shifts_patch_('⎋⌃⇧"', octet="047", csi="u", shifts_index=8)
-        self._keyboard_shifts_patch_("⎋⌃⇧⏎", octet="015", csi="~", shifts_index=8)
-        self._keyboard_shifts_patch_("⎋⌃⇧<", octet="054", csi="u", shifts_index=8)
-        self._keyboard_shifts_patch_("⎋⌃⇧>", octet="056", csi="u", shifts_index=8)
+        self._keyboard_shifts_patch_("⎋⌃⇧:", octet="073", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_('⎋⌃⇧"', octet="047", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⎋⌃⇧⏎", octet="015", csi="~", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⎋⌃⇧<", octet="054", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⎋⌃⇧>", octet="056", csi="u", shifts_index=shifts_index)
         self._keyboard_patch_("⎋⌃⇧?", cap_strikes="033.037")  # ⎋ ⌃⇧_
 
         for cap in string.ascii_uppercase:
-            echo = f"⎋⌃⇧{cap}"
+            echo = shifts + cap
             octet = f"{ord(cap.lower()):03o}"
             cap.lower()
-            self._keyboard_shifts_patch_(echo, octet=octet, csi="u", shifts_index=8)
+            self._keyboard_shifts_patch_(echo, octet=octet, csi="u", shifts_index=shifts_index)
 
-        self._keyboard_arrow_patch_("⎋⌃⇧", caps="←↑→↓", shifts_index=8)
+        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
         # 2.1 ''
 
@@ -4273,6 +4316,9 @@ class KeyboardDecoder:
         self._keyboard_add_("F12", cap_strikes="033.133.062.064.176")  # ⎋[24⇧~
 
         # 2.2 ⌃  # much the same as ⌃ iTerm2, except that Ghostty patches & adds more
+
+        shifts = "⌃"
+        shifts_index = 5
 
         self._keyboard_patch_("⌃⌫", cap_strikes="010")  # ⌃H
         self._keyboard_remove_("⌃⇥")
@@ -4291,16 +4337,16 @@ class KeyboardDecoder:
         self._keyboard_add_("⌃=", cap_strikes="075")  # =
         self._keyboard_add_("⌃/", cap_strikes="037")  # ⌃⇧_
 
-        self._keyboard_shifts_add_("⌃;", octet="073", csi="u", shifts_index=5)
-        self._keyboard_shifts_add_("⌃'", octet="047", csi="u", shifts_index=5)
-        self._keyboard_shifts_add_("⌃,", octet="054", csi="u", shifts_index=5)
-        self._keyboard_shifts_add_("⌃.", octet="056", csi="u", shifts_index=5)
+        self._keyboard_shifts_add_("⌃;", octet="073", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_add_("⌃'", octet="047", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_add_("⌃,", octet="054", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_add_("⌃.", octet="056", csi="u", shifts_index=shifts_index)
 
-        self._keyboard_shifts_patch_("⌃⎋", octet="033", csi="~", shifts_index=5)
-        self._keyboard_shifts_patch_("⌃`", octet="140", csi="u", shifts_index=5)
-        self._keyboard_shifts_patch_("⌃=", octet="075", csi="u", shifts_index=5)
-        self._keyboard_shifts_patch_("⌃I", octet="151", csi="u", shifts_index=5)
-        self._keyboard_shifts_patch_("⌃M", octet="155", csi="u", shifts_index=5)
+        self._keyboard_shifts_patch_("⌃⎋", octet="033", csi="~", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⌃`", octet="140", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⌃=", octet="075", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⌃I", octet="151", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⌃M", octet="155", csi="u", shifts_index=shifts_index)
 
         # todo2: why "⌃\'" in place of "⌃'" in our logs
         logger_print(repr("⌃'"), repr('⌃⇧"'), "overly escaped : -(")  # todo3
@@ -4310,12 +4356,15 @@ class KeyboardDecoder:
 
         pass  # todo: "Use Option as Meta key = No" not found in macOS Ghostty
 
-        # 2.5 ⌃⇧  # mixes shifts_index=5 into mainly shifts_index=6  # todo2: Ghostty bug?
+        # 2.5 ⌃⇧  # mixes in ⌃ shifts_index=5  # todo2: Ghostty bug?
 
-        self._keyboard_shifts_patch_("⌃⇧⎋", octet="033", csi="~", shifts_index=6)
+        shifts = "⌃⇧"
+        shifts_index = 6
+
+        self._keyboard_shifts_patch_("⌃⇧⎋", octet="033", csi="~", shifts_index=shifts_index)
         self._keyboard_remove_("⌃⇧⇥")
         self._keyboard_patch_("⌃⇧⌫", cap_strikes="010")  # ⌃H
-        self._keyboard_shifts_add_("⌃⇧⏎", octet="015", csi="~", shifts_index=6)
+        self._keyboard_shifts_add_("⌃⇧⏎", octet="015", csi="~", shifts_index=shifts_index)
 
         self._keyboard_add_("⌃⇧!", cap_strikes="061")  # 1
         self._keyboard_shifts_patch_("⌃⇧@", octet="100", csi="u", shifts_index=5)
@@ -4331,20 +4380,19 @@ class KeyboardDecoder:
             echo = f"⌃⇧{cap}"
             octet = f"{ord(cap.lower()):03o}"
             cap.lower()
-            self._keyboard_shifts_add_(echo, octet=octet, csi="u", shifts_index=6)
+            self._keyboard_shifts_add_(echo, octet=octet, csi="u", shifts_index=shifts_index)
 
-        self._keyboard_shifts_add_("⌃⇧+", octet="075", csi="u", shifts_index=6)
+        self._keyboard_shifts_add_("⌃⇧+", octet="075", csi="u", shifts_index=shifts_index)
         self._keyboard_shifts_patch_("⌃⇧{", octet="173", csi="u", shifts_index=5)
         self._keyboard_shifts_patch_("⌃⇧}", octet="175", csi="u", shifts_index=5)
         self._keyboard_shifts_patch_("⌃⇧|", octet="174", csi="u", shifts_index=5)
-
-        self._keyboard_shifts_add_("⌃⇧:", octet="073", csi="u", shifts_index=6)
-        self._keyboard_shifts_add_('⌃⇧"', octet="047", csi="u", shifts_index=6)
-        self._keyboard_shifts_add_("⌃⇧<", octet="054", csi="u", shifts_index=6)
-        self._keyboard_shifts_add_("⌃⇧>", octet="056", csi="u", shifts_index=6)
+        self._keyboard_shifts_add_("⌃⇧:", octet="073", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_add_('⌃⇧"', octet="047", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_add_("⌃⇧<", octet="054", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_add_("⌃⇧>", octet="056", csi="u", shifts_index=shifts_index)
         self._keyboard_add_("⌃⇧?", cap_strikes="037")  # ⌃⇧_
 
-        self._keyboard_arrow_patch_("⌃⇧", caps="←↑→↓", shifts_index=6)
+        self._keyboard_arrow_patch_("⌃⇧", caps="←↑→↓", shifts_index=shifts_index)
 
         # 2.6 ⌥
         # 2.7 ⌥⇧
@@ -4354,11 +4402,12 @@ class KeyboardDecoder:
         # 2.8 ⇧
 
         shifts = "⇧"
+        shifts_index = 2
 
-        self._keyboard_shifts_patch_("⇧⎋", octet="033", csi="~", shifts_index=2)
-        self._keyboard_shifts_patch_("⇧⏎", octet="015", csi="~", shifts_index=2)
+        self._keyboard_shifts_patch_("⇧⎋", octet="033", csi="~", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⇧⏎", octet="015", csi="~", shifts_index=shifts_index)
 
-        self._keyboard_arrow_patch_("⇧", caps="↑↓", shifts_index=2)
+        self._keyboard_arrow_patch_("⇧", caps="↑↓", shifts_index=shifts_index)
 
         caps = "F1 F2 F3 F4" + " F5 F6 F7 F8" + " F9 F10 F11 F12"
         strikes = """
@@ -4378,7 +4427,7 @@ class KeyboardDecoder:
     def _add_keyboard_(self, shifts: str, strikes: str) -> None:
         """Add in 1 Keyboard of Key Caps and their Strikes"""
 
-        assert shifts in KeyboardDecoder.KeyboardTabs, (shifts,)
+        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
 
         strikes_split = strikes.split()
         if not strikes_split:
@@ -4529,7 +4578,7 @@ class KeyboardDecoder:
     def _add_twelve_fn_(self, shifts: str) -> None:
         """Add the Twelve F Keys at the one Decode"""
 
-        assert shifts in KeyboardDecoder.KeyboardTabs, (shifts,)
+        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
 
         caps = "F1 F2 F3 F4" + " F5 F6 F7 F8" + " F9 F10 F11 F12"
         strikes = 12 * " 033.020"  # ⎋⌃P
@@ -4537,6 +4586,8 @@ class KeyboardDecoder:
 
     def _cap_strikes_to_decode_(self, cap_strikes: str, echo: str) -> str:
         """Convert to Decode of Byte Encoding of Key Strike"""
+
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
 
         if cap_strikes in ("...", "¤"):
             return ""
@@ -4559,6 +4610,8 @@ class KeyboardDecoder:
     def _keyboard_patch_(self, echo: str, cap_strikes: str) -> None:
         """Patch the Keyboard with a Key Cap and its Strikes"""
 
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
+
         self._keyboard_remove_(echo)
         self._keyboard_add_(echo, cap_strikes=cap_strikes)
 
@@ -4567,7 +4620,7 @@ class KeyboardDecoder:
 
         caps_split = caps.split()
         strikes_split = strikes.split()
-        assert shifts in KeyboardDecoder.KeyboardTabs, (shifts,)
+        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
 
         assert len(caps_split) == len(strikes_split), (len(caps_split), len(strikes_split))
         for cap, cap_strikes in zip(caps_split, strikes_split):
@@ -4577,6 +4630,8 @@ class KeyboardDecoder:
     def _keyboard_add_(self, echo: str, cap_strikes: str) -> None:
         """Add a Key Cap and its Octets to a Keyboard"""
 
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
+
         decode = self._cap_strikes_to_decode_(cap_strikes, echo=echo)
         self._keyboard_add_decode_(decode, echo=echo)
 
@@ -4584,6 +4639,7 @@ class KeyboardDecoder:
         """Add a Key Cap and its Byte Encoding to a Keyboard"""
 
         assert decode, (decode, echo)
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
 
         decode_by_echo = self.decode_by_echo
 
@@ -4593,12 +4649,16 @@ class KeyboardDecoder:
     def _keyboard_remove_if_(self, echo: str) -> None:
         """Remove a Key Cap and its Byte Encoding from a Keyboard, if it exists"""
 
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
+
         decode_by_echo = self.decode_by_echo
         if echo in decode_by_echo.keys():
             self._keyboard_remove_(echo)
 
     def _keyboard_remove_(self, echo: str) -> None:
         """Remove a Key Cap and its Byte Encoding from a Keyboard"""
+
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
 
         decode_by_echo = self.decode_by_echo
         removals_by_echo = self.removals_by_echo
@@ -4612,7 +4672,7 @@ class KeyboardDecoder:
     def _keyboard_arrow_patch_(self, shifts: str, caps: str, shifts_index: int) -> None:
         """Patch the Keyboard with like 4 more or 2 more Arrow Keys, all at once"""
 
-        assert shifts in KeyboardDecoder.KeyboardTabs, (shifts,)
+        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
         assert 2 <= shifts_index <= 8, (shifts_index,)
 
         octet_by_arrow = {"←": "104", "↑": "101", "→": "103", "↓": "102"}  # 'ABCD'
@@ -4634,7 +4694,9 @@ class KeyboardDecoder:
     def _keyboard_shifts_patch_(self, echo: str, octet: str, csi: str, shifts_index: int) -> None:
         """Patch the Keyboard with a Key Cap and its Strikes"""
 
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
         assert 2 <= shifts_index <= 8, (shifts_index,)
+
         decode = self._shifts_to_decode_(octet, csi=csi, shifts_index=shifts_index)
 
         self._keyboard_remove_(echo)
@@ -4643,13 +4705,16 @@ class KeyboardDecoder:
     def _keyboard_shifts_add_(self, echo: str, octet: str, csi: str, shifts_index: int) -> None:
         """Add a Key Cap and its Strikes to the Keyboard"""
 
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
         assert 2 <= shifts_index <= 8, (shifts_index,)
+
         decode = self._shifts_to_decode_(octet, csi=csi, shifts_index=shifts_index)
         self._keyboard_add_decode_(decode, echo=echo)
 
     def _shifts_to_decode_(self, octet: str, csi: str, shifts_index: int) -> str:
         """Form a Csi U or ⇧~ Decode from its Octet & Shifts_Index"""
 
+        assert octet and csi, (octet, csi)
         assert 2 <= shifts_index <= 8, (shifts_index,)
 
         _ord_ = int(octet, base=0o010)
@@ -4704,6 +4769,8 @@ class KeyboardDecoder:
 
     def echo_split_shifts_cap(self, echo: str) -> tuple[str, str]:
         """Split out the Shifts at left, and add 'Fn' if Fn"""
+
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
 
         shifts = ""
         for t in echo:
