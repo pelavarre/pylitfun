@@ -3858,72 +3858,12 @@ class KeyboardDecoder:
 
         return d
 
-    # 1.1 todo1: Reshuffle the Code into the FamiliarShifts:  ⇧ ⌃ ⌥ ⌃⇧ ⌥⇧ ⌃⌥ ⌃⌥⇧ ⎋ ⎋⇧ ⎋⌃ ⎋⌃⇧
-
     def _form_macos_keyboards_(self) -> None:
         """Form the ordinary Apple macBook Keyboards of Codes sent by Caps"""
 
         assert Apple == "\uf8ff"
 
-        # 9 ⎋  # 1.1 ⎋
-
-        shifts = "⎋"
-
-        strikes = r"""
-            ⎋⎋
-            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 ⎋- ⎋= 033.177
-            033.011 ⎋Q ⎋W ⎋E ⎋R ⎋T ⎋Y ⎋U ⎋I ⎋O ⎋P ⎋[ ⎋] ⎋\
-            ⎋A ⎋S ⎋D ⎋F ⎋G ⎋H ⎋J ⎋K ⎋L ⎋; ⎋' 033.015
-            ⎋Z ⎋X ⎋C ⎋V ⎋B ⎋N ⎋M ⎋, ⎋. ⎋/
-            033.040 ⎋B ⎋⎋[⇧A ⎋F ⎋⎋[⇧B
-        """  # ⎋B ⎋F, not ⎋⎋[⇧D ⎋⎋[⇧C
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 11 ⎋⌃  # 1.2 ⎋⌃
-
-        shifts = "⎋⌃"
-
-        strikes = """
-            033.033
-            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 033.037 ⎋= 033.010
-            033.011 033.021 033.027 033.005 033.022 033.024 033.031 033.025 033.011 033.017 033.020 033.033 033.035 033.034
-            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
-            033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
-            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
-        """
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 10 ⎋⇧  # 1.3 ⎋⇧  # 033.117 ⎋O stops without closing its Key Byte Frame
-
-        shifts = "⎋⇧"
-        strikes = """
-            033.033
-            033.176 ⎋⇧! ⎋⇧@ ⎋⇧# ⎋⇧$ ⎋⇧% ⎋⇧^ ⎋⇧& ⎋⇧* ⎋⇧( ⎋⇧) ⎋⇧_ ⎋⇧+ 033.010
-            ⎋⎋[⇧Z ⎋⇧Q ⎋⇧W ⎋⇧E ⎋⇧R ⎋⇧T ⎋⇧Y ⎋⇧U ⎋⇧I ⎋⇧O ⎋⇧P ⎋⇧{ ⎋⇧} ⎋⇧|
-            ⎋⇧A ⎋⇧S ⎋⇧D ⎋⇧F ⎋⇧G ⎋⇧H ⎋⇧J ⎋⇧K ⎋⇧L ⎋⇧: ⎋⇧" 033.015
-            ⎋⇧Z ⎋⇧X ⎋⇧C ⎋⇧V ⎋⇧B ⎋⇧N ⎋⇧M ⎋⇧< ⎋⇧> ⎋⇧?
-            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
-        """
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 12 ⎋⌃⇧  # 1.4 ⎋⌃⇧
-
-        shifts = "⎋⌃⇧"
-        strikes = """
-            033.033
-            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 033.037 ⎋= 033.010
-            ⎋⎋[⇧Z 033.021 033.027 033.005 033.022 033.024 033.031 033.025 033.011 033.017 033.020 033.033 033.035 033.034
-            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
-            033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
-            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
-        """
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 1 ''  # 2.1 ''
+        # 1 ''
 
         shifts = ""
         strikes = r"""
@@ -3937,89 +3877,7 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        # 3 ⌃  # 2.2 ⌃
-
-        shifts = "⌃"
-        strikes = """
-            033
-            ... ... ... ... ... ... ... ... ... ... ... 037 ... 177
-            011 021 027 005 022 024 031 025 011 017 020 033 035 034
-            001 023 004 006 007 010 012 013 014 ... ... ...
-            032 030 003 026 002 016 015 ... ... ...
-            000 ... ... ... ...
-        """
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 7 ⌃⌥  # 2.3 ⌃⌥
-
-        shifts = "⌃⌥"
-        strikes = """
-            033
-            140 1 2 3 4 5 6 7 8 9 0 037 = 177
-            011 021 027 005 022 024 031 025 011 017 020 033 035 034
-            001 023 004 006 007 010 012 013 014 ; ' 015
-            032 030 003 026 002 016 015 , . /
-            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
-        """
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 8 ⌃⌥⇧  # 2.4 ⌃⌥⇧
-
-        shifts = "⌃⌥⇧"
-        strikes = """
-            033
-            140 1 000 3 4 5 036 7 8 9 0 037 = 177
-            ⎋[⇧Z 021 027 005 022 024 031 025 011 017 020 033 035 034
-            001 023 004 ... 007 010 012 013 014 ; ' 015
-            032 030 003 026 ... 016 015 , . /
-            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
-        """
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 5 ⌃⇧  # 2.5 ⌃⇧
-
-        shifts = "⌃⇧"
-        strikes = """
-            033
-            ... ... 000 ... ... ... 036 ... ... ... ... 037 ... 177
-            ⎋[⇧Z ... ... ... ... ... ... ... ... ... ... 033 035 034
-            ... ... ... ... ... ... ... ... ... ... ... ...
-            ... ... ... ... ... ... ... ... ... ...
-            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
-        """
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 4 ⌥  # 2.6 ⌥
-
-        shifts = "⌥"  # ⌥Y sends \, coded here as r""" \ """
-        strikes = r"""
-            033
-            ¤ ¡ ™ £ ¢ ∞ § ¶ • ª º – ≠ 177
-            011 œ ∑ ¤ ® † \ ¤ ¤ ø π “ ‘ «
-            å ß ∂ ƒ © ˙ ∆ ˚ ¬ … æ 015
-            Ω ≈ ç √ ∫ ¤ µ ≤ ≥ ÷
-            302.240 ⎋B ⎋⎋[⇧A ⎋F ⎋⎋[⇧B
-        """
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 6 ⌥⇧  # 2.7 ⌥⇧
-
-        shifts = "⌥⇧"  # ⌥⇧K sends Apple Logo, coded here as \uf8ff
-        strikes = """
-            033
-            140 ⁄ € ‹ › ﬁ ﬂ ‡ ° · ‚ — ± 177
-            ⎋[⇧Z Œ „ ´ ‰ ˇ Á ¨ ˆ Ø ∏ ” ’ »
-            Å Í Î Ï ˝ Ó Ô \uf8ff Ò Ú Æ 015
-            ¸ ˛ Ç ◊ ı ˜ Â ¯ ˘ ¿
-            302.240 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
-        """
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 2 ⇧  # 2.8 ⇧
+        # 2 ⇧
 
         shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2D and ⎋[1;2C
 
@@ -4034,59 +3892,155 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-    def _form_apple_terminal_keyboards_(self) -> None:
-        """Form an Apple macOS Terminal Keyboard, out of Octets"""
+        # 3 ⌃
 
-        # 9 ⎋  # 1.1 ⎋
+        shifts = "⌃"
+        strikes = """
+            033
+            ... ... ... ... ... ... ... ... ... ... ... 037 ... 177
+            011 021 027 005 022 024 031 025 011 017 020 033 035 034
+            001 023 004 006 007 010 012 013 014 ... ... ...
+            032 030 003 026 002 016 015 ... ... ...
+            000 ... ... ... ...
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 4 ⌥
+
+        shifts = "⌥"  # ⌥Y sends \, coded here as r""" \ """
+        strikes = r"""
+            033
+            ¤ ¡ ™ £ ¢ ∞ § ¶ • ª º – ≠ 177
+            011 œ ∑ ¤ ® † \ ¤ ¤ ø π “ ‘ «
+            å ß ∂ ƒ © ˙ ∆ ˚ ¬ … æ 015
+            Ω ≈ ç √ ∫ ¤ µ ≤ ≥ ÷
+            302.240 ⎋B ⎋⎋[⇧A ⎋F ⎋⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 5 ⌃⇧
+
+        shifts = "⌃⇧"
+        strikes = """
+            033
+            ... ... 000 ... ... ... 036 ... ... ... ... 037 ... 177
+            ⎋[⇧Z ... ... ... ... ... ... ... ... ... ... 033 035 034
+            ... ... ... ... ... ... ... ... ... ... ... ...
+            ... ... ... ... ... ... ... ... ... ...
+            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 6 ⌥⇧
+
+        shifts = "⌥⇧"  # ⌥⇧K sends Apple Logo, coded here as \uf8ff
+        strikes = """
+            033
+            140 ⁄ € ‹ › ﬁ ﬂ ‡ ° · ‚ — ± 177
+            ⎋[⇧Z Œ „ ´ ‰ ˇ Á ¨ ˆ Ø ∏ ” ’ »
+            Å Í Î Ï ˝ Ó Ô \uf8ff Ò Ú Æ 015
+            ¸ ˛ Ç ◊ ı ˜ Â ¯ ˘ ¿
+            302.240 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 7 ⌃⌥
+
+        shifts = "⌃⌥"
+        strikes = """
+            033
+            140 1 2 3 4 5 6 7 8 9 0 037 = 177
+            011 021 027 005 022 024 031 025 011 017 020 033 035 034
+            001 023 004 006 007 010 012 013 014 ; ' 015
+            032 030 003 026 002 016 015 , . /
+            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 8 ⌃⌥⇧
+
+        shifts = "⌃⌥⇧"
+        strikes = """
+            033
+            140 1 000 3 4 5 036 7 8 9 0 037 = 177
+            ⎋[⇧Z 021 027 005 022 024 031 025 011 017 020 033 035 034
+            001 023 004 ... 007 010 012 013 014 ; ' 015
+            032 030 003 026 ... 016 015 , . /
+            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 9 ⎋
 
         shifts = "⎋"
 
-        meta_caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
-        meta_strikes = """
-            ⎋[17⇧~ ⎋[18⇧~ ⎋[19⇧~ ⎋[20⇧~
-            ⎋[21⇧~ ⎋[23⇧~ ⎋[24⇧~ ⎋[25⇧~
-            ⎋[26⇧~ ⎋[28⇧~ ⎋[29⇧~ ⎋[31⇧~
-        """  # omitting ⎋[22⇧~ ⎋[27⇧~
+        strikes = r"""
+            ⎋⎋
+            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 ⎋- ⎋= 033.177
+            033.011 ⎋Q ⎋W ⎋E ⎋R ⎋T ⎋Y ⎋U ⎋I ⎋O ⎋P ⎋[ ⎋] ⎋\
+            ⎋A ⎋S ⎋D ⎋F ⎋G ⎋H ⎋J ⎋K ⎋L ⎋; ⎋' 033.015
+            ⎋Z ⎋X ⎋C ⎋V ⎋B ⎋N ⎋M ⎋, ⎋. ⎋/
+            033.040 ⎋B ⎋⎋[⇧A ⎋F ⎋⎋[⇧B
+        """  # ⎋B ⎋F, not ⎋⎋[⇧D ⎋⎋[⇧C
 
-        self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        # 11 ⎋⌃  # 1.2 ⎋⌃
-
-        shifts = "⎋⌃"
-        self._add_twelve_fn_meta_control_p_(shifts=shifts)
-
-        # 10 ⎋⇧  # 1.3 ⎋⇧
+        # 10 ⎋⇧  # 033.117 ⎋O stops without closing its Key Byte Frame
 
         shifts = "⎋⇧"
-        self._add_twelve_fn_meta_control_p_(shifts=shifts)
+        strikes = """
+            033.033
+            033.176 ⎋⇧! ⎋⇧@ ⎋⇧# ⎋⇧$ ⎋⇧% ⎋⇧^ ⎋⇧& ⎋⇧* ⎋⇧( ⎋⇧) ⎋⇧_ ⎋⇧+ 033.010
+            ⎋⎋[⇧Z ⎋⇧Q ⎋⇧W ⎋⇧E ⎋⇧R ⎋⇧T ⎋⇧Y ⎋⇧U ⎋⇧I ⎋⇧O ⎋⇧P ⎋⇧{ ⎋⇧} ⎋⇧|
+            ⎋⇧A ⎋⇧S ⎋⇧D ⎋⇧F ⎋⇧G ⎋⇧H ⎋⇧J ⎋⇧K ⎋⇧L ⎋⇧: ⎋⇧" 033.015
+            ⎋⇧Z ⎋⇧X ⎋⇧C ⎋⇧V ⎋⇧B ⎋⇧N ⎋⇧M ⎋⇧< ⎋⇧> ⎋⇧?
+            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
+        """
 
-        # 12 ⎋⌃⇧  # 1.4 ⎋⌃⇧
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 11 ⎋⌃
+
+        shifts = "⎋⌃"
+
+        strikes = """
+            033.033
+            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 033.037 ⎋= 033.010
+            033.011 033.021 033.027 033.005 033.022 033.024 033.031 033.025 033.011 033.017 033.020 033.033 033.035 033.034
+            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
+            033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
+            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 12 ⎋⌃⇧
 
         shifts = "⎋⌃⇧"
-        self._add_twelve_fn_meta_control_p_(shifts=shifts)
+        strikes = """
+            033.033
+            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 033.037 ⎋= 033.010
+            ⎋⎋[⇧Z 033.021 033.027 033.005 033.022 033.024 033.031 033.025 033.011 033.017 033.020 033.033 033.035 033.034
+            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
+            033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
+            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
+        """
 
-        # 1 ''  # 2.1 ''
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+    def _form_apple_terminal_keyboards_(self) -> None:
+        """Form an Apple macOS Terminal Keyboard, out of Octets"""
+
+        # 1 ''
 
         self._add_ten_fn_()
         self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
 
-        # 3 ⌃  # 2.2 ⌃  # Sideband Bells on ⌃ F2 F3 F4 F5 F6, ⌃ F9 F10 F11 F12  # No Codes on ⌃ F7 F8
-        # 7 ⌃⌥  # 2.3 ⌃⌥  # Sideband Bells on ⌃⌥ F1..F12
-        # 8 ⌃⌥⇧  # 2.4 ⌃⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
-        # 5 ⌃⇧  # 2.5 ⌃⇧  # Sideband Bells on ⌥⇧ F1..F6, ⌥⇧ F8..F12  # No Codes on ⌥⇧ F7
-
-        pass
-
-        # 4 ⌥  # 2.6 ⌥
-
-        shifts = "⌥"
-        self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
-
-        # 6 ⌥⇧  # 2.7 ⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
-
-        pass
-
-        # 2 ⇧  # 2.8 ⇧  # Sideband Bells on ⌃ F1 F2 F3 F4
+        # 2 ⇧  # Sideband Bells on ⌃ F1 F2 F3 F4
 
         shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2D and ⎋[1;2C
 
@@ -4098,6 +4052,51 @@ class KeyboardDecoder:
 
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
+        # 3 ⌃  # Sideband Bells on ⌃ F2 F3 F4 F5 F6, ⌃ F9 F10 F11 F12  # No Codes on ⌃ F7 F8
+
+        pass
+
+        # 4 ⌥
+
+        shifts = "⌥"
+
+        meta_caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
+        meta_strikes = """
+            ⎋[17⇧~ ⎋[18⇧~ ⎋[19⇧~ ⎋[20⇧~
+            ⎋[21⇧~ ⎋[23⇧~ ⎋[24⇧~ ⎋[25⇧~
+            ⎋[26⇧~ ⎋[28⇧~ ⎋[29⇧~ ⎋[31⇧~
+        """  # omitting ⎋[22⇧~ ⎋[27⇧~
+
+        self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
+
+        # 5 ⌃⇧  # Sideband Bells on ⌥⇧ F1..F6, ⌥⇧ F8..F12  # No Codes on ⌥⇧ F7
+        # 6 ⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
+        # 7 ⌃⌥  # Sideband Bells on ⌃⌥ F1..F12
+        # 8 ⌃⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
+
+        pass
+
+        # 9 ⎋
+
+        shifts = "⎋"
+
+        self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
+
+        # 10 ⎋⇧
+
+        shifts = "⎋⇧"
+        self._add_twelve_fn_meta_control_p_(shifts=shifts)
+
+        # 11 ⎋⌃
+
+        shifts = "⎋⌃"
+        self._add_twelve_fn_meta_control_p_(shifts=shifts)
+
+        # 12 ⎋⌃⇧
+
+        shifts = "⎋⌃⇧"
+        self._add_twelve_fn_meta_control_p_(shifts=shifts)
+
         # Terminal ⇧Fn = ⎋[ 25 26 28 29 ⇧~, ⎋[ 31 32 33 34 ⇧~,
         # no encodes of ⇧F1 ⇧F2 ⇧F3 ⇧F4 in Apple Terminal without distributing configuration
 
@@ -4108,19 +4107,12 @@ class KeyboardDecoder:
         plain_caps = tuple(KeyboardDecoder.PlainCapsWithoutFn.split())
         shift_caps = tuple(KeyboardDecoder.ShiftCapsWithoutFn.split())
 
-        # 9 ⎋  # 1.1 ⎋
-        # 11 ⎋⌃  # 1.2 ⎋⌃
-        # 10 ⎋⇧  # 1.3 ⎋⇧
-        # 12 ⎋⌃⇧  # 1.4 ⎋⌃⇧
-
-        pass
-
-        # 1 ''  # 2.1 ''
+        # 1 ''
 
         self._add_ten_fn_()
         self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
 
-        # 3 ⌃  # 2.2 ⌃  # much the same as ⌃ Ghostty, except that Ghostty patches & adds more
+        # 3 ⌃  # much the same as ⌃ Ghostty, except that Ghostty patches & adds more
 
         shifts = "⌃"  # shifts_index = 2
 
@@ -4154,7 +4146,7 @@ class KeyboardDecoder:
         """  # colliding ⎋[ ⇧R  # omitting ⌃F1 ⎋[1;5⇧P, ⌃F8 ⎋[19;5⇧~  # omitting ⎋[16;5⇧~ ⎋[22;5⇧~
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
-        # 7 ⌃⌥  # 2.3 ⌃⌥
+        # 7 ⌃⌥
 
         shifts = "⌃⌥"
         shifts_index = 7
@@ -4162,14 +4154,14 @@ class KeyboardDecoder:
         self._keyboard_patch_("⌃⌥␢", cap_strikes="040")  # Spacebar
         self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
-        # 8 ⌃⌥⇧  # 2.4 ⌃⌥⇧
+        # 8 ⌃⌥⇧
 
         shifts = "⌃⌥⇧"
         shifts_index = 8
 
         self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
-        # 5 ⌃⇧  # 2.5 ⌃⇧
+        # 5 ⌃⇧
 
         shifts = "⌃⇧"
         shifts_index = 6
@@ -4188,21 +4180,21 @@ class KeyboardDecoder:
 
         self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
-        # 4 ⌥  # 2.6 ⌥
+        # 4 ⌥
 
         shifts = "⌥"
         shifts_index = 3
 
         self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
-        # 6 ⌥⇧  # 2.7 ⌥⇧
+        # 6 ⌥⇧
 
         shifts = "⌥⇧"
         shifts_index = 4
 
         self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
-        # 2 ⇧  # 2.8 ⇧
+        # 2 ⇧
 
         shifts = "⇧"
         shifts_index = 2
@@ -4218,19 +4210,149 @@ class KeyboardDecoder:
 
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
+        # 9 ⎋
+        # 11 ⎋⌃
+        # 10 ⎋⇧
+        # 12 ⎋⌃⇧
+
+        pass
+
         # todo1: Test Fn across Terminal & iTerm2 & Ghostty & Google
 
     def _form_ghostty_keyboards_(self) -> None:
         """Form a macOS Ghostty Keyboard, as a diff from Apple Terminal"""
 
-        # 9 ⎋  # 1.1 ⎋
+        # 1 ''
+
+        self._add_ten_fn_()
+        self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
+
+        # 2 ⇧
+
+        shifts = "⇧"
+        shifts_index = 2
+
+        self._keyboard_shifts_patch_("⇧⎋", octet="033", csi="~", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⇧⏎", octet="015", csi="~", shifts_index=shifts_index)
+
+        self._keyboard_arrow_patch_("⇧", caps="↑↓", shifts_index=shifts_index)
+
+        caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
+        strikes = """
+            ⎋[1;2⇧P ⎋[1;2⇧Q ⎋[13;2⇧~ ⎋[1;2⇧S
+            ⎋[15;2⇧~ ⎋[17;2⇧~ ⎋[18;2⇧~ ⎋[19;2⇧~
+            ⎋[20;2⇧~ ⎋[21;2⇧~ ⎋[23;2⇧~ ⎋[24;2⇧~
+        """  # coding ⎋[13;2⇧~ in place of ⎋[1;2⇧R # omitting ⎋[16;2⇧~ ⎋[12;2⇧~
+
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+        # 3 ⌃  # much the same as ⌃ iTerm2, except that Ghostty patches & adds more
+
+        shifts = "⌃"
+        shifts_index = 5
+
+        self._keyboard_patch_("⌃⌫", cap_strikes="010")  # ⌃H
+        self._keyboard_remove_("⌃⇥")
+
+        self._keyboard_add_("⌃`", cap_strikes="140")  # `
+        self._keyboard_add_("⌃1", cap_strikes="1")  # 1
+        self._keyboard_add_("⌃2", cap_strikes="000")  # ⌃⇧@
+        self._keyboard_add_("⌃3", cap_strikes="033")  # ⌃[
+        self._keyboard_add_("⌃4", cap_strikes="034")  # ⌃\
+        self._keyboard_add_("⌃5", cap_strikes="035")  # ⌃]
+        self._keyboard_add_("⌃6", cap_strikes="036")  # ⌃⇧^
+        self._keyboard_add_("⌃7", cap_strikes="037")  # ⌃⇧_
+        self._keyboard_add_("⌃8", cap_strikes="177")  # ⌫
+        self._keyboard_add_("⌃9", cap_strikes="9")  # 9
+        self._keyboard_add_("⌃0", cap_strikes="0")  # 0
+        self._keyboard_add_("⌃=", cap_strikes="=")  # =
+        self._keyboard_add_("⌃/", cap_strikes="037")  # ⌃⇧_
+
+        self._keyboard_shifts_add_("⌃;", octet="073", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_add_("⌃'", octet="047", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_add_("⌃,", octet="054", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_add_("⌃.", octet="056", csi="u", shifts_index=shifts_index)
+
+        self._keyboard_shifts_patch_("⌃⎋", octet="033", csi="~", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⌃`", octet="140", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⌃=", octet="075", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⌃I", octet="151", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⌃M", octet="155", csi="u", shifts_index=shifts_index)
+
+        caps = "F9 F10 F11 F12"  # F9 F10 F11 F12 as iTerm2
+        strikes = """
+             ⎋[20;5⇧~ ⎋[21;5⇧~ ⎋[23;5⇧~ ⎋[24;5⇧~
+        """  # omitting ⎋[22;5⇧~
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+        # 4 ⌥
+
+        pass
+
+        # 5 ⌃⇧  # mixes in ⌃ shifts_index=5 into ⌃⇧ =6   # todo2: Ghostty bug?
+
+        shifts = "⌃⇧"
+        shifts_index = 6
+
+        self._keyboard_shifts_patch_("⌃⇧⎋", octet="033", csi="~", shifts_index=shifts_index)
+        self._keyboard_remove_("⌃⇧⇥")
+        self._keyboard_patch_("⌃⇧⌫", cap_strikes="010")  # ⌃H
+        self._keyboard_shifts_add_("⌃⇧⏎", octet="015", csi="~", shifts_index=shifts_index)
+
+        self._keyboard_add_("⌃⇧!", cap_strikes="061")  # 1
+        self._keyboard_shifts_patch_("⌃⇧@", octet="100", csi="u", shifts_index=5)
+        self._keyboard_add_("⌃⇧#", cap_strikes="033")  # ⌃[
+        self._keyboard_add_("⌃⇧$", cap_strikes="134")  # ⌃\
+        self._keyboard_add_("⌃⇧%", cap_strikes="035")  # ⌃]
+        self._keyboard_add_("⌃⇧&", cap_strikes="037")  # ⌃⇧_
+        self._keyboard_add_("⌃⇧*", cap_strikes="177")  # ⌫
+        self._keyboard_add_("⌃⇧(", cap_strikes="071")  # 9
+        self._keyboard_add_("⌃⇧)", cap_strikes="060")  # 0
+
+        for cap in string.ascii_uppercase:
+            echo = f"⌃⇧{cap}"
+            octet = f"{ord(cap.lower()):03o}"
+            cap.lower()
+            self._keyboard_shifts_add_(echo, octet=octet, csi="u", shifts_index=shifts_index)
+
+        self._keyboard_shifts_add_("⌃⇧+", octet="075", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⌃⇧{", octet="173", csi="u", shifts_index=5)
+        self._keyboard_shifts_patch_("⌃⇧}", octet="175", csi="u", shifts_index=5)
+        self._keyboard_shifts_patch_("⌃⇧|", octet="174", csi="u", shifts_index=5)
+        self._keyboard_shifts_add_("⌃⇧:", octet="073", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_add_('⌃⇧"', octet="047", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_add_("⌃⇧<", octet="054", csi="u", shifts_index=shifts_index)
+        self._keyboard_shifts_add_("⌃⇧>", octet="056", csi="u", shifts_index=shifts_index)
+        self._keyboard_add_("⌃⇧?", cap_strikes="037")  # ⌃⇧_
+
+        self._keyboard_arrow_patch_("⌃⇧", caps="←↑→↓", shifts_index=shifts_index)
+
+        # 6 ⌥⇧
+        # 7 ⌃⌥
+        # 8 ⌃⌥⇧
+
+        pass
+
+        # 9 ⎋
 
         shifts = "⎋"
         shifts_index = 3
 
         self._keyboard_arrow_patch_(shifts, caps="↑↓", shifts_index=shifts_index)
 
-        # 11 ⎋⌃  # 1.2 ⎋⌃
+        # 10 ⎋⇧
+
+        shifts = "⎋⇧"
+        shifts_index = 4
+
+        self._keyboard_shifts_patch_("⎋⇧⎋", octet="033", csi="~", shifts_index=shifts_index)
+        self._keyboard_shifts_patch_("⎋⇧⇥", octet="011", csi="~", shifts_index=shifts_index)
+        self._keyboard_patch_("⎋⇧⌫", cap_strikes="033.177")  # ⎋⌫
+        self._keyboard_shifts_patch_("⎋⇧⏎", octet="015", csi="~", shifts_index=shifts_index)
+
+        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
+
+        # 11 ⎋⌃
 
         shifts = "⎋⌃"
         shifts_index = 7
@@ -4271,19 +4393,7 @@ class KeyboardDecoder:
 
         self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
-        # 10 ⎋⇧  # 1.3 ⎋⇧
-
-        shifts = "⎋⇧"
-        shifts_index = 4
-
-        self._keyboard_shifts_patch_("⎋⇧⎋", octet="033", csi="~", shifts_index=shifts_index)
-        self._keyboard_shifts_patch_("⎋⇧⇥", octet="011", csi="~", shifts_index=shifts_index)
-        self._keyboard_patch_("⎋⇧⌫", cap_strikes="033.177")  # ⎋⌫
-        self._keyboard_shifts_patch_("⎋⇧⏎", octet="015", csi="~", shifts_index=shifts_index)
-
-        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
-
-        # 12 ⎋⌃⇧  # 1.4 ⎋⌃⇧  # mixes ⎋⌃ shifts_index=7 into ⎋⌃⇧ =8   # todo2: Ghostty bug?
+        # 12 ⎋⌃⇧  # mixes ⎋⌃ shifts_index=7 into ⎋⌃⇧ =8   # todo2: Ghostty bug?
 
         shifts = "⎋⌃⇧"
         shifts_index = 8
@@ -4321,117 +4431,6 @@ class KeyboardDecoder:
 
         self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
-        # 1 ''  # 2.1 ''
-
-        self._add_ten_fn_()
-        self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
-
-        # 3 ⌃  # 2.2 ⌃  # much the same as ⌃ iTerm2, except that Ghostty patches & adds more
-
-        shifts = "⌃"
-        shifts_index = 5
-
-        self._keyboard_patch_("⌃⌫", cap_strikes="010")  # ⌃H
-        self._keyboard_remove_("⌃⇥")
-
-        self._keyboard_add_("⌃`", cap_strikes="140")  # `
-        self._keyboard_add_("⌃1", cap_strikes="1")  # 1
-        self._keyboard_add_("⌃2", cap_strikes="000")  # ⌃⇧@
-        self._keyboard_add_("⌃3", cap_strikes="033")  # ⌃[
-        self._keyboard_add_("⌃4", cap_strikes="034")  # ⌃\
-        self._keyboard_add_("⌃5", cap_strikes="035")  # ⌃]
-        self._keyboard_add_("⌃6", cap_strikes="036")  # ⌃⇧^
-        self._keyboard_add_("⌃7", cap_strikes="037")  # ⌃⇧_
-        self._keyboard_add_("⌃8", cap_strikes="177")  # ⌫
-        self._keyboard_add_("⌃9", cap_strikes="9")  # 9
-        self._keyboard_add_("⌃0", cap_strikes="0")  # 0
-        self._keyboard_add_("⌃=", cap_strikes="=")  # =
-        self._keyboard_add_("⌃/", cap_strikes="037")  # ⌃⇧_
-
-        self._keyboard_shifts_add_("⌃;", octet="073", csi="u", shifts_index=shifts_index)
-        self._keyboard_shifts_add_("⌃'", octet="047", csi="u", shifts_index=shifts_index)
-        self._keyboard_shifts_add_("⌃,", octet="054", csi="u", shifts_index=shifts_index)
-        self._keyboard_shifts_add_("⌃.", octet="056", csi="u", shifts_index=shifts_index)
-
-        self._keyboard_shifts_patch_("⌃⎋", octet="033", csi="~", shifts_index=shifts_index)
-        self._keyboard_shifts_patch_("⌃`", octet="140", csi="u", shifts_index=shifts_index)
-        self._keyboard_shifts_patch_("⌃=", octet="075", csi="u", shifts_index=shifts_index)
-        self._keyboard_shifts_patch_("⌃I", octet="151", csi="u", shifts_index=shifts_index)
-        self._keyboard_shifts_patch_("⌃M", octet="155", csi="u", shifts_index=shifts_index)
-
-        caps = "F9 F10 F11 F12"  # F9 F10 F11 F12 as iTerm2
-        strikes = """
-             ⎋[20;5⇧~ ⎋[21;5⇧~ ⎋[23;5⇧~ ⎋[24;5⇧~
-        """  # omitting ⎋[22;5⇧~
-        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
-
-        # 7 ⌃⌥  # 2.3 ⌃⌥
-        # 8 ⌃⌥⇧  # 2.4 ⌃⌥⇧
-
-        pass
-
-        # 5 ⌃⇧  # 2.5 ⌃⇧  # mixes in ⌃ shifts_index=5 into ⌃⇧ =6   # todo2: Ghostty bug?
-
-        shifts = "⌃⇧"
-        shifts_index = 6
-
-        self._keyboard_shifts_patch_("⌃⇧⎋", octet="033", csi="~", shifts_index=shifts_index)
-        self._keyboard_remove_("⌃⇧⇥")
-        self._keyboard_patch_("⌃⇧⌫", cap_strikes="010")  # ⌃H
-        self._keyboard_shifts_add_("⌃⇧⏎", octet="015", csi="~", shifts_index=shifts_index)
-
-        self._keyboard_add_("⌃⇧!", cap_strikes="061")  # 1
-        self._keyboard_shifts_patch_("⌃⇧@", octet="100", csi="u", shifts_index=5)
-        self._keyboard_add_("⌃⇧#", cap_strikes="033")  # ⌃[
-        self._keyboard_add_("⌃⇧$", cap_strikes="134")  # ⌃\
-        self._keyboard_add_("⌃⇧%", cap_strikes="035")  # ⌃]
-        self._keyboard_add_("⌃⇧&", cap_strikes="037")  # ⌃⇧_
-        self._keyboard_add_("⌃⇧*", cap_strikes="177")  # ⌫
-        self._keyboard_add_("⌃⇧(", cap_strikes="071")  # 9
-        self._keyboard_add_("⌃⇧)", cap_strikes="060")  # 0
-
-        for cap in string.ascii_uppercase:
-            echo = f"⌃⇧{cap}"
-            octet = f"{ord(cap.lower()):03o}"
-            cap.lower()
-            self._keyboard_shifts_add_(echo, octet=octet, csi="u", shifts_index=shifts_index)
-
-        self._keyboard_shifts_add_("⌃⇧+", octet="075", csi="u", shifts_index=shifts_index)
-        self._keyboard_shifts_patch_("⌃⇧{", octet="173", csi="u", shifts_index=5)
-        self._keyboard_shifts_patch_("⌃⇧}", octet="175", csi="u", shifts_index=5)
-        self._keyboard_shifts_patch_("⌃⇧|", octet="174", csi="u", shifts_index=5)
-        self._keyboard_shifts_add_("⌃⇧:", octet="073", csi="u", shifts_index=shifts_index)
-        self._keyboard_shifts_add_('⌃⇧"', octet="047", csi="u", shifts_index=shifts_index)
-        self._keyboard_shifts_add_("⌃⇧<", octet="054", csi="u", shifts_index=shifts_index)
-        self._keyboard_shifts_add_("⌃⇧>", octet="056", csi="u", shifts_index=shifts_index)
-        self._keyboard_add_("⌃⇧?", cap_strikes="037")  # ⌃⇧_
-
-        self._keyboard_arrow_patch_("⌃⇧", caps="←↑→↓", shifts_index=shifts_index)
-
-        # 4 ⌥  # 2.6 ⌥
-        # 6 ⌥⇧  # 2.7 ⌥⇧
-
-        pass
-
-        # 2 ⇧  # 2.8 ⇧
-
-        shifts = "⇧"
-        shifts_index = 2
-
-        self._keyboard_shifts_patch_("⇧⎋", octet="033", csi="~", shifts_index=shifts_index)
-        self._keyboard_shifts_patch_("⇧⏎", octet="015", csi="~", shifts_index=shifts_index)
-
-        self._keyboard_arrow_patch_("⇧", caps="↑↓", shifts_index=shifts_index)
-
-        caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
-        strikes = """
-            ⎋[1;2⇧P ⎋[1;2⇧Q ⎋[13;2⇧~ ⎋[1;2⇧S
-            ⎋[15;2⇧~ ⎋[17;2⇧~ ⎋[18;2⇧~ ⎋[19;2⇧~
-            ⎋[20;2⇧~ ⎋[21;2⇧~ ⎋[23;2⇧~ ⎋[24;2⇧~
-        """  # coding ⎋[13;2⇧~ in place of ⎋[1;2⇧R # omitting ⎋[16;2⇧~ ⎋[12;2⇧~
-
-        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
-
         # todo2: reject the patches that change nothing
         # todo2: look before & after the drops of whole keyboards for like ⌃⌥⇧ Google and ⌃⌥ Google
         # todo2: learn & teach the art of reaching the different keyboards without pasting
@@ -4443,19 +4442,29 @@ class KeyboardDecoder:
 
         decode_by_echo = self.decode_by_echo
 
-        # 9 ⎋  # 1.1 ⎋
-        # 11 ⎋⌃  # 1.2 ⎋⌃
-        # 10 ⎋⇧  # 1.3 ⎋⇧
-        # 12 ⎋⌃⇧  # 1.4 ⎋⌃⇧
-
-        pass  # todo: no working "Alt is Meta" found in Google Cloud Shell
-
-        # 1 ''  # 2.1 ''
+        # 1 ''
 
         self._add_ten_fn_()
         self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
 
-        # 3 ⌃  # 2.2 ⌃  # todo: mark which No-Code Keys do beep, such as ⌃/ vs ⌃=
+        # 2 ⇧
+
+        shifts = "⇧"
+
+        self._keyboard_remove_("⇧←")
+        self._keyboard_remove_("⇧↑")
+        self._keyboard_remove_("⇧→")
+        self._keyboard_remove_("⇧↓")
+
+        caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8"  # without + " " + "F9 F10 F11 F12"
+        strikes = """
+            ⎋[25⇧~ ⎋[26⇧~ ⎋[28⇧~ ⎋[29⇧~
+            ⎋[20⇧~ ⎋[21⇧~ ⎋[22⇧~ ⎋[23⇧~
+        """  # omitting ⎋[27⇧~
+
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+        # 3 ⌃  # todo: mark which No-Code Keys do beep, such as ⌃/ vs ⌃=
 
         self._keyboard_patch_("⌃⌫", cap_strikes="010")  # ⌃H
 
@@ -4470,31 +4479,18 @@ class KeyboardDecoder:
         self._keyboard_add_("⌃⏎", cap_strikes="015")  # ⏎
         self._keyboard_remove_("⌃M")
 
-        # 7 ⌃⌥  # 2.3 ⌃⌥
+        # 4 ⌥
 
-        echoes = list(decode_by_echo.keys())
-        for echo in echoes:
-            if echo.startswith("⌃⌥"):
-                self._keyboard_remove_(echo)
+        self._keyboard_patch_("⌥Y", cap_strikes="302.245")  # ¥
+        self._keyboard_patch_("⌥⌫", cap_strikes="033.177")  # ⎋ ⌫
+        self._keyboard_patch_("⌥⏎", cap_strikes="033.015")  # ⎋ ⏎
 
-        self._keyboard_add_("⌃⌥⎋", cap_strikes="033.033")  # ⎋ ⎋
-        self._keyboard_add_("⌃⌥⌫", cap_strikes="033.010")  # ⌃H
-        self._keyboard_add_("⌃⌥⏎", cap_strikes="033.015")  # ⎋ ⏎
+        self._keyboard_patch_("⌥←", cap_strikes="⎋⎋[⇧D")  # ⎋ ⎋[⇧D
+        self._keyboard_patch_("⌥↑", cap_strikes="⎋⎋[⇧A")  # ⎋ ⎋[⇧A
+        self._keyboard_patch_("⌥→", cap_strikes="⎋⎋[⇧C")  # ⎋ ⎋[⇧C
+        self._keyboard_patch_("⌥↓", cap_strikes="⎋⎋[⇧B")  # ⎋ ⎋[⇧B
 
-        # 8 ⌃⌥⇧  # 2.4 ⌃⌥⇧
-
-        echoes = list(decode_by_echo.keys())
-        for echo in echoes:
-            if echo.startswith("⌃⌥⇧"):
-                self._keyboard_remove_(echo)
-
-        self._keyboard_add_("⌃⌥⇧⎋", cap_strikes="033.033")  # ⎋ ⎋
-        self._keyboard_add_("⌃⌥⇧⌫", cap_strikes="033.010")  # ⌃H
-        self._keyboard_add_("⌃⌥⇧⏎", cap_strikes="033.015")  # ⎋ ⏎
-        self._keyboard_add_("⌃⌥⇧@", cap_strikes="000")  # ⌃⇧@
-        self._keyboard_add_("⌃⌥⇧_", cap_strikes="037")  # ⌃⇧_
-
-        # 5 ⌃⇧  # 2.5 ⌃⇧  # not much here except ⌃⇧@ and ⌃⇧_
+        # 5 ⌃⇧  # not much here except ⌃⇧@ and ⌃⇧_
 
         self._keyboard_patch_("⌃⇧⎋", cap_strikes="033.033")  # ⎋ ⎋
         self._keyboard_patch_("⌃⇧⌫", cap_strikes="010")  # ⌃H
@@ -4512,40 +4508,43 @@ class KeyboardDecoder:
         self._keyboard_remove_("⌃⇧→")
         self._keyboard_remove_("⌃⇧↓")
 
-        # 4 ⌥  # 2.6 ⌥
-
-        self._keyboard_patch_("⌥Y", cap_strikes="302.245")  # ¥
-        self._keyboard_patch_("⌥⌫", cap_strikes="033.177")  # ⎋ ⌫
-        self._keyboard_patch_("⌥⏎", cap_strikes="033.015")  # ⎋ ⏎
-
-        self._keyboard_patch_("⌥←", cap_strikes="⎋⎋[⇧D")  # ⎋ ⎋[⇧D
-        self._keyboard_patch_("⌥↑", cap_strikes="⎋⎋[⇧A")  # ⎋ ⎋[⇧A
-        self._keyboard_patch_("⌥→", cap_strikes="⎋⎋[⇧C")  # ⎋ ⎋[⇧C
-        self._keyboard_patch_("⌥↓", cap_strikes="⎋⎋[⇧B")  # ⎋ ⎋[⇧B
-
-        # 6 ⌥⇧  # 2.7 ⌥⇧
+        # 6 ⌥⇧
 
         self._keyboard_remove_("⌥⇧←")
         self._keyboard_remove_("⌥⇧↑")
         self._keyboard_remove_("⌥⇧→")
         self._keyboard_remove_("⌥⇧↓")
 
-        # 2 ⇧  # 2.8 ⇧
+        # 7 ⌃⌥
 
-        shifts = "⇧"
+        echoes = list(decode_by_echo.keys())
+        for echo in echoes:
+            if echo.startswith("⌃⌥"):
+                self._keyboard_remove_(echo)
 
-        self._keyboard_remove_("⇧←")
-        self._keyboard_remove_("⇧↑")
-        self._keyboard_remove_("⇧→")
-        self._keyboard_remove_("⇧↓")
+        self._keyboard_add_("⌃⌥⎋", cap_strikes="033.033")  # ⎋ ⎋
+        self._keyboard_add_("⌃⌥⌫", cap_strikes="033.010")  # ⌃H
+        self._keyboard_add_("⌃⌥⏎", cap_strikes="033.015")  # ⎋ ⏎
 
-        caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8"  # without + " " + "F9 F10 F11 F12"
-        strikes = """
-            ⎋[25⇧~ ⎋[26⇧~ ⎋[28⇧~ ⎋[29⇧~
-            ⎋[20⇧~ ⎋[21⇧~ ⎋[22⇧~ ⎋[23⇧~
-        """  # omitting ⎋[27⇧~
+        # 8 ⌃⌥⇧
 
-        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+        echoes = list(decode_by_echo.keys())
+        for echo in echoes:
+            if echo.startswith("⌃⌥⇧"):
+                self._keyboard_remove_(echo)
+
+        self._keyboard_add_("⌃⌥⇧⎋", cap_strikes="033.033")  # ⎋ ⎋
+        self._keyboard_add_("⌃⌥⇧⌫", cap_strikes="033.010")  # ⌃H
+        self._keyboard_add_("⌃⌥⇧⏎", cap_strikes="033.015")  # ⎋ ⏎
+        self._keyboard_add_("⌃⌥⇧@", cap_strikes="000")  # ⌃⇧@
+        self._keyboard_add_("⌃⌥⇧_", cap_strikes="037")  # ⌃⇧_
+
+        # 9 ⎋
+        # 11 ⎋⌃
+        # 10 ⎋⇧
+        # 12 ⎋⌃⇧
+
+        pass  # todo: no working "Alt is Meta" found in Google Cloud Shell
 
         # todo2: fix the slow ⌥⎋ of Google that breaks the Key Byte Frame of b"⎋⎋"
 
