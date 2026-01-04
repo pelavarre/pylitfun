@@ -313,6 +313,9 @@ class LitGlass:
             # logger_print(f"{launch_chop=}")
             # logger_print(f"{time.time()=}")
 
+        # todo2: why "⌃\'" in place of "⌃'" in our logs
+        logger_print(repr("⌃'"), repr('⌃⇧"'), "overly escaped : -(")  # todo3
+
         logger_print("")
 
         #
@@ -3863,14 +3866,14 @@ class KeyboardDecoder:
 
         shifts = "⎋"
 
-        strikes = """
-            033.033
-            033.140 033.061 033.062 033.063 033.064 033.065 033.066 033.067 033.070 033.071 033.060 033.055 033.075 033.177
-            033.011 033.161 033.167 033.145 033.162 033.164 033.171 033.165 033.151 033.157 033.160 033.133 033.135 033.134
-            033.141 033.163 033.144 033.146 033.147 033.150 033.152 033.153 033.154 033.073 033.047 033.015
-            033.172 033.170 033.143 033.166 033.142 033.156 033.155 033.054 033.056 033.057
-            033.040 033.142 033.033.133.101 033.146 033.033.133.102
-        """
+        strikes = r"""
+            ⎋⎋
+            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 ⎋- ⎋= 033.177
+            033.011 ⎋Q ⎋W ⎋E ⎋R ⎋T ⎋Y ⎋U ⎋I ⎋O ⎋P ⎋[ ⎋] ⎋\
+            ⎋A ⎋S ⎋D ⎋F ⎋G ⎋H ⎋J ⎋K ⎋L ⎋; ⎋' 033.015
+            ⎋Z ⎋X ⎋C ⎋V ⎋B ⎋N ⎋M ⎋, ⎋. ⎋/
+            033.040 ⎋B ⎋⎋[⇧A ⎋F ⎋⎋[⇧B
+        """  # ⎋B ⎋F, not ⎋⎋[⇧D ⎋⎋[⇧C
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
@@ -3880,11 +3883,11 @@ class KeyboardDecoder:
 
         strikes = """
             033.033
-            033.140 033.061 033.062 033.063 033.064 033.065 033.066 033.067 033.070 033.071 033.060 033.037 033.075 033.010
+            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 033.037 ⎋= 033.010
             033.011 033.021 033.027 033.005 033.022 033.024 033.031 033.025 033.011 033.017 033.020 033.033 033.035 033.034
-            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 033.073 033.047 033.015
-            033.032 033.030 033.003 033.026 033.002 033.016 033.015 033.054 033.056 033.057
-            033.040 033.033.133.104 033.033.133.101 033.033.133.103 033.033.133.102
+            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
+            033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
+            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
@@ -3894,11 +3897,11 @@ class KeyboardDecoder:
         shifts = "⎋⇧"
         strikes = """
             033.033
-            033.176 033.041 033.100 033.043 033.044 033.045 033.136 033.046 033.052 033.050 033.051 033.137 033.053 033.010
-            033.033.133.132 033.121 033.127 033.105 033.122 033.124 033.131 033.125 033.111 033.117 033.120 033.173 033.175 033.174
-            033.101 033.123 033.104 033.106 033.107 033.110 033.112 033.113 033.114 033.072 033.042 033.015
-            033.132 033.130 033.103 033.126 033.102 033.116 033.115 033.074 033.076 033.077
-            033.040 033.033.133.104 033.033.133.101 033.033.133.103 033.033.133.102
+            033.176 ⎋⇧! ⎋⇧@ ⎋⇧# ⎋⇧$ ⎋⇧% ⎋⇧^ ⎋⇧& ⎋⇧* ⎋⇧( ⎋⇧) ⎋⇧_ ⎋⇧+ 033.010
+            ⎋⎋[⇧Z ⎋⇧Q ⎋⇧W ⎋⇧E ⎋⇧R ⎋⇧T ⎋⇧Y ⎋⇧U ⎋⇧I ⎋⇧O ⎋⇧P ⎋⇧{ ⎋⇧} ⎋⇧|
+            ⎋⇧A ⎋⇧S ⎋⇧D ⎋⇧F ⎋⇧G ⎋⇧H ⎋⇧J ⎋⇧K ⎋⇧L ⎋⇧: ⎋⇧" 033.015
+            ⎋⇧Z ⎋⇧X ⎋⇧C ⎋⇧V ⎋⇧B ⎋⇧N ⎋⇧M ⎋⇧< ⎋⇧> ⎋⇧?
+            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
@@ -3908,11 +3911,11 @@ class KeyboardDecoder:
         shifts = "⎋⌃⇧"
         strikes = """
             033.033
-            033.140 033.061 033.062 033.063 033.064 033.065 033.066 033.067 033.070 033.071 033.060 033.037 033.075 033.010
-            033.033.133.132 033.021 033.027 033.005 033.022 033.024 033.031 033.025 033.011 033.017 033.020 033.033 033.035 033.034
-            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 033.073 033.047 033.015
-            033.032 033.030 033.003 033.026 033.002 033.016 033.015 033.054 033.056 033.057
-            033.040 033.033.133.104 033.033.133.101 033.033.133.103 033.033.133.102
+            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 033.037 ⎋= 033.010
+            ⎋⎋[⇧Z 033.021 033.027 033.005 033.022 033.024 033.031 033.025 033.011 033.017 033.020 033.033 033.035 033.034
+            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
+            033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
+            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
@@ -3920,13 +3923,13 @@ class KeyboardDecoder:
         # 2.1 ''
 
         shifts = ""
-        strikes = """
+        strikes = r"""
             033
-            140 061 062 063 064 065 066 067 070 071 060 055 075 177
-            011 161 167 145 162 164 171 165 151 157 160 133 135 134
-            141 163 144 146 147 150 152 153 154 073 047 015
-            172 170 143 166 142 156 155 054 056 057
-            040 033.133.104 033.133.101 033.133.103 033.133.102
+            140 1 2 3 4 5 6 7 8 9 0 - = 177
+            011 q w e r t y u i o p [ ] \
+            a s d f g h j k l ; ' 015
+            z x c v b n m , . /
+            040 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
@@ -3950,11 +3953,11 @@ class KeyboardDecoder:
         shifts = "⌃⌥"
         strikes = """
             033
-            140 061 062 063 064 065 066 067 070 071 060 037 075 177
+            140 1 2 3 4 5 6 7 8 9 0 037 = 177
             011 021 027 005 022 024 031 025 011 017 020 033 035 034
-            001 023 004 006 007 010 012 013 014 073 047 015
-            032 030 003 026 002 016 015 054 056 057
-            000 033.133.104 033.133.101 033.133.103 033.133.102
+            001 023 004 006 007 010 012 013 014 ; ' 015
+            032 030 003 026 002 016 015 , . /
+            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
         """
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
@@ -3963,11 +3966,11 @@ class KeyboardDecoder:
         shifts = "⌃⌥⇧"
         strikes = """
             033
-            140 061 000 063 064 065 036 067 070 071 060 037 075 177
-            033.133.132 021 027 005 022 024 031 025 011 017 020 033 035 034
-            001 023 004 ... 007 010 012 013 014 073 047 015
-            032 030 003 026 ... 016 015 054 056 057
-            000 033.133.104 033.133.101 033.133.103 033.133.102
+            140 1 000 3 4 5 036 7 8 9 0 037 = 177
+            ⎋[⇧Z 021 027 005 022 024 031 025 011 017 020 033 035 034
+            001 023 004 ... 007 010 012 013 014 ; ' 015
+            032 030 003 026 ... 016 015 , . /
+            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
         """
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
@@ -3977,10 +3980,10 @@ class KeyboardDecoder:
         strikes = """
             033
             ... ... 000 ... ... ... 036 ... ... ... ... 037 ... 177
-            033.133.132 ... ... ... ... ... ... ... ... ... ... 033 035 034
+            ⎋[⇧Z ... ... ... ... ... ... ... ... ... ... 033 035 034
             ... ... ... ... ... ... ... ... ... ... ... ...
             ... ... ... ... ... ... ... ... ... ...
-            000 033.133.104 033.133.101 033.133.103 033.133.102
+            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
@@ -3994,7 +3997,7 @@ class KeyboardDecoder:
             011 œ ∑ ¤ ® † \ ¤ ¤ ø π “ ‘ «
             å ß ∂ ƒ © ˙ ∆ ˚ ¬ … æ 015
             Ω ≈ ç √ ∫ ¤ µ ≤ ≥ ÷
-            302.240 033.142 033.133.101 033.146 033.133.102
+            302.240 ⎋B ⎋⎋[⇧A ⎋F ⎋⎋[⇧B
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
@@ -4004,11 +4007,11 @@ class KeyboardDecoder:
         shifts = "⌥⇧"  # ⌥⇧K sends Apple Logo, coded here as \uf8ff
         strikes = """
             033
-            ` ⁄ € ‹ › ﬁ ﬂ ‡ ° · ‚ — ± 177
-            033.133.132 Œ „ ´ ‰ ˇ Á ¨ ˆ Ø ∏ ” ’ »
+            140 ⁄ € ‹ › ﬁ ﬂ ‡ ° · ‚ — ± 177
+            ⎋[⇧Z Œ „ ´ ‰ ˇ Á ¨ ˆ Ø ∏ ” ’ »
             Å Í Î Ï ˝ Ó Ô \uf8ff Ò Ú Æ 015
             ¸ ˛ Ç ◊ ı ˜ Â ¯ ˘ ¿
-            302.240 033.133.104 033.133.101 033.133.103 033.133.102
+            302.240 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
@@ -4019,11 +4022,11 @@ class KeyboardDecoder:
 
         strikes = """
             033
-            176 041 100 043 044 045 136 046 052 050 051 137 053 177
-            033.133.132 121 127 105 122 124 131 125 111 117 120 173 175 174
-            101 123 104 106 107 110 112 113 114 072 042 015
-            132 130 103 126 102 116 115 074 076 077
-            040 033.133.061.073.062.104 033.133.101 033.133.061.073.062.103 033.133.102
+            176 ! @ # $ % ^ & * ( ) _ + 177
+            ⎋[⇧Z Q W E R T Y U I O P { } |
+            A S D F G H J K L : " 015
+            Z X C V B N M < > ?
+            040 ⎋[1;2⇧D ⎋[⇧A ⎋[1;2⇧C ⎋[⇧B
         """
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
@@ -4037,10 +4040,10 @@ class KeyboardDecoder:
 
         meta_caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
         meta_strikes = """
-                033.133.061.067.176 033.133.061.070.176 033.133.061.071.176 033.133.062.060.176
-                033.133.062.061.176 033.133.062.063.176 033.133.062.064.176 033.133.062.065.176
-                033.133.062.066.176 033.133.062.070.176 033.133.062.071.176 033.133.063.061.176
-        """  # 21 23 24 25, not 21 22 23 24  # 26 28 29 31, not 26 27 28 29
+            ⎋[17⇧~ ⎋[18⇧~ ⎋[19⇧~ ⎋[20⇧~
+            ⎋[21⇧~ ⎋[23⇧~ ⎋[24⇧~ ⎋[25⇧~
+            ⎋[26⇧~ ⎋[28⇧~ ⎋[29⇧~ ⎋[31⇧~
+        """  # omitting ⎋[22⇧~ ⎋[27⇧~
 
         self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
 
@@ -4062,7 +4065,7 @@ class KeyboardDecoder:
         # 2.1 ''
 
         self._add_ten_fn_()
-        self._keyboard_add_("F12", cap_strikes="033.133.062.064.176")  # ⎋[24⇧~
+        self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
 
         # 2.2 ⌃  # Sideband Bells on ⌃ F2 F3 F4 F5 F6, ⌃ F9 F10 F11 F12  # No Codes on ⌃ F7 F8
         # 2.3 ⌃⌥  # Sideband Bells on ⌃⌥ F1..F12
@@ -4086,9 +4089,9 @@ class KeyboardDecoder:
 
         caps = "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"  # without "F1 F2 F3 F4" + " " +
         strikes = """
-            033.133.062.065.176 033.133.062.066.176 033.133.062.070.176 033.133.062.071.176
-            033.133.063.061.176 033.133.063.062.176 033.133.063.063.176 033.133.063.064.176
-        """  # 25 26 28 29, not 25 26 27 28  # 31 32 33 34, not 30 31 32 33
+            ⎋[25⇧~ ⎋[26⇧~ ⎋[28⇧~ ⎋[29⇧~
+            ⎋[31⇧~ ⎋[32⇧~ ⎋[33⇧~ ⎋[34⇧~
+        """  # omitting ⎋[27⇧~
 
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
@@ -4112,7 +4115,7 @@ class KeyboardDecoder:
         # 2.1 ''
 
         self._add_ten_fn_()
-        self._keyboard_add_("F12", cap_strikes="033.133.062.064.176")  # ⎋[24⇧~
+        self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
 
         # 2.2 ⌃  # much the same as ⌃ Ghostty, except that Ghostty patches & adds more
 
@@ -4135,21 +4138,18 @@ class KeyboardDecoder:
         self._keyboard_add_("⌃=", cap_strikes="075")  # =
         self._keyboard_add_("⌃/", cap_strikes="037")  # ⌃⇧_
 
-        self._keyboard_add_("⌃,", cap_strikes="054")  # ,
-        self._keyboard_add_("⌃.", cap_strikes="056")  # .
-        self._keyboard_add_("⌃;", cap_strikes="073")  # ;
-        self._keyboard_add_("⌃'", cap_strikes="047")  # '
+        self._keyboard_add_("⌃,", cap_strikes=",")  # ,
+        self._keyboard_add_("⌃.", cap_strikes=".")  # .
+        self._keyboard_add_("⌃;", cap_strikes=";")  # ;
+        self._keyboard_add_("⌃'", cap_strikes="'")  # '
 
-        caps = (
-            "F2 F3 F4" + " " + "F5 F6 F7" + " " + "F9 F10 F11 F12"
-        )  # same F9 F10 F11 F12 as Ghostty
+        caps = "F2 F3 F4" + " " + "F5 F6 F7" + " " + "F9 F10 F11 F12"  # F9 F10 F11 F12 as Ghostty
         strikes = """
-            033.133.061.073.065.121 033.133.061.073.065.122 033.133.061.073.065.123
-            033.133.061.065.073.065.176 033.133.061.067.073.065.176 033.133.061.070.073.065.176
-            033.133.062.060.073.065.176 033.133.062.061.073.065.176 033.133.062.063.073.065.176 033.133.062.064.073.065.176
-        """  # 20 21 23 24, not 20 21 22 23
+            ⎋[1;5⇧Q ⎋[1;5⇧R ⎋[1;5⇧S
+            ⎋[15;5⇧~ ⎋[17;5⇧~ ⎋[18;5⇧~
+            ⎋[20;5⇧~ ⎋[21;5⇧~ ⎋[23;5⇧~ ⎋[24;5⇧~
+        """  # colliding ⎋[ ⇧R  # omitting ⌃F1 ⎋[1;5⇧P, ⌃F8 ⎋[19;5⇧~  # omitting ⎋[16;5⇧~ ⎋[22;5⇧~
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
-        # ⎋[1;5Q ⎋[1;5R ⎋[1;5S   # ⎋[13;5~ ⎋[15;5~ ⎋[17;5~  # ⎋[20;5~ ⎋[21;5~ ⎋[23;5~ ⎋[24;5~
 
         # 2.3 ⌃⌥
 
@@ -4208,14 +4208,12 @@ class KeyboardDecoder:
 
         caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
         strikes = """
-            033.133.061.073.062.120 033.133.061.073.062.121 033.133.061.073.062.122 033.133.061.073.062.123
-            033.133.061.065.073.062.176 033.133.061.067.073.062.176 033.133.061.070.073.062.176 033.133.061.071.073.062.176
-            033.133.062.060.073.062.176 033.133.062.061.073.062.176 033.133.062.063.073.062.176 033.133.062.064.073.062.176
-        """  # 15 17 18 19, not 15 16 17 18  # 20 21 23 24, not 20 21 22 23
+            ⎋[1;2⇧P ⎋[1;2⇧Q ⎋[1;2⇧R ⎋[1;2⇧S
+            ⎋[15;2⇧~ ⎋[17;2⇧~ ⎋[18;2⇧~ ⎋[19;2⇧~
+            ⎋[20;2⇧~ ⎋[21;2⇧~ ⎋[23;2⇧~ ⎋[24;2⇧~
+        """  # colliding ⎋[ ⇧R  # omitting ⎋[16;2⇧~ ⎋[12;2⇧~
 
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
-
-        # iTerm2 ⇧Fn = ⎋[1;2 ⇧P ⇧Q ⇧R ⇧S, ⎋[ 15 17 18 9 ;2⇧~, ⎋[ 20 21 23 24 ;2⇧~ = Ghostty ⇧Fn
 
         # todo1: Test Fn across Terminal & iTerm2 & Ghostty & Google
 
@@ -4239,7 +4237,7 @@ class KeyboardDecoder:
 
         self._keyboard_shifts_patch_("⎋⌃`", octet="140", csi="u", shifts_index=shifts_index)
 
-        self._keyboard_patch_("⎋⌃1", cap_strikes="033.061")  # ⎋ 1
+        self._keyboard_patch_("⎋⌃1", cap_strikes="⎋1")  # ⎋ 1
         self._keyboard_patch_("⎋⌃2", cap_strikes="033.000")  # ⎋ ⌃⇧@
         self._keyboard_patch_("⎋⌃3", cap_strikes="033.033")  # ⎋ ⌃[
         self._keyboard_patch_("⎋⌃4", cap_strikes="033.034")  # ⎋ ⌃\
@@ -4247,8 +4245,8 @@ class KeyboardDecoder:
         self._keyboard_patch_("⎋⌃6", cap_strikes="033.036")  # ⎋ ⌃⇧^
         self._keyboard_patch_("⎋⌃7", cap_strikes="033.037")  # ⎋ ⌃⇧_
         self._keyboard_patch_("⎋⌃8", cap_strikes="033.177")  # ⎋ ⌫
-        self._keyboard_patch_("⎋⌃9", cap_strikes="033.071")  # ⎋ 9
-        self._keyboard_patch_("⎋⌃0", cap_strikes="033.060")  # ⎋ 0
+        self._keyboard_patch_("⎋⌃9", cap_strikes="⎋9")  # ⎋ 9
+        self._keyboard_patch_("⎋⌃0", cap_strikes="⎋0")  # ⎋ 0
         self._keyboard_patch_("⎋⌃/", cap_strikes="033.037")  # ⌃⇧_  # beeps 🙄
 
         self._keyboard_shifts_patch_("⎋⌃;", octet="073", csi="u", shifts_index=shifts_index)
@@ -4323,7 +4321,7 @@ class KeyboardDecoder:
         # 2.1 ''
 
         self._add_ten_fn_()
-        self._keyboard_add_("F12", cap_strikes="033.133.062.064.176")  # ⎋[24⇧~
+        self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
 
         # 2.2 ⌃  # much the same as ⌃ iTerm2, except that Ghostty patches & adds more
 
@@ -4334,7 +4332,7 @@ class KeyboardDecoder:
         self._keyboard_remove_("⌃⇥")
 
         self._keyboard_add_("⌃`", cap_strikes="140")  # `
-        self._keyboard_add_("⌃1", cap_strikes="061")  # 1
+        self._keyboard_add_("⌃1", cap_strikes="1")  # 1
         self._keyboard_add_("⌃2", cap_strikes="000")  # ⌃⇧@
         self._keyboard_add_("⌃3", cap_strikes="033")  # ⌃[
         self._keyboard_add_("⌃4", cap_strikes="034")  # ⌃\
@@ -4342,9 +4340,9 @@ class KeyboardDecoder:
         self._keyboard_add_("⌃6", cap_strikes="036")  # ⌃⇧^
         self._keyboard_add_("⌃7", cap_strikes="037")  # ⌃⇧_
         self._keyboard_add_("⌃8", cap_strikes="177")  # ⌫
-        self._keyboard_add_("⌃9", cap_strikes="071")  # 9
-        self._keyboard_add_("⌃0", cap_strikes="060")  # 0
-        self._keyboard_add_("⌃=", cap_strikes="075")  # =
+        self._keyboard_add_("⌃9", cap_strikes="9")  # 9
+        self._keyboard_add_("⌃0", cap_strikes="0")  # 0
+        self._keyboard_add_("⌃=", cap_strikes="=")  # =
         self._keyboard_add_("⌃/", cap_strikes="037")  # ⌃⇧_
 
         self._keyboard_shifts_add_("⌃;", octet="073", csi="u", shifts_index=shifts_index)
@@ -4358,15 +4356,11 @@ class KeyboardDecoder:
         self._keyboard_shifts_patch_("⌃I", octet="151", csi="u", shifts_index=shifts_index)
         self._keyboard_shifts_patch_("⌃M", octet="155", csi="u", shifts_index=shifts_index)
 
-        caps = "F9 F10 F11 F12"  # same F9 F10 F11 F12 as iTerm2
+        caps = "F9 F10 F11 F12"  # F9 F10 F11 F12 as iTerm2
         strikes = """
-            033.133.062.060.073.065.176 033.133.062.061.073.065.176 033.133.062.063.073.065.176 033.133.062.064.073.065.176
-        """  # 20 21 23 24, not 20 21 22 23
+             ⎋[20;5⇧~ ⎋[21;5⇧~ ⎋[23;5⇧~ ⎋[24;5⇧~
+        """  # omitting ⎋[22;5⇧~
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
-        # ⎋[20;5~ ⎋[21;5~ ⎋[23;5~ ⎋[24;5~
-
-        # todo2: why "⌃\'" in place of "⌃'" in our logs
-        logger_print(repr("⌃'"), repr('⌃⇧"'), "overly escaped : -(")  # todo3
 
         # 2.3 ⌃⌥
         # 2.4 ⌃⌥⇧
@@ -4428,14 +4422,12 @@ class KeyboardDecoder:
 
         caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
         strikes = """
-            033.133.061.073.062.120 033.133.061.073.062.121 033.133.061.063.073.062.176 033.133.061.073.062.123
-            033.133.061.065.073.062.176 033.133.061.067.073.062.176 033.133.061.070.073.062.176 033.133.061.071.073.062.176
-            033.133.062.060.073.062.176 033.133.062.061.073.062.176 033.133.062.063.073.062.176 033.133.062.064.073.062.176
-        """  # 15 17 18 19, not 15 16 17 18  # 20 21 23 24, not 20 21 22 23
+            ⎋[1;2⇧P ⎋[1;2⇧Q ⎋[13;2⇧~ ⎋[1;2⇧S
+            ⎋[15;2⇧~ ⎋[17;2⇧~ ⎋[18;2⇧~ ⎋[19;2⇧~
+            ⎋[20;2⇧~ ⎋[21;2⇧~ ⎋[23;2⇧~ ⎋[24;2⇧~
+        """  # coding ⎋[13;2⇧~ in place of ⎋[1;2⇧R # omitting ⎋[16;2⇧~ ⎋[12;2⇧~
 
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
-
-        # Ghostty ⇧Fn = ⎋[1;2 ⇧P ⇧Q ⇧R ⇧S, ⎋[ 15 17 18 9 ;2⇧~, ⎋[ 20 21 23 24 ;2⇧~ = iTerm2 ⇧Fn
 
         # todo2: reject the patches that change nothing
         # todo2: look before & after the drops of whole keyboards for like ⌃⌥⇧ Google and ⌃⌥ Google
@@ -4458,7 +4450,7 @@ class KeyboardDecoder:
         # 2.1 ''
 
         self._add_ten_fn_()
-        self._keyboard_add_("F12", cap_strikes="033.133.062.064.176")  # ⎋[24⇧~
+        self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
 
         # 2.2 ⌃  # todo: mark which No-Code Keys do beep, such as ⌃/ vs ⌃=
 
@@ -4523,10 +4515,10 @@ class KeyboardDecoder:
         self._keyboard_patch_("⌥⌫", cap_strikes="033.177")  # ⎋ ⌫
         self._keyboard_patch_("⌥⏎", cap_strikes="033.015")  # ⎋ ⏎
 
-        self._keyboard_patch_("⌥←", cap_strikes="033.033.133.104")  # ⎋ ⎋[D
-        self._keyboard_patch_("⌥↑", cap_strikes="033.033.133.101")  # ⎋ ⎋[A
-        self._keyboard_patch_("⌥→", cap_strikes="033.033.133.103")  # ⎋ ⎋[C
-        self._keyboard_patch_("⌥↓", cap_strikes="033.033.133.102")  # ⎋ ⎋[B
+        self._keyboard_patch_("⌥←", cap_strikes="⎋⎋[⇧D")  # ⎋ ⎋[⇧D
+        self._keyboard_patch_("⌥↑", cap_strikes="⎋⎋[⇧A")  # ⎋ ⎋[⇧A
+        self._keyboard_patch_("⌥→", cap_strikes="⎋⎋[⇧C")  # ⎋ ⎋[⇧C
+        self._keyboard_patch_("⌥↓", cap_strikes="⎋⎋[⇧B")  # ⎋ ⎋[⇧B
 
         # 2.7 ⌥⇧
 
@@ -4546,13 +4538,11 @@ class KeyboardDecoder:
 
         caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8"  # without + " " + "F9 F10 F11 F12"
         strikes = """
-            033.133.062.065.176 033.133.062.066.176 033.133.062.070.176 033.133.062.071.176
-            033.133.062.060.176 033.133.062.061.176 033.133.062.062.176 033.133.062.063.176
-        """  # 25 26 28 29, not 25 26 27 28  # 20 21 23 24, not 20 21 22 23
+            ⎋[25⇧~ ⎋[26⇧~ ⎋[28⇧~ ⎋[29⇧~
+            ⎋[20⇧~ ⎋[21⇧~ ⎋[22⇧~ ⎋[23⇧~
+        """  # omitting ⎋[27⇧~
 
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
-
-        # Google ⇧Fn = [ 25 26 28 29 ⇧~, 31 32 33 34 ⇧~
 
         # todo2: fix the slow ⌥⎋ of Google that breaks the Key Byte Frame of b"⎋⎋"
 
@@ -4586,10 +4576,10 @@ class KeyboardDecoder:
 
         caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10"  # without " F11 F12"
         strikes = """
-            033.117.120 033.117.121 033.117.122 033.117.123
-            033.133.061.065.176 033.133.061.067.176 033.133.061.070.176 033.133.061.071.176
-            033.133.062.060.176 033.133.062.061.176
-        """  # 15 17 18 19, not 15 16 17 18
+            ⎋⇧O⇧P ⎋⇧O⇧Q ⎋⇧O⇧R ⎋⇧O⇧S
+            ⎋[15⇧~ ⎋[17⇧~ ⎋[18⇧~ ⎋[19⇧~
+            ⎋[20⇧~ ⎋[21⇧~
+        """  # omitting ⎋[16~  # not-colliding with ⎋[ ⇧R
 
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
@@ -4621,18 +4611,81 @@ class KeyboardDecoder:
 
         ba = bytearray()
 
-        octets = cap_strikes.split(".")
+        octets = [cap_strikes]
+        if cap_strikes not in (".", "⎋."):
+            octets = cap_strikes.split(".")
+
         for octet in octets:
-            if len(octet) == 3:  # '177'
-                ba.append(int(octet, base=0o010))
-            else:  # '€'
+
+            # Accept single Characters
+
+            if len(octet) == 1:  # '€'
+                t = octet
+                assert t not in ("⎋⌃⌥⇧" "`~"), (octet, octets, cap_strikes, echo)
                 octet_data = octet.encode()
                 ba.extend(octet_data)
+                continue
+
+            # Accept single Characters escaped, no matter if shifted or not
+
+            if octet == "⎋⎋":  # ⎋⎋
+                octet_data = b"\033\033"
+                ba.extend(octet_data)
+                continue
+
+            if octet.startswith("⎋") and (len(octet) == 2):  # ⎋Z  # ⎋/
+                t = octet[1:]
+                if t not in (string.digits + string.ascii_uppercase):
+                    assert t in ("-=" "[]\\" ";'" ",./"), (t, octet, cap_strikes, echo)
+                octet_data = b"\033" + t.lower().encode()
+                ba.extend(octet_data)
+                continue
+
+                # rejects ⎋`
+
+            if octet.startswith("⎋⇧") and (len(octet) == 3):  # ⎋⇧Z  # ⎋⇧?
+                t = octet[2:]
+                if t not in string.ascii_uppercase:
+                    assert t in ("!@#$%^&*()_+" "{}|" ':"' "<>?"), (t, octet, cap_strikes, echo)
+                octet_data = b"\033" + t.encode()
+                ba.extend(octet_data)
+                continue
+
+                # rejects ⎋⇧~
+
+            # Accept three Octal Digits as an Octet
+
+            m = re.fullmatch(r"[0-7][0-7][0-7]", string=octet)
+            if m:  # 177
+                ba.append(int(octet, base=0o010))  # raises ValueError when > 0o377
+                continue
+
+            # Accept simple Ss3 Sequences spoken as ⎋O... ⇧...
+
+            m = re.fullmatch(r"(⎋)⇧(O)⇧([PQRS])", string=octet)
+            if m:  # ⎋⇧O⇧S
+                octet_data = b"\033"
+                octet_data += m.group(2).encode() + m.group(3).encode()
+                ba.extend(octet_data)
+                continue
+
+            # Accept simple Csi Sequences spoken as ⎋[... ⇧..., even when preceded by one extra ⎋
+
+            m = re.fullmatch(r"(⎋|⎋⎋)(\[)([0-9;]*)⇧([ABCDPQRSZ~])", string=octet)
+            if m:  # ⎋[⇧Z  # ⎋[1;2⇧C  # ⎋⎋[⇧D  # ⎋[17⇧~
+                octet_data = len(m.group(1)) * b"\033"
+                octet_data += m.group(2).encode() + m.group(3).encode() + m.group(4).encode()
+                ba.extend(octet_data)
+                continue
+
+            assert False, (octet, octets, cap_strikes, echo)
 
         decode = ba.decode()
         assert ba and decode, (ba, decode)
 
         return decode
+
+        # todo3: Factor out 'def _cap_strikes_to_decode_' as its own Co/Dec Class
 
     def _keyboard_patch_(self, echo: str, cap_strikes: str) -> None:
         """Patch the Keyboard with a Key Cap and its Strikes"""
@@ -4702,17 +4755,13 @@ class KeyboardDecoder:
         assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
         assert 2 <= shifts_index <= 8, (shifts_index,)
 
-        octet_by_arrow = {"←": "104", "↑": "101", "→": "103", "↓": "102"}  # 'ABCD'
+        upper_by_arrow = {"←": "D", "↑": "A", "→": "C", "↓": "B"}
 
         for cap in caps:
             echo = shifts + cap
 
-            arrow_octet = octet_by_arrow[cap]
-
-            shifts_code = ord(str(shifts_index))
-            shifts_octet = f"{shifts_code:03o}"
-
-            cap_strikes = f"033.133.061.073.{shifts_octet}.{arrow_octet}"
+            arrow_upper = upper_by_arrow[cap]
+            cap_strikes = f"⎋[1;{shifts_index}⇧{arrow_upper}"  # ⎋[1;2⇧C
 
             self._keyboard_patch_(echo, cap_strikes=cap_strikes)
 
