@@ -790,11 +790,11 @@ class KeycapsGame:
         sw = tb.screen_writer
         kr = tb.keyboard_reader
 
-        shortcut_shifts = KeyboardDecoder.ShortcutShifts
+        paste_shifts = KeyboardDecoder.FamiliarShifts
         if flags.ghostty:
-            shortcut_shifts = tuple(_ for _ in KeyboardDecoder.ShortcutShifts if "⌥" not in _)
+            paste_shifts = tuple(_ for _ in KeyboardDecoder.FamiliarShifts if "⌥" not in _)
 
-        join = " ".join((_ if _ else "''") for _ in shortcut_shifts)
+        join = " ".join((_ if _ else "''") for _ in paste_shifts)
 
         sw.print()
         sw.print(r"Paste your choice of", join)
@@ -874,15 +874,16 @@ class KeycapsGame:
 
             else:
 
-                shifts = ""
+                shifts = self.shifts
                 if len(frames) == 1:  # todo: Shifts pasted as multiple Frames
                     frame = frames[-1]
+
                     text = frame.decode()  # todo: UnicodeDecodeError from Paste
                     key = text.replace("//", "").strip().strip('"').strip("'")
                     if key in wipeouts_by_shifts.keys():
                         shifts = key
 
-                if shifts:
+                if shifts != self.shifts:
                     self.kc_switch_tab(echoes=(shifts,))
 
             # Trace the Bytes taken in
@@ -1168,7 +1169,7 @@ class KeycapsGame:
         assert echoes, (echoes,)
 
         echo = echoes[0]
-        (_shifts_, _cap_) = kd.echo_split_shifts_cap(echo)
+        (_shifts_, _cap_) = kd.echo_split_shifts_cap(echo) if echo else ("", "")
         if echo == "⎋":
             _shifts_ = "⎋"  # takes "⎋" as a Shifts Key, not as a Cap
 
@@ -4079,23 +4080,22 @@ class KeyboardDecoder:
         # 9 ⎋
 
         shifts = "⎋"
-
         self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
 
         # 10 ⎋⇧
 
         shifts = "⎋⇧"
-        self._add_twelve_fn_meta_control_p_(shifts=shifts)
+        self._add_twelve_fn_meta_control_p_(shifts=shifts)  # only via 'Use Option As Meta Key'
 
         # 11 ⎋⌃
 
         shifts = "⎋⌃"
-        self._add_twelve_fn_meta_control_p_(shifts=shifts)
+        self._add_twelve_fn_meta_control_p_(shifts=shifts)  # only via 'Use Option As Meta Key'
 
         # 12 ⎋⌃⇧
 
         shifts = "⎋⌃⇧"
-        self._add_twelve_fn_meta_control_p_(shifts=shifts)
+        self._add_twelve_fn_meta_control_p_(shifts=shifts)  # only via 'Use Option As Meta Key'
 
         # Terminal ⇧Fn = ⎋[ 25 26 28 29 ⇧~, ⎋[ 31 32 33 34 ⇧~,
         # no encodes of ⇧F1 ⇧F2 ⇧F3 ⇧F4 in Apple Terminal without distributing configuration
@@ -4111,6 +4111,14 @@ class KeyboardDecoder:
 
         self._add_ten_fn_()
         self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
+
+        # 2 ⇧
+
+        shifts = "⇧"
+        shifts_index = 2
+
+        self._keyboard_arrow_patch_(shifts, caps="↑↓", shifts_index=shifts_index)
+        self._add_twelve_fn_(shifts, f3_strike="⎋[1;2⇧R", shifts_index=shifts_index)
 
         # 3 ⌃  # much the same as ⌃ Ghostty, except that Ghostty patches & adds more
 
@@ -4146,20 +4154,13 @@ class KeyboardDecoder:
         """  # colliding ⎋[ ⇧R  # omitting ⌃F1 ⎋[1;5⇧P, ⌃F8 ⎋[19;5⇧~  # omitting ⎋[16;5⇧~ ⎋[22;5⇧~
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
-        # 7 ⌃⌥
+        # 4 ⌥
 
-        shifts = "⌃⌥"
-        shifts_index = 7
-
-        self._keyboard_patch_("⌃⌥␢", cap_strikes="040")  # Spacebar
-        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
-
-        # 8 ⌃⌥⇧
-
-        shifts = "⌃⌥⇧"
-        shifts_index = 8
+        shifts = "⌥"
+        shifts_index = 3
 
         self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
+        self._add_twelve_fn_(shifts, f3_strike="⎋[1;3⇧R", shifts_index=shifts_index)
 
         # 5 ⌃⇧
 
@@ -4179,13 +4180,7 @@ class KeyboardDecoder:
         self._keyboard_patch_("⌃⇧?", cap_strikes="177")  # ⌫
 
         self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
-
-        # 4 ⌥
-
-        shifts = "⌥"
-        shifts_index = 3
-
-        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
+        self._add_twelve_fn_(shifts, f3_strike="⎋[1;6⇧R", shifts_index=shifts_index)
 
         # 6 ⌥⇧
 
@@ -4193,33 +4188,33 @@ class KeyboardDecoder:
         shifts_index = 4
 
         self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
+        self._add_twelve_fn_(shifts, f3_strike="⎋[1;4⇧R", shifts_index=shifts_index)
 
-        # 2 ⇧
+        # 7 ⌃⌥
 
-        shifts = "⇧"
-        shifts_index = 2
+        shifts = "⌃⌥"
+        shifts_index = 7
 
-        self._keyboard_arrow_patch_(shifts, caps="↑↓", shifts_index=shifts_index)
+        self._keyboard_patch_("⌃⌥␢", cap_strikes="040")  # Spacebar
+        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
+        self._add_twelve_fn_(shifts, f3_strike="⎋[1;7⇧R", shifts_index=shifts_index)
 
-        caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
-        strikes = """
-            ⎋[1;2⇧P ⎋[1;2⇧Q ⎋[1;2⇧R ⎋[1;2⇧S
-            ⎋[15;2⇧~ ⎋[17;2⇧~ ⎋[18;2⇧~ ⎋[19;2⇧~
-            ⎋[20;2⇧~ ⎋[21;2⇧~ ⎋[23;2⇧~ ⎋[24;2⇧~
-        """  # colliding ⎋[ ⇧R  # omitting ⎋[16;2⇧~ ⎋[12;2⇧~
+        # 8 ⌃⌥⇧  # todo1: fix wrongly drawing F1 as 1 in the ⌃⌥⇧ Keyboard of iTerm2
 
-        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+        shifts = "⌃⌥⇧"
+        shifts_index = 8
+
+        self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
+        self._add_twelve_fn_(shifts, f3_strike="⎋[1;8⇧R", shifts_index=shifts_index)
 
         # 9 ⎋
         # 11 ⎋⌃
         # 10 ⎋⇧
         # 12 ⎋⌃⇧
 
-        pass
+        pass  # todo1: remove ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧ from iTerm2
 
-        # todo1: Test Fn across Terminal & iTerm2 & Ghostty & Google
-
-    def _form_ghostty_keyboards_(self) -> None:
+    def _form_ghostty_keyboards_(self) -> None:  # todo1: test and solve Fn at Ghostty
         """Form a macOS Ghostty Keyboard, as a diff from Apple Terminal"""
 
         # 1 ''
@@ -4437,7 +4432,7 @@ class KeyboardDecoder:
 
         #
 
-    def _form_google_keyboards_(self) -> None:
+    def _form_google_keyboards_(self) -> None:  # todo1: test and solve Fn at Google Cloud Shell
         """Form a Google Cloud Shell Keyboard, as a diff from Apple Terminal"""
 
         decode_by_echo = self.decode_by_echo
@@ -4547,6 +4542,28 @@ class KeyboardDecoder:
         pass  # todo: no working "Alt is Meta" found in Google Cloud Shell
 
         # todo2: fix the slow ⌥⎋ of Google that breaks the Key Byte Frame of b"⎋⎋"
+
+    def _add_twelve_fn_(self, shifts: str, f3_strike: str, shifts_index: int) -> None:
+        """Add the twelve Fn Keys for these Shifts in the usual way"""
+
+        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
+        assert 2 <= shifts_index <= 8, (shifts_index,)  # todo1: less magic
+
+        i_term_app__f3_strike = f"⎋[1;{shifts_index}⇧R"  # colliding ⎋[ ⇧R
+        ghostty__f3_strike = f"⎋[13;{shifts_index}⇧~"
+        assert f3_strike in (i_term_app__f3_strike, ghostty__f3_strike), (f3_strike,)
+
+        f3 = f3_strike
+        i = shifts_index
+
+        caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
+        strikes = f"""
+            ⎋[1;{i}⇧P ⎋[1;{i}⇧Q {f3} ⎋[1;{i}⇧S
+            ⎋[15;{i}⇧~ ⎋[17;{i}⇧~ ⎋[18;{i}⇧~ ⎋[19;{i}⇧~
+            ⎋[20;{i}⇧~ ⎋[21;{i}⇧~ ⎋[23;{i}⇧~ ⎋[24;{i}⇧~
+        """  # omitting ⎋[16;...⇧~ ⎋[22;...⇧~
+
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
     def _add_keyboard_(self, shifts: str, strikes: str) -> None:
         """Add in 1 Keyboard of Key Caps and their Strikes"""
