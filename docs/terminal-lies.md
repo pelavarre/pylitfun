@@ -26,11 +26,12 @@ Two dozen lies that too many Terminal Programs tell themselves
   - [Python "import pty" doesn't change the Colors negotiated by Vim (Lie 3.2)](#python-import-pty-doesnt-change-the-colors-negotiated-by-vim-lie-32)
   - [Escape Sequences can tell a Terminal Cursor to step towards the 8 Points of the Compass (Lie 3.3)](#escape-sequences-can-tell-a-terminal-cursor-to-step-towards-the-8-points-of-the-compass-lie-33)
   - [Preplanning put the related Characters together in Unicode (Lie 3.4)](#preplanning-put-the-related-characters-together-in-unicode-lie-34)
+  - [Printing an Escape Sequence won't halt your Terminal (Lie 3.5)](#printing-an-escape-sequence-wont-halt-your-terminal-lie-35)
 - [4. About copying and pasting Characters between the Terminal and Apps](#4-about-copying-and-pasting-characters-between-the-terminal-and-apps)
   - [You can copy in what you please (Lie 4.1)](#you-can-copy-in-what-you-please-lie-41)
   - [You can copy out what you please (Lie 4.2)](#you-can-copy-out-what-you-please-lie-42)
   - [The Emacs Key Chords you learn at the Terminal do or don't work elsewhere (Lie 4.3)](#the-emacs-key-chords-you-learn-at-the-terminal-do-or-dont-work-elsewhere-lie-43)
-  - [You can print the Glyphs you printed in 1980 (Lie 4.4)](#you-can-print-the-glyphs-you-printed-in-1980-lie-44)
+  - [Your Terminal can print the Glyphs you printed in 1980 (Lie 4.4)](#your-terminal-can-print-the-glyphs-you-printed-in-1980-lie-44)
   - [Two people can agree on how to spell out a Keyboard Chord Sequence (Lie 4.5)](#two-people-can-agree-on-how-to-spell-out-a-keyboard-chord-sequence-lie-45)
 
 As posted by Pat LaVarre & friends, Jan/2026
@@ -331,6 +332,47 @@ And Apple promotes having Keyboard Shortcut docs order the mentions of ⎋ ⌃ �
     ↖ ↗ ↘ ↙
     ⇥ ⇧ ⋮ ⌃ ⌘ ⌥ ⌫ ⎋ ⏎ ☰
 
+### Printing an Escape Sequence won't halt your Terminal (Lie 3.5)
+
+If you run macOS2 iTerm2, well. When you try a kind of 'clear' that clears scrollback by sending ⎋[3⇧J, then the iTerm2 Termimal itself will halt
+
+It then forces you to stop and choose
+
+> A control sequence attempted to clear scrollback history <br>
+> Allow this in the future? <br>
+> Press any key to dismiss this message <br>
+> ⌥A Always Allow <br>
+> ⌥D Always Deny <br>
+
+If you make the "Press Any Key" choice, then it will ask you again next time
+
+While you get bored and annoyed with that repeated slap across the face, you can start looking for other ways to say clear
+
+If you press ⌘K, that just works, it does clear the scrollback and the screen
+
+People will tell you there's no difference between
+
+    clear
+    tput clear
+
+But if you really look, you will find variations. We distribute these pieces of software separately. So changes can reach the one before the other. And you can change your choice of which TERM you try
+
+    seq 123
+    TERM=$TERM clear |od -A x -t x1z -v
+    TERM=ansi clear |od -A x -t x1z -v
+
+This experiment as shown runs at Linux only, like in the smallest of Docker images. Back over at macOS, they omit the '-t x1z' of |od, and they instead gives you:  |hexdump -C
+
+Commonly you see the idea of "cls" Clear Screen encoded as one of
+
+    printf '\033[H''\033[2J'  # row-column-leap screen-erase
+    printf '\033[3J''\033[H''\033[2J'  # scroll-erase but keep a scrolled copy of screen
+    printf '\033[H''\033[2J''\033[3J'  # really do erase it all, like as ⌘K does
+
+I know the 3J H 2J sequence was widely distributed. I guess it was an unwitting bug, tested only on Terminals that don't scroll up the present text on Screen when you send the 2J
+
+Google Cloud Shell silently ignores the ⎋[3⇧J scroll-erase. Out there, you have to close and reopen your Terminal Tab to erase your Scrollback so as to really start over
+
 ## 4. About copying and pasting Characters between the Terminal and Apps
 
 ### You can copy in what you please (Lie 4.1)
@@ -388,7 +430,7 @@ The Apple macOS Terminal doesn't let you distinguish ⌥⌫ from ⌫, but does p
 
 You can get some variations of Emacs ⎋Z and ⎋⇧Z to work in places like macOS Zsh, which gives you a bit and not much of what Vim does with D T and D F. Emacs speaks of 'zap-to-char' and 'zap-up-to-char', with ⎋Z traditionally doing the work of Vim D F I, but Zsh ⎋Z can more easily be told to do D T
 
-### You can print the Glyphs you printed in 1980 (Lie 4.4)
+### Your Terminal can print the Glyphs you printed in 1980 (Lie 4.4)
 
 Wikipedia [ATASCII](https://en.wikipedia.org/wiki/ATASCII), meaning Atari® Ascii, has tried to find similar Glyphs inside Unicode, and they're not all plainly found.
 

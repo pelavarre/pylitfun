@@ -4214,7 +4214,7 @@ class KeyboardDecoder:
         self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
         self._add_twelve_fn_(shifts, f3_strike="⎋[1;7⇧R", shifts_index=shifts_index)
 
-        # 8 ⌃⌥⇧  # todo1: fix wrongly drawing F1 as 1 in the ⌃⌥⇧ Keyboard of iTerm2
+        # 8 ⌃⌥⇧
 
         shifts = "⌃⌥⇧"
         shifts_index = 8
@@ -4230,7 +4230,7 @@ class KeyboardDecoder:
         # 10 ⎋⇧
         # 12 ⎋⌃⇧
 
-        pass  # todo1: remove ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧ from iTerm2
+        pass  # todo1: remove ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧ from iTerm2, and ⌥ ⌥⇧ ⌃⌥⇧ from Ghostty
 
     def _form_ghostty_keyboards_(self) -> None:  # todo1: test and solve Fn at Ghostty
         """Form a macOS Ghostty Keyboard, as a diff from Apple Terminal"""
