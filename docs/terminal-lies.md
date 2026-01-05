@@ -67,6 +67,8 @@ c ) The Ghostty sends something else for ⌃I and ⌃M, so there instead you mus
 
 d ) The Google Cloud Shell takes away ⌃B, you have to strike it twice. And its ⌃M never works, you must strike its ⏎ Return Key. And whether its ⇥ Tab Key works is what its ⌃M toggles on and off. So when it's toggled off, there you must strike its ⌃I instead. And its ⌃⇧? and ⌃/ send no Codes, and its ⌃/ beeps. Its ⌃[ does work as well as its Esc Key, but they're both weirdly slow, like always at least 500ms per Key Strike
 
+e ) The Google Cloud Shell sometimes takes away ⌃C. That's why we code ⌃\ as an alternative for ⌃C, much like the Shell does
+
 ### Each different Key Chord sends different Bytes (Lie 1.2)
 
     cat - >/dev/null
