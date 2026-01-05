@@ -4,16 +4,17 @@
 Two dozen lies that too many Terminal Programs tell themselves
 
 - [1. About Input Bytes read from the Terminal Touch/ Tap/ Key-Strike](#1-about-input-bytes-read-from-the-terminal-touch-tap-key-strike)
-  - [Each different Key Chord sends different Bytes (Lie 1.1)](#each-different-key-chord-sends-different-bytes-lie-11)
-  - [Key Chords send the same Bytes through your Terminal and mine (Lie 1.2)](#key-chords-send-the-same-bytes-through-your-terminal-and-mine-lie-12)
-  - [You can know which Sets of Key Chords send the same Bytes (Lie 1.3)](#you-can-know-which-sets-of-key-chords-send-the-same-bytes-lie-13)
-  - [You can know when the Bytes of one Key Chord end before the start of the next (Lie 1.4)](#you-can-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next-lie-14)
-  - [You can't know when the Bytes of one Key Chord end before the start of the next (Lie 1.5)](#you-cant-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next-lie-15)
-  - [Key Chords send the same Character through your App and mine (Lie 1.6)](#key-chords-send-the-same-character-through-your-app-and-mine-lie-16)
-  - [You can know which Key Chords send any Bytes at all (Lie 1.7)](#you-can-know-which-key-chords-send-any-bytes-at-all-lie-17)
-  - [Similar Key Chords work similarly at your Terminal App (Lie 1.8)](#similar-key-chords-work-similarly-at-your-terminal-app-lie-18)
-  - [The Bytes sent by striking some Key Chords always come again only from striking Key Chords (Lie 1.9)](#the-bytes-sent-by-striking-some-key-chords-always-come-again-only-from-striking-key-chords-lie-19)
-  - [That Key Chord that worked for you yesterday will work today too (Lie 1.10)](#that-key-chord-that-worked-for-you-yesterday-will-work-today-too-lie-110)
+  - [You can know which Key Chords will send each of the 128 US Ascii Bytes (Lie 1.1)](#you-can-know-which-key-chords-will-send-each-of-the-128-us-ascii-bytes-lie-11)
+  - [Each different Key Chord sends different Bytes (Lie 1.2)](#each-different-key-chord-sends-different-bytes-lie-12)
+  - [Key Chords send the same Bytes through your Terminal and mine (Lie 1.3)](#key-chords-send-the-same-bytes-through-your-terminal-and-mine-lie-13)
+  - [You can know which Sets of Key Chords send the same Bytes (Lie 1.4)](#you-can-know-which-sets-of-key-chords-send-the-same-bytes-lie-14)
+  - [You can know when the Bytes of one Key Chord end before the start of the next (Lie 1.5)](#you-can-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next-lie-15)
+  - [You can't know when the Bytes of one Key Chord end before the start of the next (Lie 1.6)](#you-cant-know-when-the-bytes-of-one-key-chord-end-before-the-start-of-the-next-lie-16)
+  - [Key Chords send the same Character through your App and mine (Lie 1.7)](#key-chords-send-the-same-character-through-your-app-and-mine-lie-17)
+  - [You can know which Key Chords send any Bytes at all (Lie 1.8)](#you-can-know-which-key-chords-send-any-bytes-at-all-lie-18)
+  - [Similar Key Chords work similarly at your Terminal App (Lie 1.9)](#similar-key-chords-work-similarly-at-your-terminal-app-lie-19)
+  - [The Bytes sent by striking some Key Chords always come again only from striking Key Chords (Lie 1.10)](#the-bytes-sent-by-striking-some-key-chords-always-come-again-only-from-striking-key-chords-lie-110)
+  - [That Key Chord that worked for you yesterday will work today too (Lie 1.11)](#that-key-chord-that-worked-for-you-yesterday-will-work-today-too-lie-111)
 - [2. About Output Bytes written to the Terminal Screen](#2-about-output-bytes-written-to-the-terminal-screen)
   - [Every Character looks a little different when printed (Lie 2.1)](#every-character-looks-a-little-different-when-printed-lie-21)
   - [Every Character can be encoded as a UTF-8 SurrogateEscape Byte Sequence (Lie 2.2)](#every-character-can-be-encoded-as-a-utf-8-surrogateescape-byte-sequence-lie-22)
@@ -37,14 +38,43 @@ As posted by Pat LaVarre & friends, Jan/2026
 
 ## 1. About Input Bytes read from the Terminal Touch/ Tap/ Key-Strike
 
-### Each different Key Chord sends different Bytes (Lie 1.1)
+### You can know which Key Chords will send each of the 128 US Ascii Bytes (Lie 1.1)
+
+If you try enough variations, you do get there, but at every different Terminal App you need its variations
+
+The 95 Printable US Ascii Bytes are no problem
+
+    cat - >/dev/null
+        # strike the Spacebar by itself
+        # strike ⇧! ⇧" ⇧# ⇧$ ⇧% ⇧& ' ⇧( ⇧) ⇧* ⇧+ , - . /
+        # strike 0 through 9 and ⇧: ; ⇧< = ⇧> ⇧?
+        # strike ⇧@ and ⇧A through ⇧Z and [ \ ] ⇧^ ⇧_
+        # strike ` and A through Z and ⇧{ ⇧| ⇧} ⇧~
+
+It's the Control Bytes that trouble you. To find those, you can try a broad survey of possible solutions
+
+        # strike ⌃ Spacebar and ⌃A and ⌃B through ⌃Z and ⌃[ ⌃] ⌃\ ⌃⇧^ ⌃⇧_
+        # strike ⇥ as well as ⌃I, strike ⏎ as well as ⌃M
+        # strike ⌫ as well as ⌃⇧?
+
+macOS and Linux, same today as last century, will echo ^? to speak of \177 inside of `stty erase undef && cat - >/dev/null'. All the same, Terminal life is not so simple now as to say you can press ⌃⇧? to send \177
+
+a ) The Apple macOS Terminal rejects the classic ⌃⇧? and ⌃/ for \177, so there instead you must strike its ⌫ Delete Key
+
+b ) The macOS iTerm2 does accept the classic ⌃⇧? or the macOS ⌫ for \177 but its ⌃/ is something else
+
+c ) The Ghostty sends something else for ⌃I and ⌃M, so there instead you must learn to strike its ⇥ Tab and ⏎ Return Keys. And its ⌃⇧? and ⌃/ both don't mean \177, so there instead you must strike its ⌫ Delete Key, same as an Apple macOS Terminal
+
+d ) The Google Cloud Shell takes away ⌃B, you have to strike it twice. And its ⌃M never works, you must strike its ⏎ Return Key. And whether its ⇥ Tab Key works is what its ⌃M toggles on and off. So when it's toggled off, there you must strike its ⌃I instead. And its ⌃⇧? and ⌃/ send no Codes, and its ⌃/ beeps. Its ⌃[ does work as well as its Esc Key, but they're both weirdly slow, like always at least 500ms per Key Strike
+
+### Each different Key Chord sends different Bytes (Lie 1.2)
 
     cat - >/dev/null
         # strike Esc
         # strike ⇧ Esc
             # see the same ^[ from both
 
-### Key Chords send the same Bytes through your Terminal and mine (Lie 1.2)
+### Key Chords send the same Bytes through your Terminal and mine (Lie 1.3)
 
     cat - >/dev/null
         # strike ⌥←
@@ -58,7 +88,7 @@ As posted by Pat LaVarre & friends, Jan/2026
 
 Google Cloud Shell eventually distributed consistency across Apple Safari and Google Chrome. But we know they couldn't do simultaneous consistent delivery back then. So maybe they still can't today. We can't know more without paying for more test
 
-### You can know which Sets of Key Chords send the same Bytes (Lie 1.3)
+### You can know which Sets of Key Chords send the same Bytes (Lie 1.4)
 
     cat - >/dev/null
         # strike ↓
@@ -67,7 +97,7 @@ Google Cloud Shell eventually distributed consistency across Apple Safari and Go
             # see ^[B from ↓ and ^[[1;2B from ⇧↓ at macOS iTerm2
             # see no bytes sent by Google Cloud Shell
 
-### You can know when the Bytes of one Key Chord end before the start of the next (Lie 1.4)
+### You can know when the Bytes of one Key Chord end before the start of the next (Lie 1.5)
 
     cat - >/dev/null
         # strike Esc
@@ -77,7 +107,7 @@ Google Cloud Shell eventually distributed consistency across Apple Safari and Go
 
 Similarly, striking ⌥⇧O to mean ⎋⇧O comes across as ^[O as a whole Key Chord struck when you test the Settings > Keyboard > Use Option As Meta Key mode of an Apple macOS Terminal. But Fn F1 is ^[OP. Were you done after the ^[O part? You cannot know, until after you learn how to ask
 
-### You can't know when the Bytes of one Key Chord end before the start of the next (Lie 1.5)
+### You can't know when the Bytes of one Key Chord end before the start of the next (Lie 1.6)
 
     sleep 1 && printf '\033[5n' && cat - >/dev/null
         # strike Esc during the Sleep
@@ -85,7 +115,7 @@ Similarly, striking ⌥⇧O to mean ⎋⇧O comes across as ^[O as a whole Key C
 
 Ta da, you can learn to ask if the Key Chord has ended. This technique works pretty well, but still gets wrong the astonishingly slow ⌥⎋ corner of Google Cloud Shell wrong, also known as ⎋⎋. And still gets wrong the Intercardinal Arrows, wrongly splitting ↖ ↗ ↘ ↙ into ↑← ↑→ ↓→ ↓←
 
-### Key Chords send the same Character through your App and mine (Lie 1.6)
+### Key Chords send the same Character through your App and mine (Lie 1.7)
 
     cat - >/dev/null
         # strike ⌥ Y
@@ -94,7 +124,7 @@ Ta da, you can learn to ask if the Key Chord has ended. This technique works pre
 
 Similarly, ⌃⌥⇧ B means ⌥⇧← inside a macOS Notepad, but beeps inside a macOS Terminal. Apps disagree
 
-### You can know which Key Chords send any Bytes at all (Lie 1.7)
+### You can know which Key Chords send any Bytes at all (Lie 1.8)
 
     cat - >/dev/null
         # strike ⇧F1
@@ -103,7 +133,7 @@ Similarly, ⌃⌥⇧ B means ⌥⇧← inside a macOS Notepad, but beeps inside 
 
 Apple macOS Terminal has many pages of Settings. You can intervene separately at each macBook and ask for ⇧F1 to work. But this Key Chord, like many Key Chords, don't work by default
 
-### Similar Key Chords work similarly at your Terminal App (Lie 1.8)
+### Similar Key Chords work similarly at your Terminal App (Lie 1.9)
 
 After you test Z, you still must test A, B, C, F, I, and M, or you'll miss corners that I've found. These are corners found just in the puzzle of which Key Chords sends which Bytes, quite apart from what those Bytes do when they arrive, like how sharply your Shell distinguishes C, D, T, Z, and \
 
@@ -113,7 +143,7 @@ F1, F3, F7, F8, and F11 have surprised me by working differently than the other 
 
 I'm curious to learn if Ghostty people mean for their ⌃⇧@ and the three ⌃⇧{ ⌃⇧} ⌃⇧| to work so differently, mixing Shifts Index 5 in with their usual choice of Shifts Index 6 for encoding ⌃⇧ Key Chords. Similarly, do they really mean for their ⎋⌃⇧{ ⎋⌃⇧} ⎋⌃⇧| to mix Shifts Index 7 in with their usual choice of Shifts Index 8 for encoding ⎋⌃⇧ Key Chords. How can we ever know? The Internet is so large
 
-### The Bytes sent by striking some Key Chords always come again only from striking Key Chords (Lie 1.9)
+### The Bytes sent by striking some Key Chords always come again only from striking Key Chords (Lie 1.10)
 
 Actually, the people choosing standards for Screen Bytes and Keyboard Bytes don't quite always avoid stepping on each other
 
@@ -125,7 +155,7 @@ And the people choosing standards for Mouse Bytes and Keyboard Bytes don't quite
 
 Similarly, ⎋[⇧M can come from a strike of the ⌥⇧M Key or from a Mouse Press/ Release. When it comes from the Mouse Press/ Release then it's not complete in itself, it sends another three Bytes
 
-### That Key Chord that worked for you yesterday will work today too (Lie 1.10)
+### That Key Chord that worked for you yesterday will work today too (Lie 1.11)
 
 This can be true in places, but . . .
 
