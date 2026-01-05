@@ -959,14 +959,15 @@ class KeycapsGame:
         text = tangible_keyboard
         for cap in exit_caps:
             render = cap
+            repl = enter + render + exit
 
-            regex = r"( |\n|^)(" + re.escape(render) + r")( |\n|$)"  # todo2: merge 3 copies
+            regex = r"( |\n|^)(" + re.escape(render) + r")( |\n|$)"  # todo2: merge 4 copies
             matches = list(re.finditer(regex, string=text))
+            assert len(matches) == 1, (matches, regex, render)
             m = matches[-1]
             assert m.group(2) == render
-            index = m.start() + len(m.group(1))
 
-            repl = enter + render + exit
+            index = m.start() + len(m.group(1))
             text = text[:index] + repl + text[index + len(render) :]
 
         dent = 4 * " "
@@ -1064,7 +1065,7 @@ class KeycapsGame:
         echoes = keyboard.split()
         for echo in echoes:
             echo_plus = shifts + ("␢" if (echo == "Spacebar") else echo.upper())
-            echo_plus_key = (shifts + "F5") if (echo == "Fn") else echo_plus
+            echo_plus_key = (shifts + "F5") if (echo == "Fn") else echo_plus  # todo1: Fn if any Fn
 
             tangible = False
             if echo_plus_key in decode_by_echo.keys():
@@ -1080,13 +1081,20 @@ class KeycapsGame:
 
             if not tangible:
                 if (echo == "⎋") or (echo not in tuple(shifts)):
+                    render = echo
 
                     repl = len(echo) * " "
                     if (echo == "⌥") and ("⎋" in shifts):
                         repl = "⎋"
 
-                    count_eq_1 = 1
-                    keyboard = keyboard.replace(echo, repl, count_eq_1)
+                    regex = r"( |\n|^)(" + re.escape(render) + r")( |\n|$)"  # todo2: merge 4 copies
+                    matches = list(re.finditer(regex, string=keyboard))
+                    assert matches, (matches, regex, render)
+                    for m in matches[:1]:
+                        assert m.group(2) == render
+
+                        index = m.start() + len(m.group(1))
+                        keyboard = keyboard[:index] + repl + keyboard[index + len(render) :]
 
         return keyboard
 
@@ -1191,10 +1199,12 @@ class KeycapsGame:
         wipeouts.clear()
 
         for render in renders:
-            regex = r"( |\n|^)(" + re.escape(render) + r")( |\n|$)"  # todo2: merge 3 copies
-            m = re.search(regex, string=tangible_keyboard)
+            regex = r"( |\n|^)(" + re.escape(render) + r")( |\n|$)"  # todo2: merge 4 copies
+            matches = list(re.finditer(regex, string=tangible_keyboard))
+            assert len(matches) == 1, (matches, regex, render)
+            m = matches[-1]
+            assert m.group(2) == render
 
-            assert m, (m, regex, render, tangible_keyboard)
             self.kc_wipeout_else_restore(m)
 
         assert wipeouts == renders, (wipeouts, renders)
@@ -1209,8 +1219,8 @@ class KeycapsGame:
 
         assert echoes, (echoes,)
 
-        renders = list()
-        matches = list()
+        renders: list[str] = list()
+        matches: list[re.Match[str]] = list()
 
         shifts = self.shifts
         for echo in echoes:
@@ -1226,8 +1236,13 @@ class KeycapsGame:
 
             # Remember where found
 
-            regex = r"( |\n|^)(" + re.escape(render) + r")( |\n|$)"  # todo2: merge 3 copies
-            m = re.search(regex, string=tangible_keyboard)
+            regex = r"( |\n|^)(" + re.escape(render) + r")( |\n|$)"  # todo2: merge 4 copies
+            more_matches = list(re.finditer(regex, string=tangible_keyboard))
+            m: re.Match[str] | None = None
+            if more_matches:
+                assert len(more_matches) == 1, (matches, regex, render)
+                m = more_matches[-1]
+                assert m.group(2) == render
 
             if _shifts_ != shifts:
                 pass  # logger_print(f"{_cap_!r} {echo!r}  # dropped for {_shifts_!r} vs {shifts!r}")
@@ -4204,6 +4219,9 @@ class KeyboardDecoder:
         shifts = "⌃⌥⇧"
         shifts_index = 8
 
+        self._keyboard_add_("⌃⌥⇧B", cap_strikes="002")  # ⌃B
+        self._keyboard_add_("⌃⌥⇧F", cap_strikes="006")  # ⌃F
+
         self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
         self._add_twelve_fn_(shifts, f3_strike="⎋[1;8⇧R", shifts_index=shifts_index)
 
@@ -4423,6 +4441,8 @@ class KeyboardDecoder:
             octet = f"{ord(cap.lower()):03o}"
             cap.lower()
             self._keyboard_shifts_patch_(echo, octet=octet, csi="u", shifts_index=shifts_index)
+
+        self._keyboard_patch_("⎋⌃⇧␢", cap_strikes="033.000")  # Spacebar
 
         self._keyboard_arrow_patch_(shifts, caps="←↑→↓", shifts_index=shifts_index)
 
@@ -6137,8 +6157,6 @@ class KeyboardScreenIOWrapper:
 
         if ks:
             ks.__enter__()
-
-        # KeyboardScreenIOWrapper._breakpoint_()
 
     def __enter__(self) -> KeyboardScreenIOWrapper:
         r"""Stop line-buffering Input, stop taking \n Output as \r\n, etc"""
