@@ -91,7 +91,7 @@ if not __debug__:
 ImportStamp = dt.datetime.now().astimezone()
 
 
-Apple = "\uf8ff"  # Apple  occupies U+F8FF = last of U+E000 .. U+F8FF Private Use Area (PUA)
+AppleLogo = "\uf8ff"  # Apple  occupies U+F8FF = last of U+E000 .. U+F8FF Private Use Area (PUA)
 
 default_eq_None = None  # spells out 'default=None' where Python forbids that
 
@@ -2963,11 +2963,11 @@ class ScreenWriter:
         ks = self.keyboard_screen_i_o_wrapper
 
         printable = text  # alias
-        assert printable.replace(Apple, "-").isprintable(), (printable,)
+        assert printable.replace(AppleLogo, "-").isprintable(), (printable,)
 
         assert CUF_X == "\033[" "{}" "C"
         assert CUB_X == "\033[" "{}" "D"
-        assert Apple == "\uf8ff"
+        assert AppleLogo == "\uf8ff"
 
         # Trust the Terminal to write well
 
@@ -2994,15 +2994,19 @@ class ScreenWriter:
 
                     # todo8: double-wide chars in the far East and far Southeast
 
-        # "Ambiguous"[0]  # ¡ ¤ § ® Ø ß ± ¶ ↖ ↗ ↘ ↙ € Ω Ⅷ 
-        # "Narrow"[:2]  # ¢ and £ and the Printable US Ascii
-        # "Neutral"[0]  # © « µ » ñ
-
-        # "Halfwidth"[0]  # Hangul, Katakana, & Halfwidth ￭ ￮
-        # "Fullwidth"[0]  # ０ ９ Ａ Ｚ ￥ ￦  # U+3000 Ideographic Space
-        # "Wide"[0]  # ☕ ☰ ♿ 🌅 🌐 💾 💿 🔍 🔰 😃 🛼
-
-        # also Wide are ♿ ⚪⚫ ⬛⬜ 🔰 🔴🔵 😃 🛼 🟠🟡🟢🟣🟤 🟥🟦🟧🟨🟩🟪🟫
+        #
+        # Results at unicodedata.east_asian_width
+        #
+        #   "Ambiguous"[0]  # ¡ ¤ § ® ± ¶ Ø ß and € Ω Ⅷ  and ← ↑ → ↓ ↖ ↗ ↘ ↙ 
+        #   "Narrow"[:2]  # ¢ and £ and the Printable US Ascii
+        #   "Neutral"[0]  # © « µ » ñ
+        #
+        #   "Halfwidth"[0]  # Hangul, Katakana, & Halfwidth ￭ ￮
+        #   "Fullwidth"[0]  # ０ ９ Ａ Ｚ ￥ ￦  # U+3000 Ideographic Space
+        #   "Wide"[0]  # ☕ ☰ ♿ 🌅 🌐 💾 💿 🔍 🔰 😃 🛼
+        #
+        #   also Wide are ♿ ⚪⚫ ⬛⬜ 🔰 🔴🔵 😃 🛼 🟠🟡🟢🟣🟤 🟥🟦🟧🟨🟩🟪🟫
+        #
 
         # todo: every mention of  in Source makes Code Patches difficult to send across platforms
 
@@ -3877,7 +3881,7 @@ class KeyboardDecoder:
     def _form_macos_keyboards_(self) -> None:
         """Form the ordinary Apple macBook Keyboards of Codes sent by Caps"""
 
-        assert Apple == "\uf8ff"
+        assert AppleLogo == "\uf8ff"
 
         # 1 ''
 
@@ -3952,7 +3956,7 @@ class KeyboardDecoder:
 
         # 6 ⌥⇧
 
-        shifts = "⌥⇧"  # ⌥⇧K sends Apple Logo, coded here as \uf8ff
+        shifts = "⌥⇧"  # ⌥⇧K sends AppleLogo, coded here as \uf8ff
         strikes = """
             033
             140 ⁄ € ‹ › ﬁ ﬂ ‡ ° · ‚ — ± 177
@@ -5774,7 +5778,7 @@ class BytesBox:
         try:
             text = self.data.decode()
             return text
-        except UnicodeDecodeError:
+        except UnicodeDecodeError:  # common with partial .data
             return ""
 
     @functools.cached_property
@@ -5784,7 +5788,7 @@ class BytesBox:
         data = self.data
         text = self.text
 
-        assert Apple == "\uf8ff"
+        assert AppleLogo == "\uf8ff"  # .isprintable says False
 
         if not data:
             assert not text, (data, text)
@@ -5793,7 +5797,7 @@ class BytesBox:
         if not text:
             return False
 
-        printable = text.replace(Apple, "-").isprintable()
+        printable = text.replace(AppleLogo, "-").isprintable()
 
         return printable
 
@@ -6022,7 +6026,7 @@ def _try_unicode_source_texts_() -> None:
 
     # not yet an official standard
 
-    assert Apple == "\uf8ff"  # U+F8FF  # last of U+E000 .. U+F8FF Private Use Area (PUA)
+    assert AppleLogo == "\uf8ff"  # U+F8FF  # last of U+E000 .. U+F8FF Private Use Area (PUA)
 
     # 2 Comic Colors from Apr/2008 Unicode 5.1
 
