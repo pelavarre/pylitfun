@@ -1,3 +1,0 @@
-#!/bin/sh
-# pbpaste >./__pycache__/-1, and/or cat ./__pycache_/-1 |pbcopy && pbpaste
-$(dirname "$0")/pylitfun/litshell.py --shfile="$0" "$@"

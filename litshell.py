@@ -1,31 +1,36 @@
 #!/usr/bin/env python3
 
 """
-usage: pylitfun/litshell.py [--help] [--shfile SHFILE] [SHWORD ...]
+usage: litshell.py [--help] [BRICK ...]
 
-abbreviate Shell commands, but do show them in full
+greatly abbreviate Shell commands, but do show them in full
 
 positional arguments:
-  SHWORD           option or positional argument of Shell
+  BRICK            the Name of a Brick of the Shell Pipe (or a quoted Command Line for it)
 
 options:
-  --help           show this help message and exit (-h is for Shell, not for LitShell·Py)
-  --shfile SHFILE  a filename as the Shell alias to decode (default: '/dev/null/p')
+  --help           show this help message and exit (-h is for a Brick, not for LitShell·Py)
 
 examples:
-  p
-  ./litshell.py --shfile=~/p
-  : p ... && python3 -i -c ''
+  0
+  0 upper
+  0 'upper -h'
+  1
 """
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
 
 
+from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
+
 import __main__
-import difflib
 import os
+import pathlib
+import shutil
 import signal
+import subprocess
 import sys
+import textwrap
 import typing
 
 if not __debug__:
@@ -35,133 +40,277 @@ if not __debug__:
 assert int(0x80 + signal.SIGINT) == 130
 
 
-# Disclose two dozen everyday Shell Idioms
-
-ShlinePlusByShverb = {  # sorted by key
-    #
-    "a": "|awk 'NF{print $NF}'",  # todo: awk.py
-    "b": "env -i bash --noprofile --norc",
-    "c": "|cat -",  # todo: cat.py
-    "d": "diff -brpu a b",  # todo: spell out what -b -r -p -u mean
-    "e": "emacs -nw --no-splash --eval '(menu-bar-mode -1)'",  # -Q
-    #
-    "f": "find .",  # todo: find.py
-    "g": "|grep.py ...",  # ==> |grep -ai -e ... -e ...
-    "h": "head -9",
-    "i": "tr ' ' '\n'",  # as in Python str.split(" "), unlike Python str.split()
-    "j": "|jq .",  # todo: jq.py
-    #
-    "k": "|less -FIRX",  # todo: spell out what -F -I -R -X mean
-    "l": "ls -hlAF -rt",  # unlike the subculture of alias l='ls -CF'
-    "m": "",  # todo vs "m": "make help"
-    "n": "|nl -pba -v0 |expand",  # todo: spell out what -p -b -a -v0 mean  # todo: take -v as arg
-    "o": "|textwrap.py ↓ → ← ↑",  # just '→' for textwrap.dedent, not '→ →' for str.lstrip
-    #
-    "p": "python.py -i -c ''",  # todo: hint an awkish python program to write & run  # p line len
-    "q": "",
-    "r": "|tac or |tail -r",
-    "s": "LC_ALL=C sort -n",  # todo: sort.py
-    "t": "tail -9",
-    #
-    "u": "|uniq -c |expand",  # todo: spell out what -c means
-    "v": "vim -u /dev/null -y",  # todo: spell out what -u -y mean
-    "w": "wc -l",  # todo: uncollide with /usr/bin/w
-    "x": "|xargs",  # todo: spell out what -n -P mean
-    "y": "yes|",  # todo: yq.py
-    "z": "env -i zsh -f",  # todo: spell out what -f means
-    #
-}
-
-# todo: echo $PATH |i :
-
-
-_a_ = list(ShlinePlusByShverb.keys())
-_b_ = sorted(_a_)
-_diffs_ = list(difflib.unified_diff(a=_a_, b=_b_, fromfile="a", tofile="b", lineterm=""))
-if _diffs_:
-    print("\n".join(_diffs_), file=sys.stderr)
-assert not _diffs_, (_diffs_,)
-
-
 def main() -> None:
+    """Run from the Shell Command Line"""
 
     shg = ShellGopher()
-    shg.go_for_it()
+    shg.compile_pipe_if(sys.argv[1:])
+    shg.run_pipe()
 
 
 class ShellGopher:
+    """Init and run, once"""
 
-    def go_for_it(self) -> None:
+    data: bytes = b""
 
-        # Fail if no Shell Args
+    bricks: list[ShellBrick] = list()
 
-        if not sys.argv[1:]:
-            print("usage: litshell.py [--help] [--shfile SHFILE] [SHWORD ...]", file=sys.stderr)
-            sys.exit(2)  # exits 2 for bad args
+    #
+    # Make a Shell Pipe by stringing Bricks together in a Line
+    #
 
-        # Find the Shell Verb and the Shell Args after it
+    def compile_pipe_if(self, argv_minus: list[str]) -> None:
+        """Compile each Brick"""
 
-        self.exit_if_dash_dash_help()
-
-        shfile_shargv = self.dash_dash_shfile_shargv(sys.argv, default="/dev/null/g")
-
-        shverb = os.path.basename(shfile_shargv[0])
-        assert shverb, (shfile_shargv, shverb)
-        shverb_shargv = (shverb, *shfile_shargv[1:])
-
-        print(shverb_shargv)
-
-    def exit_if_dash_dash_help(self) -> None:
-        """Print the Doc and exit zero, if '--help' in the Shell Args"""
-
-        if "--help" in sys.argv[1:]:
-            print(__main__.__doc__, file=sys.stderr)
+        if not argv_minus:
+            self.print_help()
             sys.exit(0)  # exits 0 after printing Help
 
-    def dash_dash_shfile_shargv(
-        self, sys_argv: typing.Iterable[str], default: str
-    ) -> tuple[str, ...]:
-        """Move the '--shfile FILE' into ArgV 0 when given as 1 or 2 Shell Args"""
+        self.compile_brick_if("__enter__")
+        for arg in argv_minus:
+            self.compile_brick_if(arg)
+        self.compile_brick_if("__exit__")
 
-        tuple_sys_argv = tuple(sys_argv)
-        assert tuple_sys_argv, (tuple_sys_argv,)
+    def compile_brick_if(self, arg: str) -> None:
+        """Compile one Brick"""
 
-        # Fail if no Shell Args
+        bricks = self.bricks
 
-        default_shargv = (default, *tuple_sys_argv[1:])
-        if not tuple_sys_argv[1:]:
-            return default_shargv
+        if arg.startswith("--h") and "--help".startswith(arg):
+            self.print_help()
+            sys.exit(0)  # exits 0 after printing Help
 
-        # Fail if the '--shfile' option isn't the leading Shell Arg
+        brick = ShellBrick(self, verb=arg)
+        if not brick.func:
+            print(f"Undefined Brick:  {arg!r}", file=sys.stderr)
+            sys.exit(2)  # exits 2 for bad Args
 
-        sys_argv_1 = tuple_sys_argv[1]
-        (head, sep, tail) = sys_argv_1.partition("--shfile=")
-        if head or (not sep):
-            return default_shargv
+        bricks.append(brick)
 
-        # Fail if the '--shfile' option carries no Pathname
+    def print_help(self) -> None:
+        """Print the Doc and exit zero, if '--help' in the Shell Args"""
 
-        pathname = tail  # like from --shfile=/dev/null/g
-        shargv = (pathname, *tuple_sys_argv[2:])
+        doc = __main__.__doc__
+        assert doc, (doc,)
+        text = textwrap.dedent(doc).strip()
 
-        if not tail:
-            if not tuple_sys_argv[2:]:
-                return default_shargv
+        print(text, file=sys.stderr)
 
-            sys_argv_2 = tuple_sys_argv[1]
+    #
+    # Run the compiled Shell Pipe
+    #
 
-            pathname = sys_argv_2  # like from --shfile /dev/null/g
-            shargv = (pathname, *sys.argv[3:])
+    def run_pipe(self) -> None:
+        """Run each Compiled Brick in order"""
 
-        # Fail if the --shfile=Pathname carries no Basename
+        bricks = self.bricks
 
-        shverb = os.path.basename(pathname)
-        if not shverb:
-            return default_shargv
+        for brick in bricks:
+            brick.run_as_brick()
 
-        # Else succeed
 
-        return shargv
+class ShellBrick:
+    """Say how to call a Shell Verb"""
+
+    shell_gopher: ShellGopher
+    func: typing.Callable[..., None] | None
+    verb: str
+
+    #
+    # Init, enter, & exit
+    #
+
+    def __init__(self, shell_gopher: ShellGopher, verb: str) -> None:
+        self.shell_gopher = shell_gopher
+        self.verb = verb
+
+        func_by_verb = {
+            "__enter__": self.run_enter,
+            "__exit__": self.run_exit,
+            #
+            "0": self.run_digit_zero,
+            "1": self.run_digit_one,
+            "2": self.run_digit_two,
+            "3": self.run_digit_three,
+            #
+            "casefold": self.run_str_casefold,
+            "lower": self.run_str_lower,
+            "title": self.run_str_title,
+            "upper": self.run_str_upper,
+        }
+
+        default_eq_none = None
+        func = func_by_verb.get(verb, default_eq_none)
+        self.func = func
+
+    def run_as_brick(self) -> None:
+        """Run Self as a Shell Pipe Brick"""
+
+        func = self.func
+        assert func
+
+        func()
+
+    def run_exit(self) -> None:
+        """Exit the Shell Pipe"""
+
+        sg = self.shell_gopher
+        data = sg.data
+
+        self.pbcopy(data)
+
+        path = pathlib.Path(str(0))
+        path.write_bytes(data)
+
+        fileno = sys.stdout.fileno()
+        os.write(fileno, data)
+
+    def run_enter(self) -> None:
+        """Enter the Shell Pipe"""
+
+        pass
+
+    #
+    # Work with our Stack of 4 Revisions of the Paste Buffer
+    #
+
+    def run_digit_one(self) -> None:
+        self._run_digit_n_(1)
+
+    def run_digit_two(self) -> None:
+        self._run_digit_n_(2)
+
+    def run_digit_three(self) -> None:
+        self._run_digit_n_(3)
+
+    def _run_digit_n_(self, n: int) -> None:
+        """Push a copy of the Nth Old Revision of the Paste Buffer into the Stack"""
+
+        print(f"+ cat {n} |pbcopy", file=sys.stderr)
+        path = pathlib.Path(str(n))
+        data = path.read_bytes()
+        self.pbcopy(data)
+
+        self.run_digit_zero()
+
+    def run_digit_zero(self) -> None:
+        """Push the Paste Buffer into the Stack"""
+
+        sg = self.shell_gopher
+
+        print("+ mv 2 3 && mv 1 2 && mv 0 1 && touch 0", file=sys.stderr)
+        self.push_paste_buffers()
+
+        data = self.pbpaste()
+        sg.data = data
+
+    def push_paste_buffers(self) -> None:
+        """Push one Empty File into the Stack"""
+
+        # Bring the 4 Cells of the Stack into existence, if need be
+
+        for pathindex in (3, 2, 1, 0):
+            path = pathlib.Path(str(pathindex))
+            if not path.exists():
+                path.write_text("")
+
+        # Keep 3 Cells of the Stack
+
+        for pathindex in (3, 2, 1):
+            from_pathindex = pathindex - 1
+            shutil.move(src=str(from_pathindex), dst=str(pathindex))
+
+        # Push an one Empty File
+
+        path = pathlib.Path(str(0))
+        path.write_text("")
+
+    def pbpaste(self) -> bytes:
+        """Pull Bytes from the Os Copy/Paste Clipboard Buffer"""
+
+        run = subprocess.run(
+            ["pbpaste"], stdin=subprocess.DEVNULL, check=True, stdout=subprocess.PIPE
+        )
+
+        returncode = run.returncode
+        if returncode:
+            print(f"+ exit {returncode}", file=sys.stderr)
+            sys.exit(returncode)
+
+        data = run.stdout
+
+        return data
+
+    def pbcopy(self, data: bytes) -> None:
+        """Push Bytes into the Os Copy/Paste Clipboard Buffer"""
+
+        run = subprocess.run(["pbcopy"], input=data, check=True, stdout=subprocess.PIPE)
+
+        returncode = run.returncode
+        if returncode:
+            print(f"+ exit {returncode}", file=sys.stderr)
+            sys.exit(returncode)
+
+    #
+    # Work with the File as Bytes
+    #
+
+    def fetch_bytes(self) -> bytes:
+        """Fetch the File as Bytes"""
+
+        sg = self.shell_gopher
+        data = sg.data
+
+        return data
+
+    #
+    # Work with the File as Str
+    #
+
+    def fetch_str(self) -> str:
+        """Fetch the File as Str"""
+
+        sg = self.shell_gopher
+        data = sg.data
+
+        decode = data.decode()  # may raise UnicodeDecodeError
+        return decode
+
+    def store_str(self, text: str) -> None:
+        """Store the File from Str"""
+
+        sg = self.shell_gopher
+        encode = text.encode()  # may raise UnicodeEncodeError
+
+        sg.data = encode
+
+    def run_str_casefold(self) -> None:
+        """Change the File to be all Lower Case"""
+
+        itext = self.fetch_str()
+        otext = itext.casefold()
+        self.store_str(otext)
+
+    def run_str_lower(self) -> None:
+        """Change the File to be all Lower Case"""
+
+        itext = self.fetch_str()
+        otext = itext.lower()
+        self.store_str(otext)
+
+    def run_str_title(self) -> None:
+        """Change the File to be all Title Case"""
+
+        itext = self.fetch_str()
+        otext = itext.title()
+        self.store_str(otext)
+
+    def run_str_upper(self) -> None:
+        """Change the File to be all Upper Case"""
+
+        itext = self.fetch_str()
+        otext = itext.upper()
+        self.store_str(otext)
 
 
 #

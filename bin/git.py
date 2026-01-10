@@ -98,12 +98,14 @@ assert not _diffs_, (_diffs_,)
 
 
 def main() -> None:
+    """Run from the Shell Command Line"""
 
     gg = GitGopher()
     gg.go_for_it()
 
 
 class GitGopher:
+    """Init and run, once"""
 
     def go_for_it(self) -> None:
 

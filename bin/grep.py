@@ -36,12 +36,14 @@ if not __debug__:
 
 
 def main() -> None:
+    """Run from the Shell Command Line"""
 
     gg = GrepGopher()
     gg.go_for_it()
 
 
 class GrepGopher:
+    """Init and run, once"""
 
     def go_for_it(self) -> None:
 

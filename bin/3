@@ -1,0 +1,3 @@
+#!/bin/sh
+# (cat 3 |pbcopy) && mv 2 3 && mv 1 2 && mv 0 1 && touch 0 && (pbpaste |... |pbcopy) >0
+$(dirname "$0")/pylitfun/litshell.py 3 "$@"
