@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-usage: litshell.py [-h] [--sep SEP] [--start START] [BRICK ...]
+usage: litshell.py [-h] [-V] [--sep SEP] [--start START] [BRICK ...]
 
 greatly abbreviate Shell commands, but do show them in full
 
@@ -10,6 +10,7 @@ positional arguments:
 
 options:
   -h, --help     show this help message and exit
+  -V, --version  show version numbers and exit
   --sep SEP      a separator, such as ' ' or ',' or ', '
   --start START  a starting index, such as 0 or 1
 
@@ -18,13 +19,18 @@ famous bricks:
   awk bytes chars counter data dent enumerate head join lines len
   reverse reversed set splitlines strip sort sorted sum tail words
 
-examples:
+examples:1
+  cat README.md |pb
+  pb |wc -l
+  pb str set join
+  pb str set sort join
+  pb str set sort join --sep=''
+  echo Hello Shell Pipe Filter Brick World |pbcopy
+  pb
   0
   0 upper
   1
-  cat README.md |pb
-  pb str set join
-  pb str sort set join
+  1
 """
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -37,7 +43,9 @@ import argparse
 import collections
 import collections.abc  # .collections.abc is not .abc  # typing.Callable isn't here either
 import dataclasses
+import datetime as dt
 import difflib
+import hashlib
 import os
 import pathlib
 import shutil
@@ -57,7 +65,8 @@ def main() -> None:
     """Run from the Shell Command Line"""
 
     shg = ShellGopher()
-    shg.compile_pipe_if(sys.argv[1:])
+    shg.run_main_argv_minus(sys.argv[1:])
+    shg.compile_pipe_if()
     shg.run_pipe()
 
 
@@ -66,13 +75,14 @@ class ShellGopher:
 
     data: bytes  # 1 Sponge of 1 File of Bytes
 
+    verbs: list[str]  # the brick names from the command line
+    sep: str | None  # a separator, such as ' ' or ', '
+    start: int | None  # a starting index, such as 0 or 1
+
     bricks: list[ShellBrick]  # Code that works over the Sponge
     stacking_revisions: bool  # Stacking means Input from and Output to our Stack of Revisions
     sys_stdin_isatty: bool  # Dev Tty at Stdin means get Input Bytes from PasteBuffer
     sys_stdout_isatty: bool  # Dev Tty at Stdout means write Output Bytes back to PasteBuffer
-
-    sep: str | None  # a separator, such as ' ' or ', '
-    start: int | None  # a starting index, such as 0 or 1
 
     def __init__(self) -> None:
 
@@ -81,13 +91,14 @@ class ShellGopher:
 
         self.data = b""
 
+        self.verbs = list()
+        self.sep = None
+        self.start = None
+
         self.bricks = list()
         self.stacking_revisions = False
         self.sys_stdin_isatty = sys_stdin_isatty
         self.sys_stdout_isatty = sys_stdout_isatty
-
-        self.sep = None
-        self.start = None
 
     def arg_doc_to_parser(self, doc: str) -> ArgDocParser:
         """Declare the Options & Positional Arguments"""
@@ -99,6 +110,9 @@ class ShellGopher:
 
         brick_help = "a brick of the shell pipe"
         parser.add_argument("bricks", metavar="BRICK", nargs="*", help=brick_help)
+
+        version_help = "show version numbers and exit"
+        parser.add_argument("-V", "--version", action="count", help=version_help)
 
         sep_help = "a separator, such as ' ' or ',' or ', '"
         start_help = "a starting index, such as 0 or 1"
@@ -130,16 +144,10 @@ class ShellGopher:
 
         # ArgParse requires reordering else raises 'error: unrecognized arguments'
 
-    #
-    # Make a Shell Pipe by stringing Bricks together in a Line
-    #
+    def run_main_argv_minus(self, argv_minus: list[str]) -> None:
+        """Compile & run each Option or Positional Argument"""
 
-    def compile_pipe_if(self, argv_minus: list[str]) -> None:
-        """Compile each Brick"""
-
-        bricks = self.bricks
-
-        #
+        verbs = self.verbs
 
         doc = __main__.__doc__
         assert doc, (doc,)
@@ -147,17 +155,40 @@ class ShellGopher:
         parser = self.arg_doc_to_parser(doc)
         ns = self.shell_args_take_in(argv_minus, parser=parser)
 
-        verbs = ns.bricks
+        verbs.extend(ns.bricks)
+
         if ns.sep is not None:
             self.sep = str(ns.sep)
         if ns.start is not None:
             self.start = int(ns.start, base=0)
 
-        #
+        if ns.version:
+            pathname = __file__
+            path = pathlib.Path(pathname)
 
-        if argv_minus:
-            arg0 = argv_minus[0]
-            if arg0 in ("0", "1", "2", "3"):
+            mtime = path.stat().st_mtime
+            maware = dt.datetime.fromtimestamp(mtime).astimezone()
+
+            mmmyyyy = maware.strftime("%b/%Y")
+            title = "Lit" + path.name.removeprefix("lit").title().replace(".", "·")
+            version = pathlib_path_read_version(pathname)
+
+            print(mmmyyyy, title, version)
+            sys.exit(0)
+
+    #
+    # Make a Shell Pipe by stringing Bricks together in a Line
+    #
+
+    def compile_pipe_if(self) -> None:
+        """Compile each Brick"""
+
+        verbs = self.verbs
+        bricks = self.bricks
+
+        if verbs:
+            verb0 = verbs[0]
+            if verb0 in ("0", "1", "2", "3"):
                 self.stacking_revisions = True
 
         self.compile_brick_if("__enter__")
@@ -300,17 +331,26 @@ class ShellBrick:
         func = func_by_verb.get(verb, default_eq_none)
         self.func = func
 
+        # todo1: code up the bin/? from pipe-bricks.md into sh/
+        # todo1: and retire those from => ls ../pelavarre/xshverb/bin/?
+
+        # todo1: |pb expand |pb expandtabs
+
+        # todo: pb for work with date/time's as utc floats in order - rel & abs & utc & zone & float
+
+        # todo: pb for reorder and transpose arrays of tsv, for split into tsv
+
         # todo: brick helps
 
         # todo: pb --sep=/ 'a 1 -2 3'
 
         # todo: pb floats sum
         # todo: pb hexdump
+        # todo: pb for work with tsv's
 
         # todo: brief alias for stack dump at:  grep . ?
 
-        # todo: 'pb splitlines set', 'pb str set', 'pb list', 'pb tuple', 'pb pass', ...
-        # todo: 'pb for strip' like to strip each line
+        # todo: 'pb splitlines set', 'pb list', 'pb tuple', 'pb pass', ...
 
     def run_as_brick(self) -> None:
         """Run Self as a Shell Pipe Brick"""
@@ -978,6 +1018,34 @@ class ArgDocParser:
         return diffs
 
         # .parser.format_help defaults to color its texts, since Oct/2025 Python 3.14
+
+
+#
+# Amp up Import PathLib
+#
+
+
+def pathlib_path_read_version(pathname: str) -> str:
+    """Hash the Bytes of a File down to a purely Decimal $Major.$Minor.$Micro Version Str"""
+
+    path = pathlib.Path(pathname)
+    path_bytes = path.read_bytes()
+
+    hasher = hashlib.md5()
+    hasher.update(path_bytes)
+    hash_bytes = hasher.digest()
+
+    str_hash = hash_bytes.hex()
+    str_hash = str_hash.upper()  # such as 32 nybbles 'C24931F77721476EF76D85F3451118DB'
+
+    major = 0
+    minor = int(str_hash[0], base=0x10)  # 0..15
+    micro = int(str_hash[1:][:2], base=0x10)  # 0..255
+
+    version = f"{major}.{minor}.{micro}"
+    return version
+
+    # 0.15.255
 
 
 #
