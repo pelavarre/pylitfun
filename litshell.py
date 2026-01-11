@@ -19,7 +19,7 @@ famous bricks:
   awk bytes chars counter data dent enumerate head join lines len
   reverse reversed set splitlines strip sort sorted sum tail words
 
-examples:1
+examples:
   cat README.md |pb
   pb |wc -l
   pb str set join
@@ -310,7 +310,9 @@ class ShellBrick:
             "head": self.run_list_str_head,  # |h
             "join": self.run_list_str_join,  # |x
             "len": self.run_list_str_len,  # |w
+            "lstrip": self.run_list_str_lstrip,
             "reverse": self.run_list_str_reverse,  # |r
+            "rstrip": self.run_list_str_rstrip,
             "set": self.run_list_str_set,  # |set is the last half of |counter
             "splitlines": self.run_list_str_pass,
             "strip": self.run_list_str_strip,
@@ -346,7 +348,11 @@ class ShellBrick:
 
         # todo: pb floats sum
         # todo: pb hexdump
+
         # todo: pb for work with tsv's
+        # todo: tables
+        # todo: str.ljust str.rjust str.center
+        # todo: dir(str)
 
         # todo: brief alias for stack dump at:  grep . ?
 
@@ -372,13 +378,11 @@ class ShellBrick:
 
         if sys_stdin_isatty:  # pb, pb |
 
-            # print("+ pbpaste |", file=sys.stderr)
             data = self.pbpaste()  # yep
             sg.data = data
 
         if not sys_stdin_isatty:  # |pb or |pb|
 
-            # print("+ pbcopy </dev/stdin", file=sys.stderr)
             data = sys.stdin.buffer.read()
             self.pbcopy(data)
             sg.data = data
@@ -421,7 +425,6 @@ class ShellBrick:
     def _run_digit_n_(self, n: int) -> None:
         """Push a copy of the Nth Old Revision of the Paste Buffer into the Stack"""
 
-        # print(f"+ cat {n} |pbcopy", file=sys.stderr)
         path = pathlib.Path(str(n))
         data = path.read_bytes()
         self.pbcopy(data)
@@ -436,17 +439,14 @@ class ShellBrick:
         sg = self.shell_gopher
         sys_stdin_isatty = sg.sys_stdin_isatty
 
-        # print("+ mv 2 3 && mv 1 2 && mv 0 1 && touch 0", file=sys.stderr)
         self.push_paste_buffers()
 
         if sys_stdin_isatty:
-            # print("+ pbpaste |", file=sys.stderr)
             data = self.pbpaste()
             sg.data = data
 
         if not sys_stdin_isatty:  # |pb or |pb|
 
-            # print("+ pbcopy </dev/stdin", file=sys.stderr)
             data = sys.stdin.buffer.read()
             self.pbcopy(data)
             sg.data = data
@@ -513,8 +513,6 @@ class ShellBrick:
     def run_bytes_list(self) -> None:
         """Unabbreviate & run list(bytes(_))"""
 
-        # print("|bytes.list", file=sys.stderr)
-
         idata = self.fetch_bytes()
         olines = list(str(_) for _ in idata)  # ['65', '66', '67']
         self.store_list_str(olines)
@@ -522,7 +520,7 @@ class ShellBrick:
     def run_bytes_pass(self) -> None:
         """Unabbreviate & run bytes(data)"""
 
-        # print("|bytes.pass", file=sys.stderr)
+        pass
 
     #
     # Work with the File as List[Str]
@@ -550,16 +548,12 @@ class ShellBrick:
     def run_list_str_len(self) -> None:
         """Unabbreviate & run len(_)"""
 
-        # print("|list.str.len", file=sys.stderr)
-
         ilines = self.fetch_list_str()
         olines = [str(len(ilines))]
         self.store_list_str(olines)
 
     def run_list_str_awk(self) -> None:
         """Unabbreviate & run |awk 'NF{print $NF}'"""
-
-        # print("|list.str.awk", file=sys.stderr)
 
         ilines = self.fetch_list_str()
 
@@ -573,8 +567,6 @@ class ShellBrick:
 
     def run_list_str_dent(self) -> None:
         """Add four Columns and two Rows of Blank Spaces, no matter if already present or not"""
-
-        # print("|list.str.dent", file=sys.stderr)
 
         ilines = self.fetch_list_str()
         width = max(len(_) for _ in ilines) if ilines else 0
@@ -590,8 +582,6 @@ class ShellBrick:
     def run_list_str_counter(self) -> None:
         """Unabbreviate & run list(collections.Counter(_).items())"""
 
-        # print("|list.str.collections.Counter", file=sys.stderr)
-
         ilines = self.fetch_list_str()
         opairs = list(collections.Counter(ilines).items())
         vklines = list(f"{v}\t{k}" for (k, v) in opairs)
@@ -599,8 +589,6 @@ class ShellBrick:
 
     def run_list_str_enumerate(self) -> None:
         """Unabbreviate & run list(enumerate(_))"""
-
-        # print("|list(enumerate(_))", file=sys.stderr)
 
         sg = self.shell_gopher
         start = sg.start
@@ -614,8 +602,6 @@ class ShellBrick:
     def run_list_str_head(self) -> None:
         """Unabbreviate & run _[:9]"""
 
-        # print("|list.str.head", file=sys.stderr)
-
         ilines = self.fetch_list_str()
         olines = ilines[:9]
         self.store_list_str(olines)
@@ -627,16 +613,21 @@ class ShellBrick:
         sep = sg.sep
         _sep_ = "  " if (sep is None) else sep
 
-        # print("|str.join", file=sys.stderr)
-
         ilines = self.fetch_list_str()
         olines = [_sep_.join(ilines)]
+        self.store_list_str(olines)
+
+    def run_list_str_lstrip(self) -> None:
+        """Unabbreviate & run _.lstrip()"""
+
+        ilines = self.fetch_list_str()
+        olines = list(_.lstrip() for _ in ilines)
         self.store_list_str(olines)
 
     def run_list_str_pass(self) -> None:
         """Unabbreviate & run list(str(_))"""
 
-        # print("|list.str.pass", file=sys.stderr)
+        pass
 
     def run_list_str_set(self) -> None:
         """Unabbreviate & run set-like list(collections.Counter(_).keys())"""
@@ -648,16 +639,19 @@ class ShellBrick:
     def run_list_str_reverse(self) -> None:
         """Unabbreviate & run _.reverse()"""
 
-        # print("|list.str.reverse", file=sys.stderr)
-
         iolines = self.fetch_list_str()
         iolines.reverse()
         self.store_list_str(iolines)
 
+    def run_list_str_rstrip(self) -> None:
+        """Unabbreviate & run _.rstrip()"""
+
+        ilines = self.fetch_list_str()
+        olines = list(_.rstrip() for _ in ilines)
+        self.store_list_str(olines)
+
     def run_list_str_sort(self) -> None:
         """Unabbreviate & run _.sort()"""
-
-        # print("|list.str.sort", file=sys.stderr)
 
         iolines = self.fetch_list_str()
         iolines.sort()
@@ -665,8 +659,6 @@ class ShellBrick:
 
     def run_list_str_strip(self) -> None:
         """Unabbreviate & run _.strip()"""
-
-        # print("|list.str.strip", file=sys.stderr)
 
         ilines = self.fetch_list_str()
         olines = list(_.strip() for _ in ilines)
@@ -688,8 +680,6 @@ class ShellBrick:
 
     def run_list_str_tail(self) -> None:
         """Unabbreviate & run _[:9]"""
-
-        # print("|list.str.tail", file=sys.stderr)
 
         ilines = self.fetch_list_str()
         olines = ilines[-9:]
@@ -719,8 +709,6 @@ class ShellBrick:
     def run_str_casefold(self) -> None:
         """Unabbreviate & run str.casefold(_)"""
 
-        # print("|str.casefold", file=sys.stderr)
-
         itext = self.fetch_str()
         otext = itext.casefold()
         self.store_str(otext)
@@ -728,16 +716,12 @@ class ShellBrick:
     def run_str_list(self) -> None:
         """Unabbreviate & run list(str(_))"""
 
-        # print("|str.list", file=sys.stderr)
-
         itext = self.fetch_str()
         olines = list(itext)
         self.store_list_str(olines)
 
     def run_str_lower(self) -> None:
         """Unabbreviate & run str.lower(_)"""
-
-        # print("|str.lower", file=sys.stderr)
 
         itext = self.fetch_str()
         otext = itext.lower()
@@ -748,8 +732,6 @@ class ShellBrick:
 
         sg = self.shell_gopher
         sep = sg.sep
-
-        # print("|str.split", file=sys.stderr)
 
         itext = self.fetch_str()
 
@@ -763,16 +745,12 @@ class ShellBrick:
     def run_str_title(self) -> None:
         """Unabbreviate & run str.title(_)"""
 
-        # print("|str.title", file=sys.stderr)
-
         itext = self.fetch_str()
         otext = itext.title()
         self.store_str(otext)
 
     def run_str_undent(self) -> None:
         """Strip leading & trailing Blank Rows & Columns, and trailing Blanks from each Row"""
-
-        # print("|str.undent", file=sys.stderr)
 
         itext = self.fetch_str()
         otext = textwrap.dedent(itext).strip()
@@ -781,8 +759,6 @@ class ShellBrick:
 
     def run_str_upper(self) -> None:
         """Unabbreviate & run str.upper(_)"""
-
-        # print("|str.upper", file=sys.stderr)
 
         itext = self.fetch_str()
         otext = itext.upper()
