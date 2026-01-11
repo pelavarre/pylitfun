@@ -29,7 +29,7 @@ positional arguments:
 examples:
   make  # shows a few examples and exits zero
   make help  # shows many help lines and exits zero
-  make bin  # updates your Shell Path ~/bin/ Folder
+  make bin  # updates your Shell Path ~/bin/ Folder from our bin/ and sh/
   make pips  # installs/ updates Python add-on's from PyPi·Org
   make smoke  # calls for Code Review from Black, Flake8, and MyPy Strict
 endef

@@ -1,0 +1,3 @@
+set -xe
+tail -r "$@"
+# many Mac lack Linux Tac (but have Rev)  # many Linux lack Mac Tail R
