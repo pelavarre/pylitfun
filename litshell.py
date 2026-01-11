@@ -271,7 +271,7 @@ class ShellBrick:
             #
             "F": self.run_str_casefold,  # |F for Fold
             "L": self.run_str_lower,
-            "O": self.run_list_str_dent,  # |O for Outdent
+            "O": self.run_list_str_do_dent,  # |O for Outdent
             "T": self.run_str_title,
             "U": self.run_str_upper,
             #
@@ -279,7 +279,7 @@ class ShellBrick:
             "h": self.run_list_str_head,
             "i": self.run_str_split,
             "n": self.run_list_str_enumerate,
-            "o": self.run_str_undent,  # |o because it rounds off ← ↑ → ↓
+            "o": self.run_str_do_undent,  # |o because it rounds off ← ↑ → ↓
             "r": self.run_list_str_reverse,
             "s": self.run_list_str_sort,
             "t": self.run_list_str_tail,
@@ -289,23 +289,24 @@ class ShellBrick:
             #
             # Two Character Aliases
             #
-            "pb": self.run_bytes_pass,
+            "pb": self.run_bytes_often_pass,
             #
             # Aliases of three or more Characters
             #
-            "data": self.run_bytes_list,
-            "chars": self.run_str_list,
-            "lines": self.run_list_str_pass,
+            "data": self.run_bytes_to_ints,
+            "chars": self.run_str_to_texts,
+            "lines": self.run_list_str_often_pass,
+            "words": self.run_str_split,
+            #
             "reversed": self.run_list_str_reverse,  # |r
             "sorted": self.run_list_str_sort,  # |s
-            "words": self.run_str_split,
             #
             # Python Single Words
             #
             "awk": self.run_list_str_awk,  # |a
-            "bytes": self.run_bytes_list,  # like for wc -c via |bytes len
+            "bytes": self.run_bytes_to_ints,  # like for wc -c via |bytes len
             "counter": self.run_list_str_counter,  # |u
-            "dent": self.run_list_str_dent,  # |O
+            "dent": self.run_list_str_do_dent,  # |O
             "enumerate": self.run_list_str_enumerate,  # |n  # todo: -v1
             "head": self.run_list_str_head,  # |h
             "join": self.run_list_str_join,  # |x
@@ -314,7 +315,7 @@ class ShellBrick:
             "reverse": self.run_list_str_reverse,  # |r
             "rstrip": self.run_list_str_rstrip,
             "set": self.run_list_str_set,  # |set is the last half of |counter
-            "splitlines": self.run_list_str_pass,
+            "splitlines": self.run_list_str_often_pass,
             "strip": self.run_list_str_strip,
             "sort": self.run_list_str_sort,  # |s
             "sum": self.run_list_str_sum,
@@ -322,9 +323,9 @@ class ShellBrick:
             #
             "casefold": self.run_str_casefold,  # |F for Fold
             "lower": self.run_str_lower,  # |L
-            "str": self.run_str_list,  # like for wc -m via |str
+            "str": self.run_str_to_texts,  # like for wc -m via |str
             "title": self.run_str_title,  # |T
-            "undent": self.run_str_undent,  # |o
+            "undent": self.run_str_do_undent,  # |o
             "upper": self.run_str_upper,  # |U
             #
         }
@@ -510,15 +511,15 @@ class ShellBrick:
 
         return data
 
-    def run_bytes_list(self) -> None:
-        """Unabbreviate & run list(bytes(_))"""
+    def run_bytes_to_ints(self) -> None:
+        """sys.oints = list(_ for _ in sys.ibytes)"""
 
         idata = self.fetch_bytes()
         olines = list(str(_) for _ in idata)  # ['65', '66', '67']
         self.store_list_str(olines)
 
-    def run_bytes_pass(self) -> None:
-        """Unabbreviate & run bytes(data)"""
+    def run_bytes_often_pass(self) -> None:
+        """sys.obytes = sys.ibytes"""
 
         pass
 
@@ -537,7 +538,7 @@ class ShellBrick:
         return lines
 
     def store_list_str(self, lines: list[str]) -> None:
-        """Store the File from List[Str]"""
+        """Store the File as List[Str]"""
 
         sg = self.shell_gopher
         text = "\n".join(lines) + "\n"
@@ -546,27 +547,30 @@ class ShellBrick:
         sg.data = encode
 
     def run_list_str_len(self) -> None:
-        """Unabbreviate & run len(_)"""
+        """sys.oint = len(sys.ilines)"""
 
         ilines = self.fetch_list_str()
         olines = [str(len(ilines))]
         self.store_list_str(olines)
 
     def run_list_str_awk(self) -> None:
-        """Unabbreviate & run |awk 'NF{print $NF}'"""
+        """sys.oline = sys.iline.split(sep)[-1]  # or .split()[-1] without sep"""
+
+        sg = self.shell_gopher
+        sep = sg.sep
 
         ilines = self.fetch_list_str()
 
         olines = list()
-        for line in ilines:
-            splits = line.split()
+        for iline in ilines:
+            splits = iline.split() if (sep is None) else iline.split(sep)
             if splits:
                 olines.append(splits[-1])
 
         self.store_list_str(olines)
 
-    def run_list_str_dent(self) -> None:
-        """Add four Columns and two Rows of Blank Spaces, no matter if already present or not"""
+    def run_list_str_do_dent(self) -> None:
+        """sys.otext = textwrap_dent(sys.itext)"""
 
         ilines = self.fetch_list_str()
         width = max(len(_) for _ in ilines) if ilines else 0
@@ -580,7 +584,7 @@ class ShellBrick:
         self.store_list_str(olines)
 
     def run_list_str_counter(self) -> None:
-        """Unabbreviate & run list(collections.Counter(_).items())"""
+        """sys.oitems = collections.Counter(_).items() but flipped to (v, k)"""
 
         ilines = self.fetch_list_str()
         opairs = list(collections.Counter(ilines).items())
@@ -588,7 +592,7 @@ class ShellBrick:
         self.store_list_str(vklines)
 
     def run_list_str_enumerate(self) -> None:
-        """Unabbreviate & run list(enumerate(_))"""
+        """sys.oitems = enumerate(_)"""
 
         sg = self.shell_gopher
         start = sg.start
@@ -600,14 +604,14 @@ class ShellBrick:
         self.store_list_str(kvlines)
 
     def run_list_str_head(self) -> None:
-        """Unabbreviate & run _[:9]"""
+        """sys.olines = sys.ilines[:9]"""
 
         ilines = self.fetch_list_str()
         olines = ilines[:9]
         self.store_list_str(olines)
 
     def run_list_str_join(self) -> None:
-        """Unabbreviate & run str.join(_)"""
+        """sys.olines = [sep.join(sys.ilines)]"""
 
         sg = self.shell_gopher
         sep = sg.sep
@@ -618,54 +622,54 @@ class ShellBrick:
         self.store_list_str(olines)
 
     def run_list_str_lstrip(self) -> None:
-        """Unabbreviate & run _.lstrip()"""
+        """sys.oline = sys.iline.lstrip()"""
 
         ilines = self.fetch_list_str()
         olines = list(_.lstrip() for _ in ilines)
         self.store_list_str(olines)
 
-    def run_list_str_pass(self) -> None:
-        """Unabbreviate & run list(str(_))"""
+    def run_list_str_often_pass(self) -> None:
+        """sys.olines = sys.ilines"""
 
-        pass
+        self.fetch_str()  # may raise UnicodeDecodeError
 
     def run_list_str_set(self) -> None:
-        """Unabbreviate & run set-like list(collections.Counter(_).keys())"""
+        """sys.olines = collections.Counter(sys.ilines).keys()"""
 
         ilines = self.fetch_list_str()
-        vlines = list(collections.Counter(ilines).keys())
-        self.store_list_str(vlines)
+        klines = list(collections.Counter(ilines).keys())
+        self.store_list_str(klines)
 
     def run_list_str_reverse(self) -> None:
-        """Unabbreviate & run _.reverse()"""
+        """sys.iolines.reverse()"""
 
         iolines = self.fetch_list_str()
         iolines.reverse()
         self.store_list_str(iolines)
 
     def run_list_str_rstrip(self) -> None:
-        """Unabbreviate & run _.rstrip()"""
+        """sys.oline = sys.iline.lstrip()"""
 
         ilines = self.fetch_list_str()
         olines = list(_.rstrip() for _ in ilines)
         self.store_list_str(olines)
 
     def run_list_str_sort(self) -> None:
-        """Unabbreviate & run _.sort()"""
+        """sys.iolines.sort()"""
 
         iolines = self.fetch_list_str()
         iolines.sort()
         self.store_list_str(iolines)
 
     def run_list_str_strip(self) -> None:
-        """Unabbreviate & run _.strip()"""
+        """sys.oline = sys.iline.strip()"""
 
         ilines = self.fetch_list_str()
         olines = list(_.strip() for _ in ilines)
         self.store_list_str(olines)
 
     def run_list_str_sum(self) -> None:
-        """Unabbreviate & run sum(_)"""
+        """sys.oint = sum(sys.iints)"""
 
         ilines = self.fetch_list_str()
         istrips = list(_.strip() for _ in ilines)
@@ -679,7 +683,7 @@ class ShellBrick:
         self.store_list_str(olines)
 
     def run_list_str_tail(self) -> None:
-        """Unabbreviate & run _[:9]"""
+        """sys.olines = sys.ilines[-9:]"""
 
         ilines = self.fetch_list_str()
         olines = ilines[-9:]
@@ -699,7 +703,7 @@ class ShellBrick:
         return decode
 
     def store_str(self, text: str) -> None:
-        """Store the File from Str"""
+        """Store the File as Str"""
 
         sg = self.shell_gopher
         encode = text.encode()  # may raise UnicodeEncodeError
@@ -707,50 +711,46 @@ class ShellBrick:
         sg.data = encode
 
     def run_str_casefold(self) -> None:
-        """Unabbreviate & run str.casefold(_)"""
+        """sys.otext = sys.itext.casefold()"""
 
         itext = self.fetch_str()
         otext = itext.casefold()
         self.store_str(otext)
 
-    def run_str_list(self) -> None:
-        """Unabbreviate & run list(str(_))"""
+    def run_str_to_texts(self) -> None:
+        """sys.olines = list(sys.itext)"""
 
         itext = self.fetch_str()
         olines = list(itext)
         self.store_list_str(olines)
 
     def run_str_lower(self) -> None:
-        """Unabbreviate & run str.lower(_)"""
+        """sys.otext = sys.itext.lower()"""
 
         itext = self.fetch_str()
         otext = itext.lower()
         self.store_str(otext)
 
     def run_str_split(self) -> None:
-        """Unabbreviate & run str.split(_)"""
+        """sys.olines = sys.itext.split() if (sep is None) else sys.itext.split(sep)"""
 
         sg = self.shell_gopher
         sep = sg.sep
 
         itext = self.fetch_str()
-
-        if sep is None:
-            olines = itext.split()
-        else:
-            olines = itext.split(sep)
+        olines = itext.split() if (sep is None) else itext.split(sep)
 
         self.store_list_str(olines)
 
     def run_str_title(self) -> None:
-        """Unabbreviate & run str.title(_)"""
+        """sys.otext = sys.itext.title()"""
 
         itext = self.fetch_str()
         otext = itext.title()
         self.store_str(otext)
 
-    def run_str_undent(self) -> None:
-        """Strip leading & trailing Blank Rows & Columns, and trailing Blanks from each Row"""
+    def run_str_do_undent(self) -> None:
+        """sys.otext = textwrap_undent(sys.itext)"""
 
         itext = self.fetch_str()
         otext = textwrap.dedent(itext).strip()
@@ -758,7 +758,7 @@ class ShellBrick:
         self.store_list_str(olines)
 
     def run_str_upper(self) -> None:
-        """Unabbreviate & run str.upper(_)"""
+        """sys.otext = sys.itext.upper()"""
 
         itext = self.fetch_str()
         otext = itext.upper()
