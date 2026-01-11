@@ -1,0 +1,10 @@
+# could be:  vim -u /dev/null ./pb
+if [ $# -ne 0 ]; then
+    set -xe
+    vim "$@"
+else
+    set -xe
+    pbpaste >./pb
+    vim ./pb
+    pbcopy <./pb
+fi

@@ -1,0 +1,7 @@
+if [ $# -ne 0 ]; then
+    set -xe
+    find "$@"
+else
+    set -xe
+    find .
+fi

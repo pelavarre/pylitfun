@@ -121,10 +121,10 @@ We put these into our bin/ Folder as Shell Scripts named by single letters
     _ is for cat - >/dev/null
 
     a
-    b is for env -i bash --noprofile --norc
+    b is for env -i PS1='bash \$ ' bash --noprofile --norc
     c
     d is for diff -brpu a b
-    e is for emacs -nw --no-splash --eval '(menu-bar-mode -1)'
+    e is for emacs -nw --no-splash --eval '(menu-bar-mode -1)', or emacs ... -Q
 
     f is for find .
     g is for git.py, but |g is for grep.py
@@ -133,7 +133,7 @@ We put these into our bin/ Folder as Shell Scripts named by single letters
     j
 
     k
-    l is for ls -hlAF -rt
+    l could be for ls -hlAF -rt, but much Linux tradition is alias l='ls -CF'
     m is for make
     n
     o
@@ -145,11 +145,11 @@ We put these into our bin/ Folder as Shell Scripts named by single letters
     t
 
     u
-    v is for vim -u /dev/null
+    v is for vim, or vim -u /dev/null
     w is often occupied by /usr/bin/w
     x
     y
-    z is for env -i zsh -f
+    z is for env -i PS1='zsh %# ' TERM=$TERM zsh -f
 
 <!--
 

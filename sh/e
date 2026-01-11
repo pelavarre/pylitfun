@@ -1,0 +1,11 @@
+# could be:  emacs -Q ./pb
+emacs=/opt/homebrew/bin/emacs
+if [ $# -ne 0 ]; then
+    set -xe
+    $emacs -nw --no-splash --eval '(menu-bar-mode -1)' "$@"
+else
+    set -xe
+    pbpaste >./pb
+    $emacs -nw --no-splash --eval '(menu-bar-mode -1)' ./pb
+    pbcopy <./pb
+fi
