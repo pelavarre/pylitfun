@@ -196,8 +196,8 @@ class ShellGopher:
         for verb in verbs:
             self.compile_brick_if(verb)
 
-        if len(bricks) <= 2:  # default to do the '|pb strip' work
-            self.compile_brick_if("strip")
+        if len(bricks) <= 2:  # default to do the '|pb undent' work
+            self.compile_brick_if("undent")
 
         self.compile_brick_if("__exit__")
 
