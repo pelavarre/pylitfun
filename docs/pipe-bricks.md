@@ -82,12 +82,12 @@ AN ALPHABET OF BRICKS
     e
 
     f
-    g is for |grep -ai -e ... -e ...
+    g is for |grep -ai -e ... -e ...  # but we ship that separately as our bin/g
     h is for |head -9
     i is for |tr ' ' '\n', as in split words
-    j is for |jq .
+    j is for |jq .  # maybe
 
-    k is for |less -FIRX
+    k is for |less -FIRX  # todo
     l
     m
     n is for |nl -pba -v0 |expand, but accepts -v1
@@ -96,10 +96,10 @@ AN ALPHABET OF BRICKS
     p
     q
     r is for |tac or |tail -r
-    s is for |LC_ALL=C sort -n
-    t us for |tail -9
+    s is for |LC_ALL=C sort or for LC_ALL=C sort -n
+    t is for |tail -9
 
-    u is for |uniq -c |expand
+    u is for |awk '!d[$0]++' or for |uniq -c |expand
     v
     w is for |wc -l
     x is for |xargs
@@ -117,7 +117,7 @@ We put these into our bin/ Folder as Shell Scripts named by single letters
     a
     b is for env -i bash --noprofile --norc
     c
-    d is for diff -brpu 0 1
+    d is for diff -brpu a b
     e is for emacs -nw --no-splash --eval '(menu-bar-mode -1)'
 
     f is for find .
