@@ -82,7 +82,7 @@ AN ALPHABET OF BRICKS
     e
 
     f
-    g is for |grep -ai -e ... -e ...  # but we ship that separately as our bin/g
+    g is for |grep -ai -e ... -e ...  # but we ship that outside of |pb g as our |g
     h is for |head -9
     i is for |tr ' ' '\n', as in split words
     j is for |jq .  # maybe
@@ -91,7 +91,7 @@ AN ALPHABET OF BRICKS
     l
     m
     n is for |nl -pba -v0 |expand, but accepts -v1
-    o is for |python code to toggling a Frame of Spaces off/on
+    o is for dropping a blank frame if present, as if rounding off ← ↑ → ↓ corners
 
     p
     q
@@ -105,6 +105,12 @@ AN ALPHABET OF BRICKS
     x is for |xargs
     y
     z
+
+    F is for |python str.casefold
+    L is for |python str.lower
+    O is for |python denting ← ↑ → ↓ with a blank frame
+    T is for |python str.title
+    U is for |python str.upper
 
     . is for to guess what to do
 

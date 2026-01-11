@@ -15,6 +15,11 @@ examples:
   0
   0 upper
   1
+
+more examples:
+  cat README.md |pb
+  pb str set join
+  pb str sort set join
 """
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -175,13 +180,13 @@ class ShellBrick:
             "h": self.run_list_str_head,
             "i": self.run_str_split,
             "n": self.run_list_str_enumerate,
-            "o": self.run_list_str_strip,  # |o because it rounds off ← ↑ → ↓
+            "o": self.run_str_undent,  # |o because it rounds off ← ↑ → ↓
             "r": self.run_list_str_reverse,
             "s": self.run_list_str_sort,
             "t": self.run_list_str_tail,
             "u": self.run_list_str_counter,  # 'u' for '|uniq' but in the way of |awk '!d[$0]++'
             "w": self.run_list_str_len,  # in the way of '|wc -l'
-            "x": self.run_str_join,  # in the way of '|xargs'
+            "x": self.run_list_str_join,  # in the way of '|xargs'
             #
             # Two Character Aliases
             #
@@ -205,18 +210,21 @@ class ShellBrick:
             "dent": self.run_list_str_dent,  # |O
             "enumerate": self.run_list_str_enumerate,  # |n  # todo: -v1
             "head": self.run_list_str_head,  # |h
+            "join": self.run_list_str_join,  # |x
             "len": self.run_list_str_len,  # |w
             "reverse": self.run_list_str_reverse,  # |r
+            "set": self.run_list_str_set,  # |set is the last half of |counter
             "splitlines": self.run_list_str_pass,
-            "strip": self.run_list_str_strip,  # |o
+            "strip": self.run_list_str_strip,
             "sort": self.run_list_str_sort,  # |s
+            "sum": self.run_list_str_sum,
             "tail": self.run_list_str_tail,  # |t
             #
             "casefold": self.run_str_casefold,  # |F for Fold
             "lower": self.run_str_lower,  # |L
-            "split": self.run_str_split,  # |i
             "str": self.run_str_list,  # like for wc -m via |str
             "title": self.run_str_title,  # |T
+            "undent": self.run_str_undent,  # |o
             "upper": self.run_str_upper,  # |U
             #
         }
@@ -225,7 +233,21 @@ class ShellBrick:
         func = func_by_verb.get(verb, default_eq_none)
         self.func = func
 
+        # todo: pb --start=1 n
+
+        # todo: pb --sep=', ' x
+        # todo: pb --sep=, split
+        # todo: pb --sep str set join
+
+        # todo: pb --sep=/ 'a 1 -2 3'
+
+        # todo: pb floats sum
+        # todo: pb hexdump
+
+        # todo: brick helps
+
         # todo: brief alias for stack dump at:  grep . ?
+
         # todo: 'pb splitlines set', 'pb str set', 'pb list', 'pb tuple', 'pb pass', ...
         # todo: 'pb for strip' like to strip each line
 
@@ -493,10 +515,26 @@ class ShellBrick:
         olines = ilines[:9]
         self.store_list_str(olines)
 
+    def run_list_str_join(self) -> None:
+        """Unabbreviate & run str.join(_)"""
+
+        # print("|str.join", file=sys.stderr)
+
+        ilines = self.fetch_list_str()
+        olines = [" ".join(ilines)]
+        self.store_list_str(olines)
+
     def run_list_str_pass(self) -> None:
         """Unabbreviate & run list(str(_))"""
 
         # print("|list.str.pass", file=sys.stderr)
+
+    def run_list_str_set(self) -> None:
+        """Unabbreviate & run set-like list(collections.Counter(_).keys())"""
+
+        ilines = self.fetch_list_str()
+        vlines = list(collections.Counter(ilines).keys())
+        self.store_list_str(vlines)
 
     def run_list_str_reverse(self) -> None:
         """Unabbreviate & run _.reverse()"""
@@ -517,13 +555,26 @@ class ShellBrick:
         self.store_list_str(iolines)
 
     def run_list_str_strip(self) -> None:
-        """Strip leading & trailing Blank Rows & Columns, and trailing Blanks from each Row"""
+        """Unabbreviate & run _.strip()"""
 
         # print("|list.str.strip", file=sys.stderr)
 
-        itext = self.fetch_str()
-        otext = textwrap.dedent(itext).strip()
-        olines = list(_.rstrip() for _ in otext.splitlines())
+        ilines = self.fetch_list_str()
+        olines = list(_.strip() for _ in ilines)
+        self.store_list_str(olines)
+
+    def run_list_str_sum(self) -> None:
+        """Unabbreviate & run sum(_)"""
+
+        ilines = self.fetch_list_str()
+        istrips = list(_.strip() for _ in ilines)
+        itruths = list(_ for _ in istrips if _)
+
+        oint = 0
+        if itruths:
+            oint = sum(int(_, base=0) for _ in itruths)
+
+        olines = [str(oint)]
         self.store_list_str(olines)
 
     def run_list_str_tail(self) -> None:
@@ -565,15 +616,6 @@ class ShellBrick:
         otext = itext.casefold()
         self.store_str(otext)
 
-    def run_str_join(self) -> None:
-        """Unabbreviate & run str.join(_)"""
-
-        # print("|str.join", file=sys.stderr)
-
-        ilines = self.fetch_list_str()
-        olines = [" ".join(ilines)]
-        self.store_list_str(olines)
-
     def run_str_list(self) -> None:
         """Unabbreviate & run list(str(_))"""
 
@@ -609,6 +651,16 @@ class ShellBrick:
         itext = self.fetch_str()
         otext = itext.title()
         self.store_str(otext)
+
+    def run_str_undent(self) -> None:
+        """Strip leading & trailing Blank Rows & Columns, and trailing Blanks from each Row"""
+
+        # print("|str.undent", file=sys.stderr)
+
+        itext = self.fetch_str()
+        otext = textwrap.dedent(itext).strip()
+        olines = list(_.rstrip() for _ in otext.splitlines())
+        self.store_list_str(olines)
 
     def run_str_upper(self) -> None:
         """Unabbreviate & run str.upper(_)"""
