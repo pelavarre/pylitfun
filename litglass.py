@@ -50,7 +50,7 @@ import __main__
 import argparse
 import bdb
 import collections
-import collections.abc  # .collections.abc is not .abc
+import collections.abc  # .collections.abc is not .abc  # typing.Callable isn't here either
 import dataclasses
 import datetime as dt
 import difflib
@@ -92,8 +92,6 @@ ImportStamp = dt.datetime.now().astimezone()
 
 
 AppleLogo = "\uf8ff"  # Apple  occupies U+F8FF = last of U+E000 .. U+F8FF Private Use Area (PUA)
-
-default_eq_None = None  # spells out 'default=None' where Python forbids that
 
 logger = logging.getLogger(__name__)
 
@@ -326,7 +324,7 @@ class LitGlass:
         #
 
     def arg_doc_to_parser(self, doc: str) -> ArgDocParser:
-        """Declare the Positional Arguments & Options"""
+        """Declare the Options & Positional Arguments"""
 
         parser = ArgDocParser(doc, add_help=True)
 
@@ -358,7 +356,7 @@ class LitGlass:
         return ns
 
     def shell_args_take_in_eggs(
-        self, eggs: list[str] | None, print_usage: typing.Callable[[], None]
+        self, eggs: list[str] | None, print_usage: collections.abc.Callable[[], None]
     ) -> None:
         """Take in the Shell --egg=EGG's"""
 
@@ -5720,8 +5718,9 @@ class ArgDocParser:
         # Fetch from a Black Terminal of 89 columns, not from the current Terminal Width
         # Fetch from later Python of "options:", not earlier Python of "optional arguments:"
 
-        with_columns_else = os.environ.get("COLUMNS", default_eq_None)  # checkpoints
-        with_no_color_else = os.environ.get("NO_COLOR", default_eq_None)  # checkpoints
+        default_eq_none = None
+        with_columns_else = os.environ.get("COLUMNS", default_eq_none)  # checkpoints
+        with_no_color_else = os.environ.get("NO_COLOR", default_eq_none)  # checkpoints
 
         os.environ["COLUMNS"] = str(89)  # adds or replaces
         os.environ["NO_COLOR"] = "True"  # adds or replaces

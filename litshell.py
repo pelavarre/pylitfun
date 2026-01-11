@@ -1,22 +1,27 @@
 #!/usr/bin/env python3
 
 """
-usage: litshell.py [--help] [BRICK ...]
+usage: litshell.py [-h] [--sep SEP] [--start START] [BRICK ...]
 
 greatly abbreviate Shell commands, but do show them in full
 
 positional arguments:
-  BRICK            the Name of a Brick of the Shell Pipe (or a quoted Command Line for it)
+  BRICK          a brick of the shell pipe
 
 options:
-  --help           show this help message and exit (-h is for a Brick, not for LitShell·Py)
+  -h, --help     show this help message and exit
+  --sep SEP      a separator, such as ' ' or ',' or ', '
+  --start START  a starting index, such as 0 or 1
+
+famous bricks:
+  0 1 2 3  F L O T U  a h i n o r s t u w x  pb
+  awk bytes chars counter data dent enumerate head join lines len
+  reverse reversed set splitlines strip sort sorted sum tail words
 
 examples:
   0
   0 upper
   1
-
-more examples:
   cat README.md |pb
   pb str set join
   pb str sort set join
@@ -28,7 +33,11 @@ more examples:
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
 
 import __main__
+import argparse
 import collections
+import collections.abc  # .collections.abc is not .abc  # typing.Callable isn't here either
+import dataclasses
+import difflib
 import os
 import pathlib
 import shutil
@@ -36,7 +45,6 @@ import signal
 import subprocess
 import sys
 import textwrap
-import typing
 
 if not __debug__:
     raise NotImplementedError([__debug__])  # because 'python3 better than python3 -O'
@@ -57,10 +65,14 @@ class ShellGopher:
     """Init and run, once"""
 
     data: bytes  # 1 Sponge of 1 File of Bytes
+
     bricks: list[ShellBrick]  # Code that works over the Sponge
     stacking_revisions: bool  # Stacking means Input from and Output to our Stack of Revisions
     sys_stdin_isatty: bool  # Dev Tty at Stdin means get Input Bytes from PasteBuffer
     sys_stdout_isatty: bool  # Dev Tty at Stdout means write Output Bytes back to PasteBuffer
+
+    sep: str | None  # a separator, such as ' ' or ', '
+    start: int | None  # a starting index, such as 0 or 1
 
     def __init__(self) -> None:
 
@@ -68,10 +80,55 @@ class ShellGopher:
         sys_stdout_isatty = sys.stdout.isatty()  # likewise, sampled only once
 
         self.data = b""
+
         self.bricks = list()
         self.stacking_revisions = False
         self.sys_stdin_isatty = sys_stdin_isatty
         self.sys_stdout_isatty = sys_stdout_isatty
+
+        self.sep = None
+        self.start = None
+
+    def arg_doc_to_parser(self, doc: str) -> ArgDocParser:
+        """Declare the Options & Positional Arguments"""
+
+        assert argparse.REMAINDER == "..."
+        assert argparse.ZERO_OR_MORE == "*"
+
+        parser = ArgDocParser(doc, add_help=True)
+
+        brick_help = "a brick of the shell pipe"
+        parser.add_argument("bricks", metavar="BRICK", nargs="*", help=brick_help)
+
+        sep_help = "a separator, such as ' ' or ',' or ', '"
+        start_help = "a starting index, such as 0 or 1"
+        parser.add_argument("--sep", metavar="SEP", help=sep_help)
+        parser.add_argument("--start", metavar="START", help=start_help)
+
+        return parser
+
+    def shell_args_take_in(self, argv_minus: list[str], parser: ArgDocParser) -> argparse.Namespace:
+        """Take in the Shell Args: first the Dash Options and then the Positional Args"""
+
+        options = list()
+        posargs = list()
+
+        for index, arg in enumerate(argv_minus):
+            if arg == "--":
+                posargs.extend(argv_minus[index:])
+                break
+
+            if arg.startswith("-") and (arg != "-"):
+                options.append(arg)
+            else:
+                posargs.append(arg)
+
+        args = options + posargs
+        ns = parser.parse_args_if(args)  # often prints help & exits zero
+
+        return ns
+
+        # ArgParse requires reordering else raises 'error: unrecognized arguments'
 
     #
     # Make a Shell Pipe by stringing Bricks together in a Line
@@ -82,9 +139,21 @@ class ShellGopher:
 
         bricks = self.bricks
 
-        if not argv_minus:
-            self.print_help()
-            sys.exit(0)  # exits 0 after printing Help
+        #
+
+        doc = __main__.__doc__
+        assert doc, (doc,)
+
+        parser = self.arg_doc_to_parser(doc)
+        ns = self.shell_args_take_in(argv_minus, parser=parser)
+
+        verbs = ns.bricks
+        if ns.sep is not None:
+            self.sep = str(ns.sep)
+        if ns.start is not None:
+            self.start = int(ns.start, base=0)
+
+        #
 
         if argv_minus:
             arg0 = argv_minus[0]
@@ -93,8 +162,8 @@ class ShellGopher:
 
         self.compile_brick_if("__enter__")
 
-        for arg in argv_minus:
-            self.compile_brick_if(arg)
+        for verb in verbs:
+            self.compile_brick_if(verb)
 
         if len(bricks) <= 2:  # default to do the '|pb strip' work
             self.compile_brick_if("strip")
@@ -103,18 +172,17 @@ class ShellGopher:
 
         # todo: more than one of ("0", "1", "2", "3"), such as Shell ? while 'ls -C ?' is '0 1 2 3'
 
-    def compile_brick_if(self, arg: str) -> None:
+        # todo: reject --sep without |pb join or |pb split
+        # todo: reject --start without |pb enumerate
+
+    def compile_brick_if(self, verb: str) -> None:
         """Compile one Brick"""
 
         bricks = self.bricks
 
-        if arg.startswith("--h") and "--help".startswith(arg):
-            self.print_help()
-            sys.exit(0)  # exits 0 after printing Help
-
-        brick = ShellBrick(self, verb=arg)
+        brick = ShellBrick(self, verb=verb)
         if not brick.func:
-            print(f"Unknown Pipe Brick:  {arg!r}", file=sys.stderr)
+            print(f"Unknown Pipe Brick:  {verb!r}", file=sys.stderr)
             sys.exit(2)  # exits 2 for bad Args
 
         bricks.append(brick)
@@ -145,7 +213,7 @@ class ShellBrick:
     """Say how to call a Shell Verb"""
 
     shell_gopher: ShellGopher
-    func: typing.Callable[..., None] | None
+    func: collections.abc.Callable[..., None] | None
     verb: str
 
     #
@@ -203,9 +271,8 @@ class ShellBrick:
             #
             # Python Single Words
             #
-            "bytes": self.run_bytes_list,  # like for wc -c via |bytes len
-            #
             "awk": self.run_list_str_awk,  # |a
+            "bytes": self.run_bytes_list,  # like for wc -c via |bytes len
             "counter": self.run_list_str_counter,  # |u
             "dent": self.run_list_str_dent,  # |O
             "enumerate": self.run_list_str_enumerate,  # |n  # todo: -v1
@@ -233,18 +300,12 @@ class ShellBrick:
         func = func_by_verb.get(verb, default_eq_none)
         self.func = func
 
-        # todo: pb --start=1 n
-
-        # todo: pb --sep=', ' x
-        # todo: pb --sep=, split
-        # todo: pb --sep str set join
+        # todo: brick helps
 
         # todo: pb --sep=/ 'a 1 -2 3'
 
         # todo: pb floats sum
         # todo: pb hexdump
-
-        # todo: brick helps
 
         # todo: brief alias for stack dump at:  grep . ?
 
@@ -501,8 +562,12 @@ class ShellBrick:
 
         # print("|list(enumerate(_))", file=sys.stderr)
 
+        sg = self.shell_gopher
+        start = sg.start
+        _start_ = 0 if (start is None) else start
+
         ilines = self.fetch_list_str()
-        opairs = list(enumerate(ilines))
+        opairs = list(enumerate(ilines, start=_start_))
         kvlines = list(f"{k}\t{v}" for (k, v) in opairs)
         self.store_list_str(kvlines)
 
@@ -518,10 +583,14 @@ class ShellBrick:
     def run_list_str_join(self) -> None:
         """Unabbreviate & run str.join(_)"""
 
+        sg = self.shell_gopher
+        sep = sg.sep
+        _sep_ = "  " if (sep is None) else sep
+
         # print("|str.join", file=sys.stderr)
 
         ilines = self.fetch_list_str()
-        olines = [" ".join(ilines)]
+        olines = [_sep_.join(ilines)]
         self.store_list_str(olines)
 
     def run_list_str_pass(self) -> None:
@@ -637,10 +706,18 @@ class ShellBrick:
     def run_str_split(self) -> None:
         """Unabbreviate & run str.split(_)"""
 
+        sg = self.shell_gopher
+        sep = sg.sep
+
         # print("|str.split", file=sys.stderr)
 
         itext = self.fetch_str()
-        olines = itext.split()
+
+        if sep is None:
+            olines = itext.split()
+        else:
+            olines = itext.split(sep)
+
         self.store_list_str(olines)
 
     def run_str_title(self) -> None:
@@ -670,6 +747,237 @@ class ShellBrick:
         itext = self.fetch_str()
         otext = itext.upper()
         self.store_str(otext)
+
+
+#
+# Amp up Import ArgParse
+#
+
+
+_ARGPARSE_3_10_ = (3, 10)  # Oct/2021 Python 3.10, like from Ubuntu 2022
+
+
+@dataclasses.dataclass(order=True)  # , frozen=True)
+class ArgDocParser:
+    """Scrape Prog & Description & Epilog from Doc to form an ArgParse Argument Parser"""
+
+    doc: str  # a copy of parser.format_help()
+    add_help: bool  # truthy to define '-h, --help', else not
+
+    parser: argparse.ArgumentParser  # the inner standard ArgumentParser
+    text: str  # something like the __main__.__doc__, but dedented and stripped
+    closing: str  # the last Graf of the Epilog, minus its Top Line
+
+    add_argument: collections.abc.Callable[..., object]
+
+    def __init__(self, doc: str, add_help: bool) -> None:
+
+        self.doc = doc
+        self.add_help = add_help
+
+        text = textwrap.dedent(doc).strip()
+
+        prog = self._scrape_prog_(text)
+        description = self._scrape_description_(text)
+        epilog = self._scrape_epilog_(text, description=description)
+        closing = self._scrape_closing_(epilog)
+
+        parser = argparse.ArgumentParser(  # doesn't distinguish Closing from Epilog
+            prog=prog,
+            description=description,
+            add_help=add_help,
+            formatter_class=argparse.RawTextHelpFormatter,  # lets Lines be wide
+            epilog=epilog,
+        )
+
+        self.parser = parser
+        self.text = text
+        self.closing = closing
+
+        self.add_argument = parser.add_argument
+
+        # 'add_help=False' for needs like 'cal -h', 'df -h', 'du -h', 'ls -h', etc
+
+        # callers who need Options & Positional Arguments have to add them
+
+    #
+    # Take in the Shell Args, else print Help and exit zero or nonzero
+    #
+
+    def parse_args_if(self, args: list[str]) -> argparse.Namespace:
+        """Take in the Shell Args, else print Help and exit zero or nonzero"""
+
+        parser = self.parser
+        closing = self.closing
+
+        # Print Diffs & exit nonzero, when Arg Doc wrong
+
+        diffs = self._diff_doc_vs_format_help_()
+        if diffs:
+            if sys.version_info >= _ARGPARSE_3_10_:
+                print("\n".join(diffs))
+
+                sys.exit(2)  # exits 2 for wrong Args in Help Doc
+
+            # takes 'usage: ... [HINT ...]', rejects 'usage: ... HINT [HINT ...]'
+            # takes 'options:', rejects 'optional arguments:'
+            # takes '-F, --isep ISEP', rejects '-F ISEP, --isep ISEP'
+
+        # Print Closing & exit zero, if no Shell Args
+
+        if not args:
+            print()
+            print(closing)
+            print()
+
+            sys.exit(0)  # exits 0 after printing Closing
+
+        # Drop the "--" Shell Args Separator, if present,
+        # because 'ArgumentParser.parse_args()' without Pos Args wrongly rejects it
+
+        shargs = list(args)
+        if len(args) == 1:  # because ArgParse chokes if '--' Sep present without Pos Args
+            if args[0] == "--":
+                shargs.clear()
+
+        # Print help lines & exit zero, else return Parsed Args
+
+        ns = parser.parse_args(shargs)
+
+        return ns
+
+        # often prints help & exits zero
+
+    #
+    # Scrape out Parser, Prog, Description, Epilog, & Closing from Doc Text
+    #
+
+    def _scrape_prog_(self, text: str) -> str:
+        """Pick the Prog out of the Usage Graf that starts the Doc"""
+
+        lines = text.splitlines()
+        prog = lines[0].split()[1]  # second Word of first Line  # 'prog' from 'usage: prog'
+
+        return prog
+
+    def _scrape_description_(self, text: str) -> str:
+        """Take the first Line of the Graf after the Usage Graf as the Description"""
+
+        lines = text.splitlines()
+
+        firstlines = list(_ for _ in lines if _ and (_ == _.lstrip()))
+        docline = firstlines[1]  # first Line of second Graf
+
+        description = docline
+        if self._docline_is_skippable_(docline):
+            description = "just do it"
+
+        return description
+
+    def _scrape_epilog_(self, text: str, description: str) -> str:
+        """Take up the Lines past Usage, Positional Arguments, & Options, as the Epilog"""
+
+        lines = text.splitlines()
+
+        epilog = ""
+        for index, line in enumerate(lines):
+            if self._docline_is_skippable_(line) or (line == description):
+                continue
+
+            epilog = "\n".join(lines[index:])
+            break
+
+        return epilog  # maybe empty
+
+    def _docline_is_skippable_(self, docline: str) -> bool:
+        """Guess when a Doc Line can't be the first Line of the Epilog"""
+
+        strip = docline.rstrip()
+
+        skippable = not strip
+        skippable = skippable or strip.startswith(" ")  # includes .startswith("  ")
+        skippable = skippable or strip.startswith("usage")
+        skippable = skippable or strip.startswith("positional arguments")
+        skippable = skippable or strip.startswith("options")  # ignores "optional arguments"
+
+        return skippable
+
+    def _scrape_closing_(self, epilog: str) -> str:
+        """Pick out the last Graf of the Epilog, minus its Top Line"""
+
+        lines = epilog.splitlines()
+
+        indices = list(_ for _ in range(len(lines)) if lines[_])  # drops empty Lines
+        indices = list(_ for _ in indices if not lines[_].startswith(" "))  # finds top Lines
+
+        closing = ""
+        if indices:
+            index = indices[-1] + 1
+
+            join = "\n".join(lines[index:])  # last Graf, minus its Top Line
+            dedent = textwrap.dedent(join)
+            closing = dedent.strip()
+
+        return closing  # maybe empty
+
+    #
+    # Form Diffs from Help Doc to Parser Format_Help
+    #
+
+    def _diff_doc_vs_format_help_(self) -> list[str]:
+        """Form Diffs from Help Doc to Parser Format_Help"""
+
+        text = self.text
+        parser = self.parser
+
+        # Say where the Help Doc came from
+
+        a = text.splitlines()
+
+        basename = os.path.split(__file__)[-1]
+        fromfile = "{} --help".format(basename)
+
+        # Fetch the Parser Doc from a fitting virtual Terminal
+        # Fetch from a Black Terminal of 89 columns, not from the current Terminal Width
+        # Fetch from later Python of "options:", not earlier Python of "optional arguments:"
+
+        default_eq_none = None
+        with_columns_else = os.environ.get("COLUMNS", default_eq_none)  # checkpoints
+        with_no_color_else = os.environ.get("NO_COLOR", default_eq_none)  # checkpoints
+
+        os.environ["COLUMNS"] = str(89)  # adds or replaces
+        os.environ["NO_COLOR"] = "True"  # adds or replaces
+
+        try:
+
+            b_text = parser.format_help()
+
+        finally:
+
+            if with_no_color_else is None:
+                del os.environ["NO_COLOR"]  # removes
+            else:
+                os.environ["NO_COLOR"] = with_no_color_else  # reverts
+
+            if with_columns_else is None:
+                del os.environ["COLUMNS"]  # removes
+            else:
+                os.environ["COLUMNS"] = with_columns_else  # reverts
+
+        b = b_text.splitlines()
+
+        tofile = "ArgumentParser(...)"
+
+        # Form >= 0 Diffs from Help Doc to Parser Format_Help,
+        # but ask for lineterm="", for else the '---' '+++' '@@' Diff Control Lines end with '\n'
+
+        diffs = list(difflib.unified_diff(a=a, b=b, fromfile=fromfile, tofile=tofile, lineterm=""))
+
+        # Succeed
+
+        return diffs
+
+        # .parser.format_help defaults to color its texts, since Oct/2025 Python 3.14
 
 
 #
