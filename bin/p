@@ -1,0 +1,8 @@
+#!/bin/sh
+# python -i -c '' # but with quick lazy Import's
+pylitfun=$(dirname "$0")/pylitfun
+if [ $# -ne 0 ]; then
+    $pylitfun/litpython.py "$@"
+else
+    $pylitfun/litpython.py --
+fi
