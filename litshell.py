@@ -334,10 +334,11 @@ class ShellBrick:
         func = func_by_verb.get(verb, default_eq_none)
         self.func = func
 
-        # todo1: code up the bin/? from pipe-bricks.md into sh/
-        # todo1: and retire those from => ls ../pelavarre/xshverb/bin/?
+        # todo: pb --alt chars len, --alt v, --alt e
 
-        # todo1: |pb expand |pb expandtabs
+        # todo: |wc -L into |pb line len max, |pb word len max
+
+        # todo1: |pb expand |pb expandtabs, |pb unexpand
 
         # todo: pb for work with date/time's as utc floats in order - rel & abs & utc & zone & float
 
@@ -427,6 +428,10 @@ class ShellBrick:
         """Push a copy of the Nth Old Revision of the Paste Buffer into the Stack"""
 
         path = pathlib.Path(str(n))
+        if not path.exists():
+            print(f"./{n} file not found", file=sys.stderr)
+            sys.exit(1)
+
         data = path.read_bytes()
         self.pbcopy(data)
 
@@ -455,18 +460,13 @@ class ShellBrick:
     def push_paste_buffers(self) -> None:
         """Push one Empty File into the Stack"""
 
-        # Bring the 4 Cells of the Stack into existence, if need be
+        # Push the top 3 Cells of the Stack down, but leave them as sparse as they are
 
-        for pathindex in (3, 2, 1, 0):
+        for pathindex in (2, 1, 0):
+            to_pathindex = pathindex + 1
             path = pathlib.Path(str(pathindex))
-            if not path.exists():
-                path.write_text("")
-
-        # Keep 3 Cells of the Stack
-
-        for pathindex in (3, 2, 1):
-            from_pathindex = pathindex - 1
-            shutil.move(src=str(from_pathindex), dst=str(pathindex))
+            if path.exists():
+                shutil.move(src=str(pathindex), dst=str(to_pathindex))
 
         # Push an one Empty File
 
