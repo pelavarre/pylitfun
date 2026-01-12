@@ -68,8 +68,51 @@ def main() -> None:
     shg = ShellGopher()
     shg.run_main_argv_minus(sys.argv[1:])
     shg.compile_pipe_if()
-    # todo: shg.sketch_pipe() - 9 lines - wc counts - chars set sort
+    shg.sketch_pipe()
     shg.run_pipe()
+
+    # todo: default output into a 1-page pager of 9 lines - wc counts - chars set sort
+
+    # todo1: add |pb shuffle
+
+    # todo1: convert unhelped -F and -d into --sep for |awk and |cut
+
+    # todo1: pb |cut defaults to cut -c to fit on screen but with "... " marks
+
+    # todo1: block 0 1 2 3 as verbs after first verbs, take as ints, mainly for |awk
+    # todo1: but block ints/floats as first verbs
+    # todo1: signed/ unsigned floats before ints before verbs
+
+    # todo1: |pb ^ 'prefix'
+    # todo1: |pb $ 'suffix'
+    # todo1: |pb removeprefix 'prefix'
+    # todo1: |pb removesuffix 'prefix'
+    # todo1: |pb prefix 'prefix'
+    # todo1: |pb suffix 'suffix'
+    # todo1: |pb insertprefix 'prefix'
+    # todo1: |pb appendsuffix 'suffix'
+    # todo1: |sed 's,^,...,'
+    # todo1: |sed 's,$,...,'
+    # todo1: |'sys.oline = "pre fix" + sys.iline'
+
+    # todo1: |pb decode  # replace to \uFFFD Replacement-Character to \x3F Question-Mark '?'
+    # todo1: sold as overcomes old macOS Unix flaming out
+
+    # todo1: sort as ints |pb int.sort
+    # todo1: sort as floats |pb float.sort
+
+    # todo1: |pb dt datetime struggle to convert input into date/time-stamps
+    # todo1: timedelta absolute local """astimezone""
+    # todo1: timedelta absolute utc """fromtimestamp""
+    # todo1: timedelta relative previous """timedelta"""  # """dt.timedelta(_[0] - _[-1] for _ in zip)"""
+    # todo1: timedelta relative t0 """- _[0]"""  # """dt.timedelta(_ - list(sys.i)[0])""
+    # todo1: test with our favourite TZ=America/Los_Angeles TZ=Europe/Prague TZ=Asia/Kolkata
+
+    # todo1: |pb range - defaults to 1 2 3
+    # todo1: |pb random - defaults to 9 dice - random 100 - random 0 100 1 - head 9 head -9
+    # todo1: |pb choice
+
+    # todo9: + mv 0 ... && pbpaste |pb upper |tee >(pbcopy) >./0
 
 
 class ShellGopher:
@@ -216,6 +259,8 @@ class ShellGopher:
         # Compile the plan
 
         for verb in implied_verbs:
+            if verb == "pb":  # todo2: say this more simply - pb could mean __enter__
+                continue
             self.compile_brick_if(verb)
 
         # todo: do surrogate_escape repl ? in the default |pb undent
@@ -231,11 +276,39 @@ class ShellGopher:
         bricks = self.bricks
 
         brick = ShellBrick(self, verb=verb)
-        if not brick.func:
+        func_name = brick.func_name()
+
+        if not func_name:
             print(f"Unknown Pipe Brick:  {verb!r}", file=sys.stderr)
             sys.exit(2)  # exits 2 for bad Args
 
         bricks.append(brick)
+
+    def sketch_pipe(self) -> None:
+        """Sketch the Pipe as + |pb '...' |pb '...' ..."""
+
+        bricks = self.bricks
+
+        first = bricks[0].func_name()
+        brief_by_name = {
+            "digit_zero": "0",
+            "digit_one": "1",
+            "digit_two": "2",
+            "digit_three": "3",
+            "pipe_enter": "pb",
+        }
+        brief = brief_by_name[first]
+
+        last = bricks[-1].func_name()
+        assert last == "pipe_exit", (last,)
+
+        s = "+ |" + brief
+        for brick in bricks[1:-1]:
+            func = brick.func
+            doc = func.__doc__
+            s += " " + repr(doc)
+
+        print(s, file=sys.stderr)
 
     def print_help(self) -> None:
         """Print the Main Doc to Stdout and exit zero, like for '--help'"""
@@ -263,7 +336,7 @@ class ShellBrick:
     """Say how to call a Shell Verb"""
 
     shell_gopher: ShellGopher
-    func: collections.abc.Callable[..., None] | None
+    func: collections.abc.Callable[..., None]
     verb: str
 
     #
@@ -351,9 +424,34 @@ class ShellBrick:
             #
         }
 
-        default_eq_none = None
-        func = func_by_verb.get(verb, default_eq_none)
+        default = self._raise_not_implemented_error_
+        func = func_by_verb.get(verb, default)
         self.func = func
+
+    def func_name(self) -> str:
+        """Form the Name of the Brick's Func"""
+
+        func = self.func
+
+        name = func.__name__
+
+        name = name.removeprefix("run_str_")
+        name = name.removeprefix("run_list_str_")
+        name = name.removeprefix("do_")
+        name = name.removeprefix("run_")
+
+        name = name.removesuffix("_often_pass")
+
+        if name == "_raise_not_implemented_error_":
+            name = ""
+
+        return name
+
+    def _raise_not_implemented_error_(self) -> None:
+        """Raise NotImplementedError for the Brick"""
+
+        verb = self.verb
+        raise NotImplementedError(verb)
 
         # todo: brick helps
 
@@ -384,7 +482,8 @@ class ShellBrick:
         """Run Self as a Shell Pipe Brick"""
 
         func = self.func
-        assert func
+        func_name = self.func_name()
+        assert func_name, (func_name,)
 
         try:
             func()
@@ -539,7 +638,7 @@ class ShellBrick:
     #
 
     def fetch_bytes(self) -> bytes:
-        """Fetch the File as Bytes"""
+        """Fetch the bytes(sys.i)"""
 
         sg = self.shell_gopher
         data = sg.data
@@ -548,14 +647,14 @@ class ShellBrick:
         return data
 
     def run_bytes_to_ints(self) -> None:
-        """sys.oints = list(_ for _ in sys.ibytes)"""
+        """list(bytes(sys.i))"""
 
         idata = self.fetch_bytes()
         olines = list(str(_) for _ in idata)  # ['65', '66', '67']
         self.store_list_str(olines)
 
     def run_bytes_often_pass(self) -> None:
-        """sys.obytes = sys.ibytes"""
+        """bytes(sys.i)"""
 
         pass
 
@@ -564,7 +663,7 @@ class ShellBrick:
     #
 
     def fetch_list_str(self) -> list[str]:
-        """Fetch the File as List[Str]"""
+        """Fetch the list(sys.i)"""
 
         sg = self.shell_gopher
         data = sg.data
@@ -575,7 +674,7 @@ class ShellBrick:
         return lines
 
     def store_list_str(self, lines: list[str]) -> None:
-        """Store the File as List[Str]"""
+        """Store the list(sys.i)"""
 
         sg = self.shell_gopher
         text = "\n".join(lines) + "\n"
@@ -584,14 +683,14 @@ class ShellBrick:
         sg.data = encode
 
     def run_list_str_len(self) -> None:
-        """sys.oint = len(sys.ilines)"""
+        """len(list(sys.i))"""
 
         ilines = self.fetch_list_str()
         olines = [str(len(ilines))]
         self.store_list_str(olines)
 
     def run_list_str_awk(self) -> None:
-        """sys.oline = sys.iline.split(sep)[-1]  # or .split()[-1] without sep"""
+        """(_.split()[-1] if sep else _.split(sep)[-1]) for _ in list(sys.i)"""
 
         sg = self.shell_gopher
         sep = sg.sep
@@ -607,7 +706,7 @@ class ShellBrick:
         self.store_list_str(olines)
 
     def run_list_str_do_dent(self) -> None:
-        """sys.otext = textwrap_dent(sys.itext)"""
+        """[""2*""] + list((4*" " + _ + 4*" ") for _ in list(sys.i)) + [2*""]"""
 
         ilines = self.fetch_list_str()
         width = max(len(_) for _ in ilines) if ilines else 0
@@ -620,8 +719,8 @@ class ShellBrick:
         olines = above + list(_.ljust(ljust).rjust(rjust) for _ in ilines) + below
         self.store_list_str(olines)
 
-    def run_list_str_counter(self) -> None:
-        """sys.oitems = collections.Counter(_).items() but flipped to (v, k)"""
+    def run_list_str_counter(self) -> None:  # diff vs 'def run_list_str_set'
+        """collections.Counter(list(sys.i)).keys()"""
 
         ilines = self.fetch_list_str()
         opairs = list(collections.Counter(ilines).items())
@@ -629,7 +728,7 @@ class ShellBrick:
         self.store_list_str(vklines)
 
     def run_list_str_enumerate(self) -> None:
-        """sys.oitems = enumerate(_)"""
+        """enumerate(list(sys.i))"""
 
         sg = self.shell_gopher
         start = sg.start
@@ -641,14 +740,14 @@ class ShellBrick:
         self.store_list_str(kvlines)
 
     def run_list_str_head(self) -> None:
-        """sys.olines = sys.ilines[:9]"""
+        """list(sys.i)[:9]"""
 
         ilines = self.fetch_list_str()
         olines = ilines[:9]
         self.store_list_str(olines)
 
     def run_list_str_join(self) -> None:
-        """sys.olines = [sep.join(sys.ilines)]"""
+        """sep.join(list(sys.i))"""
 
         sg = self.shell_gopher
         sep = sg.sep
@@ -659,54 +758,54 @@ class ShellBrick:
         self.store_list_str(olines)
 
     def run_list_str_lstrip(self) -> None:
-        """sys.oline = sys.iline.lstrip()"""
+        """_.lstrip() for _ in list(sys.i)"""
 
         ilines = self.fetch_list_str()
         olines = list(_.lstrip() for _ in ilines)
         self.store_list_str(olines)
 
     def run_list_str_often_pass(self) -> None:
-        """sys.olines = sys.ilines"""
+        """list(sys.i)"""
 
         self.fetch_str()  # may raise UnicodeDecodeError
 
-    def run_list_str_set(self) -> None:
-        """sys.olines = collections.Counter(sys.ilines).keys()"""
+    def run_list_str_set(self) -> None:  # diff vs 'def run_list_str_counter'
+        """collections.Counter(sys.i).keys()"""
 
         ilines = self.fetch_list_str()
         klines = list(collections.Counter(ilines).keys())
         self.store_list_str(klines)
 
     def run_list_str_reverse(self) -> None:
-        """sys.iolines.reverse()"""
+        """list(sys.i).reverse()"""
 
         iolines = self.fetch_list_str()
         iolines.reverse()
         self.store_list_str(iolines)
 
     def run_list_str_rstrip(self) -> None:
-        """sys.oline = sys.iline.lstrip()"""
+        """list(_.rstrip() for _ in list(sys.i))"""
 
         ilines = self.fetch_list_str()
         olines = list(_.rstrip() for _ in ilines)
         self.store_list_str(olines)
 
     def run_list_str_sort(self) -> None:
-        """sys.iolines.sort()"""
+        """list(sys.i).sort()"""
 
         iolines = self.fetch_list_str()
         iolines.sort()
         self.store_list_str(iolines)
 
     def run_list_str_strip(self) -> None:
-        """sys.oline = sys.iline.strip()"""
+        """_.strip() for _ in list(sys.i)"""
 
         ilines = self.fetch_list_str()
         olines = list(_.strip() for _ in ilines)
         self.store_list_str(olines)
 
     def run_list_str_sum(self) -> None:
-        """sys.oint = sum(sys.iints)"""
+        """sum(list(sys.i))"""
 
         ilines = self.fetch_list_str()
         istrips = list(_.strip() for _ in ilines)
@@ -720,7 +819,7 @@ class ShellBrick:
         self.store_list_str(olines)
 
     def run_list_str_tail(self) -> None:
-        """sys.olines = sys.ilines[-9:]"""
+        """list(sys.i)[-9:]"""
 
         ilines = self.fetch_list_str()
         olines = ilines[-9:]
@@ -731,7 +830,7 @@ class ShellBrick:
     #
 
     def fetch_str(self) -> str:
-        """Fetch the File as Str"""
+        """Fetch the str(sys.i)"""
 
         sg = self.shell_gopher
         data = sg.data
@@ -741,7 +840,7 @@ class ShellBrick:
         return decode
 
     def store_str(self, text: str) -> None:
-        """Store the File as Str"""
+        """Store the str(sys.i)"""
 
         sg = self.shell_gopher
         encode = text.encode()  # may raise UnicodeEncodeError
@@ -749,36 +848,36 @@ class ShellBrick:
         sg.data = encode
 
     def run_str_casefold(self) -> None:
-        """sys.otext = sys.itext.casefold()"""
+        """sys.i.casefold()"""
 
         itext = self.fetch_str()
         otext = itext.casefold()
         self.store_str(otext)
 
     def run_str_do_undent(self) -> None:
-        """sys.otext = textwrap_undent(sys.itext)"""
+        """_.rstrip() for _ in textwrap.dedent(sys.i).strip().splitlines()"""
 
         itext = self.fetch_str()
         otext = textwrap.dedent(itext).strip()
         olines = list(_.rstrip() for _ in otext.splitlines())
         self.store_list_str(olines)
 
-    def run_str_expandtabs(self) -> None:
-        """sys.otext = sys.itext.expandtabs()"""
+    def run_str_expandtabs(self) -> None:  # todo1: |pb expandtabs 2
+        """sys.i.expandtabs()"""
 
         itext = self.fetch_str()
         otext = itext.expandtabs()
         self.store_str(otext)
 
     def run_str_lower(self) -> None:
-        """sys.otext = sys.itext.lower()"""
+        """sys.i.lower()"""
 
         itext = self.fetch_str()
         otext = itext.lower()
         self.store_str(otext)
 
     def run_str_split(self) -> None:
-        """sys.olines = sys.itext.split() if (sep is None) else sys.itext.split(sep)"""
+        """sys.i.split() if (sep is None) else sys.i.split(sep)"""
 
         sg = self.shell_gopher
         sep = sg.sep
@@ -789,21 +888,21 @@ class ShellBrick:
         self.store_list_str(olines)
 
     def run_str_title(self) -> None:
-        """sys.otext = sys.itext.title()"""
+        """sys.i.title()"""
 
         itext = self.fetch_str()
         otext = itext.title()
         self.store_str(otext)
 
     def run_str_to_texts(self) -> None:
-        """sys.olines = list(sys.itext)"""
+        """list(str(sys.i))"""
 
         itext = self.fetch_str()
         olines = list(itext)
         self.store_list_str(olines)
 
     def run_str_upper(self) -> None:
-        """sys.otext = sys.itext.upper()"""
+        """sys.i.upper()"""
 
         itext = self.fetch_str()
         otext = itext.upper()
