@@ -75,32 +75,34 @@ def main() -> None:
 class ShellGopher:
     """Init and run, once"""
 
-    data: bytes  # 1 Sponge of 1 File of Bytes
+    data: bytes | None  # 1 Sponge of 1 File of Bytes
 
     verbs: list[str]  # the brick names from the command line
     sep: str | None  # a separator, such as ' ' or ', '
     start: int | None  # a starting index, such as 0 or 1
 
     bricks: list[ShellBrick]  # Code that works over the Sponge
-    stacking_revisions: bool  # Stacking means Input from and Output to our Stack of Revisions
     sys_stdin_isatty: bool  # Dev Tty at Stdin means get Input Bytes from PasteBuffer
     sys_stdout_isatty: bool  # Dev Tty at Stdout means write Output Bytes back to PasteBuffer
+
+    shadowing_pbcopy: bool | None  # Writing to ./0 after writing into |pbcopy
 
     def __init__(self) -> None:
 
         sys_stdin_isatty = sys.stdin.isatty()  # sampled only once
         sys_stdout_isatty = sys.stdout.isatty()  # likewise, sampled only once
 
-        self.data = b""
+        self.data = None
 
         self.verbs = list()
         self.sep = None
         self.start = None
 
         self.bricks = list()
-        self.stacking_revisions = False
         self.sys_stdin_isatty = sys_stdin_isatty
         self.sys_stdout_isatty = sys_stdout_isatty
+
+        self.shadowing_pbcopy = None
 
     def arg_doc_to_parser(self, doc: str) -> ArgDocParser:
         """Declare the Options & Positional Arguments"""
@@ -186,22 +188,35 @@ class ShellGopher:
         """Compile each Brick"""
 
         verbs = self.verbs
-        bricks = self.bricks
 
+        # Choose to end by writing into ./0 after |PbCopy, or not
+
+        shadowing_pbcopy = False
         if verbs:
             verb0 = verbs[0]
             if verb0 in ("0", "1", "2", "3"):
-                self.stacking_revisions = True
+                shadowing_pbcopy = True
 
-        self.compile_brick_if("__enter__")
+        _ = self.shadowing_pbcopy
+        self.shadowing_pbcopy = shadowing_pbcopy
 
-        for verb in verbs:
+        # Choose how to start, how to fill out the middle, how to end
+
+        implied_verbs = list()
+        if not shadowing_pbcopy:
+            implied_verbs.append("__enter__")
+
+        implied_verbs.extend(verbs)
+
+        if not verbs[1:]:
+            implied_verbs.append("undent")
+
+        implied_verbs.append("__exit__")
+
+        # Compile the plan
+
+        for verb in implied_verbs:
             self.compile_brick_if(verb)
-
-        if len(bricks) <= 2:  # default to do the '|pb undent' work
-            self.compile_brick_if("undent")
-
-        self.compile_brick_if("__exit__")
 
         # todo: do surrogate_escape repl ? in the default |pb undent
 
@@ -371,17 +386,20 @@ class ShellBrick:
         func = self.func
         assert func
 
-        func()
+        try:
+            func()
+        except Exception:
+            print(f"{func=}", file=sys.stderr)
+            raise
 
     def run_pipe_enter(self) -> None:
-        """Enter the Shell Pipe"""
+        """Implicitly enter the Shell Pipe"""
 
         sg = self.shell_gopher
-        stacking_revisions = sg.stacking_revisions
         sys_stdin_isatty = sg.sys_stdin_isatty
 
-        if stacking_revisions:  # 0 1 2 3
-            return
+        assert sg.data is None, (len(sg.data),)
+        assert not sg.shadowing_pbcopy, (sg.shadowing_pbcopy,)
 
         if sys_stdin_isatty:  # pb, pb |
 
@@ -395,21 +413,22 @@ class ShellBrick:
             sg.data = data
 
     def run_pipe_exit(self) -> None:
-        """Exit the Shell Pipe"""
+        """Implicitly exit the Shell Pipe"""
 
         sg = self.shell_gopher
-        stacking_revisions = sg.stacking_revisions
         sys_stdin_isatty = sg.sys_stdin_isatty
         sys_stdout_isatty = sg.sys_stdout_isatty
+        shadowing_pbcopy = sg.shadowing_pbcopy
 
         data = sg.data
+        assert data is not None
 
         fd = sys.stdout.fileno()
 
-        self.pbcopy(data)
+        if shadowing_pbcopy or not sys_stdin_isatty:
+            self.pbcopy(data)
 
-        if stacking_revisions:
-
+        if shadowing_pbcopy:
             path = pathlib.Path(str(0))
             path.write_bytes(data)
 
@@ -448,7 +467,7 @@ class ShellBrick:
         data = path.read_bytes()
         self.pbcopy(data)
 
-        self.run_digit_zero()
+        self.run_digit_zero()  # todo: forward the .data but not via pbcopy then pbpaste
 
         # pb no implicit feedback into pb
         # todo: |1 or |1|
@@ -458,6 +477,7 @@ class ShellBrick:
 
         sg = self.shell_gopher
         sys_stdin_isatty = sg.sys_stdin_isatty
+        shadowing_pbcopy = sg.shadowing_pbcopy
 
         self.push_paste_buffers()
 
@@ -466,10 +486,11 @@ class ShellBrick:
             sg.data = data
 
         if not sys_stdin_isatty:  # |pb or |pb|
-
             data = sys.stdin.buffer.read()
             self.pbcopy(data)
             sg.data = data
+
+        assert shadowing_pbcopy, (shadowing_pbcopy,)
 
     def push_paste_buffers(self) -> None:
         """Push one Empty File into the Stack"""
@@ -522,6 +543,7 @@ class ShellBrick:
 
         sg = self.shell_gopher
         data = sg.data
+        assert data is not None
 
         return data
 
@@ -546,6 +568,7 @@ class ShellBrick:
 
         sg = self.shell_gopher
         data = sg.data
+        assert data is not None
 
         decode = data.decode()  # may raise UnicodeDecodeError
         lines = decode.splitlines()
@@ -712,6 +735,7 @@ class ShellBrick:
 
         sg = self.shell_gopher
         data = sg.data
+        assert data is not None
 
         decode = data.decode()  # may raise UnicodeDecodeError
         return decode
