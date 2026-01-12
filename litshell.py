@@ -16,8 +16,9 @@ options:
 
 famous bricks:
   0 1 2 3  F L O T U  a h i n o r s t u w x  pb
-  awk bytes chars counter data dent enumerate head join lines len
-  reverse reversed set splitlines strip sort sorted sum tail words
+  awk bytes casefold chars counter data dent enumerate expandtabs
+  head join lines len lower lstrip reverse rstrip set splitlines strip
+  sort str sum tail title undent upper words
 
 examples:
   cat README.md |pb
@@ -298,6 +299,7 @@ class ShellBrick:
             "lines": self.run_list_str_often_pass,
             "words": self.run_str_split,
             #
+            "expand": self.run_str_expandtabs,
             "reversed": self.run_list_str_reverse,  # |r
             "sorted": self.run_list_str_sort,  # |s
             #
@@ -322,6 +324,7 @@ class ShellBrick:
             "tail": self.run_list_str_tail,  # |t
             #
             "casefold": self.run_str_casefold,  # |F for Fold
+            "expandtabs": self.run_str_expandtabs,
             "lower": self.run_str_lower,  # |L
             "str": self.run_str_to_texts,  # like for wc -m via |str
             "title": self.run_str_title,  # |T
@@ -717,12 +720,20 @@ class ShellBrick:
         otext = itext.casefold()
         self.store_str(otext)
 
-    def run_str_to_texts(self) -> None:
-        """sys.olines = list(sys.itext)"""
+    def run_str_do_undent(self) -> None:
+        """sys.otext = textwrap_undent(sys.itext)"""
 
         itext = self.fetch_str()
-        olines = list(itext)
+        otext = textwrap.dedent(itext).strip()
+        olines = list(_.rstrip() for _ in otext.splitlines())
         self.store_list_str(olines)
+
+    def run_str_expandtabs(self) -> None:
+        """sys.otext = sys.itext.expandtabs()"""
+
+        itext = self.fetch_str()
+        otext = itext.expandtabs()
+        self.store_str(otext)
 
     def run_str_lower(self) -> None:
         """sys.otext = sys.itext.lower()"""
@@ -749,12 +760,11 @@ class ShellBrick:
         otext = itext.title()
         self.store_str(otext)
 
-    def run_str_do_undent(self) -> None:
-        """sys.otext = textwrap_undent(sys.itext)"""
+    def run_str_to_texts(self) -> None:
+        """sys.olines = list(sys.itext)"""
 
         itext = self.fetch_str()
-        otext = textwrap.dedent(itext).strip()
-        olines = list(_.rstrip() for _ in otext.splitlines())
+        olines = list(itext)
         self.store_list_str(olines)
 
     def run_str_upper(self) -> None:
