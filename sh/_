@@ -1,6 +1,8 @@
-if [ $# -ne 0 ]; then
+if [ $# -ne 0 ]; then  # _ ...
     cat "$@"
-else
+elif if [ ! -t 0 ]; then  # |_  # |_ |
+    cat - >/dev/null
+else  # _  # _ | ...
     echo 'Press ⌃D to quit happy, or ⌃C to quit sad' >&2
     echo '+ cat cat - >/dev/null' >&2
     cat - >/dev/null

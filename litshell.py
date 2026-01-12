@@ -68,6 +68,7 @@ def main() -> None:
     shg = ShellGopher()
     shg.run_main_argv_minus(sys.argv[1:])
     shg.compile_pipe_if()
+    # todo: shg.sketch_pipe() - 9 lines - wc counts - chars set sort
     shg.run_pipe()
 
 
@@ -202,10 +203,12 @@ class ShellGopher:
 
         self.compile_brick_if("__exit__")
 
-        # todo: more than one of ("0", "1", "2", "3"), such as Shell ? while 'ls -C ?' is '0 1 2 3'
+        # todo: do surrogate_escape repl ? in the default |pb undent
 
-        # todo: reject --sep without |pb join or |pb split
+        # todo: reject --sep without |pb join or |pb split or |pb awk
         # todo: reject --start without |pb enumerate
+
+        # todo: more than one of ("0", "1", "2", "3"), such as Shell ? while 'ls -C ?' is '0 1 2 3'
 
     def compile_brick_if(self, verb: str) -> None:
         """Compile one Brick"""
@@ -337,31 +340,30 @@ class ShellBrick:
         func = func_by_verb.get(verb, default_eq_none)
         self.func = func
 
-        # todo: pb --alt chars len, --alt v, --alt e
-
-        # todo: |wc -L into |pb line len max, |pb word len max
-
-        # todo1: |pb expand |pb expandtabs, |pb unexpand
+        # todo: brick helps
 
         # todo: pb for work with date/time's as utc floats in order - rel & abs & utc & zone & float
 
         # todo: pb for reorder and transpose arrays of tsv, for split into tsv
-
-        # todo: brick helps
-
-        # todo: pb --sep=/ 'a 1 -2 3'
-
-        # todo: pb floats sum
-        # todo: pb hexdump
-
         # todo: pb for work with tsv's
         # todo: tables
         # todo: str.ljust str.rjust str.center
+
+        # todo: pb --sep=/ 'a 1 -2 3'
+        # todo: pb --alt chars len, --alt v, --alt e
+
         # todo: dir(str)
+        # todo: |pb unexpand
+        # todo: pb hexdump
+
+        # todo: pb floats sum
+        # todo: pb int max
+        # todo: |wc -L into |pb line len max, |pb word len max
+        # todo: sys.oline = len(sys.iline)
 
         # todo: brief alias for stack dump at:  grep . ?
 
-        # todo: 'pb splitlines set', 'pb list', 'pb tuple', 'pb pass', ...
+        # todo: 'pb list', 'pb tuple', 'pb pass', ...
 
     def run_as_brick(self) -> None:
         """Run Self as a Shell Pipe Brick"""
@@ -402,6 +404,8 @@ class ShellBrick:
 
         data = sg.data
 
+        fd = sys.stdout.fileno()
+
         self.pbcopy(data)
 
         if stacking_revisions:
@@ -411,8 +415,14 @@ class ShellBrick:
 
         if sys_stdin_isatty or (not sys_stdout_isatty):  # pb, pb |, or |pb|  # not |pb
 
-            fileno = sys.stdout.fileno()
-            os.write(fileno, data)
+            assert int(0x80 + signal.SIGPIPE) == 141
+            try:
+                os.write(fd, data)
+            except BrokenPipeError:
+                sys.exit(141)  # 0x80 + signal.SIGPIPE
+
+            # tested by:  set -o pipefail && seq 123456 |pb && pb |head; echo + exit $?
+            # else:  BrokenPipeError: [Errno 32] Broken pipe
 
     #
     # Work with our Stack of 4 Revisions of the Paste Buffer
@@ -440,6 +450,7 @@ class ShellBrick:
 
         self.run_digit_zero()
 
+        # pb no implicit feedback into pb
         # todo: |1 or |1|
 
     def run_digit_zero(self) -> None:
