@@ -17,8 +17,8 @@ options:
 famous bricks:
   0 1 2 3  F L O T U  a h i n o r s t u w x  pb
   awk bytes casefold chars counter data dent enumerate expandtabs
-  head join lines len lower lstrip reverse rstrip set splitlines strip
-  sort str sum tail title undent upper words
+  head join lines len lower lstrip reverse rstrip set shuffle
+  splitlines strip sort str sum tail title undent upper words
 
 examples:
   cat README.md |pb
@@ -49,6 +49,7 @@ import difflib
 import hashlib
 import os
 import pathlib
+import random
 import shutil
 import signal
 import subprocess
@@ -71,46 +72,48 @@ def main() -> None:
     shg.sketch_pipe()
     shg.run_pipe()
 
-    # todo: default output into a 1-page pager of 9 lines - wc counts - chars set sort
+    # todo1: sort as ints |pb int.sort
+    # todo1: sort as floats |pb float.sort
 
-    # todo1: add |pb shuffle
+    # todo1: |pb choice
 
-    # todo1: convert unhelped -F and -d into --sep for |awk and |cut
+    # todo1: |pb cut defaults to |cut -c to fit on screen but with "... " marks
 
-    # todo1: pb |cut defaults to cut -c to fit on screen but with "... " marks
+    # todo1: take -F and -d as unhelped --sep for |awk
+    # todo1: take --seed to repeat random
 
-    # todo1: block 0 1 2 3 as verbs after first verbs, take as ints, mainly for |awk
+    # todo1: block 0 1 2 3 as verbs after first verbs, take as ints, for |pb awk, for |pb expandtabs
     # todo1: but block ints/floats as first verbs
     # todo1: signed/ unsigned floats before ints before verbs
-
-    # todo1: |pb ^ 'prefix'
-    # todo1: |pb $ 'suffix'
-    # todo1: |pb removeprefix 'prefix'
-    # todo1: |pb removesuffix 'prefix'
-    # todo1: |pb prefix 'prefix'
-    # todo1: |pb suffix 'suffix'
-    # todo1: |pb insertprefix 'prefix'
-    # todo1: |pb appendsuffix 'suffix'
-    # todo1: |sed 's,^,...,'
-    # todo1: |sed 's,$,...,'
-    # todo1: |'sys.oline = "pre fix" + sys.iline'
+    # todo1: int ranges 1..4
+    # todo1: --start=0 for |awk when you want that, else 0 for the whole in between the rest
 
     # todo1: |pb decode  # replace to \uFFFD Replacement-Character to \x3F Question-Mark '?'
     # todo1: sold as overcomes old macOS Unix flaming out
 
-    # todo1: sort as ints |pb int.sort
-    # todo1: sort as floats |pb float.sort
+    # todo: default output into a 1-page pager of 9 lines - wc counts - chars set sort
 
-    # todo1: |pb dt datetime struggle to convert input into date/time-stamps
-    # todo1: timedelta absolute local """astimezone""
-    # todo1: timedelta absolute utc """fromtimestamp""
-    # todo1: timedelta relative previous """timedelta"""  # """dt.timedelta(_[0] - _[-1] for _ in zip)"""
-    # todo1: timedelta relative t0 """- _[0]"""  # """dt.timedelta(_ - list(sys.i)[0])""
-    # todo1: test with our favourite TZ=America/Los_Angeles TZ=Europe/Prague TZ=Asia/Kolkata
+    # todo2: |pb dt datetime struggle to convert input into date/time-stamps
+    # todo2: timedelta absolute local """astimezone""
+    # todo2: timedelta absolute utc """fromtimestamp""
+    # todo2: timedelta relative previous """timedelta"""  # """dt.timedelta(_[0] - _[-1] for _ in zip)"""
+    # todo2: timedelta relative t0 """- _[0]"""  # """dt.timedelta(_ - list(sys.i)[0])""
+    # todo2: test with our favourite TZ=America/Los_Angeles TZ=Europe/Prague TZ=Asia/Kolkata
 
-    # todo1: |pb range - defaults to 1 2 3
-    # todo1: |pb random - defaults to 9 dice - random 100 - random 0 100 1 - head 9 head -9
-    # todo1: |pb choice
+    # todo2: |pb range - defaults to 1 2 3
+    # todo2: |pb random - defaults to 9 dice - random 100 - random 0 100 1 - head 9 head -9
+
+    # todo8: |pb ^ prefix
+    # todo8: |pb $ suffix
+    # todo8: |pb removeprefix 'prefix'
+    # todo8: |pb removesuffix 'prefix'
+    # todo8: |pb prefix 'prefix'
+    # todo8: |pb suffix 'suffix'
+    # todo8: |pb insertprefix 'prefix'
+    # todo8: |pb appendsuffix 'suffix'
+    # todo8: |sed 's,^,...,'
+    # todo8: |sed 's,$,...,'
+    # todo8: |'sys.oline = "pre fix" + sys.iline'
 
     # todo9: + mv 0 ... && pbpaste |pb upper |tee >(pbcopy) >./0
 
@@ -396,23 +399,22 @@ class ShellBrick:
             #
             # Python Single Words
             #
-            "awk": self.run_list_str_awk,  # |a
             "bytes": self.run_bytes_to_ints,  # like for wc -c via |bytes len
             "counter": self.run_list_str_counter,  # |u
             "dent": self.run_list_str_do_dent,  # |O
             "enumerate": self.run_list_str_enumerate,  # |n  # todo: -v1
-            "head": self.run_list_str_head,  # |h
             "join": self.run_list_str_join,  # |x
             "len": self.run_list_str_len,  # |w
-            "lstrip": self.run_list_str_lstrip,
             "reverse": self.run_list_str_reverse,  # |r
-            "rstrip": self.run_list_str_rstrip,
+            "shuffle": self.run_list_str_shuffle,  # |r
             "set": self.run_list_str_set,  # |set is the last half of |counter
             "splitlines": self.run_list_str_often_pass,
-            "strip": self.run_list_str_strip,
             "sort": self.run_list_str_sort,  # |s
             "sum": self.run_list_str_sum,
-            "tail": self.run_list_str_tail,  # |t
+            #
+            "lstrip": self.run_list_str_lstrip,
+            "rstrip": self.run_list_str_rstrip,
+            "strip": self.run_list_str_strip,
             #
             "casefold": self.run_str_casefold,  # |F for Fold
             "expandtabs": self.run_str_expandtabs,
@@ -421,6 +423,14 @@ class ShellBrick:
             "title": self.run_str_title,  # |T
             "undent": self.run_str_do_undent,  # |o
             "upper": self.run_str_upper,  # |U
+            #
+            # Bash Single Words
+            #
+            # "$": self.run_list_str_suffix,  # |$ ...  # todo8
+            # "^": self.run_list_str_prefix,  # |^ ...  # todo8
+            "awk": self.run_list_str_awk,  # |a
+            "head": self.run_list_str_head,  # |h
+            "tail": self.run_list_str_tail,  # |t
             #
         }
 
@@ -747,7 +757,7 @@ class ShellBrick:
         self.store_list_str(olines)
 
     def run_list_str_join(self) -> None:
-        """sep.join(list(sys.i))"""
+        """sep.join(list(sys.i))"""  # this .sep defaults to " ", not None
 
         sg = self.shell_gopher
         sep = sg.sep
@@ -770,7 +780,7 @@ class ShellBrick:
         self.fetch_str()  # may raise UnicodeDecodeError
 
     def run_list_str_set(self) -> None:  # diff vs 'def run_list_str_counter'
-        """collections.Counter(sys.i).keys()"""
+        """collections.Counter(list(sys.i)).keys()"""
 
         ilines = self.fetch_list_str()
         klines = list(collections.Counter(ilines).keys())
@@ -789,6 +799,13 @@ class ShellBrick:
         ilines = self.fetch_list_str()
         olines = list(_.rstrip() for _ in ilines)
         self.store_list_str(olines)
+
+    def run_list_str_shuffle(self) -> None:
+        """random.shuffle(list(sys.i))"""
+
+        iolines = self.fetch_list_str()
+        random.shuffle(iolines)
+        self.store_list_str(iolines)
 
     def run_list_str_sort(self) -> None:
         """list(sys.i).sort()"""
@@ -848,14 +865,14 @@ class ShellBrick:
         sg.data = encode
 
     def run_str_casefold(self) -> None:
-        """sys.i.casefold()"""
+        """str(sys.i).casefold()"""
 
         itext = self.fetch_str()
         otext = itext.casefold()
         self.store_str(otext)
 
     def run_str_do_undent(self) -> None:
-        """_.rstrip() for _ in textwrap.dedent(sys.i).strip().splitlines()"""
+        """_.rstrip() for _ in textwrap.dedent(str(sys.i)).strip().splitlines()"""
 
         itext = self.fetch_str()
         otext = textwrap.dedent(itext).strip()
@@ -863,21 +880,21 @@ class ShellBrick:
         self.store_list_str(olines)
 
     def run_str_expandtabs(self) -> None:  # todo1: |pb expandtabs 2
-        """sys.i.expandtabs()"""
+        """str(sys.i).expandtabs()"""
 
         itext = self.fetch_str()
         otext = itext.expandtabs()
         self.store_str(otext)
 
     def run_str_lower(self) -> None:
-        """sys.i.lower()"""
+        """str(sys.i).lower()"""
 
         itext = self.fetch_str()
         otext = itext.lower()
         self.store_str(otext)
 
     def run_str_split(self) -> None:
-        """sys.i.split() if (sep is None) else sys.i.split(sep)"""
+        """str(sys.i).split(sep)"""  # .sep may be None
 
         sg = self.shell_gopher
         sep = sg.sep
@@ -888,7 +905,7 @@ class ShellBrick:
         self.store_list_str(olines)
 
     def run_str_title(self) -> None:
-        """sys.i.title()"""
+        """str(sys.i).title()"""
 
         itext = self.fetch_str()
         otext = itext.title()
@@ -902,7 +919,7 @@ class ShellBrick:
         self.store_list_str(olines)
 
     def run_str_upper(self) -> None:
-        """sys.i.upper()"""
+        """str(sys.i).upper()"""
 
         itext = self.fetch_str()
         otext = itext.upper()

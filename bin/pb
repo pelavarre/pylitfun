@@ -1,3 +1,3 @@
 #!/bin/sh
-# pbpaste |  # |tee >(pbcopy)
+# pbpaste |...
 $(dirname "$0")/pylitfun/litshell.py pb "$@"
