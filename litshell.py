@@ -438,6 +438,9 @@ class ShellBrick:
             "awk": self.run_list_str_awk,  # |a
             "head": self.run_list_str_head,  # |h
             "tail": self.run_list_str_tail,  # |t
+            "tac": self.run_list_str_reverse,  # |r
+            #
+            "rev": self.run_list_str_str_reverse,
             #
         }
 
@@ -532,6 +535,7 @@ class ShellBrick:
         """Implicitly exit the Shell Pipe"""
 
         sg = self.shell_gopher
+        verbs = sg.verbs
         sys_stdin_isatty = sg.sys_stdin_isatty
         sys_stdout_isatty = sg.sys_stdout_isatty
         shadowing_pbcopy = sg.shadowing_pbcopy
@@ -548,7 +552,21 @@ class ShellBrick:
             path = pathlib.Path(str(0))
             path.write_bytes(data)
 
+        #
+
+        sorted_set_verbs = sorted(set(verbs))
+
+        writing_stdout = False
         if sys_stdin_isatty or (not sys_stdout_isatty):  # pb, pb |, or |pb|  # not |pb
+            writing_stdout = True
+        if sys_stdout_isatty:
+            if not shadowing_pbcopy:
+                if sorted_set_verbs not in (["pb"], ["-", "pb"]):
+                    writing_stdout = True
+
+        #
+
+        if writing_stdout:
 
             assert int(0x80 + signal.SIGPIPE) == 141
             try:
@@ -694,7 +712,7 @@ class ShellBrick:
         """Store the list(sys.i)"""
 
         sg = self.shell_gopher
-        text = "\n".join(lines) + "\n"
+        text = ("\n".join(lines) + "\n") if lines else ""
         encode = text.encode()  # may raise UnicodeEncodeError
 
         sg.data = encode
@@ -895,6 +913,13 @@ class ShellBrick:
         iolines = self.fetch_list_str()
         random.shuffle(iolines)
         self.store_list_str(iolines)
+
+    def run_list_str_str_reverse(self) -> None:
+        """list("".join(reversed(_)) for _ in list(sys.i))"""
+
+        ilines = self.fetch_list_str()
+        olines = list("".join(reversed(_)) for _ in ilines)
+        self.store_list_str(olines)
 
     def run_list_str_sort(self) -> None:
         """list(sys.i).sort()"""
