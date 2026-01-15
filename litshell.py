@@ -15,10 +15,11 @@ options:
   --start START  a starting index, such as 0 or 1
 
 famous bricks:
-  0 1 2 3  F L O T U  a h i n o r s t u w x  pb
+  -  0 1 2 3  F L O T U  a h i n o r s t u w x  pb
   awk bytes casefold chars counter data dent enumerate expandtabs
-  head join lines len lower lstrip reverse rstrip set shuffle
-  splitlines strip sort str sum tail title undent upper words
+  float.sort head int.sort join lines len lower lstrip md5sum rev
+  reverse rstrip set sha256 shuffle splitlines strip sort str sum tac
+  tail title undent upper words
 
 examples:
   cat README.md |pb
@@ -33,6 +34,8 @@ examples:
   1
   1
 """
+
+# no collision with our sh/ b d e f m v z
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
 
@@ -72,23 +75,32 @@ def main() -> None:
     shg.sketch_pipe()
     shg.run_pipe()
 
-    # todo1: finish porting pelavarre/xshverb/bin/ a dt ht pq, and k, and j
+    #
 
-    # todo1: |pb choice
+    # todo1: |pb _ like same _ as we have outside
 
-    # todo1: |pb cut defaults to |cut -c to fit on screen but with "... " marks
+    # todo1: |pb cut ... to |cut -c to fit on screen but with "... " marks
+    # todo1: |pb fmt ... just to do |fmt
+    # todo1: |pb column ... but default to --sep='  ' for intake
+    # todo1: more with 'comm' and 'paste' and ... ?
+
+    # todo1: |pb decode  # replace to \uFFFD Replacement-Character to \x3F Question-Mark '?'
+    # todo1: sold as overcomes old macOS Unix flaming out
+
+    # todo1: finish porting pelavarre/xshverb/ of bin/ a j k and of bin/ dt ht pq
 
     # todo1: take -F and -d as unhelped --sep for |awk
     # todo1: take --seed to repeat random
+
+    #
+
+    # todo1: |pb choice
 
     # todo1: block 0 1 2 3 as verbs after first verbs, take as ints, for |pb awk, for |pb expandtabs
     # todo1: but block ints/floats as first verbs
     # todo1: signed/ unsigned floats before ints before verbs
     # todo1: int ranges 1..4
     # todo1: --start=0 for |awk when you want that, else 0 for the whole in between the rest
-
-    # todo1: |pb decode  # replace to \uFFFD Replacement-Character to \x3F Question-Mark '?'
-    # todo1: sold as overcomes old macOS Unix flaming out
 
     # todo: default output into a 1-page pager of 9 lines - wc counts - chars set sort
 

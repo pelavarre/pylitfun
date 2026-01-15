@@ -1,9 +1,17 @@
-if [ $# -ne 0 ]; then  # _ ...
+if [ $# -ne 0 ]; then  # _ ...  # with args
+    set -xe
     cat "$@"
-elif if [ ! -t 0 ]; then  # |_  # |_ |
-    cat - >/dev/null
-else  # _  # _ | ...
+elif [ -t 0 ]; then
     echo 'Press ⌃D to quit happy, or ⌃C to quit sad' >&2
-    echo '+ cat cat - >/dev/null' >&2
-    cat - >/dev/null
+    if [ -t 1 ]; then  # _  # standalone
+        set -e
+        echo 'cat - >/dev/null' >&2
+        cat - >/dev/null
+    else  # _ |...  # at the front
+        set -xe
+        cat -
+    fi
+else  # |_  # |_ |...  # at the back or in the middle
+    set -xe
+    cat -
 fi
