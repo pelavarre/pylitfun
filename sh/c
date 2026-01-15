@@ -1,0 +1,13 @@
+if [ $# -ne 0 ]; then
+    set -xe
+    cat "$@"
+else
+    if [ -t 0 ] && [ -t 1 ]; then
+        set -e
+        echo '+ cat - >/dev/null' >&2
+        cat - >/dev/null
+    else
+        set -xe
+        cat -
+    fi
+fi
