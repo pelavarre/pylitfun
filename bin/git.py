@@ -81,7 +81,7 @@ ShlinePlusByShverb = {  # sorted by key
     "grv": r"git remote -v |tr ' \t' '\n' |grep : |uniq |sed 's,^,git clone ,'",
     "gs": "git show --color-moved [...]",
     # 30
-    "gsis": "git status --ignored --short",
+    "gsis": "find . -type p && git status --ignored --short",
     "gspno": "git show --pretty= --name-only [...]",
     # 32
 }
@@ -164,6 +164,8 @@ class GitGopher:
         # Shove back on Python ShLex Quote fussily quoting mentions of HEAD~... to no purpose
 
         run_shline = authed + " " + " ".join(shlex_quote_calmly(_) for _ in diff_shargv[1:])
+        run_shline = run_shline.rstrip()
+
         run_shargv = shlex.split(authed) + list(diff_shargv[1:])
 
         # Loudly promise to call the Shell now
@@ -178,10 +180,13 @@ class GitGopher:
 
         # Call the Shell now
 
-        if not shell:
-            git_run = subprocess.run(run_shargv)
-        else:
+        if shell:
             git_run = subprocess.run(run_shline, shell=True)
+        elif " && " in run_shline:
+            assert run_shline == "find . -type p && git status --ignored --short", (run_shline,)
+            git_run = self.subprocess_run_shlines_till_exit_nonzero(run_shline.split(" && "))
+        else:
+            git_run = subprocess.run(run_shargv)
 
         if git_run.returncode:
             print("+ exit", git_run.returncode, file=sys.stderr)
@@ -723,6 +728,24 @@ class GitGopher:
         print("+ exit", returncode, file=sys.stderr)  # repeat after caller
 
         sys.exit(returncode)
+
+    def subprocess_run_shlines_till_exit_nonzero(
+        self, shlines: typing.Iterable[str]
+    ) -> subprocess.CompletedProcess[bytes]:
+        """Call the Shell for each Line and return the last, but quit early at exit nonzero, if any"""
+
+        shlines_list = list(shlines)
+
+        run = subprocess.run(["true"], stdin=subprocess.DEVNULL)
+        assert run.returncode == 0, (run.returncode,)
+
+        for shline in shlines_list:
+            shargv = shlex.split(shline)
+            run = subprocess.run(shargv)
+            if run.returncode:
+                return run
+
+        return run
 
 
 #

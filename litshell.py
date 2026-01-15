@@ -72,6 +72,8 @@ def main() -> None:
     shg.sketch_pipe()
     shg.run_pipe()
 
+    # todo1: finish porting pelavarre/xshverb/bin/ a dt ht pq, and k, and j
+
     # todo1: |pb choice
 
     # todo1: |pb cut defaults to |cut -c to fit on screen but with "... " marks
