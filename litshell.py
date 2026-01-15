@@ -72,8 +72,7 @@ def main() -> None:
     shg.sketch_pipe()
     shg.run_pipe()
 
-    # todo1: sort as ints |pb int.sort
-    # todo1: sort as floats |pb float.sort
+    # todo1: |pb write into paste buffer only if no args, or |pb -
 
     # todo1: |pb choice
 
@@ -388,10 +387,10 @@ class ShellBrick:
             #
             # Aliases of three or more Characters
             #
-            "data": self.run_bytes_to_ints,
-            "chars": self.run_str_to_texts,
+            "data": self.run_bytes_to_ints,  # aka bytes
+            "chars": self.run_str_to_texts,  # aka str
             "lines": self.run_list_str_often_pass,
-            "words": self.run_str_split,
+            "words": self.run_str_split,  # aka split
             #
             "expand": self.run_str_expandtabs,
             "reversed": self.run_list_str_reverse,  # |r
@@ -399,7 +398,7 @@ class ShellBrick:
             #
             # Python Single Words
             #
-            "bytes": self.run_bytes_to_ints,  # like for wc -c via |bytes len
+            "bytes": self.run_bytes_to_ints,  # like for wc -c via |bytes len  # aka data
             "counter": self.run_list_str_counter,  # |u
             "dent": self.run_list_str_do_dent,  # |O
             "enumerate": self.run_list_str_enumerate,  # |n  # todo: -v1
@@ -419,10 +418,16 @@ class ShellBrick:
             "casefold": self.run_str_casefold,  # |F for Fold
             "expandtabs": self.run_str_expandtabs,
             "lower": self.run_str_lower,  # |L
-            "str": self.run_str_to_texts,  # like for wc -m via |str
+            "str": self.run_str_to_texts,  # like for wc -m via |str  # aka chars
+            "split": self.run_str_split,  # aka words
             "title": self.run_str_title,  # |T
             "undent": self.run_str_do_undent,  # |o
             "upper": self.run_str_upper,  # |U
+            #
+            # Python Dotted Double Words
+            #
+            "int.sort": self.run_list_str_int_sort,
+            "float.sort": self.run_list_str_float_sort,
             #
             # Bash Single Words
             #
@@ -749,12 +754,94 @@ class ShellBrick:
         kvlines = list(f"{k}\t{v}" for (k, v) in opairs)
         self.store_list_str(kvlines)
 
+    def run_list_str_float_sort(self) -> None:
+        """list(sys.i).sort(key=lambda _: float(..."""
+
+        ilines = self.fetch_list_str()
+
+        min_width = -1
+
+        ilists: list[list[float]] = list()
+        for iline in ilines:
+            isplits = iline.split()
+
+            ifloats = list()
+            for isplit in isplits:
+                try:
+                    ifloat = float(isplit)  # rejects int literals of base != 10
+                except ValueError:
+                    break
+
+                ifloats.append(ifloat)
+
+            ilists.append(ifloats)
+            min_width = len(ifloats) if (min_width < 0) else min(min_width, len(ifloats))
+
+        assert len(ilists) == len(ilines), (len(ilists), len(ilines))
+
+        if ilists and not min_width:
+            print("pb: no float columns to sort", file=sys.stderr)
+            sys.exit(1)  # exits 1 for value error in taking up input
+
+        sortables: list[tuple[list[float], str]] = list()
+        for ilist, iline in zip(ilists, ilines):
+            sortable = (ilist[:min_width], iline)
+            sortables.append(sortable)
+
+        sortables.sort()
+
+        olines = list(_ for (ilist, _) in sortables)
+        self.store_list_str(olines)
+
+        # todo: share more Code between .run_list_str_int_sort and .run_list_str_float_sort
+
     def run_list_str_head(self) -> None:
         """list(sys.i)[:9]"""
 
         ilines = self.fetch_list_str()
         olines = ilines[:9]
         self.store_list_str(olines)
+
+    def run_list_str_int_sort(self) -> None:
+        """list(sys.i).sort(key=lambda _: int(..."""
+
+        ilines = self.fetch_list_str()
+
+        min_width = -1
+
+        ilists: list[list[int]] = list()
+        for iline in ilines:
+            isplits = iline.split()
+
+            iints = list()
+            for isplit in isplits:
+                try:
+                    iint = int(isplit, base=0)
+                except ValueError:
+                    break
+
+                iints.append(iint)
+
+            ilists.append(iints)
+            min_width = len(iints) if (min_width < 0) else min(min_width, len(iints))
+
+        assert len(ilists) == len(ilines), (len(ilists), len(ilines))
+
+        if ilists and not min_width:
+            print("pb: no int columns to sort", ilines, file=sys.stderr)
+            sys.exit(1)  # exits 1 for value error in taking up input
+
+        sortables: list[tuple[list[int], str]] = list()
+        for ilist, iline in zip(ilists, ilines):
+            sortable = (ilist[:min_width], iline)
+            sortables.append(sortable)
+
+        sortables.sort()
+
+        olines: list[str] = list(_ for (ilist, _) in sortables)
+        self.store_list_str(olines)
+
+        # todo: share more Code between .run_list_str_float_sort and .run_list_str_int_sort
 
     def run_list_str_join(self) -> None:
         """sep.join(list(sys.i))"""  # this .sep defaults to " ", not None
