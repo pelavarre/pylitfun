@@ -72,8 +72,6 @@ def main() -> None:
     shg.sketch_pipe()
     shg.run_pipe()
 
-    # todo1: |pb write into paste buffer only if no args, or |pb -
-
     # todo1: |pb choice
 
     # todo1: |pb cut defaults to |cut -c to fit on screen but with "... " marks
@@ -102,6 +100,7 @@ def main() -> None:
     # todo2: |pb range - defaults to 1 2 3
     # todo2: |pb random - defaults to 9 dice - random 100 - random 0 100 1 - head 9 head -9
 
+    # todo8: |pb echo ...
     # todo8: |pb ^ prefix
     # todo8: |pb $ suffix
     # todo8: |pb removeprefix 'prefix'
@@ -242,7 +241,7 @@ class ShellGopher:
             if verb0 in ("0", "1", "2", "3"):
                 shadowing_pbcopy = True
 
-        _ = self.shadowing_pbcopy
+        _ = self.shadowing_pbcopy  # checks attribute exists  # type: ignore[unused-ignore]
         self.shadowing_pbcopy = shadowing_pbcopy
 
         # Choose how to start, how to fill out the middle, how to end
@@ -432,6 +431,9 @@ class ShellBrick:
             "float.sort": self.run_list_str_float_sort,
             #
             # Bash Single Words
+            #
+            "md5sum": self.run_bytes_md5sum,
+            "sha256": self.run_bytes_sha256,
             #
             # "$": self.run_list_str_suffix,  # |$ ...  # todo8
             # "^": self.run_list_str_prefix,  # |^ ...  # todo8
@@ -693,6 +695,34 @@ class ShellBrick:
 
         pass
 
+    def run_bytes_md5sum(self) -> None:
+        """hashlib.md5(bytes(sys.i)).hexdigest()"""
+
+        idata = self.fetch_bytes()
+
+        h = hashlib.md5()
+        h.update(idata)
+        lower_nybbles = h.hexdigest()
+
+        olines = [lower_nybbles + "  -"]
+        self.store_list_str(olines)
+
+        # d41d8cd98f00b204e9800998ecf8427e  -
+
+    def run_bytes_sha256(self) -> None:
+        """hashlib.sha256(bytes(sys.i)).hexdigest()"""
+
+        idata = self.fetch_bytes()
+
+        h = hashlib.sha256()
+        h.update(idata)
+        lower_nybbles = h.hexdigest()
+
+        olines = [lower_nybbles + "  -"]
+        self.store_list_str(olines)
+
+        # e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 -
+
     #
     # Work with the File as List[Str]
     #
@@ -704,18 +734,18 @@ class ShellBrick:
         data = sg.data
         assert data is not None
 
-        decode = data.decode()  # may raise UnicodeDecodeError
-        lines = decode.splitlines()
-        return lines
+        idecode = data.decode()  # may raise UnicodeDecodeError
+        ilines = idecode.splitlines()
+        return ilines
 
     def store_list_str(self, lines: list[str]) -> None:
         """Store the list(sys.i)"""
 
         sg = self.shell_gopher
-        text = ("\n".join(lines) + "\n") if lines else ""
-        encode = text.encode()  # may raise UnicodeEncodeError
+        otext = ("\n".join(lines) + "\n") if lines else ""
+        oencode = otext.encode()  # may raise UnicodeEncodeError
 
-        sg.data = encode
+        sg.data = oencode
 
     def run_list_str_len(self) -> None:
         """len(list(sys.i))"""
@@ -810,7 +840,7 @@ class ShellBrick:
 
         sortables.sort()
 
-        olines = list(_ for (ilist, _) in sortables)
+        olines: list[str] = list(oline for (_, oline) in sortables)
         self.store_list_str(olines)
 
         # todo: share more Code between .run_list_str_int_sort and .run_list_str_float_sort
@@ -848,7 +878,7 @@ class ShellBrick:
         assert len(ilists) == len(ilines), (len(ilists), len(ilines))
 
         if ilists and not min_width:
-            print("pb: no int columns to sort", ilines, file=sys.stderr)
+            print("pb: no int columns to sort", file=sys.stderr)
             sys.exit(1)  # exits 1 for value error in taking up input
 
         sortables: list[tuple[list[int], str]] = list()
@@ -858,7 +888,7 @@ class ShellBrick:
 
         sortables.sort()
 
-        olines: list[str] = list(_ for (ilist, _) in sortables)
+        olines: list[str] = list(oline for (_, oline) in sortables)
         self.store_list_str(olines)
 
         # todo: share more Code between .run_list_str_float_sort and .run_list_str_int_sort
@@ -967,16 +997,16 @@ class ShellBrick:
         data = sg.data
         assert data is not None
 
-        decode = data.decode()  # may raise UnicodeDecodeError
-        return decode
+        idecode = data.decode()  # may raise UnicodeDecodeError
+        return idecode
 
     def store_str(self, text: str) -> None:
         """Store the str(sys.i)"""
 
         sg = self.shell_gopher
-        encode = text.encode()  # may raise UnicodeEncodeError
+        oencode = text.encode()  # may raise UnicodeEncodeError
 
-        sg.data = encode
+        sg.data = oencode
 
     def run_str_casefold(self) -> None:
         """str(sys.i).casefold()"""
