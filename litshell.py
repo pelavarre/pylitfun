@@ -358,6 +358,8 @@ class ShellBrick:
             #
             # Single Character Aliases
             #
+            "-": self.run_bytes_often_pass,
+            #
             "0": self.run_digit_zero,
             "1": self.run_digit_one,
             "2": self.run_digit_two,
