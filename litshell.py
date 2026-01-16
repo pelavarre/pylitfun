@@ -986,12 +986,18 @@ class ShellBrick:
         istrips = list(_.strip() for _ in ilines)
         itruths = list(_ for _ in istrips if _)
 
-        oint = 0
+        onumber: float | int = 0
         if itruths:
-            oint = sum(int(_, base=0) for _ in itruths)
+            try:
+                onumber = sum(int(_, base=0) for _ in itruths)
+            except ValueError:
+                onumber = sum(float(_) for _ in itruths)
 
-        olines = [str(oint)]
+        olines = [str(onumber)]
         self.store_list_str(olines)
+
+        # does not sum the columns across rows of numbers
+        # does not guess you meant '|pb split' before '|pb sum'
 
     def run_list_str_tail(self) -> None:
         """list(sys.i)[-9:]"""
