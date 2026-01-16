@@ -17,6 +17,8 @@ examples:
   gg -w gg ggl
   git.py --shfile=~/gg -w gg ggl
   : gg ... && git grep -ai -w -e gg -e ggl
+  gla
+  : gla && git log --pretty=fuller --no-decorate --color-moved --author=jqdoe
 """
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -381,6 +383,10 @@ class GitGopher:
         assert shverb_shline_plus.endswith("..."), (shverb_shline_plus,)
         required_args_usage = f"usage: {shverb} ..."
 
+        # Discover the present main Author
+
+        gwho = self.find_git_who()
+
         # Tweak away from Doc when supposedly required Args absent
 
         if shverb_shline_plus == "git ls-files |grep -ai -e ... -e ...":
@@ -396,6 +402,24 @@ class GitGopher:
             assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
             return (shline, shsuffix)
 
+        if shverb_shline_plus.endswith(" --author=..."):
+            shline = shverb_shline_plus.removesuffix(" --author=...")
+            shsuffix = " ..."  # shouts out Args
+            if not shargv[1:]:
+                shline += " " + shlex.quote(f"--author={gwho}")
+                shsuffix = ""  # shouts out (and forgives) No Pos Args (indeed No Args)
+
+            assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
+            return (shline, shsuffix)
+
+        # Tweak away from Doc while heavily editing required Args
+
+        shline = shverb_shline_plus.removesuffix(" ...")
+        if shverb_shline_plus.endswith(" -ai -e ... -e ..."):
+            shline = shverb_shline_plus.removesuffix(" -ai -e ... -e ...")
+
+        shsuffix = " ..."  # shouts out Args
+
         # Do require Args
 
         if not shargv[1:]:
@@ -408,16 +432,6 @@ class GitGopher:
 
             print(required_args_usage, file=sys.stderr)
             sys.exit(2)  # exits 2 for bad args
-
-        # Tweak away from Doc while heavily editing required Args
-
-        shline = shverb_shline_plus.removesuffix(" ...")
-        if shverb_shline_plus.endswith(" -ai -e ... -e ..."):
-            shline = shverb_shline_plus.removesuffix(" -ai -e ... -e ...")
-        elif shverb_shline_plus.endswith(" --author=..."):
-            shline = shverb_shline_plus.removesuffix(" --author=...")
-
-        shsuffix = " ..."  # shouts out Args
 
         # Succeed
 
@@ -509,6 +523,39 @@ class GitGopher:
 
         # gb, gcaa, gcam, gda, gdh, gf, gno, grh1, grhu, grl, grv, gsis
 
+    def find_git_who(self) -> str:
+        """Go fetch the 'git config user.email'"""
+
+        gwho_shline = "git config user.email"
+
+        gwho_run = subprocess.run(
+            shlex.split(gwho_shline),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        # Exit nonzero and explain why, if need be
+
+        if gwho_run.returncode:
+
+            print(f": gwho && {gwho_run}", file=sys.stderr)
+            sys.stderr.write(gwho_run.stdout.decode())  # written to Stderr, and commonly empty
+            sys.stderr.write(gwho_run.stderr.decode())
+
+            print(f"+ exit {gwho_run.returncode}", file=sys.stderr)
+
+            sys.exit(gwho_run.returncode)
+
+        # Succeed
+
+        gwho = gwho_run.stdout.decode().rstrip()
+
+        return gwho
+
+        # todo: merge with nearly identical .find_git_top
+        # todo: run .find_git_who at most once per Process
+
     #
     # Solve work in Shell or not, work at Git Top or not, work with Git Diff or not
     #
@@ -568,11 +615,14 @@ class GitGopher:
 
             sys.exit(gtop_run.returncode)
 
-        # Exit nonzero and explain why, if Pwd not inside a Git Clone
+        # Succeed
 
         gtop = gtop_run.stdout.decode().rstrip()
 
         return gtop
+
+        # todo: merge with nearly identical .find_git_who
+        # todo: run .find_git_top at most once per Process
 
     def shline_at_git_diff(
         self, shverb: str, shline: str, tweaked_shargv: tuple[str, ...]
@@ -649,6 +699,8 @@ class GitGopher:
         gcam_shline_plus = "git commit --all -m " + repr(message)
         return ("gcam", gcam_shline_plus)  # this 'gcam' knows its 'gdno'
 
+        # todo: run .gdno_shline at most once per Process
+
     #
     # Choose ShArgV
     #
@@ -663,12 +715,13 @@ class GitGopher:
 
         if shverb in ("gla",):
             assert shline_plus.endswith(" --author=..."), (shline_plus, shverb)
-            assert shargv[1:], (shargv[1:], shverb)
+            if shargv[1:]:
+                alt_sharg1 = "--author=" + shargv[1]
 
-            alt_sharg1 = "--author=" + shargv[1]
+                tweaked_shargv = shargv[:1] + (alt_sharg1,) + shargv[2:]
+                return tweaked_shargv
 
-            tweaked_shargv = shargv[:1] + (alt_sharg1,) + shargv[2:]
-            return tweaked_shargv
+            return shargv
 
         # Tweak 'grias 3' up into 'grias HEAD~3', etc
 
@@ -826,8 +879,9 @@ if __name__ == "__main__":
 
 _ = """  # todo's
 
+# todo: measure latency added by calling these aliases in place of an explicit whole shline
+
 # todo: gcam should pick up new Added Files into the wip
-# todo: gla with No Arg should default to git config user.email
 
 # todo: add:  git checkout -, git push, git rebase, local/remote mkdir/rmdir of git branches, ...
 # todo: no 'git checkout' on purpose:  without args it cancels cherry-pick and hides rebase
