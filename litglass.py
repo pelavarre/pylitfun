@@ -249,7 +249,7 @@ class LitGlass:
             now = dt.datetime.now().astimezone()
             boss = (now - MainStamp).total_seconds()
             boss_chop = chop(boss)
-            logger.info("%s", f"and spent {boss_chop}s to launch TerminalBoss")
+            logger.info("%s", f"and spent {boss_chop}s to launch TerminalBoss")  # todo1: move into logger_print
 
             if flags.byteloop:
                 tb.tb_run_byteloop()
@@ -813,7 +813,7 @@ class KeycapsGame:
         now = dt.datetime.now().astimezone()
         kc = (now - MainStamp).total_seconds()
         kc_chop = chop(kc)
-        logger.info("%s", f"and spent {kc_chop}s to launch KeycapsGame")
+        logger.info("%s", f"and spent {kc_chop}s to launch KeycapsGame")  # todo1: move into logger_print
 
         while not tb.quitting:
 

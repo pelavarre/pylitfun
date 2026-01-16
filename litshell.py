@@ -15,11 +15,11 @@ options:
   --start START  a starting index, such as 0 or 1
 
 famous bricks:
-  -  0 1 2 3  F L O T U  a h i n o r s t u w x  pb
-  awk bytes casefold chars counter data dent enumerate expandtabs
-  float.sort head int.sort join lines len lower lstrip md5sum rev
-  reverse rstrip set sha256 shuffle splitlines strip sort str sum tac
-  tail title undent upper words
+  -  0 1 2 3  F L O T U  a h i n o r s t u w x
+  pb awk bytes casefold chars counter data dent enumerate expandtabs
+  float.sort head int.sort join nl lines len lower lstrip md5sum rev
+  reverse rstrip set sha256 shuf shuffle splitlines strip sort str
+  sum tac tail title undent upper words
 
 examples:
   cat README.md |pb
@@ -77,22 +77,26 @@ def main() -> None:
 
     #
 
-    # todo1: |pb _ like same _ as we have outside
+    # todo0: |pb _ like same _ as we have outside
 
-    # todo1: |pb cut ... to |cut -c to fit on screen but with "... " marks
-    # todo1: |pb fmt ... just to do |fmt
-    # todo1: |pb column ... but default to --sep='  ' for intake
-    # todo1: more with 'comm' and 'paste' and ... ?
+    # todo0: |pb cut ... to |cut -c to fit on screen but with "... " marks
+    # todo0: |pb fmt ... just to do |fmt
+    # todo0: |pb column ... like' |column -t' but default to --sep='  ' for intake
 
-    # todo1: |pb decode  # replace to \uFFFD Replacement-Character to \x3F Question-Mark '?'
-    # todo1: sold as overcomes old macOS Unix flaming out
+    # todo0: |pb decode  # replace to \uFFFD Replacement-Character to \x3F Question-Mark '?'
+    # todo0: sold as overcomes old macOS Unix flaming out
+
+    # todo0: take -F and -d as unhelped --sep for |awk
+    # todo0: take -v as unhelped --start for |nl
+    # todo0: take --seed as unhelped to repeat random
+
+    #
+
+    # todo1: only pb should undent, not |pb and not |pb | and not pb |...
 
     # todo1: finish porting pelavarre/xshverb/ of bin/ a j k and of bin/ dt ht pq
 
-    # todo1: take -F and -d as unhelped --sep for |awk
-    # todo1: take --seed to repeat random
-
-    #
+    # todo1: more with 'comm' and 'paste' and ... ?
 
     # todo1: |pb choice
 
@@ -384,7 +388,7 @@ class ShellBrick:
             "T": self.run_str_title,
             "U": self.run_str_upper,
             #
-            "a": self.run_list_str_awk,
+            "a": self.run_list_str_awk_nth_slice,
             "h": self.run_list_str_head,
             "i": self.run_str_split,
             "n": self.run_list_str_enumerate,
@@ -451,8 +455,10 @@ class ShellBrick:
             #
             # "$": self.run_list_str_suffix,  # |$ ...  # todo8
             # "^": self.run_list_str_prefix,  # |^ ...  # todo8
-            "awk": self.run_list_str_awk,  # |a
+            "awk": self.run_list_str_awk_nth_slice,  # |a
             "head": self.run_list_str_head,  # |h
+            "nl": self.run_list_str_enumerate,  # although Shell defaults to --start=1
+            "shuf": self.run_list_str_shuffle,
             "tail": self.run_list_str_tail,  # |t
             "tac": self.run_list_str_reverse,  # |r
             #
@@ -768,8 +774,8 @@ class ShellBrick:
         olines = [str(len(ilines))]
         self.store_list_str(olines)
 
-    def run_list_str_awk(self) -> None:
-        """(_.split()[-1] if sep else _.split(sep)[-1]) for _ in list(sys.i)"""
+    def run_list_str_awk_nth_slice(self) -> None:
+        """_.split(sep)[-1]) for _ in list(sys.i)"""
 
         sg = self.shell_gopher
         sep = sg.sep
@@ -783,6 +789,8 @@ class ShellBrick:
                 olines.append(splits[-1])
 
         self.store_list_str(olines)
+
+        # as if |awk 'NF{print $NF}'
 
     def run_list_str_do_dent(self) -> None:
         """[""2*""] + list((4*" " + _ + 4*" ") for _ in list(sys.i)) + [2*""]"""
