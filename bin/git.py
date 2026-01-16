@@ -65,6 +65,7 @@ ShlinePlusByShverb = {  # sorted by key
     # 15
     "ggl": "git grep -l -ai -e ... -e ...",
     "gl": "git log --pretty=fuller --no-decorate --color-moved [...]",
+    "gla": "git log --pretty=fuller --no-decorate --color-moved --author=...",
     "glf": "git ls-files |grep -ai -e ... -e ...",
     "glq": "git log --oneline --no-decorate --color-moved [...]",
     "gls": "git log --pretty=fuller --no-decorate --color-moved --numstat [...]",
@@ -86,7 +87,7 @@ ShlinePlusByShverb = {  # sorted by key
     # 32
 }
 
-# say '--color-moved' when helpful, but never say '--color=moved'
+# often does say '--color-moved' with Hyphen-Minus, but never says '--color=moved' with Equals Sign
 
 
 _a_ = list(ShlinePlusByShverb.keys())
@@ -304,6 +305,10 @@ class GitGopher:
 
         return shargv
 
+    #
+    # Choose the ShVerb
+    #
+
     def form_shverb_for_shargv(self, shargv: tuple[str, ...]) -> str:
         """Take the head of the Shell ArgV as the Shell Verb"""
 
@@ -335,6 +340,10 @@ class GitGopher:
 
         return alt_shverb
 
+    #
+    # Form the ShLine
+    #
+
     def form_shverb_shline(self, shargv: tuple[str, ...]) -> tuple[str, str]:
         """Expand the Shell Verb as a Git Alias, with or without Args"""
 
@@ -347,7 +356,7 @@ class GitGopher:
         # or else:  Accept >= 0 Shell Args, and sometimes add 1 Shell Arg
         # or else:  Accept no Shell Args, else require first Shell Arg not obviously a Positional Arg
 
-        if shverb_shline_plus.endswith(" ..."):
+        if shverb_shline_plus.endswith("..."):
 
             (shline, shsuffix) = self._form_shline_required_args_(shverb, shverb_shline_plus, shargv)
 
@@ -369,28 +378,20 @@ class GitGopher:
     ) -> tuple[str, str]:
         """Handle case where >= 1 Shell Args are required"""
 
-        assert not shverb_shline_plus.startswith("... && "), (shverb, shverb_shline_plus)
-
+        assert shverb_shline_plus.endswith("..."), (shverb_shline_plus,)
         required_args_usage = f"usage: {shverb} ..."
-
-        shline = shverb_shline_plus.removesuffix(" ...")
-        shsuffix = " ..."
-
-        # Tweak away from Doc while heavily editing required Args
-
-        if shverb_shline_plus.endswith(" -ai -e ... -e ..."):
-            shline = shverb_shline_plus.removesuffix(" -ai -e ... -e ...")
 
         # Tweak away from Doc when supposedly required Args absent
 
         if shverb_shline_plus == "git ls-files |grep -ai -e ... -e ...":
-            assert shverb == "glf", (shverb, shline)
+            assert shverb == "glf", (shverb, shverb_shline_plus)
 
             if shargv[1:]:
-                shline = "git ls-files |grep"
+                shline = "git ls-files |grep"  # without -ai -e ... -e ...
+                shsuffix = " ..."  # shouts out Args
             else:
                 shline = "git ls-files"
-                shsuffix = ""
+                shsuffix = ""  # shouts out (and forgives) No Pos Args (indeed No Args)
 
             assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
             return (shline, shsuffix)
@@ -408,9 +409,19 @@ class GitGopher:
             print(required_args_usage, file=sys.stderr)
             sys.exit(2)  # exits 2 for bad args
 
+        # Tweak away from Doc while heavily editing required Args
+
+        shline = shverb_shline_plus.removesuffix(" ...")
+        if shverb_shline_plus.endswith(" -ai -e ... -e ..."):
+            shline = shverb_shline_plus.removesuffix(" -ai -e ... -e ...")
+        elif shverb_shline_plus.endswith(" --author=..."):
+            shline = shverb_shline_plus.removesuffix(" --author=...")
+
+        shsuffix = " ..."  # shouts out Args
+
         # Succeed
 
-        assert shsuffix == " ...", (shsuffix, shline, shverb, shargv)
+        assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
         # ga, gcp, gg/n, ggl, glf, grh
@@ -420,13 +431,13 @@ class GitGopher:
     ) -> tuple[str, str]:
         """Handle case where >= 0 Shell Args are accepted, and sometimes add 1 Shell Arg"""
 
-        assert not shverb_shline_plus.startswith("... && "), (shverb, shverb_shline_plus)
+        assert shverb_shline_plus.endswith(" [...]"), (shverb_shline_plus,)
 
         shline = shverb_shline_plus.removesuffix(" [...]")
 
-        shsuffix = " ..."
+        shsuffix = " ..."  # shouts out Args
         if not shargv[1:]:
-            shsuffix = ""
+            shsuffix = ""  # shouts out No Pos Args (indeed No Args)
 
             if shverb_shline_plus == "git commit --all --fixup [...]":
                 assert shverb in ("gcaf",), (shverb, shline)
@@ -457,11 +468,13 @@ class GitGopher:
 
         no_arg_usage = f"usage: {shverb}"
 
-        shsuffix = ""
-
-        shline = shverb_shline_plus
+        assert not shverb_shline_plus.endswith("..."), (shverb_shline_plus,)
+        assert not shverb_shline_plus.endswith(" [...]"), (shverb_shline_plus,)
 
         # Fill out some default Options, when given no Shell Args
+
+        shline = shverb_shline_plus
+        shsuffix = ""  # shouts out No Pos Args
 
         if not shargv[1:]:
 
@@ -491,9 +504,14 @@ class GitGopher:
 
             # accepts: gdh -w, gf --, grl --
 
+        assert shsuffix == "", (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
         # gb, gcaa, gcam, gda, gdh, gf, gno, grh1, grhu, grl, grv, gsis
+
+    #
+    # Solve work in Shell or not, work at Git Top or not, work with Git Diff or not
+    #
 
     def form_shell_shline(self, shverb: str, shline: str, given_shsuffix: str) -> tuple[bool, str]:
         """Choose to call Git by way of .shell=False or .shell=True"""
@@ -631,11 +649,26 @@ class GitGopher:
         gcam_shline_plus = "git commit --all -m " + repr(message)
         return ("gcam", gcam_shline_plus)  # this 'gcam' knows its 'gdno'
 
+    #
+    # Choose ShArgV
+    #
+
     def shargv_tweak_up(self, shverb: str, shargv: tuple[str, ...]) -> tuple[str, ...]:
         """Tune Greps to presume text, ignore case, and match >= 1 patterns"""
 
         shline_plus_by_shverb = ShlinePlusByShverb
         shline_plus = shline_plus_by_shverb[shverb]
+
+        # Tweak 'gla jqdoe' up into 'gl --author=jqdoe', etc
+
+        if shverb in ("gla",):
+            assert shline_plus.endswith(" --author=..."), (shline_plus, shverb)
+            assert shargv[1:], (shargv[1:], shverb)
+
+            alt_sharg1 = "--author=" + shargv[1]
+
+            tweaked_shargv = shargv[:1] + (alt_sharg1,) + shargv[2:]
+            return tweaked_shargv
 
         # Tweak 'grias 3' up into 'grias HEAD~3', etc
 
@@ -686,6 +719,10 @@ class GitGopher:
         argv = tuple(strs)
         return argv
 
+    #
+    # Auth & recover from Panic
+    #
+
     def auth_git_shline(self, shline: str) -> tuple[str, str]:
         """Let Auth fail, else say which Shell Line to run and which Shell Line to trace"""
 
@@ -729,6 +766,10 @@ class GitGopher:
 
         sys.exit(returncode)
 
+    #
+    # Run through each Step till first Fault
+    #
+
     def subprocess_run_shlines_till_exit_nonzero(
         self, shlines: typing.Iterable[str]
     ) -> subprocess.CompletedProcess[bytes]:
@@ -757,16 +798,21 @@ assert shlex.quote("HEAD~1") == "'HEAD~1'", (shlex.quote("HEAD~1"),)
 
 
 def shlex_quote_calmly(arg: str) -> str:
+    """Quote like ShLex Quote, but not more carefully at ~ than at @, except for starts with ~"""
+
     quote = shlex.quote(arg)
 
     at_quotable = arg.replace("~", "@")
     at_quote = shlex.quote(at_quotable)
 
-    if not arg.startswith("~"):
-        if at_quote == at_quotable:
+    if at_quote == at_quotable:
+        if not arg.startswith("~"):
             return arg
 
     return quote
+
+
+assert shlex_quote_calmly("HEAD~1") == "HEAD~1", (shlex_quote_calmly("HEAD~1"),)
 
 
 #
@@ -778,9 +824,10 @@ if __name__ == "__main__":
     main()
 
 
-_ = """  # todo
+_ = """  # todo's
 
 # todo: gcam should pick up new Added Files into the wip
+# todo: gla with No Arg should default to git config user.email
 
 # todo: add:  git checkout -, git push, git rebase, local/remote mkdir/rmdir of git branches, ...
 # todo: no 'git checkout' on purpose:  without args it cancels cherry-pick and hides rebase
