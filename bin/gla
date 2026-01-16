@@ -1,3 +1,4 @@
 #!/bin/sh
-# git log --pretty=fuller --no-decorate --author=[...]
+# git log --pretty=fuller --no-decorate --author=...
+# git log --pretty=fuller --no-decorate --author=$(git config user.email)
 g.py --shfile="$0" "$@"
