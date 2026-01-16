@@ -14,12 +14,15 @@ options:
   --sep SEP      a separator, such as ' ' or ',' or ', '
   --start START  a starting index, such as 0 or 1
 
-famous bricks:
-  -  0 1 2 3  F L O T U  a h i n o r s t u w x
-  pb awk bytes casefold chars counter data dent enumerate expandtabs
-  float.sort head int.sort join nl lines len lower lstrip md5sum rev
-  reverse rstrip set sha256 shuf shuffle splitlines strip sort str
-  sum tac tail title undent upper words
+small famous bricks:
+  -  0 1 2 3  F L O T U  a h i n o r s t u w x  nl pb
+
+more famous bricks:
+  awk bytes casefold chars counter data dent enumerate expandtabs
+  float.max float.min float.sort head int.max int.min int.sort join
+  len lines lower lstrip max md5sum min rev reverse rstrip set sha256
+  shuf shuffle sort splitlines str strip sum tac tail title undent
+  upper words
 
 examples:
   cat README.md |pb
@@ -88,6 +91,7 @@ def main() -> None:
 
     # todo0: take -F and -d as unhelped --sep for |awk
     # todo0: take -v as unhelped --start for |nl
+    # todo0: take -c as unhelped convert |uniq to |counter not |set
     # todo0: take --seed as unhelped to repeat random
 
     #
@@ -423,9 +427,11 @@ class ShellBrick:
             "enumerate": self.run_list_str_enumerate,  # |n  # todo: -v1
             "join": self.run_list_str_join,  # |x
             "len": self.run_list_str_len,  # |w
+            "max": self.run_list_str_max,
+            "min": self.run_list_str_min,
             "reverse": self.run_list_str_reverse,  # |r
             "shuffle": self.run_list_str_shuffle,  # |r
-            "set": self.run_list_str_set,  # |set is the last half of |counter
+            "set": self.run_list_str_set,  # |set as the ordered last half of |counter
             "splitlines": self.run_list_str_often_pass,
             "sort": self.run_list_str_sort,  # |s
             "sum": self.run_list_str_sum,
@@ -445,7 +451,11 @@ class ShellBrick:
             #
             # Python Dotted Double Words
             #
+            "int.max": self.run_list_str_int_max,
+            "int.min": self.run_list_str_int_min,
             "int.sort": self.run_list_str_int_sort,
+            "float.max": self.run_list_str_float_max,
+            "float.min": self.run_list_str_float_min,
             "float.sort": self.run_list_str_float_sort,
             #
             # Bash Single Words
@@ -461,6 +471,7 @@ class ShellBrick:
             "shuf": self.run_list_str_shuffle,
             "tail": self.run_list_str_tail,  # |t
             "tac": self.run_list_str_reverse,  # |r
+            # "uniq": self.run_list_str_uniq,  # differs from |u  # todo1:
             #
             "rev": self.run_list_str_str_reverse,
             #
@@ -826,46 +837,100 @@ class ShellBrick:
         kvlines = list(f"{k}\t{v}" for (k, v) in opairs)
         self.store_list_str(kvlines)
 
-    def run_list_str_float_sort(self) -> None:
-        """list(sys.i).sort(key=lambda _: float(..."""
+    def run_list_str_float_max(self) -> None:
+        """sorted(list(sys.i), key=lambda _: float(..., _))[-1]"""
 
         ilines = self.fetch_list_str()
+        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
 
-        min_width = -1
+        m = max(zip(icolumns, ilines))
 
-        ilists: list[list[float]] = list()
-        for iline in ilines:
-            isplits = iline.split()
+        oline = m[-1]
+        olines = [oline]
+        self.store_list_str(olines)
 
-            ifloats = list()
-            for isplit in isplits:
-                try:
-                    ifloat = float(isplit)  # rejects int literals of base != 10
-                except ValueError:
-                    break
+    def run_list_str_float_min(self) -> None:
+        """sorted(list(sys.i), key=lambda _: float(..., _))[0]"""
 
-                ifloats.append(ifloat)
+        ilines = self.fetch_list_str()
+        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
 
-            ilists.append(ifloats)
-            min_width = len(ifloats) if (min_width < 0) else min(min_width, len(ifloats))
+        m = min(zip(icolumns, ilines))
 
-        assert len(ilists) == len(ilines), (len(ilists), len(ilines))
+        oline = m[-1]
+        olines = [oline]
+        self.store_list_str(olines)
 
-        if ilists and not min_width:
-            print("pb: no float columns to sort", file=sys.stderr)
-            sys.exit(1)  # exits 1 for value error in taking up input
+    def run_list_str_float_sort(self) -> None:
+        """list(sys.i).sort(key=lambda _: float(..., _))"""
 
-        sortables: list[tuple[list[float], str]] = list()
-        for ilist, iline in zip(ilists, ilines):
-            sortable = (ilist[:min_width], iline)
-            sortables.append(sortable)
+        ilines = self.fetch_list_str()
+        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
 
+        sortables = list(zip(icolumns, ilines))
         sortables.sort()
 
         olines: list[str] = list(oline for (_, oline) in sortables)
         self.store_list_str(olines)
 
-        # todo: share more Code between .run_list_str_int_sort and .run_list_str_float_sort
+    def _take_number_columns_(
+        self, lines: list[str], func: collections.abc.Callable[[str], float | int], strict: bool
+    ) -> list[list[float | int]]:
+        """Call Func to convert left of each Str to Floats and Ints"""
+
+        ilines = lines
+
+        if func.__name__ == "int_base_zero":
+            funcname = "int"  # |pb int.max, |pb int.min, |pb int.sort
+        else:
+            assert func.__name__ == "numeric"
+            funcname = "float nor int"  # |pb float.max, |pb float.min, |pb float.sort
+
+        min_width = -1
+
+        irows: list[list[float | int]] = list()  # rows
+        for iline in ilines:
+            isplits = iline.split()
+
+            inumerics = list()
+            for index, isplit in enumerate(isplits):
+                if (min_width != -1) and (index >= min_width):
+                    if strict:
+                        raise ValueError(f"more than {min_width} columns in some rows")
+                    break
+
+                try:
+                    inumeric = func(isplit)
+                except ValueError:
+                    if strict:
+                        raise  # |pb sum
+                    break
+
+                inumerics.append(inumeric)
+
+            if (min_width != -1) and (len(inumerics) < min_width):
+                if strict:
+                    raise ValueError(f"less than {min_width} columns in some rows")
+
+            irows.append(inumerics)
+            min_width = len(inumerics) if (min_width == -1) else min(min_width, len(inumerics))
+
+        if lines and (min_width <= 0):
+            print(f"pb: no {funcname} columns to sort", file=sys.stderr)
+            sys.exit(1)  # exits 1 for value error in taking up input
+
+        ocolumns: list[list[float | int]] = list()  # columns
+        for index in range(min_width):
+
+            ocolumn: list[float | int] = list()
+            for irow in irows:
+                inumeric = irow[index]
+                ocolumn.append(inumeric)  # todo: speedier transposition?
+
+            assert len(ocolumn) == len(ilines), (len(ocolumn), len(ilines))
+            ocolumns.append(ocolumn)
+
+        return ocolumns
 
     def run_list_str_head(self) -> None:
         """list(sys.i)[:9]"""
@@ -874,46 +939,41 @@ class ShellBrick:
         olines = ilines[:9]
         self.store_list_str(olines)
 
-    def run_list_str_int_sort(self) -> None:
-        """list(sys.i).sort(key=lambda _: int(..."""
+    def run_list_str_int_max(self) -> None:
+        """sorted(list(sys.i), key=lambda _: int(..., _))[-1]"""
 
         ilines = self.fetch_list_str()
+        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
 
-        min_width = -1
+        m = max(zip(icolumns, ilines))
 
-        ilists: list[list[int]] = list()
-        for iline in ilines:
-            isplits = iline.split()
+        oline = m[-1]
+        olines = [oline]
+        self.store_list_str(olines)
 
-            iints = list()
-            for isplit in isplits:
-                try:
-                    iint = int(isplit, base=0)
-                except ValueError:
-                    break
+    def run_list_str_int_min(self) -> None:
+        """sorted(list(sys.i), key=lambda _: int(..., _))[0]"""
 
-                iints.append(iint)
+        ilines = self.fetch_list_str()
+        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
 
-            ilists.append(iints)
-            min_width = len(iints) if (min_width < 0) else min(min_width, len(iints))
+        m = min(zip(icolumns, ilines))
 
-        assert len(ilists) == len(ilines), (len(ilists), len(ilines))
+        oline = m[-1]
+        olines = [oline]
+        self.store_list_str(olines)
 
-        if ilists and not min_width:
-            print("pb: no int columns to sort", file=sys.stderr)
-            sys.exit(1)  # exits 1 for value error in taking up input
+    def run_list_str_int_sort(self) -> None:
+        """list(sys.i).sort(key=lambda _: int(..., _))"""
 
-        sortables: list[tuple[list[int], str]] = list()
-        for ilist, iline in zip(ilists, ilines):
-            sortable = (ilist[:min_width], iline)
-            sortables.append(sortable)
+        ilines = self.fetch_list_str()
+        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
 
+        sortables = list(zip(icolumns, ilines))
         sortables.sort()
 
         olines: list[str] = list(oline for (_, oline) in sortables)
         self.store_list_str(olines)
-
-        # todo: share more Code between .run_list_str_float_sort and .run_list_str_int_sort
 
     def run_list_str_join(self) -> None:
         """sep.join(list(sys.i))"""  # this .sep defaults to " ", not None
@@ -924,6 +984,26 @@ class ShellBrick:
 
         ilines = self.fetch_list_str()
         olines = [_sep_.join(ilines)]
+        self.store_list_str(olines)
+
+    def run_list_str_max(self) -> None:
+        """max(list(sys.i))"""
+
+        ilines = self.fetch_list_str()
+
+        oline = max(ilines)
+
+        olines = [oline]
+        self.store_list_str(olines)
+
+    def run_list_str_min(self) -> None:
+        """min(list(sys.i))"""
+
+        ilines = self.fetch_list_str()
+
+        oline = min(ilines)
+
+        olines = [oline]
         self.store_list_str(olines)
 
     def run_list_str_lstrip(self) -> None:
@@ -988,24 +1068,16 @@ class ShellBrick:
         self.store_list_str(olines)
 
     def run_list_str_sum(self) -> None:
-        """sum(list(sys.i))"""
+        """sum(list(sys.i)) for each column"""  # todo: write 'for each column' as Code
 
         ilines = self.fetch_list_str()
-        istrips = list(_.strip() for _ in ilines)
-        itruths = list(_ for _ in istrips if _)
+        icolumns = self._take_number_columns_(ilines, func=numeric, strict=True)
 
-        onumber: float | int = 0
-        if itruths:
-            try:
-                onumber = sum(int(_, base=0) for _ in itruths)
-            except ValueError:
-                onumber = sum(float(_) for _ in itruths)
+        ocolumns = list(sum(_) for _ in icolumns)
+        oline = " ".join(str(_) for _ in ocolumns)
 
-        olines = [str(onumber)]
+        olines = [oline]
         self.store_list_str(olines)
-
-        # does not sum the columns across rows of numbers
-        # does not guess you meant '|pb split' before '|pb sum'
 
     def run_list_str_tail(self) -> None:
         """list(sys.i)[-9:]"""
@@ -1327,6 +1399,36 @@ class ArgDocParser:
         return diffs
 
         # .parser.format_help defaults to color its texts, since Oct/2025 Python 3.14
+
+
+#
+# Amp up Import BuiltIns
+#
+
+
+def int_base_zero(lit: str) -> int:
+    """Call int(_, base=0) but without forcing the Caller to pass in the 0"""
+
+    i = int(lit, base=0)
+    return i
+
+
+def numeric(lit: str) -> float | int:
+    """Convert a repr(float) or repr(int) or repr(bool) over to float or int"""
+
+    if lit == "False":
+        return 0
+
+    if lit == "True":
+        return 1
+
+    numeric: float | int
+    try:
+        numeric = int(lit, base=0)
+    except ValueError:
+        numeric = float(lit)
+
+    return numeric
 
 
 #

@@ -249,7 +249,7 @@ class LitGlass:
             now = dt.datetime.now().astimezone()
             boss = (now - MainStamp).total_seconds()
             boss_chop = chop(boss)
-            logger.info("%s", f"and spent {boss_chop}s to launch TerminalBoss")  # todo1: move into logger_print
+            logger.info("%s", f"and spent {boss_chop}s to launch TerminalBoss")
 
             if flags.byteloop:
                 tb.tb_run_byteloop()
@@ -261,6 +261,8 @@ class LitGlass:
                 sqg.sq_run_awhile()
             else:
                 tb.tb_run_awhile()
+
+            # todo1: logger_print vs logger.info
 
     def logging_resume(self) -> None:
         """Open up a new Logging Session at our .logger"""
@@ -813,7 +815,7 @@ class KeycapsGame:
         now = dt.datetime.now().astimezone()
         kc = (now - MainStamp).total_seconds()
         kc_chop = chop(kc)
-        logger.info("%s", f"and spent {kc_chop}s to launch KeycapsGame")  # todo1: move into logger_print
+        logger.info("%s", f"and spent {kc_chop}s to launch KeycapsGame")
 
         while not tb.quitting:
 
@@ -827,6 +829,8 @@ class KeycapsGame:
             self.kc_step_once(frames)
 
         sw.print()
+
+        # todo1: logger_print vs logger.info
 
         # todo9: --egg=keycaps: toggle back out of @@@@@@@@@ or @@ or @
         # todo9: --egg=keycaps: take mouse hits to the Keyboard viewed
