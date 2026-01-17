@@ -4,7 +4,7 @@ if [ $# -eq 0 ]; then
 elif [ $# -eq 1 ]; then
     set -xe
     diff -brpu a "$@"
-else:
+else
     set -xe
     diff -brpu "$@"
 fi

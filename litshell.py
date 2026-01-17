@@ -427,12 +427,12 @@ class ShellBrick:
             #
             # Python Dotted Double Words
             #
-            "int.max": self.run_list_str_int_max,
-            "int.min": self.run_list_str_int_min,
-            "int.sort": self.run_list_str_int_sort,
-            "float.max": self.run_list_str_float_max,
-            "float.min": self.run_list_str_float_min,
-            "float.sort": self.run_list_str_float_sort,
+            "int.max": self.run_list_str_int_base_zero_max,
+            "int.min": self.run_list_str_int_base_zero_min,
+            "int.sort": self.run_list_str_int_base_zero_sort,
+            "float.max": self.run_list_str_numeric_max,
+            "float.min": self.run_list_str_numeric_min,
+            "float.sort": self.run_list_str_numeric_sort,
             #
             # Bash Single Words
             #
@@ -786,36 +786,43 @@ class ShellBrick:
 
         self.store_olines(olines)
 
-    def run_list_str_float_max(self) -> None:
-        """max(list(sys.i), key=lambda _: float..., _)"""
+    def run_list_str_head(self) -> None:
+        """list(sys.i)[:9]"""
+
+        ilines = self.fetch_ilines()
+        olines = ilines[:9]
+        self.store_olines(olines)
+
+    def run_list_str_int_base_zero_max(self) -> None:
+        """max(list(sys.i), key=lambda _: int..., _)"""
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
         m = max(zip(icolumns, ilines))
         oline = m[-1]
 
         olines = [oline]
         self.store_olines(olines)
 
-    def run_list_str_float_min(self) -> None:
-        """min(list(sys.i), key=lambda _: float..., _)"""
+    def run_list_str_int_base_zero_min(self) -> None:
+        """min(list(sys.i), key=lambda _: int..., _)"""
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
         m = min(zip(icolumns, ilines))
         oline = m[-1]
 
         olines = [oline]
         self.store_olines(olines)
 
-    def run_list_str_float_sort(self) -> None:
-        """list(sys.i).sort(key=lambda _: float..., _)"""
+    def run_list_str_int_base_zero_sort(self) -> None:
+        """list(sys.i).sort(key=lambda _: int..., _)"""
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
         sortables = list(zip(icolumns, ilines))
         sortables.sort()
         olines: list[str] = list(oline for (_, oline) in sortables)
@@ -881,49 +888,6 @@ class ShellBrick:
 
         return ocolumns
 
-    def run_list_str_head(self) -> None:
-        """list(sys.i)[:9]"""
-
-        ilines = self.fetch_ilines()
-        olines = ilines[:9]
-        self.store_olines(olines)
-
-    def run_list_str_int_max(self) -> None:
-        """max(list(sys.i), key=lambda _: int..., _)"""
-
-        ilines = self.fetch_ilines()
-
-        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
-        m = max(zip(icolumns, ilines))
-        oline = m[-1]
-
-        olines = [oline]
-        self.store_olines(olines)
-
-    def run_list_str_int_min(self) -> None:
-        """min(list(sys.i), key=lambda _: int..., _)"""
-
-        ilines = self.fetch_ilines()
-
-        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
-        m = min(zip(icolumns, ilines))
-        oline = m[-1]
-
-        olines = [oline]
-        self.store_olines(olines)
-
-    def run_list_str_int_sort(self) -> None:
-        """list(sys.i).sort(key=lambda _: int..., _)"""
-
-        ilines = self.fetch_ilines()
-
-        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
-        sortables = list(zip(icolumns, ilines))
-        sortables.sort()
-        olines: list[str] = list(oline for (_, oline) in sortables)
-
-        self.store_olines(olines)
-
     def run_list_str_join(self) -> None:
         """sep.join(list(sys.i))"""  # .sep may be None, then works like " " single Space
 
@@ -950,6 +914,42 @@ class ShellBrick:
         ilines = self.fetch_ilines()
         oline = min(ilines)
         olines = [oline]
+        self.store_olines(olines)
+
+    def run_list_str_numeric_max(self) -> None:
+        """max(list(sys.i), key=lambda _: float..., _)"""
+
+        ilines = self.fetch_ilines()
+
+        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
+        m = max(zip(icolumns, ilines))
+        oline = m[-1]
+
+        olines = [oline]
+        self.store_olines(olines)
+
+    def run_list_str_numeric_min(self) -> None:
+        """min(list(sys.i), key=lambda _: float..., _)"""
+
+        ilines = self.fetch_ilines()
+
+        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
+        m = min(zip(icolumns, ilines))
+        oline = m[-1]
+
+        olines = [oline]
+        self.store_olines(olines)
+
+    def run_list_str_numeric_sort(self) -> None:
+        """list(sys.i).sort(key=lambda _: float..., _)"""
+
+        ilines = self.fetch_ilines()
+
+        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
+        sortables = list(zip(icolumns, ilines))
+        sortables.sort()
+        olines: list[str] = list(oline for (_, oline) in sortables)
+
         self.store_olines(olines)
 
     def run_list_str_lstrip(self) -> None:
