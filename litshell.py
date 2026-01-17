@@ -80,19 +80,29 @@ def main() -> None:
 
     #
 
-    # todo0: |pb _ like same _ as we have outside
-
-    # todo0: |pb cut ... to |cut -c to fit on screen but with "... " marks
-    # todo0: |pb fmt ... just to do |fmt
-    # todo0: |pb column ... like' |column -t' but default to --sep='  ' for intake
-
     # todo0: |pb decode  # replace to \uFFFD Replacement-Character to \x3F Question-Mark '?'
     # todo0: sold as overcomes old macOS Unix flaming out
 
-    # todo0: take -F and -d as unhelped --sep for |awk
-    # todo0: take -v as unhelped --start for |nl
-    # todo0: take -c as unhelped convert |uniq to |counter not |set
+    # todo0: |pb printable, to be explicit for that
+    # todo0: also transform to printable before writing to tty, unless people say |pb tty
+
+    # todo0: |pb cut ... to |cut -c to fit width on screen but with "... " marks
+    # todo0: take -c at |cut, but don't require it
+
+    # todo0: |pb fmt ... just to do |fmt
+
+    # todo0: |pb column ... like' |column -t' but default to --sep='  ' for intake
+    # todo0: take -t at |column, but don't require it
+
     # todo0: take --seed as unhelped to repeat random
+
+    # todo0: take -F as --sep at |awk
+    # todo0: take -v as --start at |nl
+
+    # todo0: take -- as alt of sort/float.sort, uniq/'uniq -c', max/float.max, min.float.min, set/counter
+
+    # todo0: add |uniq and |uniq -c because it's classic
+    # todo0: take -c at |uniq
 
     #
 
@@ -133,6 +143,7 @@ def main() -> None:
     # todo8: |sed 's,$,...,'
     # todo8: |'sys.oline = "pre fix" + sys.iline'
 
+    # todo9: |pb _ like same _ as we have outside
     # todo9: + mv 0 ... && pbpaste |pb upper |tee >(pbcopy) >./0
 
 
@@ -255,7 +266,6 @@ class ShellGopher:
 
         verbs = self.verbs
         sys_stdin_isatty = self.sys_stdin_isatty
-        sys_stdout_isatty = self.sys_stdout_isatty
 
         # Choose what to write at exit
 
@@ -742,7 +752,7 @@ class ShellBrick:
 
         idata = self.fetch_bytes()
         olines = list(str(_) for _ in idata)  # ['65', '66', '67']
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_bytes_often_pass(self) -> None:
         """bytes(sys.i)"""
@@ -759,7 +769,7 @@ class ShellBrick:
         lower_nybbles = h.hexdigest()
 
         olines = [lower_nybbles + "  -"]
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
         # d41d8cd98f00b204e9800998ecf8427e  -
 
@@ -773,7 +783,7 @@ class ShellBrick:
         lower_nybbles = h.hexdigest()
 
         olines = [lower_nybbles + "  -"]
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
         # e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 -
 
@@ -781,7 +791,7 @@ class ShellBrick:
     # Work with the File as List[Str]
     #
 
-    def fetch_list_str(self) -> list[str]:
+    def fetch_ilines(self) -> list[str]:
         """Fetch the list(sys.i)"""
 
         sg = self.shell_gopher
@@ -792,11 +802,11 @@ class ShellBrick:
         ilines = idecode.splitlines()
         return ilines
 
-    def store_list_str(self, lines: list[str]) -> None:
+    def store_olines(self, olines: list[str]) -> None:
         """Store the list(sys.i)"""
 
         sg = self.shell_gopher
-        otext = ("\n".join(lines) + "\n") if lines else ""
+        otext = ("\n".join(olines) + "\n") if olines else ""
         oencode = otext.encode()  # may raise UnicodeEncodeError
 
         sg.data = oencode
@@ -804,9 +814,9 @@ class ShellBrick:
     def run_list_str_len(self) -> None:
         """len(list(sys.i))"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         olines = [str(len(ilines))]
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_awk_nth_slice(self) -> None:
         """_.split(sep)[-1]) for _ in list(sys.i)"""
@@ -814,7 +824,7 @@ class ShellBrick:
         sg = self.shell_gopher
         sep = sg.sep
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
 
         olines = list()
         for iline in ilines:
@@ -822,14 +832,14 @@ class ShellBrick:
             if splits:
                 olines.append(splits[-1])
 
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
         # as if |awk 'NF{print $NF}'
 
     def run_list_str_do_dent(self) -> None:
         """[""2*""] + list((4*" " + _ + 4*" ") for _ in list(sys.i)) + [2*""]"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         width = max(len(_) for _ in ilines) if ilines else 0
 
         above = 2 * [""]
@@ -838,15 +848,15 @@ class ShellBrick:
         below = 2 * [""]
 
         olines = above + list(_.ljust(ljust).rjust(rjust) for _ in ilines) + below
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_counter(self) -> None:  # diff vs 'def run_list_str_set'
         """collections.Counter(list(sys.i)).keys()"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         opairs = list(collections.Counter(ilines).items())
         vklines = list(f"{v}\t{k}" for (k, v) in opairs)
-        self.store_list_str(vklines)
+        self.store_olines(olines=vklines)
 
     def run_list_str_enumerate(self) -> None:
         """enumerate(list(sys.i))"""
@@ -855,46 +865,46 @@ class ShellBrick:
         start = sg.start
         _start_ = 0 if (start is None) else start
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         opairs = list(enumerate(ilines, start=_start_))
         kvlines = list(f"{k}\t{v}" for (k, v) in opairs)
-        self.store_list_str(kvlines)
+        self.store_olines(olines=kvlines)
 
     def run_list_str_float_max(self) -> None:
-        """sorted(list(sys.i), key=lambda _: float(..., _))[-1]"""
+        """max(list(sys.i), key=lambda _: float..., _)"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
 
         m = max(zip(icolumns, ilines))
 
         oline = m[-1]
         olines = [oline]
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_float_min(self) -> None:
-        """sorted(list(sys.i), key=lambda _: float(..., _))[0]"""
+        """min(list(sys.i), key=lambda _: float..., _)"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
 
         m = min(zip(icolumns, ilines))
 
         oline = m[-1]
         olines = [oline]
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_float_sort(self) -> None:
-        """list(sys.i).sort(key=lambda _: float(..., _))"""
+        """list(sys.i).sort(key=lambda _: float..., _)"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
 
         sortables = list(zip(icolumns, ilines))
         sortables.sort()
 
         olines: list[str] = list(oline for (_, oline) in sortables)
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def _take_number_columns_(
         self, lines: list[str], func: collections.abc.Callable[[str], float | int], strict: bool
@@ -958,45 +968,45 @@ class ShellBrick:
     def run_list_str_head(self) -> None:
         """list(sys.i)[:9]"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         olines = ilines[:9]
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_int_max(self) -> None:
-        """sorted(list(sys.i), key=lambda _: int(..., _))[-1]"""
+        """max(list(sys.i), key=lambda _: int..., _)"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
 
         m = max(zip(icolumns, ilines))
 
         oline = m[-1]
         olines = [oline]
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_int_min(self) -> None:
-        """sorted(list(sys.i), key=lambda _: int(..., _))[0]"""
+        """min(list(sys.i), key=lambda _: int..., _)"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
 
         m = min(zip(icolumns, ilines))
 
         oline = m[-1]
         olines = [oline]
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_int_sort(self) -> None:
-        """list(sys.i).sort(key=lambda _: int(..., _))"""
+        """list(sys.i).sort(key=lambda _: int..., _)"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
 
         sortables = list(zip(icolumns, ilines))
         sortables.sort()
 
         olines: list[str] = list(oline for (_, oline) in sortables)
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_join(self) -> None:
         """sep.join(list(sys.i))"""  # this .sep defaults to " ", not None
@@ -1005,115 +1015,115 @@ class ShellBrick:
         sep = sg.sep
         _sep_ = "  " if (sep is None) else sep
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         olines = [_sep_.join(ilines)]
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_max(self) -> None:
         """max(list(sys.i))"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
 
         oline = max(ilines)
 
         olines = [oline]
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_min(self) -> None:
         """min(list(sys.i))"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
 
         oline = min(ilines)
 
         olines = [oline]
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_lstrip(self) -> None:
         """_.lstrip() for _ in list(sys.i)"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         olines = list(_.lstrip() for _ in ilines)
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_often_pass(self) -> None:
         """list(sys.i)"""
 
-        self.fetch_str()  # may raise UnicodeDecodeError
+        self.fetch_itext()  # may raise UnicodeDecodeError
 
     def run_list_str_set(self) -> None:  # diff vs 'def run_list_str_counter'
         """collections.Counter(list(sys.i)).keys()"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         klines = list(collections.Counter(ilines).keys())
-        self.store_list_str(klines)
+        self.store_olines(klines)
 
     def run_list_str_reverse(self) -> None:
         """list(sys.i).reverse()"""
 
-        iolines = self.fetch_list_str()
+        iolines = self.fetch_ilines()
         iolines.reverse()
-        self.store_list_str(iolines)
+        self.store_olines(iolines)
 
     def run_list_str_rstrip(self) -> None:
         """list(_.rstrip() for _ in list(sys.i))"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         olines = list(_.rstrip() for _ in ilines)
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_shuffle(self) -> None:
         """random.shuffle(list(sys.i))"""
 
-        iolines = self.fetch_list_str()
+        iolines = self.fetch_ilines()
         random.shuffle(iolines)
-        self.store_list_str(iolines)
+        self.store_olines(iolines)
 
     def run_list_str_str_reverse(self) -> None:
         """list("".join(reversed(_)) for _ in list(sys.i))"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         olines = list("".join(reversed(_)) for _ in ilines)
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_sort(self) -> None:
         """list(sys.i).sort()"""
 
-        iolines = self.fetch_list_str()
+        iolines = self.fetch_ilines()
         iolines.sort()
-        self.store_list_str(iolines)
+        self.store_olines(iolines)
 
     def run_list_str_strip(self) -> None:
         """_.strip() for _ in list(sys.i)"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         olines = list(_.strip() for _ in ilines)
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_sum(self) -> None:
         """sum(list(sys.i)) for each column"""  # todo: write 'for each column' as Code
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         icolumns = self._take_number_columns_(ilines, func=numeric, strict=True)
 
         ocolumns = list(sum(_) for _ in icolumns)
         oline = " ".join(str(_) for _ in ocolumns)
 
         olines = [oline]
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_list_str_tail(self) -> None:
         """list(sys.i)[-9:]"""
 
-        ilines = self.fetch_list_str()
+        ilines = self.fetch_ilines()
         olines = ilines[-9:]
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     #
     # Work with the File as Str
     #
 
-    def fetch_str(self) -> str:
+    def fetch_itext(self) -> str:
         """Fetch the str(sys.i)"""
 
         sg = self.shell_gopher
@@ -1123,42 +1133,42 @@ class ShellBrick:
         idecode = data.decode()  # may raise UnicodeDecodeError
         return idecode
 
-    def store_str(self, text: str) -> None:
+    def store_otext(self, otext: str) -> None:
         """Store the str(sys.i)"""
 
         sg = self.shell_gopher
-        oencode = text.encode()  # may raise UnicodeEncodeError
+        oencode = otext.encode()  # may raise UnicodeEncodeError
 
         sg.data = oencode
 
     def run_str_casefold(self) -> None:
         """str(sys.i).casefold()"""
 
-        itext = self.fetch_str()
+        itext = self.fetch_itext()
         otext = itext.casefold()
-        self.store_str(otext)
+        self.store_otext(otext)
 
     def run_str_do_undent(self) -> None:
         """_.rstrip() for _ in textwrap.dedent(str(sys.i)).strip().splitlines()"""
 
-        itext = self.fetch_str()
+        itext = self.fetch_itext()
         otext = textwrap.dedent(itext).strip()
         olines = list(_.rstrip() for _ in otext.splitlines())
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_str_expandtabs(self) -> None:  # todo1: |pb expandtabs 2
         """str(sys.i).expandtabs()"""
 
-        itext = self.fetch_str()
+        itext = self.fetch_itext()
         otext = itext.expandtabs()
-        self.store_str(otext)
+        self.store_otext(otext)
 
     def run_str_lower(self) -> None:
         """str(sys.i).lower()"""
 
-        itext = self.fetch_str()
+        itext = self.fetch_itext()
         otext = itext.lower()
-        self.store_str(otext)
+        self.store_otext(otext)
 
     def run_str_split(self) -> None:
         """str(sys.i).split(sep)"""  # .sep may be None
@@ -1166,31 +1176,31 @@ class ShellBrick:
         sg = self.shell_gopher
         sep = sg.sep
 
-        itext = self.fetch_str()
+        itext = self.fetch_itext()
         olines = itext.split() if (sep is None) else itext.split(sep)
 
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_str_title(self) -> None:
         """str(sys.i).title()"""
 
-        itext = self.fetch_str()
+        itext = self.fetch_itext()
         otext = itext.title()
-        self.store_str(otext)
+        self.store_otext(otext)
 
     def run_str_to_texts(self) -> None:
         """list(str(sys.i))"""
 
-        itext = self.fetch_str()
+        itext = self.fetch_itext()
         olines = list(itext)
-        self.store_list_str(olines)
+        self.store_olines(olines)
 
     def run_str_upper(self) -> None:
         """str(sys.i).upper()"""
 
-        itext = self.fetch_str()
+        itext = self.fetch_itext()
         otext = itext.upper()
-        self.store_str(otext)
+        self.store_otext(otext)
 
 
 #
