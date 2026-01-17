@@ -78,74 +78,6 @@ def main() -> None:
     shg.sketch_pipe()
     shg.run_pipe()
 
-    #
-
-    # todo0: |pb decode  # replace to \uFFFD Replacement-Character to \x3F Question-Mark '?'
-    # todo0: sold as overcomes old macOS Unix flaming out
-
-    # todo0: |pb printable, to be explicit for that
-    # todo0: also transform to printable before writing to tty, unless people say |pb tty
-
-    # todo0: |pb cut ... to |cut -c to fit width on screen but with "... " marks
-    # todo0: take -c at |cut, but don't require it
-
-    # todo0: |pb fmt ... just to do |fmt
-
-    # todo0: |pb column ... like' |column -t' but default to --sep='  ' for intake
-    # todo0: take -t at |column, but don't require it
-
-    # todo0: take --seed as unhelped to repeat random
-
-    # todo0: take -F as --sep at |awk
-    # todo0: take -v as --start at |nl
-
-    # todo0: take -- as alt of sort/float.sort, uniq/'uniq -c', max/float.max, min.float.min, set/counter
-
-    # todo0: add |uniq and |uniq -c because it's classic
-    # todo0: take -c at |uniq
-
-    #
-
-    # todo1: finish porting pelavarre/xshverb/ of bin/ a j k and of bin/ dt ht pq
-
-    # todo1: more with 'comm' and 'paste' and ... ?
-
-    # todo1: |pb choice
-
-    # todo1: block 0 1 2 3 as verbs after first verbs, take as ints, for |pb awk, for |pb expandtabs
-    # todo1: but block ints/floats as first verbs
-    # todo1: signed/ unsigned floats before ints before verbs
-    # todo1: int ranges 1..4
-    # todo1: --start=0 for |awk when you want that, else 0 for the whole in between the rest
-
-    # todo: default output into a 1-page pager of 9 lines - wc counts - chars set sort
-
-    # todo2: |pb dt datetime struggle to convert input into date/time-stamps
-    # todo2: timedelta absolute local """astimezone""
-    # todo2: timedelta absolute utc """fromtimestamp""
-    # todo2: timedelta relative previous """timedelta"""  # """dt.timedelta(_[0] - _[-1] for _ in zip)"""
-    # todo2: timedelta relative t0 """- _[0]"""  # """dt.timedelta(_ - list(sys.i)[0])""
-    # todo2: test with our favourite TZ=America/Los_Angeles TZ=Europe/Prague TZ=Asia/Kolkata
-
-    # todo2: |pb range - defaults to 1 2 3
-    # todo2: |pb random - defaults to 9 dice - random 100 - random 0 100 1 - head 9 head -9
-
-    # todo8: |pb echo ...
-    # todo8: |pb ^ prefix
-    # todo8: |pb $ suffix
-    # todo8: |pb removeprefix 'prefix'
-    # todo8: |pb removesuffix 'prefix'
-    # todo8: |pb prefix 'prefix'
-    # todo8: |pb suffix 'suffix'
-    # todo8: |pb insertprefix 'prefix'
-    # todo8: |pb appendsuffix 'suffix'
-    # todo8: |sed 's,^,...,'
-    # todo8: |sed 's,$,...,'
-    # todo8: |'sys.oline = "pre fix" + sys.iline'
-
-    # todo9: |pb _ like same _ as we have outside
-    # todo9: + mv 0 ... && pbpaste |pb upper |tee >(pbcopy) >./0
-
 
 class ShellGopher:
     """Init and run, once"""
@@ -550,31 +482,6 @@ class ShellBrick:
         verb = self.verb
         raise NotImplementedError(verb)
 
-        # todo: brick helps
-
-        # todo: pb for work with date/time's as utc floats in order - rel & abs & utc & zone & float
-
-        # todo: pb for reorder and transpose arrays of tsv, for split into tsv
-        # todo: pb for work with tsv's
-        # todo: tables
-        # todo: str.ljust str.rjust str.center
-
-        # todo: pb --sep=/ 'a 1 -2 3'
-        # todo: pb --alt chars len, --alt v, --alt e
-
-        # todo: dir(str)
-        # todo: |pb unexpand
-        # todo: pb hexdump
-
-        # todo: pb floats sum
-        # todo: pb int max
-        # todo: |wc -L into |pb line len max, |pb word len max
-        # todo: sys.oline = len(sys.iline)
-
-        # todo: brief alias for stack dump at:  grep . ?
-
-        # todo: 'pb list', 'pb tuple', 'pb pass', ...
-
     def run_as_brick(self) -> None:
         """Run Self as a Shell Pipe Brick"""
 
@@ -757,7 +664,7 @@ class ShellBrick:
     def run_bytes_often_pass(self) -> None:
         """bytes(sys.i)"""
 
-        pass
+        self.fetch_bytes()  # todo: unneeded
 
     def run_bytes_md5sum(self) -> None:
         """hashlib.md5(bytes(sys.i)).hexdigest()"""
@@ -767,8 +674,9 @@ class ShellBrick:
         h = hashlib.md5()
         h.update(idata)
         lower_nybbles = h.hexdigest()
+        oline = lower_nybbles + "  -"
 
-        olines = [lower_nybbles + "  -"]
+        olines = [oline]
         self.store_olines(olines)
 
         # d41d8cd98f00b204e9800998ecf8427e  -
@@ -781,8 +689,9 @@ class ShellBrick:
         h = hashlib.sha256()
         h.update(idata)
         lower_nybbles = h.hexdigest()
+        oline = lower_nybbles + "  -"
 
-        olines = [lower_nybbles + "  -"]
+        olines = [oline]
         self.store_olines(olines)
 
         # e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 -
@@ -815,11 +724,12 @@ class ShellBrick:
         """len(list(sys.i))"""
 
         ilines = self.fetch_ilines()
-        olines = [str(len(ilines))]
+        oline = str(len(ilines))
+        olines = [oline]
         self.store_olines(olines)
 
     def run_list_str_awk_nth_slice(self) -> None:
-        """_.split(sep)[-1]) for _ in list(sys.i)"""
+        """_.split(sep)[-1]) for _ in list(sys.i)"""  # .sep may be None
 
         sg = self.shell_gopher
         sep = sg.sep
@@ -828,7 +738,7 @@ class ShellBrick:
 
         olines = list()
         for iline in ilines:
-            splits = iline.split() if (sep is None) else iline.split(sep)
+            splits = iline.split(sep)  # .sep may be None
             if splits:
                 olines.append(splits[-1])
 
@@ -854,31 +764,37 @@ class ShellBrick:
         """collections.Counter(list(sys.i)).keys()"""
 
         ilines = self.fetch_ilines()
+
         opairs = list(collections.Counter(ilines).items())
         vklines = list(f"{v}\t{k}" for (k, v) in opairs)
-        self.store_olines(olines=vklines)
+        olines = vklines
+
+        self.store_olines(olines)
 
     def run_list_str_enumerate(self) -> None:
-        """enumerate(list(sys.i))"""
+        """enumerate(list(sys.i), start=start)"""
 
         sg = self.shell_gopher
         start = sg.start
         _start_ = 0 if (start is None) else start
 
         ilines = self.fetch_ilines()
+
         opairs = list(enumerate(ilines, start=_start_))
         kvlines = list(f"{k}\t{v}" for (k, v) in opairs)
-        self.store_olines(olines=kvlines)
+        olines = kvlines
+
+        self.store_olines(olines)
 
     def run_list_str_float_max(self) -> None:
         """max(list(sys.i), key=lambda _: float..., _)"""
 
         ilines = self.fetch_ilines()
+
         icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
-
         m = max(zip(icolumns, ilines))
-
         oline = m[-1]
+
         olines = [oline]
         self.store_olines(olines)
 
@@ -886,11 +802,11 @@ class ShellBrick:
         """min(list(sys.i), key=lambda _: float..., _)"""
 
         ilines = self.fetch_ilines()
+
         icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
-
         m = min(zip(icolumns, ilines))
-
         oline = m[-1]
+
         olines = [oline]
         self.store_olines(olines)
 
@@ -898,12 +814,12 @@ class ShellBrick:
         """list(sys.i).sort(key=lambda _: float..., _)"""
 
         ilines = self.fetch_ilines()
-        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
 
+        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
         sortables = list(zip(icolumns, ilines))
         sortables.sort()
-
         olines: list[str] = list(oline for (_, oline) in sortables)
+
         self.store_olines(olines)
 
     def _take_number_columns_(
@@ -976,11 +892,11 @@ class ShellBrick:
         """max(list(sys.i), key=lambda _: int..., _)"""
 
         ilines = self.fetch_ilines()
+
         icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
-
         m = max(zip(icolumns, ilines))
-
         oline = m[-1]
+
         olines = [oline]
         self.store_olines(olines)
 
@@ -988,11 +904,11 @@ class ShellBrick:
         """min(list(sys.i), key=lambda _: int..., _)"""
 
         ilines = self.fetch_ilines()
+
         icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
-
         m = min(zip(icolumns, ilines))
-
         oline = m[-1]
+
         olines = [oline]
         self.store_olines(olines)
 
@@ -1000,32 +916,31 @@ class ShellBrick:
         """list(sys.i).sort(key=lambda _: int..., _)"""
 
         ilines = self.fetch_ilines()
-        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
 
+        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
         sortables = list(zip(icolumns, ilines))
         sortables.sort()
-
         olines: list[str] = list(oline for (_, oline) in sortables)
+
         self.store_olines(olines)
 
     def run_list_str_join(self) -> None:
-        """sep.join(list(sys.i))"""  # this .sep defaults to " ", not None
+        """sep.join(list(sys.i))"""  # .sep may be None, then works like " " single Space
 
         sg = self.shell_gopher
         sep = sg.sep
         _sep_ = "  " if (sep is None) else sep
 
         ilines = self.fetch_ilines()
-        olines = [_sep_.join(ilines)]
+        oline = _sep_.join(ilines)
+        olines = [oline]
         self.store_olines(olines)
 
     def run_list_str_max(self) -> None:
         """max(list(sys.i))"""
 
         ilines = self.fetch_ilines()
-
         oline = max(ilines)
-
         olines = [oline]
         self.store_olines(olines)
 
@@ -1033,9 +948,7 @@ class ShellBrick:
         """min(list(sys.i))"""
 
         ilines = self.fetch_ilines()
-
         oline = min(ilines)
-
         olines = [oline]
         self.store_olines(olines)
 
@@ -1049,21 +962,21 @@ class ShellBrick:
     def run_list_str_often_pass(self) -> None:
         """list(sys.i)"""
 
-        self.fetch_itext()  # may raise UnicodeDecodeError
+        self.fetch_ilines()  # todo: could be .fetch_itext()  # may raise UnicodeDecodeError
 
     def run_list_str_set(self) -> None:  # diff vs 'def run_list_str_counter'
         """collections.Counter(list(sys.i)).keys()"""
 
         ilines = self.fetch_ilines()
-        klines = list(collections.Counter(ilines).keys())
-        self.store_olines(klines)
+        olines = list(collections.Counter(ilines).keys())
+        self.store_olines(olines)
 
     def run_list_str_reverse(self) -> None:
         """list(sys.i).reverse()"""
 
         iolines = self.fetch_ilines()
         iolines.reverse()
-        self.store_olines(iolines)
+        self.store_olines(olines=iolines)
 
     def run_list_str_rstrip(self) -> None:
         """list(_.rstrip() for _ in list(sys.i))"""
@@ -1077,7 +990,7 @@ class ShellBrick:
 
         iolines = self.fetch_ilines()
         random.shuffle(iolines)
-        self.store_olines(iolines)
+        self.store_olines(olines=iolines)
 
     def run_list_str_str_reverse(self) -> None:
         """list("".join(reversed(_)) for _ in list(sys.i))"""
@@ -1091,7 +1004,7 @@ class ShellBrick:
 
         iolines = self.fetch_ilines()
         iolines.sort()
-        self.store_olines(iolines)
+        self.store_olines(olines=iolines)
 
     def run_list_str_strip(self) -> None:
         """_.strip() for _ in list(sys.i)"""
@@ -1104,8 +1017,8 @@ class ShellBrick:
         """sum(list(sys.i)) for each column"""  # todo: write 'for each column' as Code
 
         ilines = self.fetch_ilines()
-        icolumns = self._take_number_columns_(ilines, func=numeric, strict=True)
 
+        icolumns = self._take_number_columns_(ilines, func=numeric, strict=True)
         ocolumns = list(sum(_) for _ in icolumns)
         oline = " ".join(str(_) for _ in ocolumns)
 
@@ -1131,6 +1044,7 @@ class ShellBrick:
         assert data is not None
 
         idecode = data.decode()  # may raise UnicodeDecodeError
+
         return idecode
 
     def store_otext(self, otext: str) -> None:
@@ -1138,7 +1052,6 @@ class ShellBrick:
 
         sg = self.shell_gopher
         oencode = otext.encode()  # may raise UnicodeEncodeError
-
         sg.data = oencode
 
     def run_str_casefold(self) -> None:
@@ -1177,7 +1090,7 @@ class ShellBrick:
         sep = sg.sep
 
         itext = self.fetch_itext()
-        olines = itext.split() if (sep is None) else itext.split(sep)
+        olines = itext.split(sep)  # .sep may be None
 
         self.store_olines(olines)
 
@@ -1499,6 +1412,99 @@ def pathlib_path_read_version(pathname: str) -> str:
 
 if __name__ == "__main__":
     main()
+
+
+# todo's
+
+
+# todo0: |pb decode  # replace to \uFFFD Replacement-Character to \x3F Question-Mark '?'
+# todo0: sold as overcomes old macOS Unix flaming out
+
+# todo0: |pb printable, to be explicit for that
+# todo0: also transform to printable before writing to tty, unless people say |pb tty
+
+# todo0: |pb cut ... to |cut -c to fit width on screen but with "... " marks
+# todo0: take -c at |cut, but don't require it
+
+# todo0: |pb fmt ... just to do |fmt
+
+# todo0: |pb column ... like' |column -t' but default to --sep='  ' for intake
+# todo0: take -t at |column, but don't require it
+
+# todo0: take --seed as unhelped to repeat random
+
+# todo0: take -F as --sep at |awk
+# todo0: take -v as --start at |nl
+
+# todo0: take -- as alt of sort/float.sort, uniq/'uniq -c', max/float.max, min.float.min, set/counter
+
+# todo0: add |uniq and |uniq -c because it's classic
+# todo0: take -c at |uniq
+
+#
+
+# todo1: finish porting pelavarre/xshverb/ of bin/ a j k and of bin/ dt ht pq
+
+# todo1: more with 'comm' and 'paste' and ... ?
+
+# todo1: |pb choice
+
+# todo1: block 0 1 2 3 as verbs after first verbs, take as ints, for |pb awk, for |pb expandtabs
+# todo1: but block ints/floats as first verbs
+# todo1: signed/ unsigned floats before ints before verbs
+# todo1: int ranges 1..4
+# todo1: --start=0 for |awk when you want that, else 0 for the whole in between the rest
+
+# todo: default output into a 1-page pager of 9 lines - wc counts - chars set sort
+
+# todo2: |pb dt datetime struggle to convert input into date/time-stamps
+# todo2: timedelta absolute local """astimezone""
+# todo2: timedelta absolute utc """fromtimestamp""
+# todo2: timedelta relative previous """timedelta"""  # """dt.timedelta(_[0] - _[-1] for _ in zip)"""
+# todo2: timedelta relative t0 """- _[0]"""  # """dt.timedelta(_ - list(sys.i)[0])""
+# todo2: test with our favourite TZ=America/Los_Angeles TZ=Europe/Prague TZ=Asia/Kolkata
+
+# todo2: |pb range - defaults to 1 2 3
+# todo2: |pb random - defaults to 9 dice - random 100 - random 0 100 1 - head 9 head -9
+
+# todo8: |pb echo ...
+# todo8: |pb ^ prefix
+# todo8: |pb $ suffix
+# todo8: |pb removeprefix 'prefix'
+# todo8: |pb removesuffix 'prefix'
+# todo8: |pb prefix 'prefix'
+# todo8: |pb suffix 'suffix'
+# todo8: |pb insertprefix 'prefix'
+# todo8: |pb appendsuffix 'suffix'
+# todo8: |sed 's,^,...,'
+# todo8: |sed 's,$,...,'
+# todo8: |'sys.oline = "pre fix" + sys.iline'
+
+# todo9: |pb _ like same _ as we have outside
+# todo9: + mv 0 ... && pbpaste |pb upper |tee >(pbcopy) >./0
+
+
+# todo: brick helps
+
+# todo: pb for work with date/time's as utc floats in order - rel & abs & utc & zone & float
+
+# todo: pb for reorder and transpose arrays of tsv, for split into tsv
+# todo: pb for work with tsv's
+# todo: tables
+# todo: str.ljust str.rjust str.center
+
+# todo: pb --sep=/ 'a 1 -2 3'
+# todo: pb --alt chars len, --alt v, --alt e
+
+# todo: dir(str)
+# todo: |pb unexpand
+# todo: pb hexdump
+
+# todo: |wc -L into |pb line len max, |pb word len max
+
+# todo: brief alias for stack dump at:  grep . ?
+
+# todo: 'pb list', 'pb tuple', 'pb pass', ...
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/litshell.py
