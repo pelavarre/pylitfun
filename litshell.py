@@ -96,8 +96,6 @@ def main() -> None:
 
     #
 
-    # todo1: only pb should undent, not |pb and not |pb | and not pb |...
-
     # todo1: finish porting pelavarre/xshverb/ of bin/ a j k and of bin/ dt ht pq
 
     # todo1: more with 'comm' and 'paste' and ... ?
@@ -151,7 +149,8 @@ class ShellGopher:
     sys_stdin_isatty: bool  # Dev Tty at Stdin means get Input Bytes from PasteBuffer
     sys_stdout_isatty: bool  # Dev Tty at Stdout means write Output Bytes back to PasteBuffer
 
-    shadowing_pbcopy: bool | None  # Writing to ./0 after writing into |pbcopy
+    writing_file: bool | None  # Writing to ./0 after writing into |pbcopy
+    writing_stdout: bool | None  # Writing to Stdout
 
     def __init__(self) -> None:
 
@@ -168,7 +167,8 @@ class ShellGopher:
         self.sys_stdin_isatty = sys_stdin_isatty
         self.sys_stdout_isatty = sys_stdout_isatty
 
-        self.shadowing_pbcopy = None
+        self.writing_file = None
+        self.writing_stdout = None
 
     def arg_doc_to_parser(self, doc: str) -> ArgDocParser:
         """Declare the Options & Positional Arguments"""
@@ -254,37 +254,37 @@ class ShellGopher:
         """Compile each Brick"""
 
         verbs = self.verbs
+        sys_stdin_isatty = self.sys_stdin_isatty
+        sys_stdout_isatty = self.sys_stdout_isatty
 
-        # Choose to end by writing into ./0 after |PbCopy, or not
+        # Choose what to write at exit
 
-        shadowing_pbcopy = False
-        if verbs:
-            verb0 = verbs[0]
-            if verb0 in ("0", "1", "2", "3"):
-                shadowing_pbcopy = True
+        assert self.writing_file is None, (self.writing_file,)
+        self.writing_file = self._compile_writing_file_()
 
-        _ = self.shadowing_pbcopy  # checks attribute exists  # type: ignore[unused-ignore]
-        self.shadowing_pbcopy = shadowing_pbcopy
+        assert self.writing_stdout is None, (self.writing_stdout,)
+        self.writing_stdout = self._compile_writing_stdout_()
 
-        # Choose how to start, how to fill out the middle, how to end
+        # Add implied Bricks
 
-        implied_verbs = list()
-        if not shadowing_pbcopy:
-            implied_verbs.append("__enter__")
-
-        implied_verbs.extend(verbs)
+        pipe_verbs = list()
+        pipe_verbs.append("__enter__")
+        pipe_verbs.extend(verbs)
 
         if not verbs[1:]:
-            implied_verbs.append("undent")
+            if sys_stdin_isatty:
+                pipe_verbs.append("undent")
+            # if sys_stdout_isatty:
+            #     pipe_verbs.append("printable")  # todo1:
 
-        implied_verbs.append("__exit__")
+        pipe_verbs.append("__exit__")
 
         # Compile the plan
 
-        for verb in implied_verbs:
+        for verb in pipe_verbs:
             if verb == "pb":  # todo2: say this more simply - pb could mean __enter__
                 continue
-            self.compile_brick_if(verb)
+            self._compile_brick_if_(verb)
 
         # todo: do surrogate_escape repl ? in the default |pb undent
 
@@ -293,15 +293,46 @@ class ShellGopher:
 
         # todo: more than one of ("0", "1", "2", "3"), such as Shell ? while 'ls -C ?' is '0 1 2 3'
 
-    def compile_brick_if(self, verb: str) -> None:
+    def _compile_writing_file_(self) -> bool:
+        """Choose to write into ./0 at exit, or not"""
+
+        verbs = self.verbs
+
+        writing_file = False
+        if verbs:
+            verb0 = verbs[0]
+            if verb0 in ("0", "1", "2", "3"):
+                writing_file = True
+
+        return writing_file
+
+    def _compile_writing_stdout_(self) -> bool:
+        """Choose to write into Stdout at exit, or not"""
+
+        verbs = self.verbs
+        sys_stdin_isatty = self.sys_stdin_isatty
+        sys_stdout_isatty = self.sys_stdout_isatty
+
+        writing_stdout = False
+
+        if sys_stdin_isatty or (not sys_stdout_isatty):
+            writing_stdout = True  # not |pb  # pb, pb |, or |pb|
+
+        if sys_stdout_isatty:
+            if verbs[1:]:
+                writing_stdout = True  # |pb ...
+
+        return writing_stdout
+
+    def _compile_brick_if_(self, verb: str) -> None:
         """Compile one Brick"""
 
         bricks = self.bricks
 
         brick = ShellBrick(self, verb=verb)
-        func_name = brick.func_name()
+        funcname = brick.to_func_name()
 
-        if not func_name:
+        if not funcname:
             print(f"Unknown Pipe Brick:  {verb!r}", file=sys.stderr)
             sys.exit(2)  # exits 2 for bad Args
 
@@ -312,7 +343,6 @@ class ShellGopher:
 
         bricks = self.bricks
 
-        first = bricks[0].func_name()
         brief_by_name = {
             "digit_zero": "0",
             "digit_one": "1",
@@ -320,15 +350,19 @@ class ShellGopher:
             "digit_three": "3",
             "pipe_enter": "pb",
         }
-        brief = brief_by_name[first]
 
-        last = bricks[-1].func_name()
-        assert last == "pipe_exit", (last,)
+        first = bricks[0].to_func_name()
+        first_brief = brief_by_name[first]
 
-        s = "+ |" + brief
-        for brick in bricks[1:-1]:
+        s = "+ |" + first_brief
+        for brick in bricks:
+            funcname = brick.to_func_name()
             func = brick.func
             doc = func.__doc__
+
+            if funcname in ("pipe_enter", "pipe_exit"):
+                continue
+
             s += " " + repr(doc)
 
         print(s, file=sys.stderr)
@@ -481,7 +515,7 @@ class ShellBrick:
         func = func_by_verb.get(verb, default)
         self.func = func
 
-    def func_name(self) -> str:
+    def to_func_name(self) -> str:
         """Form the Name of the Brick's Func"""
 
         func = self.func
@@ -535,8 +569,8 @@ class ShellBrick:
         """Run Self as a Shell Pipe Brick"""
 
         func = self.func
-        func_name = self.func_name()
-        assert func_name, (func_name,)
+        funcname = self.to_func_name()
+        assert funcname, (funcname,)
 
         try:
             func()
@@ -548,10 +582,14 @@ class ShellBrick:
         """Implicitly enter the Shell Pipe"""
 
         sg = self.shell_gopher
+        writing_file = sg.writing_file
         sys_stdin_isatty = sg.sys_stdin_isatty
 
+        if writing_file:
+            return  # don't implicitly enter when explicitly entering
+
         assert sg.data is None, (len(sg.data),)
-        assert not sg.shadowing_pbcopy, (sg.shadowing_pbcopy,)
+        assert not sg.writing_file, (sg.writing_file,)
 
         if sys_stdin_isatty:  # pb, pb |
 
@@ -568,36 +606,21 @@ class ShellBrick:
         """Implicitly exit the Shell Pipe"""
 
         sg = self.shell_gopher
-        verbs = sg.verbs
         sys_stdin_isatty = sg.sys_stdin_isatty
-        sys_stdout_isatty = sg.sys_stdout_isatty
-        shadowing_pbcopy = sg.shadowing_pbcopy
+        writing_file = sg.writing_file
+        writing_stdout = sg.writing_stdout
 
         data = sg.data
         assert data is not None
 
         fd = sys.stdout.fileno()
 
-        if shadowing_pbcopy or not sys_stdin_isatty:
+        if writing_file or not sys_stdin_isatty:  # as if sg.writing_pbcopy
             self.pbcopy(data)
 
-        if shadowing_pbcopy:
+        if writing_file:
             path = pathlib.Path(str(0))
             path.write_bytes(data)
-
-        #
-
-        sorted_set_verbs = sorted(set(verbs))
-
-        writing_stdout = False
-        if sys_stdin_isatty or (not sys_stdout_isatty):  # pb, pb |, or |pb|  # not |pb
-            writing_stdout = True
-        if sys_stdout_isatty:
-            if not shadowing_pbcopy:
-                if sorted_set_verbs not in (["pb"], ["-", "pb"]):
-                    writing_stdout = True
-
-        #
 
         if writing_stdout:
 
@@ -644,7 +667,7 @@ class ShellBrick:
 
         sg = self.shell_gopher
         sys_stdin_isatty = sg.sys_stdin_isatty
-        shadowing_pbcopy = sg.shadowing_pbcopy
+        writing_file = sg.writing_file
 
         self.push_paste_buffers()
 
@@ -657,7 +680,7 @@ class ShellBrick:
             self.pbcopy(data)
             sg.data = data
 
-        assert shadowing_pbcopy, (shadowing_pbcopy,)
+        assert writing_file, (writing_file,)
 
     def push_paste_buffers(self) -> None:
         """Push one Empty File into the Stack"""
@@ -881,10 +904,10 @@ class ShellBrick:
         ilines = lines
 
         if func.__name__ == "int_base_zero":
-            funcname = "int"  # |pb int.max, |pb int.min, |pb int.sort
+            functype = "int"  # |pb int.max, |pb int.min, |pb int.sort
         else:
             assert func.__name__ == "numeric"
-            funcname = "float nor int"  # |pb float.max, |pb float.min, |pb float.sort
+            functype = "float nor int"  # |pb float.max, |pb float.min, |pb float.sort
 
         min_width = -1
 
@@ -916,7 +939,7 @@ class ShellBrick:
             min_width = len(inumerics) if (min_width == -1) else min(min_width, len(inumerics))
 
         if lines and (min_width <= 0):
-            print(f"pb: no {funcname} columns to sort", file=sys.stderr)
+            print(f"pb: no {functype} columns to sort", file=sys.stderr)
             sys.exit(1)  # exits 1 for value error in taking up input
 
         ocolumns: list[list[float | int]] = list()  # columns
