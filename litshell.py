@@ -14,15 +14,15 @@ options:
   --sep SEP      a separator, such as ' ' or ',' or ', '
   --start START  a starting index, such as 0 or 1
 
-small famous bricks:
+famously abbreviated bricks:
   -  0 1 2 3  F L O T U  a h i n o r s t u w x  nl pb
 
-more famous bricks:
+famously convenient bricks:
   awk bytes casefold chars counter data dent enumerate expandtabs
   float.max float.min float.sort head int.max int.min int.sort join
   len lines lower lstrip max md5sum min rev reverse rstrip set sha256
-  shuf shuffle sort splitlines str strip sum tac tail title undent
-  upper words
+  shuf shuffle sort splitlines str strip sum tac tail text title
+  undent upper words
 
 examples:
   cat README.md |pb
@@ -228,13 +228,6 @@ class ShellGopher:
                 continue
             self._compile_brick_if_(verb)
 
-        # todo: do surrogate_escape repl ? in the default |pb undent
-
-        # todo: reject --sep without |pb join or |pb split or |pb awk
-        # todo: reject --start without |pb enumerate
-
-        # todo: more than one of ("0", "1", "2", "3"), such as Shell ? while 'ls -C ?' is '0 1 2 3'
-
     def _compile_writing_file_(self) -> bool:
         """Choose to write into ./0 at exit, or not"""
 
@@ -272,9 +265,8 @@ class ShellGopher:
         bricks = self.bricks
 
         brick = ShellBrick(self, verb=verb)
-        funcname = brick.to_func_name()
 
-        if not funcname:
+        if not brick.verb:
             print(f"Unknown Pipe Brick:  {verb!r}", file=sys.stderr)
             sys.exit(2)  # exits 2 for bad Args
 
@@ -285,24 +277,16 @@ class ShellGopher:
 
         bricks = self.bricks
 
-        brief_by_name = {
-            "digit_zero": "0",
-            "digit_one": "1",
-            "digit_two": "2",
-            "digit_three": "3",
-            "pipe_enter": "pb",
-        }
+        first = bricks[0].verb
+        s = "+ |" + first
 
-        first = bricks[0].to_func_name()
-        first_brief = brief_by_name[first]
-
-        s = "+ |" + first_brief
         for brick in bricks:
-            funcname = brick.to_func_name()
+            verb = brick.verb
             func = brick.func
+
             doc = func.__doc__
 
-            if funcname in ("pipe_enter", "pipe_exit"):
+            if verb in ("0", "1", "2", "3", "pb", "__enter__", "__exit__"):
                 continue
 
             s += " " + repr(doc)
@@ -335,175 +319,184 @@ class ShellBrick:
     """Say how to call a Shell Verb"""
 
     shell_gopher: ShellGopher
-    func: collections.abc.Callable[..., None]
     verb: str
+    func: collections.abc.Callable[..., None]
 
     #
-    # Init, enter, & exit
+    # Init
     #
 
     def __init__(self, shell_gopher: ShellGopher, verb: str) -> None:
+
         self.shell_gopher = shell_gopher
+
+        func_by_verb = self._form_func_by_verb_()
+
+        default = self._assert_false_
+        if verb not in func_by_verb.keys():
+            self.verb = ""
+            self.func = default
+            return
+
         self.verb = verb
+
+        func = func_by_verb.get(verb, default)
+        self.func = func
+
+    def _form_func_by_verb_(self) -> dict[str, collections.abc.Callable[[], None]]:
+        """Give one or a few Names to each Shell Pipe Filter Brick"""
 
         func_by_verb = {
             #
             # Framework
             #
-            "__enter__": self.run_pipe_enter,
+            "__enter__": self.run_pipe_enter_if,
             "__exit__": self.run_pipe_exit,
             #
-            # Single Character Aliases
+            # Python Single Words working with all the Bytes / Text / Lines, or with each Line
             #
-            "-": self.run_bytes_often_pass,
+            "casefold": self.from_text_casefold,  # |F for Fold
+            "expandtabs": self.from_text_expandtabs,
+            "lower": self.from_text_lower,  # |L
+            "split": self.from_text_split,  # aka words
+            "title": self.from_text_title,  # |T
+            "upper": self.from_text_upper,  # |U
             #
-            "0": self.run_digit_zero,
-            "1": self.run_digit_one,
-            "2": self.run_digit_two,
-            "3": self.run_digit_three,
+            "counter": self.from_lines_counter,  # |u
+            "join": self.from_lines_join,  # |x
+            "len": self.from_lines_len,  # |w
+            "max": self.from_lines_max,
+            "min": self.from_lines_min,
+            "reverse": self.from_lines_reverse,  # |r
+            "reversed": self.from_lines_reverse,  # our ["reversed"] aliases our ["reverse"]
+            "shuffle": self.from_lines_shuffle,
+            "set": self.from_lines_set,  # |set as the ordered last half of |counter
+            "sort": self.from_lines_sort,  # |s
+            "sorted": self.from_lines_sort,  # our ["sorted"] aliases our ["sort"]
+            "sum": self.from_lines_sum,
+            # "if":  # todo: not yet
+            # "list":  # nope
+            # "tuple":  # nope
             #
-            "F": self.run_str_casefold,  # |F for Fold
-            "L": self.run_str_lower,
-            "O": self.run_list_str_do_dent,  # |O for Outdent
-            "T": self.run_str_title,
-            "U": self.run_str_upper,
-            #
-            "a": self.run_list_str_awk_nth_slice,
-            "h": self.run_list_str_head,
-            "i": self.run_str_split,
-            "n": self.run_list_str_enumerate,
-            "o": self.run_str_do_undent,  # |o because it rounds off ← ↑ → ↓
-            "r": self.run_list_str_reverse,
-            "s": self.run_list_str_sort,
-            "t": self.run_list_str_tail,
-            "u": self.run_list_str_counter,  # 'u' for '|uniq' but in the way of |awk '!d[$0]++'
-            "w": self.run_list_str_len,  # in the way of '|wc -l'
-            "x": self.run_list_str_join,  # in the way of '|xargs'
-            #
-            # Two Character Aliases
-            #
-            "pb": self.run_bytes_often_pass,
-            #
-            # Aliases of three or more Characters
-            #
-            "data": self.run_bytes_to_ints,  # aka bytes
-            "chars": self.run_str_to_texts,  # aka str
-            "lines": self.run_list_str_often_pass,
-            "words": self.run_str_split,  # aka split
-            #
-            "expand": self.run_str_expandtabs,
-            "reversed": self.run_list_str_reverse,  # |r
-            "sorted": self.run_list_str_sort,  # |s
-            #
-            # Python Single Words
-            #
-            "bytes": self.run_bytes_to_ints,  # like for wc -c via |bytes len  # aka data
-            "counter": self.run_list_str_counter,  # |u
-            "dent": self.run_list_str_do_dent,  # |O
-            "enumerate": self.run_list_str_enumerate,  # |n  # todo: -v1
-            "join": self.run_list_str_join,  # |x
-            "len": self.run_list_str_len,  # |w
-            "max": self.run_list_str_max,
-            "min": self.run_list_str_min,
-            "reverse": self.run_list_str_reverse,  # |r
-            "shuffle": self.run_list_str_shuffle,  # |r
-            "set": self.run_list_str_set,  # |set as the ordered last half of |counter
-            "splitlines": self.run_list_str_often_pass,
-            "sort": self.run_list_str_sort,  # |s
-            "sum": self.run_list_str_sum,
-            #
-            "lstrip": self.run_list_str_lstrip,
-            "rstrip": self.run_list_str_rstrip,
-            "strip": self.run_list_str_strip,
-            #
-            "casefold": self.run_str_casefold,  # |F for Fold
-            "expandtabs": self.run_str_expandtabs,
-            "lower": self.run_str_lower,  # |L
-            "str": self.run_str_to_texts,  # like for wc -m via |str  # aka chars
-            "split": self.run_str_split,  # aka words
-            "title": self.run_str_title,  # |T
-            "undent": self.run_str_do_undent,  # |o
-            "upper": self.run_str_upper,  # |U
+            "enumerate": self.for_line_enumerate,  # |n  # todo: -v1
+            "lstrip": self.for_line_lstrip,
+            "rstrip": self.for_line_rstrip,
+            "strip": self.for_line_strip,
+            # "for":  # todo: not yet
             #
             # Python Dotted Double Words
             #
-            "int.max": self.run_list_str_int_base_zero_max,
-            "int.min": self.run_list_str_int_base_zero_min,
-            "int.sort": self.run_list_str_int_base_zero_sort,
-            "float.max": self.run_list_str_numeric_max,
-            "float.min": self.run_list_str_numeric_min,
-            "float.sort": self.run_list_str_numeric_sort,
+            "int.max": self.from_lines_int_base_zero_max,
+            "int.min": self.from_lines_int_base_zero_min,
+            "int.sort": self.from_lines_int_base_zero_sort,
+            "float.max": self.from_lines_numeric_max,
+            "float.min": self.from_lines_numeric_min,
+            "float.sort": self.from_lines_numeric_sort,
             #
-            # Bash Single Words
+            # Python & Shell names for data types of the File, most especially for |pb ... len,
+            # tipping the hat to variable names, Shell 'wc' data types, Python result datatypes
             #
-            "md5sum": self.run_bytes_md5sum,
-            "sha256": self.run_bytes_sha256,
+            "data": self.from_bytes_as_ints,  # aka bytes
+            "text": self.from_text_as_texts,  # aka str
             #
-            # "$": self.run_list_str_suffix,  # |$ ...  # todo8
-            # "^": self.run_list_str_prefix,  # |^ ...  # todo8
-            "awk": self.run_list_str_awk_nth_slice,  # |a
-            "head": self.run_list_str_head,  # |h
-            "nl": self.run_list_str_enumerate,  # although Shell defaults to --start=1
-            "shuf": self.run_list_str_shuffle,
-            "tail": self.run_list_str_tail,  # |t
-            "tac": self.run_list_str_reverse,  # |r
-            # "uniq": self.run_list_str_uniq,  # differs from |u  # todo1:
+            "bytes": self.from_bytes_as_ints,  # aka data  # 'bytes' is a Python Single Word
+            "chars": self.from_text_as_texts,  # aka str
+            "lines": self.from_lines_as_lines,  # aka splitlines
+            "words": self.from_text_split,  # aka split
             #
-            "rev": self.run_list_str_str_reverse,
+            # "split": self.from_text_split,  # already said above
+            "splitlines": self.from_lines_as_lines,  # aka lines
+            "str": self.from_text_as_texts,  # aka chars
+            #
+            # Shell Single Words working with all the Bytes / Lines, or with each Line
+            #
+            "md5sum": self.from_bytes_md5sum,
+            "sha256": self.from_bytes_sha256,
+            #
+            "expand": self.from_text_expandtabs,
+            #
+            "head": self.from_lines_head,  # |h
+            "shuf": self.from_lines_shuffle,
+            "tail": self.from_lines_tail,  # |t
+            "tac": self.from_lines_reverse,  # |r
+            # "uniq": self.from_lines_uniq,  # differs from |u  # todo1:
+            #
+            # "$": self.for_line_suffix,  # |$ ...  # todo8
+            # "^": self.for_line_prefix,  # |^ ...  # todo8
+            "awk": self.for_line_awk_nth_slice,  # |a
+            "nl": self.for_line_enumerate,  # although Shell defaults to --start=1
+            "rev": self.for_line_reverse,
+            #
+            # Famously Abbreviated Single Character Aliases
+            #
+            "-": self.from_bytes_as_bytes,
+            #
+            "0": self.enter_as_pick_0th,
+            "1": self.enter_as_pick_1th,
+            "2": self.enter_as_pick_2th,
+            "3": self.enter_as_pick_3th,
+            #
+            "F": self.from_text_casefold,  # |F for Fold
+            "L": self.from_text_lower,
+            "O": self.for_line_do_dent,  # |O for Outdent
+            "T": self.from_text_title,
+            "U": self.from_text_upper,
+            #
+            "a": self.for_line_awk_nth_slice,
+            "h": self.from_lines_head,
+            "i": self.from_text_split,
+            "n": self.for_line_enumerate,
+            "o": self.from_text_do_undent,  # |o because it rounds off ← ↑ → ↓
+            "r": self.from_lines_reverse,
+            "s": self.from_lines_sort,
+            "t": self.from_lines_tail,
+            "u": self.from_lines_counter,  # 'u' for '|uniq' but in the way of |awk '!d[$0]++'
+            "w": self.from_lines_len,  # in the way of '|wc -l'
+            "x": self.from_lines_join,  # in the way of '|xargs'
+            #
+            # Names for newer Shell Pipe Filter Bricks
+            #
+            "dent": self.for_line_do_dent,  # |O
+            "undent": self.from_text_do_undent,  # |o
             #
         }
 
-        default = self._raise_not_implemented_error_
-        func = func_by_verb.get(verb, default)
-        self.func = func
+        return func_by_verb
 
-    def to_func_name(self) -> str:
-        """Form the Name of the Brick's Func"""
-
-        func = self.func
-
-        name = func.__name__
-
-        name = name.removeprefix("run_str_")
-        name = name.removeprefix("run_list_str_")
-        name = name.removeprefix("do_")
-        name = name.removeprefix("run_")
-
-        name = name.removesuffix("_often_pass")
-
-        if name == "_raise_not_implemented_error_":
-            name = ""
-
-        return name
-
-    def _raise_not_implemented_error_(self) -> None:
-        """Raise NotImplementedError for the Brick"""
-
-        verb = self.verb
-        raise NotImplementedError(verb)
+    #
+    # Run Self as a Shell Pipe Filter Brick
+    #
 
     def run_as_brick(self) -> None:
-        """Run Self as a Shell Pipe Brick"""
+        """Run Self as a Shell Pipe Filter Brick"""
+
+        verb = self.verb
+        assert verb, (verb,)
 
         func = self.func
-        funcname = self.to_func_name()
-        assert funcname, (funcname,)
-
         try:
             func()
         except Exception:
-            print(f"{func=}", file=sys.stderr)
+            print(f"{verb=}", file=sys.stderr)
             raise
 
-    def run_pipe_enter(self) -> None:
+    #
+    # Enter & exit entirely outside our Stack of 4 Revisions of the Paste Buffer
+    #
+
+    def run_pipe_enter_if(self) -> None:
         """Implicitly enter the Shell Pipe"""
 
         sg = self.shell_gopher
         writing_file = sg.writing_file
         sys_stdin_isatty = sg.sys_stdin_isatty
 
+        # Actually don't implicitly enter, when explicitly entering
+
         if writing_file:
-            return  # don't implicitly enter when explicitly entering
+            return
+
+        # Else do implicitly enter
 
         assert sg.data is None, (len(sg.data),)
         assert not sg.writing_file, (sg.writing_file,)
@@ -554,16 +547,16 @@ class ShellBrick:
     # Work with our Stack of 4 Revisions of the Paste Buffer
     #
 
-    def run_digit_one(self) -> None:
-        self._run_digit_n_(1)
+    def enter_as_pick_1th(self) -> None:
+        self._enter_as_pick_n_(1)
 
-    def run_digit_two(self) -> None:
-        self._run_digit_n_(2)
+    def enter_as_pick_2th(self) -> None:
+        self._enter_as_pick_n_(2)
 
-    def run_digit_three(self) -> None:
-        self._run_digit_n_(3)
+    def enter_as_pick_3th(self) -> None:
+        self._enter_as_pick_n_(3)
 
-    def _run_digit_n_(self, n: int) -> None:
+    def _enter_as_pick_n_(self, n: int) -> None:
         """Push a copy of the Nth Old Revision of the Paste Buffer into the Stack"""
 
         path = pathlib.Path(str(n))
@@ -574,12 +567,9 @@ class ShellBrick:
         data = path.read_bytes()
         self.pbcopy(data)
 
-        self.run_digit_zero()  # todo: forward the .data but not via pbcopy then pbpaste
+        self.enter_as_pick_0th()  # todo: forward the .data but not via pbcopy then pbpaste
 
-        # pb no implicit feedback into pb
-        # todo: |1 or |1|
-
-    def run_digit_zero(self) -> None:
+    def enter_as_pick_0th(self) -> None:
         """Push the Paste Buffer into the Stack"""
 
         sg = self.shell_gopher
@@ -642,7 +632,17 @@ class ShellBrick:
             sys.exit(returncode)
 
     #
-    # Work with the File as Bytes
+    # Decline to work with the File
+    #
+
+    def _assert_false_(self) -> None:
+        """Raise NotImplementedError for the Brick"""
+
+        verb = self.verb
+        assert False, (verb,)  # could be raise NotImplementedError(verb)
+
+    #
+    # Work with the File taken as Bytes
     #
 
     def fetch_bytes(self) -> bytes:
@@ -654,19 +654,19 @@ class ShellBrick:
 
         return data
 
-    def run_bytes_to_ints(self) -> None:
+    def from_bytes_as_ints(self) -> None:
         """list(bytes(sys.i))"""
 
         idata = self.fetch_bytes()
         olines = list(str(_) for _ in idata)  # ['65', '66', '67']
         self.store_olines(olines)
 
-    def run_bytes_often_pass(self) -> None:
+    def from_bytes_as_bytes(self) -> None:
         """bytes(sys.i)"""
 
         self.fetch_bytes()  # todo: unneeded
 
-    def run_bytes_md5sum(self) -> None:
+    def from_bytes_md5sum(self) -> None:
         """hashlib.md5(bytes(sys.i)).hexdigest()"""
 
         idata = self.fetch_bytes()
@@ -681,7 +681,7 @@ class ShellBrick:
 
         # d41d8cd98f00b204e9800998ecf8427e  -
 
-    def run_bytes_sha256(self) -> None:
+    def from_bytes_sha256(self) -> None:
         """hashlib.sha256(bytes(sys.i)).hexdigest()"""
 
         idata = self.fetch_bytes()
@@ -697,7 +697,90 @@ class ShellBrick:
         # e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 -
 
     #
-    # Work with the File as List[Str]
+    # Work from the File taken as 1 Str
+    #
+
+    def fetch_itext(self) -> str:
+        """Fetch the str(sys.i)"""
+
+        sg = self.shell_gopher
+        data = sg.data
+        assert data is not None
+
+        idecode = data.decode()  # may raise UnicodeDecodeError
+
+        return idecode
+
+    def store_otext(self, otext: str) -> None:
+        """Store the str(sys.i)"""
+
+        sg = self.shell_gopher
+        oencode = otext.encode()  # may raise UnicodeEncodeError
+        sg.data = oencode
+
+    def from_text_casefold(self) -> None:
+        """str(sys.i).casefold()"""
+
+        itext = self.fetch_itext()
+        otext = itext.casefold()
+        self.store_otext(otext)
+
+    def from_text_do_undent(self) -> None:
+        """_.rstrip() for _ in textwrap.dedent(str(sys.i)).strip().splitlines()"""
+
+        itext = self.fetch_itext()
+        otext = textwrap.dedent(itext).strip()
+        olines = list(_.rstrip() for _ in otext.splitlines())
+        self.store_olines(olines)
+
+    def from_text_expandtabs(self) -> None:
+        """str(sys.i).expandtabs()"""
+
+        itext = self.fetch_itext()
+        otext = itext.expandtabs()
+        self.store_otext(otext)
+
+    def from_text_lower(self) -> None:
+        """str(sys.i).lower()"""
+
+        itext = self.fetch_itext()
+        otext = itext.lower()
+        self.store_otext(otext)
+
+    def from_text_split(self) -> None:
+        """str(sys.i).split(sep)"""  # .sep may be None
+
+        sg = self.shell_gopher
+        sep = sg.sep
+
+        itext = self.fetch_itext()
+        olines = itext.split(sep)  # .sep may be None
+
+        self.store_olines(olines)
+
+    def from_text_title(self) -> None:
+        """str(sys.i).title()"""
+
+        itext = self.fetch_itext()
+        otext = itext.title()
+        self.store_otext(otext)
+
+    def from_text_as_texts(self) -> None:
+        """list(str(sys.i))"""
+
+        itext = self.fetch_itext()
+        olines = list(itext)
+        self.store_olines(olines)
+
+    def from_text_upper(self) -> None:
+        """str(sys.i).upper()"""
+
+        itext = self.fetch_itext()
+        otext = itext.upper()
+        self.store_otext(otext)
+
+    #
+    # Work from the File taken as 1 List[Str] of Lines
     #
 
     def fetch_ilines(self) -> list[str]:
@@ -720,7 +803,7 @@ class ShellBrick:
 
         sg.data = oencode
 
-    def run_list_str_len(self) -> None:
+    def from_lines_len(self) -> None:
         """len(list(sys.i))"""
 
         ilines = self.fetch_ilines()
@@ -728,39 +811,7 @@ class ShellBrick:
         olines = [oline]
         self.store_olines(olines)
 
-    def run_list_str_awk_nth_slice(self) -> None:
-        """_.split(sep)[-1]) for _ in list(sys.i)"""  # .sep may be None
-
-        sg = self.shell_gopher
-        sep = sg.sep
-
-        ilines = self.fetch_ilines()
-
-        olines = list()
-        for iline in ilines:
-            splits = iline.split(sep)  # .sep may be None
-            if splits:
-                olines.append(splits[-1])
-
-        self.store_olines(olines)
-
-        # as if |awk 'NF{print $NF}'
-
-    def run_list_str_do_dent(self) -> None:
-        """[""2*""] + list((4*" " + _ + 4*" ") for _ in list(sys.i)) + [2*""]"""
-
-        ilines = self.fetch_ilines()
-        width = max(len(_) for _ in ilines) if ilines else 0
-
-        above = 2 * [""]
-        ljust = width + 4
-        rjust = ljust + 4
-        below = 2 * [""]
-
-        olines = above + list(_.ljust(ljust).rjust(rjust) for _ in ilines) + below
-        self.store_olines(olines)
-
-    def run_list_str_counter(self) -> None:  # diff vs 'def run_list_str_set'
+    def from_lines_counter(self) -> None:  # diff vs 'def from_lines_set'
         """collections.Counter(list(sys.i)).keys()"""
 
         ilines = self.fetch_ilines()
@@ -771,29 +822,14 @@ class ShellBrick:
 
         self.store_olines(olines)
 
-    def run_list_str_enumerate(self) -> None:
-        """enumerate(list(sys.i), start=start)"""
-
-        sg = self.shell_gopher
-        start = sg.start
-        _start_ = 0 if (start is None) else start
-
-        ilines = self.fetch_ilines()
-
-        opairs = list(enumerate(ilines, start=_start_))
-        kvlines = list(f"{k}\t{v}" for (k, v) in opairs)
-        olines = kvlines
-
-        self.store_olines(olines)
-
-    def run_list_str_head(self) -> None:
+    def from_lines_head(self) -> None:
         """list(sys.i)[:9]"""
 
         ilines = self.fetch_ilines()
         olines = ilines[:9]
         self.store_olines(olines)
 
-    def run_list_str_int_base_zero_max(self) -> None:
+    def from_lines_int_base_zero_max(self) -> None:
         """max(list(sys.i), key=lambda _: int..., _)"""
 
         ilines = self.fetch_ilines()
@@ -805,7 +841,7 @@ class ShellBrick:
         olines = [oline]
         self.store_olines(olines)
 
-    def run_list_str_int_base_zero_min(self) -> None:
+    def from_lines_int_base_zero_min(self) -> None:
         """min(list(sys.i), key=lambda _: int..., _)"""
 
         ilines = self.fetch_ilines()
@@ -817,7 +853,7 @@ class ShellBrick:
         olines = [oline]
         self.store_olines(olines)
 
-    def run_list_str_int_base_zero_sort(self) -> None:
+    def from_lines_int_base_zero_sort(self) -> None:
         """list(sys.i).sort(key=lambda _: int..., _)"""
 
         ilines = self.fetch_ilines()
@@ -828,6 +864,119 @@ class ShellBrick:
         olines: list[str] = list(oline for (_, oline) in sortables)
 
         self.store_olines(olines)
+
+    def from_lines_join(self) -> None:
+        """sep.join(list(sys.i))"""  # .sep may be None, then works like " " single Space
+
+        sg = self.shell_gopher
+        sep = sg.sep
+        _sep_ = "  " if (sep is None) else sep
+
+        ilines = self.fetch_ilines()
+        oline = _sep_.join(ilines)
+        olines = [oline]
+        self.store_olines(olines)
+
+    def from_lines_max(self) -> None:
+        """max(list(sys.i))"""
+
+        ilines = self.fetch_ilines()
+        oline = max(ilines)
+        olines = [oline]
+        self.store_olines(olines)
+
+    def from_lines_min(self) -> None:
+        """min(list(sys.i))"""
+
+        ilines = self.fetch_ilines()
+        oline = min(ilines)
+        olines = [oline]
+        self.store_olines(olines)
+
+    def from_lines_numeric_max(self) -> None:
+        """max(list(sys.i), key=lambda _: float..., _)"""
+
+        ilines = self.fetch_ilines()
+
+        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
+        m = max(zip(icolumns, ilines))
+        oline = m[-1]
+
+        olines = [oline]
+        self.store_olines(olines)
+
+    def from_lines_numeric_min(self) -> None:
+        """min(list(sys.i), key=lambda _: float..., _)"""
+
+        ilines = self.fetch_ilines()
+
+        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
+        m = min(zip(icolumns, ilines))
+        oline = m[-1]
+
+        olines = [oline]
+        self.store_olines(olines)
+
+    def from_lines_numeric_sort(self) -> None:
+        """list(sys.i).sort(key=lambda _: float..., _)"""
+
+        ilines = self.fetch_ilines()
+
+        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
+        sortables = list(zip(icolumns, ilines))
+        sortables.sort()
+        olines: list[str] = list(oline for (_, oline) in sortables)
+
+        self.store_olines(olines)
+
+    def from_lines_as_lines(self) -> None:
+        """list(sys.i)"""
+
+        self.fetch_ilines()  # todo: could be .fetch_itext()  # may raise UnicodeDecodeError
+
+    def from_lines_set(self) -> None:  # diff vs 'def from_lines_counter'
+        """collections.Counter(list(sys.i)).keys()"""
+
+        ilines = self.fetch_ilines()
+        olines = list(collections.Counter(ilines).keys())
+        self.store_olines(olines)
+
+    def from_lines_reverse(self) -> None:
+        """list(sys.i).reverse()"""
+
+        iolines = self.fetch_ilines()
+        iolines.reverse()
+        self.store_olines(olines=iolines)
+
+    def from_lines_shuffle(self) -> None:
+        """random.shuffle(list(sys.i))"""
+
+        iolines = self.fetch_ilines()
+        random.shuffle(iolines)
+        self.store_olines(olines=iolines)
+
+    def from_lines_sum(self) -> None:
+        """sum(list(sys.i)) for each column"""  # todo: code up 'for each column' as Code
+
+        ilines = self.fetch_ilines()
+
+        icolumns = self._take_number_columns_(ilines, func=numeric, strict=True)
+        ocolumns = list(sum(_) for _ in icolumns)
+        oline = " ".join(str(_) for _ in ocolumns)
+
+        olines = [oline]
+        self.store_olines(olines)
+
+    def from_lines_tail(self) -> None:
+        """list(sys.i)[-9:]"""
+
+        ilines = self.fetch_ilines()
+        olines = ilines[-9:]
+        self.store_olines(olines)
+
+    #
+    # Work from the File taken as Columns at Left and then a Text Remainder
+    #
 
     def _take_number_columns_(
         self, lines: list[str], func: collections.abc.Callable[[str], float | int], strict: bool
@@ -888,232 +1037,91 @@ class ShellBrick:
 
         return ocolumns
 
-    def run_list_str_join(self) -> None:
-        """sep.join(list(sys.i))"""  # .sep may be None, then works like " " single Space
+    #
+    # Work from the File taken as each 1 of N Lines
+    #
+
+    def for_line_awk_nth_slice(self) -> None:
+        """_.split(sep)[-1]) for _ in list(sys.i)"""  # .sep may be None
 
         sg = self.shell_gopher
         sep = sg.sep
-        _sep_ = "  " if (sep is None) else sep
-
-        ilines = self.fetch_ilines()
-        oline = _sep_.join(ilines)
-        olines = [oline]
-        self.store_olines(olines)
-
-    def run_list_str_max(self) -> None:
-        """max(list(sys.i))"""
-
-        ilines = self.fetch_ilines()
-        oline = max(ilines)
-        olines = [oline]
-        self.store_olines(olines)
-
-    def run_list_str_min(self) -> None:
-        """min(list(sys.i))"""
-
-        ilines = self.fetch_ilines()
-        oline = min(ilines)
-        olines = [oline]
-        self.store_olines(olines)
-
-    def run_list_str_numeric_max(self) -> None:
-        """max(list(sys.i), key=lambda _: float..., _)"""
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
-        m = max(zip(icolumns, ilines))
-        oline = m[-1]
+        olines = list()
+        for iline in ilines:
+            splits = iline.split(sep)  # .sep may be None
+            if splits:
+                olines.append(splits[-1])
 
-        olines = [oline]
         self.store_olines(olines)
 
-    def run_list_str_numeric_min(self) -> None:
-        """min(list(sys.i), key=lambda _: float..., _)"""
+        # as if |awk 'NF{print $NF}'
+
+    def for_line_do_dent(self) -> None:
+        """[""2*""] + list((4*" " + _ + 4*" ") for _ in list(sys.i)) + [2*""]"""
+
+        ilines = self.fetch_ilines()
+        width = max(len(_) for _ in ilines) if ilines else 0
+
+        above = 2 * [""]
+        ljust = width + 4
+        rjust = ljust + 4
+        below = 2 * [""]
+
+        olines = above + list(_.ljust(ljust).rjust(rjust) for _ in ilines) + below
+        self.store_olines(olines)
+
+    def for_line_enumerate(self) -> None:
+        """enumerate(list(sys.i), start=start)"""  # implicitly for _ in list(sys.i)
+
+        sg = self.shell_gopher
+        start = sg.start
+        _start_ = 0 if (start is None) else start
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
-        m = min(zip(icolumns, ilines))
-        oline = m[-1]
-
-        olines = [oline]
-        self.store_olines(olines)
-
-    def run_list_str_numeric_sort(self) -> None:
-        """list(sys.i).sort(key=lambda _: float..., _)"""
-
-        ilines = self.fetch_ilines()
-
-        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
-        sortables = list(zip(icolumns, ilines))
-        sortables.sort()
-        olines: list[str] = list(oline for (_, oline) in sortables)
+        opairs = list(enumerate(ilines, start=_start_))
+        kvlines = list(f"{k}\t{v}" for (k, v) in opairs)
+        olines = kvlines
 
         self.store_olines(olines)
 
-    def run_list_str_lstrip(self) -> None:
+    def for_line_lstrip(self) -> None:
         """_.lstrip() for _ in list(sys.i)"""
 
         ilines = self.fetch_ilines()
         olines = list(_.lstrip() for _ in ilines)
         self.store_olines(olines)
 
-    def run_list_str_often_pass(self) -> None:
-        """list(sys.i)"""
-
-        self.fetch_ilines()  # todo: could be .fetch_itext()  # may raise UnicodeDecodeError
-
-    def run_list_str_set(self) -> None:  # diff vs 'def run_list_str_counter'
-        """collections.Counter(list(sys.i)).keys()"""
-
-        ilines = self.fetch_ilines()
-        olines = list(collections.Counter(ilines).keys())
-        self.store_olines(olines)
-
-    def run_list_str_reverse(self) -> None:
-        """list(sys.i).reverse()"""
-
-        iolines = self.fetch_ilines()
-        iolines.reverse()
-        self.store_olines(olines=iolines)
-
-    def run_list_str_rstrip(self) -> None:
+    def for_line_rstrip(self) -> None:
         """list(_.rstrip() for _ in list(sys.i))"""
 
         ilines = self.fetch_ilines()
         olines = list(_.rstrip() for _ in ilines)
         self.store_olines(olines)
 
-    def run_list_str_shuffle(self) -> None:
-        """random.shuffle(list(sys.i))"""
-
-        iolines = self.fetch_ilines()
-        random.shuffle(iolines)
-        self.store_olines(olines=iolines)
-
-    def run_list_str_str_reverse(self) -> None:
+    def for_line_reverse(self) -> None:
         """list("".join(reversed(_)) for _ in list(sys.i))"""
 
         ilines = self.fetch_ilines()
         olines = list("".join(reversed(_)) for _ in ilines)
         self.store_olines(olines)
 
-    def run_list_str_sort(self) -> None:
+    def from_lines_sort(self) -> None:
         """list(sys.i).sort()"""
 
         iolines = self.fetch_ilines()
         iolines.sort()
         self.store_olines(olines=iolines)
 
-    def run_list_str_strip(self) -> None:
+    def for_line_strip(self) -> None:
         """_.strip() for _ in list(sys.i)"""
 
         ilines = self.fetch_ilines()
         olines = list(_.strip() for _ in ilines)
         self.store_olines(olines)
-
-    def run_list_str_sum(self) -> None:
-        """sum(list(sys.i)) for each column"""  # todo: write 'for each column' as Code
-
-        ilines = self.fetch_ilines()
-
-        icolumns = self._take_number_columns_(ilines, func=numeric, strict=True)
-        ocolumns = list(sum(_) for _ in icolumns)
-        oline = " ".join(str(_) for _ in ocolumns)
-
-        olines = [oline]
-        self.store_olines(olines)
-
-    def run_list_str_tail(self) -> None:
-        """list(sys.i)[-9:]"""
-
-        ilines = self.fetch_ilines()
-        olines = ilines[-9:]
-        self.store_olines(olines)
-
-    #
-    # Work with the File as Str
-    #
-
-    def fetch_itext(self) -> str:
-        """Fetch the str(sys.i)"""
-
-        sg = self.shell_gopher
-        data = sg.data
-        assert data is not None
-
-        idecode = data.decode()  # may raise UnicodeDecodeError
-
-        return idecode
-
-    def store_otext(self, otext: str) -> None:
-        """Store the str(sys.i)"""
-
-        sg = self.shell_gopher
-        oencode = otext.encode()  # may raise UnicodeEncodeError
-        sg.data = oencode
-
-    def run_str_casefold(self) -> None:
-        """str(sys.i).casefold()"""
-
-        itext = self.fetch_itext()
-        otext = itext.casefold()
-        self.store_otext(otext)
-
-    def run_str_do_undent(self) -> None:
-        """_.rstrip() for _ in textwrap.dedent(str(sys.i)).strip().splitlines()"""
-
-        itext = self.fetch_itext()
-        otext = textwrap.dedent(itext).strip()
-        olines = list(_.rstrip() for _ in otext.splitlines())
-        self.store_olines(olines)
-
-    def run_str_expandtabs(self) -> None:  # todo1: |pb expandtabs 2
-        """str(sys.i).expandtabs()"""
-
-        itext = self.fetch_itext()
-        otext = itext.expandtabs()
-        self.store_otext(otext)
-
-    def run_str_lower(self) -> None:
-        """str(sys.i).lower()"""
-
-        itext = self.fetch_itext()
-        otext = itext.lower()
-        self.store_otext(otext)
-
-    def run_str_split(self) -> None:
-        """str(sys.i).split(sep)"""  # .sep may be None
-
-        sg = self.shell_gopher
-        sep = sg.sep
-
-        itext = self.fetch_itext()
-        olines = itext.split(sep)  # .sep may be None
-
-        self.store_olines(olines)
-
-    def run_str_title(self) -> None:
-        """str(sys.i).title()"""
-
-        itext = self.fetch_itext()
-        otext = itext.title()
-        self.store_otext(otext)
-
-    def run_str_to_texts(self) -> None:
-        """list(str(sys.i))"""
-
-        itext = self.fetch_itext()
-        olines = list(itext)
-        self.store_olines(olines)
-
-    def run_str_upper(self) -> None:
-        """str(sys.i).upper()"""
-
-        itext = self.fetch_itext()
-        otext = itext.upper()
-        self.store_otext(otext)
 
 
 #
@@ -1359,7 +1367,7 @@ def int_base_zero(lit: str) -> int:
     return i
 
 
-def numeric(lit: str) -> float | int:
+def numeric(lit: str) -> float | int:  # todo0: float | int | bool
     """Convert a repr(float) or repr(int) or repr(bool) over to float or int"""
 
     if lit == "False":
@@ -1422,6 +1430,7 @@ if __name__ == "__main__":
 
 # todo0: |pb printable, to be explicit for that
 # todo0: also transform to printable before writing to tty, unless people say |pb tty
+# todo: do surrogate_escape repl ? before writing to tty
 
 # todo0: |pb cut ... to |cut -c to fit width on screen but with "... " marks
 # todo0: take -c at |cut, but don't require it
@@ -1434,16 +1443,26 @@ if __name__ == "__main__":
 # todo0: take --seed as unhelped to repeat random
 
 # todo0: take -F as --sep at |awk
-# todo0: take -v as --start at |nl
+# todo0: reject -F or --sep without |pb join or |pb split or |pb awk
 
-# todo0: take -- as alt of sort/float.sort, uniq/'uniq -c', max/float.max, min.float.min, set/counter
+# todo0: take -v as --start at |nl
+# todo0: reject --start without |pb enumerate or |pb nl
+
+# todo0: |pb expandtabs 2
 
 # todo0: add |uniq and |uniq -c because it's classic
 # todo0: take -c at |uniq
 
 #
 
+# todo0: take -- as alt of sort/float.sort, uniq/'uniq -c', max/float.max, min.float.min, set/counter
+
+#
+
 # todo1: finish porting pelavarre/xshverb/ of bin/ a j k and of bin/ dt ht pq
+
+# todo1: mess around with lineseps of \r \n \r\n
+# todo1: mess around with double/ single line spacing of \n or \n\n
 
 # todo1: more with 'comm' and 'paste' and ... ?
 
@@ -1480,8 +1499,10 @@ if __name__ == "__main__":
 # todo8: |sed 's,$,...,'
 # todo8: |'sys.oline = "pre fix" + sys.iline'
 
+# todo9: |1 or |1| and same across 0, 1, 2, 3
 # todo9: |pb _ like same _ as we have outside
 # todo9: + mv 0 ... && pbpaste |pb upper |tee >(pbcopy) >./0
+# todo9: more than one of ("0", "1", "2", "3"), such as Shell ? while 'ls -C ?' is '0 1 2 3'
 
 
 # todo: brick helps
@@ -1502,9 +1523,7 @@ if __name__ == "__main__":
 
 # todo: |wc -L into |pb line len max, |pb word len max
 
-# todo: brief alias for stack dump at:  grep . ?
-
-# todo: 'pb list', 'pb tuple', 'pb pass', ...
+# todo: brief alias for stack peek/ dump at:  grep . ?
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/litshell.py
