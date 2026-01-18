@@ -16,15 +16,14 @@ options:
   --sep SEP             a separator, such as ' ' or ',' or ', '
   --start START         a starting index, such as 0 or 1
 
-famously abbreviated bricks:
-  -  0 1 2 3  F L O T U  a h i n o r s t u w x  nl pb
+small bricks:
+  + -  0 1 2 3  F L O T U  a h i n o r s t u w x  nl pb
 
-famously convenient bricks:
-  awk bytes casefold chars counter data decode dent enumerate expandtabs
-  float.max float.min float.sort head int.max int.min int.sort join
-  len lines lower lstrip max md5sum min printable rev reverse rstrip
-  set sha256 shuf shuffle sort splitlines str strip sum tac tail text
-  title undent upper words
+memorable bricks:
+  awk bytes casefold counter decode dent enumerate expandtabs for.len
+  for.reverse head if join len lower lstrip max md5sum min printable
+  reverse rstrip set sha256 shuffle sort split str strip sum tail
+  title undent upper
 
 examples:
   cat README.md |pb
@@ -41,6 +40,13 @@ examples:
 """
 
 # no collision with our sh/ b d e f m v z
+
+# no mention in help of alt verbs =>
+#
+#   chars data expand float.max float.min float.sort for.reversed int.max
+#   int.min int.sort lines rev reversed shuf sorted splitlines tac text
+#   words
+#
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
 
@@ -390,6 +396,7 @@ class ShellBrick:
             # "tuple":  # nope
             #
             "enumerate": self.for_line_enumerate,  # |n  # todo: -v1
+            "if": self.for_line_if,
             "lstrip": self.for_line_lstrip,
             "rstrip": self.for_line_rstrip,
             "strip": self.for_line_strip,
@@ -397,6 +404,9 @@ class ShellBrick:
             #
             # Python Dotted Double Words
             #
+            "for.len": self.for_line_len,
+            "for.reverse": self.for_line_reverse,
+            "for.reversed": self.for_line_reverse,
             "int.max": self.from_lines_int_base_zero_max,
             "int.min": self.from_lines_int_base_zero_min,
             "int.sort": self.from_lines_int_base_zero_sort,
@@ -440,6 +450,7 @@ class ShellBrick:
             #
             # Famously Abbreviated Single Character Aliases
             #
+            "+": self.from_lines_sum,
             "-": self.from_bytes_as_bytes,
             #
             "0": self.enter_as_pick_0th,
@@ -1155,6 +1166,20 @@ class ShellBrick:
 
         self.store_olines(olines)
 
+    def for_line_if(self) -> None:
+        """_ for _ in list(sys.i) if _"""
+
+        ilines = self.fetch_ilines()
+        olines = list(_ for _ in ilines if _)
+        self.store_olines(olines)
+
+    def for_line_len(self) -> None:
+        """len(_) for _ in list(sys.i)"""
+
+        ilines = self.fetch_ilines()
+        olines = list(str(len(_)) for _ in ilines)
+        self.store_olines(olines)
+
     def for_line_lstrip(self) -> None:
         """_.lstrip() for _ in list(sys.i)"""
 
@@ -1491,22 +1516,59 @@ if __name__ == "__main__":
 
 # todo's
 
+#
 
-# todo0: |pb cut ... to |cut -c to fit width on screen but with "... " marks
-# todo0: take -c at |cut, but don't require it
+# todo0: |wc -L into |pb for.len int.max, |pb split for.len int.max
 
-# todo0: |pb fmt ... just to do |fmt
+#
 
-# todo0: |pb column ... like' |column -t' but default to --sep='  ' for intake
+# todo0: sh/which.py --all to list and count all executables of the Sh Path
+# todo0: stderr for folder not found, for empty folder, for no executables in folder
+
+# todo0: sh/cal.py --, for to say 3 months at a time
+# todo0: sh/cal.py to mention part of year
+# todo0: sh/cal.py to mention how to start on Mondays or Sundays
+# todo0: sh/cal.py to prefer python3 -m calendar
+
+# todo0: sh/ls.py to give us --full-time at macOS
+
+# todo0: |sh/nl.py --, for to say |nl -pba -v0
+# todo0: default --start=0 for |pb nl because -v1 is nonnegotiable at |cat -n, can't cat -n0
+# todo0: trace |pb nl as '|nl -pba -v0', and accept the '-pba -v1' as input shline
+
+# todo0: sh/screen.py --, for to say screen -r at random
+
+# todo0: sh/uptime.py -- to give us --pretty by default at macOS
+
+#
+
+# todo0: |pb slice for --sep=None --start=0, still defaulting to NF{$NF}
+# todo0: |pb a raises IndexError for slice out of range, such as 4 rather than 4,5 or 4..4
+# todo0: |pb a --sep=None --start=1 implied
+# todo0: |pb a 2,4,1 is the 2..3  # |pb a 0 --start=1 takes 0 as 1..
+# todo0: |pb a 3.. 1..3 -4 2 3 4 0 0..  # |pb a 0 1..  # the 0.. is intact, not a join
+# todo0: |pb nl -pba -v1 implied
+
+#
+
+# todo0: take -F as --sep at |pb awk, |pb split; but reject -F misplaced
+# todo0: take -v as --start at |pb enumerate, |pb nl; but reject -v misplaced
+# todo0: reject -v or --start without |pb enumerate or |pb nl
 # todo0: take -t at |column, but don't require it
+# todo0: reject -t without |column
 
 # todo0: take --seed as unhelped to repeat random
 
-# todo0: take -F as --sep at |awk
-# todo0: reject -F or --sep without |pb join or |pb split or |pb awk
+#
 
-# todo0: take -v as --start at |nl
-# todo0: reject --start without |pb enumerate or |pb nl
+# todo0: |pb cut ... to |cut -c to fit width on screen but with "... " marks
+# todo0: take -c at |cut, but don't require it, but do reject -c misplaced
+
+# todo0: |pb column ... like' |column -t' but default to --sep='  ' for intake
+#
+# todo0: |pb fmt ... just to do |fmt
+
+#
 
 # todo0: |pb expandtabs 2
 
@@ -1520,6 +1582,7 @@ if __name__ == "__main__":
 #
 
 # todo1: finish porting pelavarre/xshverb/ of bin/ a j k and of bin/ dt ht pq
+# todo1: dt as date && date -u && time
 
 # todo1: mess around with lineseps of \r \n \r\n
 # todo1: mess around with double/ single line spacing of \n or \n\n
@@ -1537,6 +1600,11 @@ if __name__ == "__main__":
 # todo2: default output into a 1-page pager of 9 lines - wc counts - chars set sort
 
 # todo2: str.ljust str.rjust str.center
+# todo: dir(str)
+
+# todo: |pb unexpand
+# todo: pb hexdump
+# todo: others of sh/which.py --all
 
 # todo2: |pb dt datetime struggle to convert input into date/time-stamps
 # todo2: timedelta absolute local """astimezone""
@@ -1572,16 +1640,14 @@ if __name__ == "__main__":
 # todo: pb --sep=/ 'a 1 -2 3'
 # todo: pb --alt chars len, --alt v, --alt e
 
-# todo: dir(str)
-# todo: |pb unexpand
-# todo: pb hexdump
-
-# todo: |wc -L into |pb line len max, |pb word len max
 
 # todo9: |1 or |1| and same across 0, 1, 2, 3
 # todo9: |pb _ like same _ as we have outside
 # todo9: + mv 0 ... && pbpaste |pb upper |tee >(pbcopy) >./0
 # todo9: more than one of ("0", "1", "2", "3"), such as Shell ? while 'ls -C ?' is '0 1 2 3'
+
+# todo9: drop the int.max int.min int.sort because float. accepts those inputs?
+# todo9: drop all the unhelped verbs?
 
 # todo9: adopt the complex -R, --RAW-CONTROL-CHARS from |less, no only the simple -r from |less
 
