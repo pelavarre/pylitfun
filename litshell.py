@@ -914,7 +914,7 @@ class ShellBrick:
         oline = lower_nybbles
         if verb.startswith("."):
             oline += f" {len(idata)}"
-        oline += " stdin"
+        oline += "  -"
 
         olines = [oline]
         self.store_olines(olines)
