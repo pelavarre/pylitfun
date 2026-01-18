@@ -979,8 +979,11 @@ class ShellBrick:
     #
 
     def _take_number_columns_(
-        self, lines: list[str], func: collections.abc.Callable[[str], float | int], strict: bool
-    ) -> list[list[float | int]]:
+        self,
+        lines: list[str],
+        func: collections.abc.Callable[[str], float | int | bool],
+        strict: bool,
+    ) -> list[list[float | int | bool]]:
         """Call Func to convert left of each Str to Floats and Ints"""
 
         ilines = lines
@@ -993,11 +996,11 @@ class ShellBrick:
 
         min_width = -1
 
-        irows: list[list[float | int]] = list()  # rows
+        irows: list[list[float | int | bool]] = list()  # rows
         for iline in ilines:
             isplits = iline.split()
 
-            inumerics = list()
+            inumerics: list[float | int | bool] = list()
             for index, isplit in enumerate(isplits):
                 if (min_width != -1) and (index >= min_width):
                     if strict:
@@ -1024,10 +1027,10 @@ class ShellBrick:
             print(f"pb: no {functype} columns to sort", file=sys.stderr)
             sys.exit(1)  # exits 1 for value error in taking up input
 
-        ocolumns: list[list[float | int]] = list()  # columns
+        ocolumns: list[list[float | int | bool]] = list()  # columns
         for index in range(min_width):
 
-            ocolumn: list[float | int] = list()
+            ocolumn: list[float | int | bool] = list()
             for irow in irows:
                 inumeric = irow[index]
                 ocolumn.append(inumeric)  # todo: speedier transposition?
@@ -1367,14 +1370,14 @@ def int_base_zero(lit: str) -> int:
     return i
 
 
-def numeric(lit: str) -> float | int:  # todo0: float | int | bool
+def numeric(lit: str) -> float | int | bool:  # todo0: float | int | bool
     """Convert a repr(float) or repr(int) or repr(bool) over to float or int"""
 
     if lit == "False":
-        return 0
+        return False
 
     if lit == "True":
-        return 1
+        return True
 
     numeric: float | int
     try:
