@@ -23,12 +23,12 @@ small bricks:
 
 memorable bricks:
   bytes casefold counter decode dent enumerate expandtabs head if
-  join len lower lstrip max md5sum min printable reverse rstrip set
+  join len lower lstrip max md5 min printable reverse rstrip set
   sha256 shuffle slice sort split str strip sum tail title undent
   upper
 
 alt bricks:
-  .head .len .max .md5sum .min .reverse .sha256 .sort .tail
+  .head .len .max .md5 .min .reverse .sha256 .sort .tail
 
 examples:
   cat README.md |pb
@@ -49,7 +49,7 @@ examples:
 #
 #   --raw-control-chars exactly like Shell 'less' in place of --raw-control-ch
 #
-#   expand nl rev shuf tac  # and --start=1 default for |pb nl
+#   expand md5sum nl rev sha256sum shuf tac  # and --start=1 default for |pb nl
 #
 #   chars lines words  # vs str splitlines split
 #   data text  # vs bytes str
@@ -468,6 +468,10 @@ class ShellBrick:
             # Python Single Words working with all the Bytes / Text / Lines, or with each Line
             #
             "decode": self.from_bytes_decode,
+            "md5": self.from_bytes_md5,
+            "md5sum": self.from_bytes_md5,
+            "sha256": self.from_bytes_sha256,
+            "sha256sum": self.from_bytes_sha256,
             "printable": self.from_bytes_printable,
             #
             "casefold": self.from_text_casefold,  # |F for Fold
@@ -515,13 +519,15 @@ class ShellBrick:
             ".head": self.from_lines_head,
             ".len": self.for_line_len,
             ".max": self.from_lines_numeric_max,
-            ".md5sum": self.from_bytes_md5sum,
+            ".md5": self.from_bytes_md5,
             ".min": self.from_lines_numeric_min,
             ".reverse": self.for_line_reverse,
             ".sha256": self.from_bytes_sha256,
             ".sort": self.from_lines_numeric_sort,
             ".tail": self.from_lines_tail,
             #
+            ".md5sum": self.from_bytes_md5,
+            ".sha256sum": self.from_bytes_sha256,
             ".reversed": self.for_line_reverse,
             ".sorted": self.from_lines_numeric_sort,
             #
@@ -536,14 +542,14 @@ class ShellBrick:
             "lines": self.from_lines_as_lines,  # aka splitlines
             "words": self.from_text_split,  # aka split
             #
-            # "split": self.from_text_split,  # already said above
+            # "split": self.from_text_split,  # already said far above
             "splitlines": self.from_lines_as_lines,  # aka lines
             "str": self.from_text_as_texts,  # aka chars
             #
             # Shell Single Words working with all the Bytes / Lines, or with each Line
             #
-            "md5sum": self.from_bytes_md5sum,
-            "sha256": self.from_bytes_sha256,
+            # "md5sum": self.from_bytes_md5,  # already said far above
+            # "sha256sum": self.from_bytes_sha256,  # already said far above
             #
             "expand": self.from_text_expandtabs,
             #
@@ -825,7 +831,7 @@ class ShellBrick:
 
         self.store_otext(otext)
 
-    def from_bytes_md5sum(self) -> None:
+    def from_bytes_md5(self) -> None:
         """hashlib.md5(bytes(sys.i)).hexdigest()"""
 
         verb = self.verb
@@ -1683,10 +1689,6 @@ if __name__ == "__main__":
 
 
 # todo's
-
-#
-
-# todo0: conform to '|sha256sum' not '|sha256'
 
 #
 
