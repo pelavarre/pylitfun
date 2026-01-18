@@ -25,6 +25,7 @@ examples:
 
 
 import __main__
+import datetime as dt
 import difflib
 import os
 import pathlib
@@ -33,6 +34,7 @@ import signal
 import subprocess
 import sys
 import textwrap
+import time
 import typing
 
 if not __debug__:
@@ -61,7 +63,7 @@ ShlinePlusByShverb = {  # sorted by key
     # 10
     "gdh": "git diff --color-moved HEAD~1 [...]",
     "gdno": "git diff --name-only [...]",
-    "gf": "git fetch --prune --prune-tags --force",
+    "gf": "date && date -u && time git fetch --prune --prune-tags --force",
     "gg/0": "git status",  # "gg": but without Sh Args
     "gg/n": "git grep -ai -e ... -e ...",  # "gg": but with Sh Args
     # 15
@@ -186,7 +188,7 @@ class GitGopher:
         if shell:
             git_run = subprocess.run(run_shline, shell=True)
         elif " && " in run_shline:
-            assert run_shline == "find . -type p && git status --ignored --short", (run_shline,)
+            assert tagged_shverb in ("gf", "gsis"), (tagged_shverb, run_shline)
             git_run = self.subprocess_run_shlines_till_exit_nonzero(run_shline.split(" && "))
         else:
             git_run = subprocess.run(run_shargv)
@@ -491,13 +493,13 @@ class GitGopher:
         shsuffix = ""  # shouts out No Pos Args
 
         if not shargv[1:]:
-
-            if shverb_shline_plus == "git fetch --prune --prune-tags --force":
-                assert shverb == "gf", (shverb, shline)
+            o = (shverb, shline)
+            if shverb == "gf":
+                assert shverb_shline_plus.endswith("git fetch --prune --prune-tags --force"), o
                 shline += " --quiet"  # tilts into:  gf --quiet
 
-            elif shverb_shline_plus == "git reflog --date=relative --numstat":
-                assert shverb == "grl", (shverb, shline)
+            elif shverb == "grl":
+                assert shverb_shline_plus == "git reflog --date=relative --numstat", o
                 shline += " -9"
 
         # Accept no Shell Args
@@ -834,12 +836,74 @@ class GitGopher:
         assert run.returncode == 0, (run.returncode,)
 
         for shline in shlines_list:
-            shargv = shlex.split(shline)
+            print(f"+ {shline}", file=sys.stderr)
+
+            removeprefix = shline.removeprefix("time ")
+            shargv = shlex.split(removeprefix)
+
+            t0 = time.time()
             run = subprocess.run(shargv)
+            t1 = time.time()
+
+            t1t0 = t1 - t0
+            strftime = dt_timedelta_strftime(dt.timedelta(seconds=t1t0))
+            if shline.startswith("time "):
+                print(f"... {strftime} ...", file=sys.stderr)
+
             if run.returncode:
-                return run
+                return run  # trust caller to print f"+ exit {run.returncode}"
+
+        print("+", file=sys.stderr)
 
         return run
+
+
+#
+# Amp up Import DateTime as DT
+#
+
+
+def dt_timedelta_strftime(td: dt.timedelta, depth: int = 2, str_zero: str = "0s") -> str:
+    """Give 'w d h m s ms us ms' to mean 'weeks=', 'days=', etc"""
+
+    # Pick Weeks out of Days, Minutes out of Seconds, and Millis out of Micros
+
+    w = td.days // 7
+    d = td.days % 7
+
+    h = td.seconds // 3600
+    h_s = td.seconds % 3600
+    m = h_s // 60
+    s = h_s % 60
+
+    ms = td.microseconds // 1000
+    us = td.microseconds % 1000
+
+    # Catenate Value-Key Pairs in order, but strip leading and trailing Zeroes,
+    # and choose one unit arbitrarily when speaking of any zeroed TimeDelta
+
+    keys = "w d h m s ms us".split()
+    values = (w, d, h, m, s, ms, us)
+    pairs = list(zip(keys, values))
+
+    chars = ""
+    count = 0
+    for index, (k, v) in enumerate(pairs):
+        if (chars or v) and any(values[index:]):
+            chars += "{}{}".format(v, k)
+            count += 1
+
+            if count >= depth:  # truncates, does Not round up
+                break
+
+    str_zeroes = list((str(0) + _) for _ in keys)
+    if not chars:
+        assert str_zero in str_zeroes, (str_zero, str_zeroes)
+        chars = str_zero
+
+    # Succeed
+
+    return chars  # '9ms331us' to mean 9ms 331us <= t < 9ms 333us
 
 
 #
@@ -878,6 +942,8 @@ if __name__ == "__main__":
 
 
 _ = """  # todo's
+
+# todo: help rediscover 'gf --' is our not '--quiet' form
 
 # todo: measure latency added by calling these aliases in place of an explicit whole shline
 
