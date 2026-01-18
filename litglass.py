@@ -50,7 +50,7 @@ import __main__
 import argparse
 import bdb
 import collections
-import collections.abc  # .collections.abc is not .abc  # typing.Callable isn't here either
+import collections.abc  # .collections.abc is not .abc & collections.abc.Callable is not typing.Callable
 import dataclasses
 import datetime as dt
 import difflib
@@ -5915,6 +5915,8 @@ def str_removeprefix(text: str, prefix: str) -> str:
 
     return text
 
+    # str.removeprefix exists since Oct/2020 Python 3.9
+
 
 def str_removesuffix(text: str, suffix: str) -> str:
     """Remove a Suffix, if present"""
@@ -5923,6 +5925,8 @@ def str_removesuffix(text: str, suffix: str) -> str:
         text = text[: -len(suffix)]
 
     return text
+
+    # str.removesuffix exists since Oct/2020 Python 3.9
 
 
 #

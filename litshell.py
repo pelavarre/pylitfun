@@ -22,10 +22,10 @@ small bricks:
   + -  0 1 2 3  F L O T U  a h i n o r s t u w x  nl pb
 
 memorable bricks:
-  bytes casefold counter decode dent enumerate expandtabs head if
-  join len lower lstrip max md5 min printable reverse rstrip set
-  sha256 shuffle slice sort split str strip sum tail title undent
-  upper
+  append bytes casefold counter decode dent enumerate expandtabs head
+  if insert join len lower lstrip max md5 min printable removeprefix
+  removesuffix reverse rstrip set sha256 shuffle slice sort split str
+  strip sum tail title undent upper
 
 alt bricks:
   .head .len .max .md5 .min .reverse .sha256 .sort .tail
@@ -77,7 +77,7 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 import __main__
 import argparse
 import collections
-import collections.abc  # .collections.abc is not .abc  # typing.Callable isn't here either
+import collections.abc  # .collections.abc is not .abc & collections.abc.Callable is not typing.Callable
 import dataclasses
 import datetime as dt
 import difflib
@@ -88,7 +88,7 @@ import random
 import shutil
 import signal
 import subprocess
-import sys
+import sys  # doesn't limit launch to >= Oct/2020 Python 3.9
 import textwrap
 
 if not __debug__:
@@ -331,6 +331,10 @@ class ShellGopher:
 
                 removeflanks = str_removeflanks_if(verb, marks=",./")  # takes str
                 if removeflanks is not None:
+                    if index == 2:
+                        newborn = self._compile_brick_if_("append")
+                        bricks.append(newborn)
+
                     newborn.posargs += (removeflanks,)
                     continue
 
@@ -377,7 +381,7 @@ class ShellGopher:
         brick = ShellBrick(self, verb=verb)
 
         if not brick.verb:
-            print(f"Unknown Pipe Brick:  {verb!r}", file=sys.stderr)
+            print(f"Unknown Pipe Brick: {verb!r}", file=sys.stderr)
             sys.exit(2)  # exits 2 for bad Args
 
         return brick
@@ -496,9 +500,13 @@ class ShellBrick:
             # "list":  # nope
             # "tuple":  # nope
             #
+            "append": self.for_line_append,
             "enumerate": self.for_line_enumerate,  # |n  # todo: -v1
             "if": self.for_line_if,
+            "insert": self.for_line_insert,
             "lstrip": self.for_line_lstrip,
+            "removeprefix": self.for_line_removeprefix,
+            "removesuffix": self.for_line_removesuffix,
             "rstrip": self.for_line_rstrip,
             "strip": self.for_line_strip,
             #
@@ -567,8 +575,10 @@ class ShellBrick:
             #
             # Famously Abbreviated Single Character Aliases
             #
+            "$": self.for_line_append,
             "+": self.from_lines_sum,
             "-": self.from_bytes_as_bytes,
+            "^": self.for_line_insert,
             #
             "0": self.enter_as_pick_0th,
             "1": self.enter_as_pick_1th,
@@ -1280,6 +1290,21 @@ class ShellBrick:
 
         # as if |awk 'NF{print $NF}'
 
+    def for_line_append(self) -> None:
+        """(_ + sep.join(sys.argv[1:])) for _ in list(sys.i)"""  # not _ + sep + sep...
+
+        posargs = self.posargs
+        sg = self.shell_gopher
+        sep = sg.sep
+
+        _sep_ = "  " if (sep is None) else sep
+        splits = [str(_) for _ in posargs]
+        join = _sep_.join(splits)
+
+        ilines = self.fetch_ilines()
+        olines = list((_ + join) for _ in ilines)
+        self.store_olines(olines)
+
     def for_line_do_dent(self) -> None:
         """[""2*""] + list((4*" " + _ + 4*" ") for _ in list(sys.i)) + [2*""]"""
 
@@ -1319,6 +1344,21 @@ class ShellBrick:
         olines = list(_ for _ in ilines if _)
         self.store_olines(olines)
 
+    def for_line_insert(self) -> None:
+        """(sep.join(sys.argv[1:]) + _) for _ in list(sys.i)"""  # not _ + sep... + sep
+
+        posargs = self.posargs
+        sg = self.shell_gopher
+        sep = sg.sep
+
+        _sep_ = "  " if (sep is None) else sep
+        splits = [str(_) for _ in posargs]
+        join = _sep_.join(splits)
+
+        ilines = self.fetch_ilines()
+        olines = list((join + _) for _ in ilines)
+        self.store_olines(olines)
+
     def for_line_len(self) -> None:
         """len(_) for _ in list(sys.i)"""
 
@@ -1331,6 +1371,26 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
         olines = list(_.lstrip() for _ in ilines)
+        self.store_olines(olines)
+
+    def for_line_removeprefix(self) -> None:
+        """(_.removeprefix(sys.argv[1]) for _ in list(sys.i)"""
+
+        posargs = self.posargs
+        prefix = str(posargs[0])
+
+        ilines = self.fetch_ilines()
+        olines = list(_.removeprefix(prefix) for _ in ilines)
+        self.store_olines(olines)
+
+    def for_line_removesuffix(self) -> None:
+        """(_.removeprefix(sys.argv[1]) for _ in list(sys.i)"""
+
+        posargs = self.posargs
+        suffix = str(posargs[0])
+
+        ilines = self.fetch_ilines()
+        olines = list(_.removesuffix(suffix) for _ in ilines)
         self.store_olines(olines)
 
     def for_line_rstrip(self) -> None:
@@ -1692,22 +1752,11 @@ if __name__ == "__main__":
 
 #
 
-# todo0: |pb /$ /  # to mean close to |cat -etv
-
-# todo0: |pb insert /pre fix/  # ('pre fix' + _) for _ in list(sys.i)
-# todo0: |pb append /suf fix/  # (_ + 'suf fix') for _ in list(sys.i)
-# todo0: |pb ^ /pre fix/
-# todo0: |pb $ /suf fix/
-# todo0: |pb removeprefix /pre fix/  # (_.removeprefix('pre fix')) for _ in list(sys.i)
-# todo0: |pb removesuffix /suf fix/  # (_.removesuffix('suf fix')) for _ in list(sys.i)
-
 # todo0: |pb replace .stale. .fresh.
 # todo0: |pb sub .pattern. .repl.
 
 # todo0: |pb translate .from. .to.
 # todo0: |pb remove .from.
-
-# todo0: accept , . / as open quote & close quote
 
 #
 
@@ -1716,6 +1765,7 @@ if __name__ == "__main__":
 #
 
 # todo0: sh/which.py --all to list and count all executables of the Sh Path
+# todo0: sh/which.py --all PATTERN to search just the Basename for the Pattern
 # todo0: stderr for folder not found, for empty folder, for no executables in folder
 
 # todo0: sh/cal.py --, for to say 3 months at a time
