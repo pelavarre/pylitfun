@@ -28,7 +28,7 @@ memorable bricks:
   strip sum tail title undent upper
 
 alt bricks:
-  .head .len .max .md5 .min .reverse .sha256 .sort .tail
+  .dent .head .len .max .md5 .min .reverse .sha256 .sort .tail
 
 examples:
   cat README.md |pb
@@ -179,7 +179,17 @@ class ShellGopher:
             parser.print_help()
             sys.exit(0)
 
-        verbs.extend(ns.bricks)
+        for arg in sys.argv[1:]:
+            number = str_to_number_if(arg)
+            if number is None:
+                text = str_removeflanks_if(arg, marks=",./")
+                if text is None:
+                    if arg.startswith("-") and (arg != "-"):
+                        continue
+
+            verbs.append(arg)
+
+            # todo1: tighter discards of Dash and Dash-Dash Options
 
         if ns.F is not None:  # -F mostly for |pb awk
             if self.sep is None:
@@ -314,6 +324,7 @@ class ShellGopher:
         # Compile the plan
 
         for index, verb in enumerate(pipe_verbs):
+
             if index == 0:
                 assert verb == "__enter__", (verb,)
 
@@ -324,18 +335,18 @@ class ShellGopher:
             if index > 1:
                 newborn = bricks[-1]
 
-                numeric = numeric_if(verb)  # takes float | int | bool
-                if numeric is not None:
-                    newborn.posargs += (numeric,)
+                number = str_to_number_if(verb)  # takes float | int | bool
+                if number is not None:
+                    newborn.posargs += (number,)
                     continue
 
-                removeflanks = str_removeflanks_if(verb, marks=",./")  # takes str
-                if removeflanks is not None:
+                text = str_removeflanks_if(verb, marks=",./")  # takes str
+                if text is not None:
                     if index == 2:
                         newborn = self._compile_brick_if_("append")
                         bricks.append(newborn)
 
-                    newborn.posargs += (removeflanks,)
+                    newborn.posargs += (text,)
                     continue
 
                 # todo0: accept 'None' as a Pos Arg of a Shell Brick ?
@@ -519,25 +530,25 @@ class ShellBrick:
             "int.min": self.from_lines_int_base_zero_min,
             "int.sort": self.from_lines_int_base_zero_sort,
             "int.sorted": self.from_lines_int_base_zero_sort,
-            "float.max": self.from_lines_numeric_max,
-            "float.min": self.from_lines_numeric_min,
-            "float.sort": self.from_lines_numeric_sort,
-            "float.sorted": self.from_lines_numeric_sort,
+            "float.max": self.from_lines_number_max,
+            "float.min": self.from_lines_number_min,
+            "float.sort": self.from_lines_number_sort,
+            "float.sorted": self.from_lines_number_sort,
             #
             ".head": self.from_lines_head,
             ".len": self.for_line_len,
-            ".max": self.from_lines_numeric_max,
+            ".max": self.from_lines_number_max,
             ".md5": self.from_bytes_md5,
-            ".min": self.from_lines_numeric_min,
+            ".min": self.from_lines_number_min,
             ".reverse": self.for_line_reverse,
             ".sha256": self.from_bytes_sha256,
-            ".sort": self.from_lines_numeric_sort,
+            ".sort": self.from_lines_number_sort,
             ".tail": self.from_lines_tail,
             #
             ".md5sum": self.from_bytes_md5,
             ".sha256sum": self.from_bytes_sha256,
             ".reversed": self.for_line_reverse,
-            ".sorted": self.from_lines_numeric_sort,
+            ".sorted": self.from_lines_number_sort,
             #
             # Python & Shell names for data types of the File, most especially for |pb ... len,
             # tipping the hat to variable names, Shell 'wc' data types, Python result datatypes
@@ -1039,23 +1050,48 @@ class ShellBrick:
     def from_lines_head(self) -> None:
         """list(sys.i)[:9]"""  # todo1: help .head correctly
 
-        sg = self.shell_gopher
-        y_high = sg.y_high
-        verb = self.verb
-
-        n = (y_high - 4) if verb.startswith(".") else 9
-        assert n >= 1, (n, y_high)
+        n = self._take_dot_or_posargs_as_y_high_(default=9)
 
         ilines = self.fetch_ilines()
         olines = ilines[:n]
         self.store_olines(olines)
+
+    def _take_dot_or_posargs_as_y_high_(self, default: int) -> int:
+        """Take Default, or a Dot Verb as Y High Minus 4, or Negative PosArg"""
+
+        sg = self.shell_gopher
+        y_high = sg.y_high
+        verb = self.verb
+        posargs = self.posargs
+
+        if not posargs:
+            n = (y_high - 4) if verb.startswith(".") else default
+        else:
+            assert not verb.startswith("."), (verb,)
+            option_int = self._take_posargs_as_one_int_()
+
+            assert option_int < 0, (option_int,)
+            n = -option_int
+
+        assert n >= 1, (n, y_high)
+        return n
+
+    def _take_posargs_as_one_int_(self) -> int:
+        """Take the one Pos Arg as an Int, else raise an Exception"""
+
+        posargs = self.posargs
+        assert len(posargs) == 1, (posargs,)
+        posarg = posargs[-1]
+        assert isinstance(posarg, int), (posarg,)
+
+        return posarg
 
     def from_lines_int_base_zero_max(self) -> None:
         """max(list(sys.i), key=lambda _: int..., _)"""
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_int_base_zero, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=str_to_based_int, strict=False)
         m = max(zip(icolumns, ilines))
         oline = m[-1]
 
@@ -1067,7 +1103,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_int_base_zero, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=str_to_based_int, strict=False)
         m = min(zip(icolumns, ilines))
         oline = m[-1]
 
@@ -1079,7 +1115,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_int_base_zero, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=str_to_based_int, strict=False)
         sortables = list(zip(icolumns, ilines))
         sortables.sort()
         olines: list[str] = list(oline for (_, oline) in sortables)
@@ -1114,36 +1150,36 @@ class ShellBrick:
         olines = [oline]
         self.store_olines(olines)
 
-    def from_lines_numeric_max(self) -> None:
+    def from_lines_number_max(self) -> None:
         """max(list(sys.i), key=lambda _: float..., _)"""
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_numeric, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=str_to_number, strict=False)
         m = max(zip(icolumns, ilines))
         oline = m[-1]
 
         olines = [oline]
         self.store_olines(olines)
 
-    def from_lines_numeric_min(self) -> None:
+    def from_lines_number_min(self) -> None:
         """min(list(sys.i), key=lambda _: float..., _)"""
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_numeric, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=str_to_number, strict=False)
         m = min(zip(icolumns, ilines))
         oline = m[-1]
 
         olines = [oline]
         self.store_olines(olines)
 
-    def from_lines_numeric_sort(self) -> None:
+    def from_lines_number_sort(self) -> None:
         """list(sys.i).sort(key=lambda _: float..., _)"""
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_numeric, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=str_to_number, strict=False)
         sortables = list(zip(icolumns, ilines))
         sortables.sort()
         olines: list[str] = list(oline for (_, oline) in sortables)
@@ -1181,7 +1217,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_numeric, strict=True)
+        icolumns = self._take_number_columns_(ilines, func=str_to_number, strict=True)
         ocolumns = list(sum(_) for _ in icolumns)
         oline = " ".join(str(_) for _ in ocolumns)
 
@@ -1191,12 +1227,7 @@ class ShellBrick:
     def from_lines_tail(self) -> None:
         """list(sys.i)[-9:]"""  # todo1: help .tail correctly
 
-        sg = self.shell_gopher
-        y_high = sg.y_high
-        verb = self.verb
-
-        n = (y_high - 4) if verb.startswith(".") else 9
-        assert n >= 1, (n, y_high)
+        n = self._take_dot_or_posargs_as_y_high_(default=9)
 
         ilines = self.fetch_ilines()
         olines = ilines[-n:]
@@ -1216,10 +1247,10 @@ class ShellBrick:
 
         ilines = lines
 
-        if func.__name__ == "str_int_base_zero":
+        if func.__name__ == "str_to_based_int":
             functype = "int"  # |pb int.max, int.min, int.sort
         else:
-            assert func.__name__ == "str_numeric"
+            assert func.__name__ == "str_to_number", (func.__name__,)
             functype = "float nor int nor bool"  # |pb .max, .min, .sort, sum
 
         min_width = -1
@@ -1228,7 +1259,7 @@ class ShellBrick:
         for iline in ilines:
             isplits = iline.split()
 
-            inumerics: list[float | int | bool] = list()
+            inumbers: list[float | int | bool] = list()
             for index, isplit in enumerate(isplits):
                 if (min_width != -1) and (index >= min_width):
                     if strict:
@@ -1236,20 +1267,20 @@ class ShellBrick:
                     break
 
                 try:
-                    inumeric = func(isplit)
+                    inumber = func(isplit)
                 except ValueError:
                     if strict:
                         raise  # |pb sum
                     break
 
-                inumerics.append(inumeric)
+                inumbers.append(inumber)
 
-            if (min_width != -1) and (len(inumerics) < min_width):
+            if (min_width != -1) and (len(inumbers) < min_width):
                 if strict:
                     raise ValueError(f"less than {min_width} columns in some rows")
 
-            irows.append(inumerics)
-            min_width = len(inumerics) if (min_width == -1) else min(min_width, len(inumerics))
+            irows.append(inumbers)
+            min_width = len(inumbers) if (min_width == -1) else min(min_width, len(inumbers))
 
         if lines and (min_width <= 0):
             print(f"pb: no {functype} columns to sort", file=sys.stderr)
@@ -1260,8 +1291,8 @@ class ShellBrick:
 
             ocolumn: list[float | int | bool] = list()
             for irow in irows:
-                inumeric = irow[index]
-                ocolumn.append(inumeric)  # todo: speedier transposition?
+                inumber = irow[index]
+                ocolumn.append(inumber)  # todo: speedier transposition?
 
             assert len(ocolumn) == len(ilines), (len(ocolumn), len(ilines))
             ocolumns.append(ocolumn)
@@ -1308,6 +1339,8 @@ class ShellBrick:
     def for_line_do_dent(self) -> None:
         """[""2*""] + list((4*" " + _ + 4*" ") for _ in list(sys.i)) + [2*""]"""
 
+        verb = self.verb
+
         ilines = self.fetch_ilines()
         width = max(len(_) for _ in ilines) if ilines else 0
 
@@ -1317,6 +1350,9 @@ class ShellBrick:
         below = 2 * [""]
 
         olines = above + list(_.ljust(ljust).rjust(rjust) for _ in ilines) + below
+        if verb.startswith("."):
+            olines = list(_.rstrip() for _ in olines)
+
         self.store_olines(olines)
 
     def for_line_enumerate(self) -> None:
@@ -1358,6 +1394,8 @@ class ShellBrick:
         ilines = self.fetch_ilines()
         olines = list((join + _) for _ in ilines)
         self.store_olines(olines)
+
+        # todo: compare our .for_line_insert vs Python textwrap.indent
 
     def for_line_len(self) -> None:
         """len(_) for _ in list(sys.i)"""
@@ -1662,44 +1700,44 @@ class ArgDocParser:
 #
 
 
-def str_int_base_zero(lit: str) -> int:
+def str_to_based_int(lit: str) -> int:
     """Call int(_, base=0) but without forcing the Caller to pass in the 0"""
 
     i = int(lit, base=0)
     return i
 
 
-def str_numeric(lit: str) -> float | int | bool:
-    """Take a repr(float) or repr(int) or repr(bool) as a float | int | bool"""
-
-    numeric: float | int | bool
-
-    if lit == "False":
-        numeric = False  # bool
-    elif lit == "True":
-        numeric = True  # bool
-    else:
-        try:
-            numeric = int(lit, base=0)
-        except ValueError:
-            numeric = float(lit)  # may raise a new ValueError
-
-    return numeric
-
-
-def numeric_if(lit: str) -> float | int | bool | None:
+def str_to_number_if(lit: str) -> float | int | bool | None:
     """Take a repr(float) or repr(int) or repr(bool) as a float | int | bool, else return None"""
 
     try:
-        numeric = str_numeric(lit)
+        number = str_to_number(lit)
     except ValueError:
         return None
 
-    return numeric
+    return number
+
+
+def str_to_number(lit: str) -> float | int | bool:
+    """Take a repr(float) or repr(int) or repr(bool) as a float | int | bool"""
+
+    number: float | int | bool
+
+    if lit == "False":
+        number = False  # bool
+    elif lit == "True":
+        number = True  # bool
+    else:
+        try:
+            number = int(lit, base=0)
+        except ValueError:
+            number = float(lit)  # may raise a new ValueError
+
+    return number
 
 
 def str_removeflanks_if(lit: str, marks: str) -> str | None:
-    """Remove the same Mark from both ends, else return None"""
+    """Remove the same Mark once from both ends, else return None"""
 
     if lit[1:]:
         a = lit[0]
@@ -1752,18 +1790,6 @@ if __name__ == "__main__":
 
 #
 
-# todo0: |pb replace .stale. .fresh.
-# todo0: |pb sub .pattern. .repl.
-
-# todo0: |pb translate .from. .to.
-# todo0: |pb remove .from.
-
-#
-
-# todo0: |wc -L into |pb for.len int.max, |pb split for.len int.max
-
-#
-
 # todo0: sh/which.py --all to list and count all executables of the Sh Path
 # todo0: sh/which.py --all PATTERN to search just the Basename for the Pattern
 # todo0: stderr for folder not found, for empty folder, for no executables in folder
@@ -1785,105 +1811,106 @@ if __name__ == "__main__":
 
 #
 
-# todo0: |pb slice for --sep=None --start=0, still defaulting to NF{$NF}
-# todo0: |pb a raises IndexError for slice out of range, such as 4 rather than 4,5 or 4..4
-# todo0: |pb a --sep=None --start=1 implied
-# todo0: |pb a 2,4,1 is the 2..3  # |pb a 0 --start=1 takes 0 as 1..
-# todo0: |pb a 3.. 1..3 -4 2 3 4 0 0..  # |pb a 0 1..  # the 0.. is intact, not a join
-# todo0: |pb nl -pba -v1 implied
+# todo1: |pb cut ... to |cut -c to fit width on screen but with "... " marks
+# todo1: take -c at |cut, but don't require it, but do reject -c misplaced
+
+# todo1: |pb expandtabs 2
+
+# todo1: default output into a 1-page pager of 9 lines - wc counts - chars set sort
 
 #
 
-# todo0: take -F as --sep at |pb awk, |pb split; but reject -F misplaced
-# todo0: take -v as --start at |pb enumerate, |pb nl; but reject -v misplaced
-# todo0: reject -v or --start without |pb enumerate or |pb nl
-# todo0: take -t at |column, but don't require it
-# todo0: reject -t without |column
-
-# todo0: take --seed as unhelped to repeat random
+# todo3: finish porting pelavarre/xshverb/ of bin/ a j k and of bin/ dt ht pq
+# todo3: dt as date && date -u && time
 
 #
 
-# todo0: |pb cut ... to |cut -c to fit width on screen but with "... " marks
-# todo0: take -c at |cut, but don't require it, but do reject -c misplaced
+# todo4: |pb slice for --sep=None --start=0, still defaulting to NF{$NF}
+# todo4: |pb a raises IndexError for slice out of range, such as 4 rather than 4,5 or 4..4
+# todo4: |pb a --sep=None --start=1 implied
+# todo4: |pb a 2,4,1 is the 2..3  # |pb a 0 --start=1 takes 0 as 1..
+# todo4: |pb a 3.. 1..3 -4 2 3 4 0 0..  # |pb a 0 1..  # the 0.. is intact, not a join
+# todo4: |pb nl -pba -v1 implied
 
-# todo0: |pb column ... like' |column -t' but default to --sep='  ' for intake
+# todo4: block 0 1 2 3 as verbs after first verbs, take as ints, for |pb awk, for |pb expandtabs
+# todo4: but block ints/floats as first verbs
+# todo4: signed/ unsigned floats before ints before verbs
+# todo4: int ranges 1..4
+# todo4: --start=0 for |awk when you want that, else 0 for the whole in between the rest
+
+# todo4: |pb replace .stale. .fresh.
+# todo4: |pb sub .pattern. .repl.
+
+# todo4: |pb translate .from. .to.
+# todo4: |pb remove .from.
+
 #
-# todo0: |pb fmt ... just to do |fmt
+
+# todo5: |pb dt datetime struggle to convert input into date/time-stamps
+# todo5: timedelta absolute local """astimezone""
+# todo5: timedelta absolute utc """fromtimestamp""
+# todo5: timedelta relative previous """timedelta"""  # """dt.timedelta(_[0] - _[-1] for _ in zip)"""
+# todo5: timedelta relative t0 """- _[0]"""  # """dt.timedelta(_ - list(sys.i)[0])""
+# todo5: test with our favourite TZ=America/Los_Angeles TZ=Europe/Prague TZ=Asia/Kolkata
+# todo5: pb for work with date/time's as utc floats in order - rel & abs & utc & zone & float
 
 #
 
-# todo0: |pb expandtabs 2
+# todo6: take --seed as unhelped to repeat random
 
-# todo0: add |uniq and |uniq -c because it's classic
-# todo0: take -c at |uniq
+# todo6: brick helps
+
+# todo6: reject -F misplaced
+# todo6: reject -v misplaced
+# todo6: reject -vOFS= misplaced
 
 #
 
-# todo0: take -- as alt of sort/float.sort, uniq/'uniq -c', max/float.max, min.float.min, set/counter
+# todo7: fill out 'pb .' so as to retire 'pq .'
 
 #
 
-# todo1: finish porting pelavarre/xshverb/ of bin/ a j k and of bin/ dt ht pq
-# todo1: dt as date && date -u && time
+# todo8: mess with what 'pb --' and '|pb --' means
 
-# todo1: mess around with lineseps of \r \n \r\n
-# todo1: mess around with double/ single line spacing of \n or \n\n
+# todo8: pb hexdump, especially for a -C, especially a memorizable 128 glyph set
 
-# todo1: more with 'comm' and 'paste' and ... ?
+# todo8: |pb textwrap.wrap textwrap.fill or some such 
+# todo8: |pb fmt ... just to do |fmt, or more a la |fold -sw $W
+# todo8: |pb column ... like' |column -t' but default to --sep='  ' for intake
+# todo8: take -t at |column, but don't require it
+# todo8: reject -t without |column
 
-# todo1: |pb choice
+# todo8: |wc -L into |pb .len .max, |pb split .len .max
 
-# todo1: block 0 1 2 3 as verbs after first verbs, take as ints, for |pb awk, for |pb expandtabs
-# todo1: but block ints/floats as first verbs
-# todo1: signed/ unsigned floats before ints before verbs
-# todo1: int ranges 1..4
-# todo1: --start=0 for |awk when you want that, else 0 for the whole in between the rest
+# todo8: dir(str)
 
-# todo2: default output into a 1-page pager of 9 lines - wc counts - chars set sort
+# todo8: pb for reorder and transpose arrays of tsv, for split into tsv
+# todo8: pb for work with tsv's
+# todo8: tables
 
-# todo2: str.ljust str.rjust str.center
-# todo: dir(str)
+# todo8: mess around with lineseps of \r \n \r\n
+# todo8: mess around with double/ single line spacing of \n or \n\n
 
-# todo: |pb unexpand
-# todo: pb hexdump
-# todo: others of sh/which.py --all
+# todo8: add |uniq and |uniq -c because it's classic
+# todo8: |pb unexpand
+# todo8: str.ljust str.rjust str.center
+# todo8: |pb choice, vs |pb shuffle head -$N
+# todo8: more with 'comm' and 'paste' and ... ?
 
-# todo2: |pb dt datetime struggle to convert input into date/time-stamps
-# todo2: timedelta absolute local """astimezone""
-# todo2: timedelta absolute utc """fromtimestamp""
-# todo2: timedelta relative previous """timedelta"""  # """dt.timedelta(_[0] - _[-1] for _ in zip)"""
-# todo2: timedelta relative t0 """- _[0]"""  # """dt.timedelta(_ - list(sys.i)[0])""
-# todo2: test with our favourite TZ=America/Los_Angeles TZ=Europe/Prague TZ=Asia/Kolkata
-# todo2: pb for work with date/time's as utc floats in order - rel & abs & utc & zone & float
+# todo8: |pb sha256 -  # todo8: who gets the '-' as a pos arg?
+# todo8: brief alias for stack peek/ dump at:  grep . ?
 
-# todo2: |pb range - defaults to 1 2 3
-# todo2: |pb random - defaults to 9 dice - random 100 - random 0 100 1 - head 9 head -9
+# todo8: |1 or |1| and same across 0, 1, 2, 3
+# todo8: |pb _ like same _ as we have outside
 
-# todo6: pb for reorder and transpose arrays of tsv, for split into tsv
-# todo6: pb for work with tsv's
-# todo6: tables
+#
 
-# todo7: |pb sha256 -  # todo7: who gets the '-' as a pos arg?
-
-# todo7: |pb echo ...
-
-# todo8: brick helps
-# todo: brief alias for stack peek/ dump at:  grep . ?
-
-# todo: pb --sep=/ 'a 1 -2 3'
-# todo: pb --alt chars len, --alt v, --alt e
-
-
-# todo9: |1 or |1| and same across 0, 1, 2, 3
-# todo9: |pb _ like same _ as we have outside
+# todo9: adopt the complex -R, --RAW-CONTROL-CHARS from |less, not only the simple -r from |less
 # todo9: + mv 0 ... && pbpaste |pb upper |tee >(pbcopy) >./0
 # todo9: more than one of ("0", "1", "2", "3"), such as Shell ? while 'ls -C ?' is '0 1 2 3'
 
 # todo9: drop the int.max int.min int.sort because float. accepts those inputs?
 # todo9: drop all the unhelped verbs?
-
-# todo9: adopt the complex -R, --RAW-CONTROL-CHARS from |less, no only the simple -r from |less
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/litshell.py
