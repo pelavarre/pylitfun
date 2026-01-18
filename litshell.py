@@ -10,20 +10,25 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  -r, --raw-control-chars
-                        write Control Chars to Tty, don't replace with '?' Question-Mark
+  -r, --raw-control-ch  write Control Chars to Tty, don't replace with '?' Question-Mark
   -V, --version         show version numbers and exit
   --sep SEP             a separator, such as ' ' or ',' or ', '
   --start START         a starting index, such as 0 or 1
+
+quirks:
+  separates output same as input, as if you wrote |awk -F$sep -vOFS=$sep
 
 small bricks:
   + -  0 1 2 3  F L O T U  a h i n o r s t u w x  nl pb
 
 memorable bricks:
-  awk bytes casefold counter decode dent enumerate expandtabs for.len
-  for.reverse head if join len lower lstrip max md5sum min printable
-  reverse rstrip set sha256 shuffle sort split str strip sum tail
-  title undent upper
+  bytes casefold counter decode dent enumerate expandtabs head if
+  join len lower lstrip max md5sum min printable reverse rstrip set
+  sha256 shuffle slice sort split str strip sum tail title undent
+  upper
+
+alt bricks:
+  .head .len .max .md5sum .min .reverse .sha256 .sort .tail
 
 examples:
   cat README.md |pb
@@ -39,13 +44,29 @@ examples:
   1
 """
 
-# no collision with our sh/ b d e f m v z
-
-# no mention in help of alt verbs =>
 #
-#   chars data expand float.max float.min float.sort for.reversed int.max
-#   int.min int.sort lines rev reversed shuf sorted splitlines tac text
-#   words
+# Floods of aliases to forgive slightly creative spelling detailed only below help
+#
+#   --raw-control-chars exactly like Shell 'less' in place of --raw-control-ch
+#
+#   expand nl rev shuf tac  # and --start=1 default for |pb nl
+#
+#   chars lines words  # vs str splitlines split
+#   data text  # vs bytes str
+#   splitlines  # taken as default
+#
+#   for.len for.reverse for.reversed for.slice  # vs .min .max .slice .sort
+#   int.max int.min int.sort int.sorted float.max float.min float.sort
+#   .reversed .sorted reversed sorted int.sorted float.sorted
+#
+#   counter vs set
+#   tac vs rev
+#
+#   -F$sep  # --sep mainly for |pb awk, but also:  .slice join slice split
+#   -vOFS=$sep  # likewise
+#   -pba -v$start  # --start mainly for |pb nl, but also:  enumerate
+#
+#   our Small Bricks don't collide with our sh/ b d e f m v z
 #
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -106,10 +127,26 @@ class ShellGopher:
     writing_file: bool | None  # Writing to ./0 after writing into |pbcopy
     writing_stdout: bool | None  # Writing to Stdout
 
+    x_wide: int  # count of Terminal Screen Columns, else 25
+    y_high: int  # count of Terminal Screen Rows, else 80
+
     def __init__(self) -> None:
+
+        # Look around
 
         sys_stdin_isatty = sys.stdin.isatty()  # sampled only once
         sys_stdout_isatty = sys.stdout.isatty()  # likewise, sampled only once
+
+        (y_high, x_wide) = (80, 25)
+        try:
+            fd = sys.stderr.fileno()
+            size = os.get_terminal_size(fd)  # Columns x Lines
+            x_wide = size.columns
+            y_high = size.lines
+        except OSError:
+            pass  # todo: log how .get_terminal_size failed
+
+        # Fill out Self
 
         self.data = None
 
@@ -125,20 +162,82 @@ class ShellGopher:
         self.writing_file = None
         self.writing_stdout = None
 
+        self.x_wide = x_wide
+        self.y_high = y_high
+
+    def run_main_argv_minus(self, argv_minus: list[str]) -> None:
+        """Compile & run each Option or Positional Argument"""
+
+        verbs = self.verbs
+
+        doc = __main__.__doc__
+        assert doc, (doc,)
+
+        parser = self.arg_doc_to_parser(doc)
+        ns = self.shell_args_take_in(argv_minus, parser=parser)
+        if ns.help:
+            parser.print_help()
+            sys.exit(0)
+
+        verbs.extend(ns.bricks)
+
+        if ns.F is not None:  # -F mostly for |pb awk
+            if self.sep is None:
+                self.sep = str(ns.F)
+
+        if ns.pba is not None:  # -pba mostly for |pb nl
+            pass
+
+        if ns.vOFS is not None:  # -vOFS=OFS mostly for |pb awk
+            if self.sep is None:
+                self.sep = str(ns.vOFS)
+
+        if ns.v is not None:  # -v=START mostly for |pb nl
+            if self.start is None:
+                self.start = int(ns.v, base=0)
+
+        if ns.sep is not None:
+            self.sep = str(ns.sep)
+        if ns.start is not None:
+            self.start = int(ns.start, base=0)
+
+        if ns.raw_control_ch:
+            self.raw_control_chars = True
+
+        if ns.version:
+            pathname = __file__
+            path = pathlib.Path(pathname)
+
+            mtime = path.stat().st_mtime
+            maware = dt.datetime.fromtimestamp(mtime).astimezone()
+
+            mmmyyyy = maware.strftime("%b/%Y")
+            title = "Lit" + path.name.removeprefix("lit").title().replace(".", "·")
+            version = pathlib_path_read_version(pathname)
+
+            print(mmmyyyy, title, version)
+            sys.exit(0)
+
+        # todo8: reject conflicts between --sep -F -vOFS
+
     def arg_doc_to_parser(self, doc: str) -> ArgDocParser:
         """Declare the Options & Positional Arguments"""
 
         assert argparse.REMAINDER == "..."
+        assert argparse.SUPPRESS == "==SUPPRESS=="
         assert argparse.ZERO_OR_MORE == "*"
 
-        parser = ArgDocParser(doc, add_help=True)
+        parser = ArgDocParser(doc, add_help=False)
 
         brick_help = "a brick of the shell pipe"
         parser.add_argument("bricks", metavar="BRICK", nargs="*", help=brick_help)
 
+        help_help = "show this help message and exit"
         raw_control_chars_help = "write Control Chars to Tty, don't replace with '?' Question-Mark"
         version_help = "show version numbers and exit"
-        parser.add_argument("-r", "--raw-control-chars", action="count", help=raw_control_chars_help)
+
+        parser.add_argument("-h", "--help", action="count", help=help_help)
+        parser.add_argument("-r", "--raw-control-ch", action="count", help=raw_control_chars_help)
         parser.add_argument("-V", "--version", action="count", help=version_help)
 
         sep_help = "a separator, such as ' ' or ',' or ', '"
@@ -146,7 +245,17 @@ class ShellGopher:
         parser.add_argument("--sep", metavar="SEP", help=sep_help)
         parser.add_argument("--start", metavar="START", help=start_help)
 
+        parser.add_argument("-F", help=argparse.SUPPRESS)
+
+        parser.add_argument("--raw-control-chars", action="count", help=argparse.SUPPRESS)
+        parser.add_argument("-pba", action="count", help=argparse.SUPPRESS)
+        parser.add_argument("-vOFS", help=argparse.SUPPRESS)
+        parser.add_argument("-v", help=argparse.SUPPRESS)
+
         return parser
+
+        # ns.raw_control_ch goes to ShellGopher.raw_control_chars
+        # alongside ns.raw_control_chars goes to ShellGopher.raw_control_chars
 
     def shell_args_take_in(self, argv_minus: list[str], parser: ArgDocParser) -> argparse.Namespace:
         """Take in the Shell Args: first the Dash Options and then the Positional Args"""
@@ -171,41 +280,6 @@ class ShellGopher:
 
         # ArgParse requires reordering else raises 'error: unrecognized arguments'
 
-    def run_main_argv_minus(self, argv_minus: list[str]) -> None:
-        """Compile & run each Option or Positional Argument"""
-
-        verbs = self.verbs
-
-        doc = __main__.__doc__
-        assert doc, (doc,)
-
-        parser = self.arg_doc_to_parser(doc)
-        ns = self.shell_args_take_in(argv_minus, parser=parser)
-
-        verbs.extend(ns.bricks)
-
-        if ns.sep is not None:
-            self.sep = str(ns.sep)
-        if ns.start is not None:
-            self.start = int(ns.start, base=0)
-
-        if ns.raw_control_chars:
-            self.raw_control_chars = True
-
-        if ns.version:
-            pathname = __file__
-            path = pathlib.Path(pathname)
-
-            mtime = path.stat().st_mtime
-            maware = dt.datetime.fromtimestamp(mtime).astimezone()
-
-            mmmyyyy = maware.strftime("%b/%Y")
-            title = "Lit" + path.name.removeprefix("lit").title().replace(".", "·")
-            version = pathlib_path_read_version(pathname)
-
-            print(mmmyyyy, title, version)
-            sys.exit(0)
-
     #
     # Make a Shell Pipe by stringing Bricks together in a Line
     #
@@ -215,6 +289,7 @@ class ShellGopher:
 
         verbs = self.verbs
         sys_stdin_isatty = self.sys_stdin_isatty
+        bricks = self.bricks
 
         # Choose what to write at exit
 
@@ -238,10 +313,32 @@ class ShellGopher:
 
         # Compile the plan
 
-        for verb in pipe_verbs:
-            if verb == "pb":  # todo2: say this more simply - pb could mean __enter__
-                continue
-            self._compile_brick_if_(verb)
+        for index, verb in enumerate(pipe_verbs):
+            if index == 0:
+                assert verb == "__enter__", (verb,)
+
+            if index == 1:
+                if verb == "pb":  # todo2: say this more simply - pb could mean __enter__
+                    continue
+
+            if index > 1:
+                newborn = bricks[-1]
+
+                numeric = numeric_if(verb)  # takes float | int | bool
+                if numeric is not None:
+                    newborn.posargs += (numeric,)
+                    continue
+
+                removeflanks = str_removeflanks_if(verb, marks=",./")  # takes str
+                if removeflanks is not None:
+                    newborn.posargs += (removeflanks,)
+                    continue
+
+                # todo0: accept 'None' as a Pos Arg of a Shell Brick ?
+                # todo0: declare which Bricks take which Args, compile-time reject TypeError
+
+            brick = self._compile_brick_if_(verb)
+            bricks.append(brick)
 
     def _compile_writing_file_(self) -> bool:
         """Choose to write into ./0 at exit, or not"""
@@ -274,10 +371,8 @@ class ShellGopher:
 
         return writing_stdout
 
-    def _compile_brick_if_(self, verb: str) -> None:
+    def _compile_brick_if_(self, verb: str) -> ShellBrick:
         """Compile one Brick"""
-
-        bricks = self.bricks
 
         brick = ShellBrick(self, verb=verb)
 
@@ -285,7 +380,7 @@ class ShellGopher:
             print(f"Unknown Pipe Brick:  {verb!r}", file=sys.stderr)
             sys.exit(2)  # exits 2 for bad Args
 
-        bricks.append(brick)
+        return brick
 
     def sketch_pipe(self) -> None:
         """Sketch the Pipe as + |pb '...' |pb '...' ..."""
@@ -312,7 +407,7 @@ class ShellGopher:
 
             s += " " + repr(doc)
 
-        print(s, file=sys.stderr)
+        print(s, file=sys.stderr)  # todo1: delay help till after first input
 
         # doesn't show when inferring 'tee >(pbcopy)' and/or '|pb printable'
 
@@ -330,11 +425,12 @@ class ShellGopher:
 
 
 class ShellBrick:
-    """Say how to call a Shell Verb"""
+    """Run well as 1 Shell Pipe Filter Brick"""
 
     shell_gopher: ShellGopher
     verb: str
     func: collections.abc.Callable[..., None]
+    posargs: tuple[str | float | int | bool, ...]
 
     #
     # Init
@@ -356,6 +452,8 @@ class ShellBrick:
 
         func = func_by_verb.get(verb, default)
         self.func = func
+
+        self.posargs = tuple()
 
     def _form_func_by_verb_(self) -> dict[str, collections.abc.Callable[[], None]]:
         """Give one or a few Names to each Shell Pipe Filter Brick"""
@@ -408,9 +506,24 @@ class ShellBrick:
             "int.max": self.from_lines_int_base_zero_max,
             "int.min": self.from_lines_int_base_zero_min,
             "int.sort": self.from_lines_int_base_zero_sort,
+            "int.sorted": self.from_lines_int_base_zero_sort,
             "float.max": self.from_lines_numeric_max,
             "float.min": self.from_lines_numeric_min,
             "float.sort": self.from_lines_numeric_sort,
+            "float.sorted": self.from_lines_numeric_sort,
+            #
+            ".head": self.from_lines_head,
+            ".len": self.for_line_len,
+            ".max": self.from_lines_numeric_max,
+            ".md5sum": self.from_bytes_md5sum,
+            ".min": self.from_lines_numeric_min,
+            ".reverse": self.for_line_reverse,
+            ".sha256": self.from_bytes_sha256,
+            ".sort": self.from_lines_numeric_sort,
+            ".tail": self.from_lines_tail,
+            #
+            ".reversed": self.for_line_reverse,
+            ".sorted": self.from_lines_numeric_sort,
             #
             # Python & Shell names for data types of the File, most especially for |pb ... len,
             # tipping the hat to variable names, Shell 'wc' data types, Python result datatypes
@@ -715,17 +828,23 @@ class ShellBrick:
     def from_bytes_md5sum(self) -> None:
         """hashlib.md5(bytes(sys.i)).hexdigest()"""
 
+        verb = self.verb
+
         idata = self.fetch_bytes()
 
         h = hashlib.md5()
         h.update(idata)
         lower_nybbles = h.hexdigest()
-        oline = lower_nybbles + "  -"
+
+        oline = lower_nybbles
+        if verb.startswith("."):
+            oline += f"  {len(idata)}"
+        oline += "  -"
 
         olines = [oline]
         self.store_olines(olines)
 
-        # d41d8cd98f00b204e9800998ecf8427e  -
+        # d41d8cd98f00b204e9800998ecf8427e  0  -
 
     def from_bytes_printable(self) -> None:  # todo: .__doc__ doesn't mention '\n' as printable
         """Replace with ? till decodable, and then till str.isprintable"""  # todo: code up as Code
@@ -757,17 +876,23 @@ class ShellBrick:
     def from_bytes_sha256(self) -> None:
         """hashlib.sha256(bytes(sys.i)).hexdigest()"""
 
+        verb = self.verb
+
         idata = self.fetch_bytes()
 
         h = hashlib.sha256()
         h.update(idata)
         lower_nybbles = h.hexdigest()
-        oline = lower_nybbles + "  -"
+
+        oline = lower_nybbles
+        if verb.startswith("."):
+            oline += f" {len(idata)}"
+        oline += " stdin"
 
         olines = [oline]
         self.store_olines(olines)
 
-        # e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 -
+        # e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 0 stdin
 
     #
     # Work from the File taken as 1 Str
@@ -896,10 +1021,17 @@ class ShellBrick:
         self.store_olines(olines)
 
     def from_lines_head(self) -> None:
-        """list(sys.i)[:9]"""
+        """list(sys.i)[:9]"""  # todo1: help .head correctly
+
+        sg = self.shell_gopher
+        y_high = sg.y_high
+        verb = self.verb
+
+        n = (y_high - 4) if verb.startswith(".") else 9
+        assert n >= 1, (n, y_high)
 
         ilines = self.fetch_ilines()
-        olines = ilines[:9]
+        olines = ilines[:n]
         self.store_olines(olines)
 
     def from_lines_int_base_zero_max(self) -> None:
@@ -907,7 +1039,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=str_int_base_zero, strict=False)
         m = max(zip(icolumns, ilines))
         oline = m[-1]
 
@@ -919,7 +1051,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=str_int_base_zero, strict=False)
         m = min(zip(icolumns, ilines))
         oline = m[-1]
 
@@ -931,7 +1063,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=int_base_zero, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=str_int_base_zero, strict=False)
         sortables = list(zip(icolumns, ilines))
         sortables.sort()
         olines: list[str] = list(oline for (_, oline) in sortables)
@@ -971,7 +1103,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=str_numeric, strict=False)
         m = max(zip(icolumns, ilines))
         oline = m[-1]
 
@@ -983,7 +1115,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=str_numeric, strict=False)
         m = min(zip(icolumns, ilines))
         oline = m[-1]
 
@@ -995,7 +1127,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=numeric, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=str_numeric, strict=False)
         sortables = list(zip(icolumns, ilines))
         sortables.sort()
         olines: list[str] = list(oline for (_, oline) in sortables)
@@ -1033,7 +1165,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=numeric, strict=True)
+        icolumns = self._take_number_columns_(ilines, func=str_numeric, strict=True)
         ocolumns = list(sum(_) for _ in icolumns)
         oline = " ".join(str(_) for _ in ocolumns)
 
@@ -1041,10 +1173,17 @@ class ShellBrick:
         self.store_olines(olines)
 
     def from_lines_tail(self) -> None:
-        """list(sys.i)[-9:]"""
+        """list(sys.i)[-9:]"""  # todo1: help .tail correctly
+
+        sg = self.shell_gopher
+        y_high = sg.y_high
+        verb = self.verb
+
+        n = (y_high - 4) if verb.startswith(".") else 9
+        assert n >= 1, (n, y_high)
 
         ilines = self.fetch_ilines()
-        olines = ilines[-9:]
+        olines = ilines[-n:]
         self.store_olines(olines)
 
     #
@@ -1061,11 +1200,11 @@ class ShellBrick:
 
         ilines = lines
 
-        if func.__name__ == "int_base_zero":
-            functype = "int"  # |pb int.max, |pb int.min, |pb int.sort
+        if func.__name__ == "str_int_base_zero":
+            functype = "int"  # |pb int.max, int.min, int.sort
         else:
-            assert func.__name__ == "numeric"
-            functype = "float nor int"  # |pb float.max, |pb float.min, |pb float.sort
+            assert func.__name__ == "str_numeric"
+            functype = "float nor int nor bool"  # |pb .max, .min, .sort, sum
 
         min_width = -1
 
@@ -1154,7 +1293,10 @@ class ShellBrick:
 
         sg = self.shell_gopher
         start = sg.start
+
         _start_ = 0 if (start is None) else start
+        if self.verb == "nl":
+            _start_ = 1 if (start is None) else start
 
         ilines = self.fetch_ilines()
 
@@ -1234,6 +1376,8 @@ class ArgDocParser:
     closing: str  # the last Graf of the Epilog, minus its Top Line
 
     add_argument: collections.abc.Callable[..., object]
+    print_help: collections.abc.Callable[[], None]
+    print_usage: collections.abc.Callable[[], None]
 
     def __init__(self, doc: str, add_help: bool) -> None:
 
@@ -1260,6 +1404,8 @@ class ArgDocParser:
         self.closing = closing
 
         self.add_argument = parser.add_argument
+        self.print_help = parser.print_help
+        self.print_usage = parser.print_usage
 
         # 'add_help=False' for needs like 'cal -h', 'df -h', 'du -h', 'ls -h', etc
 
@@ -1450,29 +1596,53 @@ class ArgDocParser:
 #
 
 
-def int_base_zero(lit: str) -> int:
+def str_int_base_zero(lit: str) -> int:
     """Call int(_, base=0) but without forcing the Caller to pass in the 0"""
 
     i = int(lit, base=0)
     return i
 
 
-def numeric(lit: str) -> float | int | bool:
-    """Convert a repr(float) or repr(int) or repr(bool) over to float or int"""
+def str_numeric(lit: str) -> float | int | bool:
+    """Take a repr(float) or repr(int) or repr(bool) as a float | int | bool"""
+
+    numeric: float | int | bool
 
     if lit == "False":
-        return False
-
-    if lit == "True":
-        return True
-
-    numeric: float | int
-    try:
-        numeric = int(lit, base=0)
-    except ValueError:
-        numeric = float(lit)
+        numeric = False  # bool
+    elif lit == "True":
+        numeric = True  # bool
+    else:
+        try:
+            numeric = int(lit, base=0)
+        except ValueError:
+            numeric = float(lit)  # may raise a new ValueError
 
     return numeric
+
+
+def numeric_if(lit: str) -> float | int | bool | None:
+    """Take a repr(float) or repr(int) or repr(bool) as a float | int | bool, else return None"""
+
+    try:
+        numeric = str_numeric(lit)
+    except ValueError:
+        return None
+
+    return numeric
+
+
+def str_removeflanks_if(lit: str, marks: str) -> str | None:
+    """Remove the same Mark from both ends, else return None"""
+
+    if lit[1:]:
+        a = lit[0]
+        z = lit[-1]
+        if a == z:
+            if a in marks:
+                return lit[1:-1]
+
+    return None
 
 
 #
@@ -1513,6 +1683,10 @@ if __name__ == "__main__":
 
 
 # todo's
+
+#
+
+# todo0: conform to '|sha256sum' not '|sha256'
 
 #
 
@@ -1637,6 +1811,8 @@ if __name__ == "__main__":
 # todo6: pb for reorder and transpose arrays of tsv, for split into tsv
 # todo6: pb for work with tsv's
 # todo6: tables
+
+# todo7: |pb sha256 -  # todo7: who gets the '-' as a pos arg?
 
 # todo7: |pb echo ...
 

@@ -1,3 +1,4 @@
 set -xe
 openssl dgst -sha256 "$@" |tr '()=_' ' ' |awk '{print $3, $2}'
 # many Mac lack Linux '/usr/bin/sha256'
+# some later Mac's have '/sbin/sha256' which conforms best when given no args, not even "-"
