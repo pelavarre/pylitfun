@@ -18,7 +18,7 @@ famously abbreviated bricks:
   -  0 1 2 3  F L O T U  a h i n o r s t u w x  nl pb
 
 famously convenient bricks:
-  awk bytes casefold chars counter data dent enumerate expandtabs
+  awk bytes casefold chars counter data decode dent enumerate expandtabs
   float.max float.min float.sort head int.max int.min int.sort join
   len lines lower lstrip max md5sum min rev reverse rstrip set sha256
   shuf shuffle sort splitlines str strip sum tac tail text title
@@ -73,9 +73,11 @@ def main() -> None:
     """Run from the Shell Command Line"""
 
     shg = ShellGopher()
+
     shg.run_main_argv_minus(sys.argv[1:])
     shg.compile_pipe_if()
     shg.sketch_pipe()
+
     shg.run_pipe()
 
 
@@ -276,8 +278,14 @@ class ShellGopher:
         """Sketch the Pipe as + |pb '...' |pb '...' ..."""
 
         bricks = self.bricks
+        verbs = self.verbs
 
-        first = bricks[0].verb
+        first = "pb"
+        if verbs:
+            verb0 = verbs[0]
+            if verb0 in ("0", "1", "2", "3"):
+                first = verb0
+
         s = "+ |" + first
 
         for brick in bricks:
@@ -292,15 +300,6 @@ class ShellGopher:
             s += " " + repr(doc)
 
         print(s, file=sys.stderr)
-
-    def print_help(self) -> None:
-        """Print the Main Doc to Stdout and exit zero, like for '--help'"""
-
-        doc = __main__.__doc__
-        assert doc, (doc,)
-        text = textwrap.dedent(doc).strip()
-
-        print(text)
 
     #
     # Run the compiled Shell Pipe
@@ -354,6 +353,8 @@ class ShellBrick:
             "__exit__": self.run_pipe_exit,
             #
             # Python Single Words working with all the Bytes / Text / Lines, or with each Line
+            #
+            "decode": self.from_bytes_decode,
             #
             "casefold": self.from_text_casefold,  # |F for Fold
             "expandtabs": self.from_text_expandtabs,
@@ -665,6 +666,19 @@ class ShellBrick:
         """bytes(sys.i)"""
 
         self.fetch_bytes()  # todo: unneeded
+
+    def from_bytes_decode(self) -> None:
+        """bytes(sys.i).decode(errors="replace").replace("\ufffd", "?")"""
+
+        ReplacementCharacter = "\ufffd"  # PyPi Black rejects \uFFFD
+
+        idata = self.fetch_bytes()
+
+        iotext = idata.decode(errors="replace")
+        iotext = iotext.replace(ReplacementCharacter, "?")
+        otext = iotext
+
+        self.store_otext(otext)
 
     def from_bytes_md5sum(self) -> None:
         """hashlib.md5(bytes(sys.i)).hexdigest()"""
