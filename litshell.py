@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 
 """
-usage: litshell.py [-h] [-V] [--sep SEP] [--start START] [BRICK ...]
+usage: litshell.py [-h] [-r] [-V] [--sep SEP] [--start START] [BRICK ...]
 
-greatly abbreviate Shell commands, but do show them in full
+read/ write the os copy/ paste clipboard buffer, write tty, and write files
 
 positional arguments:
-  BRICK          a brick of the shell pipe
+  BRICK                 a brick of the shell pipe
 
 options:
-  -h, --help     show this help message and exit
-  -V, --version  show version numbers and exit
-  --sep SEP      a separator, such as ' ' or ',' or ', '
-  --start START  a starting index, such as 0 or 1
+  -h, --help            show this help message and exit
+  -r, --raw-control-chars
+                        write Control Chars to Tty, don't replace with '?' Question-Mark
+  -V, --version         show version numbers and exit
+  --sep SEP             a separator, such as ' ' or ',' or ', '
+  --start START         a starting index, such as 0 or 1
 
 famously abbreviated bricks:
   -  0 1 2 3  F L O T U  a h i n o r s t u w x  nl pb
@@ -20,9 +22,9 @@ famously abbreviated bricks:
 famously convenient bricks:
   awk bytes casefold chars counter data decode dent enumerate expandtabs
   float.max float.min float.sort head int.max int.min int.sort join
-  len lines lower lstrip max md5sum min rev reverse rstrip set sha256
-  shuf shuffle sort splitlines str strip sum tac tail text title
-  undent upper words
+  len lines lower lstrip max md5sum min printable rev reverse rstrip
+  set sha256 shuf shuffle sort splitlines str strip sum tac tail text
+  title undent upper words
 
 examples:
   cat README.md |pb
@@ -94,6 +96,7 @@ class ShellGopher:
     sys_stdin_isatty: bool  # Dev Tty at Stdin means get Input Bytes from PasteBuffer
     sys_stdout_isatty: bool  # Dev Tty at Stdout means write Output Bytes back to PasteBuffer
 
+    raw_control_chars: bool | None  # False means translate Control Chars to ? when writing to Tty
     writing_file: bool | None  # Writing to ./0 after writing into |pbcopy
     writing_stdout: bool | None  # Writing to Stdout
 
@@ -112,6 +115,7 @@ class ShellGopher:
         self.sys_stdin_isatty = sys_stdin_isatty
         self.sys_stdout_isatty = sys_stdout_isatty
 
+        self.raw_control_chars = None
         self.writing_file = None
         self.writing_stdout = None
 
@@ -126,7 +130,9 @@ class ShellGopher:
         brick_help = "a brick of the shell pipe"
         parser.add_argument("bricks", metavar="BRICK", nargs="*", help=brick_help)
 
+        raw_control_chars_help = "write Control Chars to Tty, don't replace with '?' Question-Mark"
         version_help = "show version numbers and exit"
+        parser.add_argument("-r", "--raw-control-chars", action="count", help=raw_control_chars_help)
         parser.add_argument("-V", "--version", action="count", help=version_help)
 
         sep_help = "a separator, such as ' ' or ',' or ', '"
@@ -177,6 +183,9 @@ class ShellGopher:
         if ns.start is not None:
             self.start = int(ns.start, base=0)
 
+        if ns.raw_control_chars:
+            self.raw_control_chars = True
+
         if ns.version:
             pathname = __file__
             path = pathlib.Path(pathname)
@@ -218,8 +227,6 @@ class ShellGopher:
         if not verbs[1:]:
             if sys_stdin_isatty:
                 pipe_verbs.append("undent")
-            # if sys_stdout_isatty:
-            #     pipe_verbs.append("printable")  # todo1:
 
         pipe_verbs.append("__exit__")
 
@@ -301,6 +308,8 @@ class ShellGopher:
 
         print(s, file=sys.stderr)
 
+        # doesn't show when inferring 'tee >(pbcopy)' and/or '|pb printable'
+
     #
     # Run the compiled Shell Pipe
     #
@@ -355,6 +364,7 @@ class ShellBrick:
             # Python Single Words working with all the Bytes / Text / Lines, or with each Line
             #
             "decode": self.from_bytes_decode,
+            "printable": self.from_bytes_printable,
             #
             "casefold": self.from_text_casefold,  # |F for Fold
             "expandtabs": self.from_text_expandtabs,
@@ -518,22 +528,35 @@ class ShellBrick:
 
         sg = self.shell_gopher
         sys_stdin_isatty = sg.sys_stdin_isatty
+        sys_stdout_isatty = sg.sys_stdout_isatty
+        raw_control_chars = sg.raw_control_chars
         writing_file = sg.writing_file
         writing_stdout = sg.writing_stdout
 
-        data = sg.data
-        assert data is not None
+        pdata = sg.data
+        assert pdata is not None
 
         fd = sys.stdout.fileno()
 
         if writing_file or not sys_stdin_isatty:  # as if sg.writing_pbcopy
-            self.pbcopy(data)
+            self.pbcopy(pdata)
 
+        fdata = pdata
         if writing_file:
             path = pathlib.Path(str(0))
-            path.write_bytes(data)
+            path.write_bytes(fdata)
 
         if writing_stdout:
+
+            data = pdata
+            if sys_stdout_isatty:
+                if not raw_control_chars:
+                    self.from_bytes_printable()
+
+                    assert sg.data is not None, (sg.data,)
+                    data = sg.data
+
+                    # tested by:  echo $' \t\n\r\x0b\x0c' |pb -
 
             assert int(0x80 + signal.SIGPIPE) == 141
             try:
@@ -694,6 +717,33 @@ class ShellBrick:
         self.store_olines(olines)
 
         # d41d8cd98f00b204e9800998ecf8427e  -
+
+    def from_bytes_printable(self) -> None:  # todo: .__doc__ doesn't mention '\n' as printable
+        """Replace with ? till decodable, and then till str.isprintable"""  # todo: code up as Code
+
+        ReplacementCharacter = "\ufffd"  # PyPi Black rejects \uFFFD
+
+        idata = self.fetch_bytes()
+
+        iotext = idata.decode(errors="replace")
+        iotext = iotext.replace(ReplacementCharacter, "?")
+
+        otext = ""
+        for t in iotext:
+            if t == "\n":
+                otext += t
+            elif t.isprintable():
+                otext += t
+            else:
+                otext += "?"
+
+        self.store_otext(otext)
+
+        # runs 'printable' as "\n" or str.isprintable, not precisely just str.isprintable
+        # doesn't run 'printable' as found in the 100 characters of string.printable
+
+        # 154_810 == len(list(_ for _ in range(0x10FFFF + 1) if chr(_).isprintable()))  #
+        # 959_302 == len(list(_ for _ in range(0x10FFFF + 1) if not chr(_).isprintable()))
 
     def from_bytes_sha256(self) -> None:
         """hashlib.sha256(bytes(sys.i)).hexdigest()"""
@@ -1384,7 +1434,7 @@ def int_base_zero(lit: str) -> int:
     return i
 
 
-def numeric(lit: str) -> float | int | bool:  # todo0: float | int | bool
+def numeric(lit: str) -> float | int | bool:
     """Convert a repr(float) or repr(int) or repr(bool) over to float or int"""
 
     if lit == "False":
@@ -1442,13 +1492,6 @@ if __name__ == "__main__":
 # todo's
 
 
-# todo0: |pb decode  # replace to \uFFFD Replacement-Character to \x3F Question-Mark '?'
-# todo0: sold as overcomes old macOS Unix flaming out
-
-# todo0: |pb printable, to be explicit for that
-# todo0: also transform to printable before writing to tty, unless people say |pb tty
-# todo: do surrogate_escape repl ? before writing to tty
-
 # todo0: |pb cut ... to |cut -c to fit width on screen but with "... " marks
 # todo0: take -c at |cut, but don't require it
 
@@ -1491,7 +1534,9 @@ if __name__ == "__main__":
 # todo1: int ranges 1..4
 # todo1: --start=0 for |awk when you want that, else 0 for the whole in between the rest
 
-# todo: default output into a 1-page pager of 9 lines - wc counts - chars set sort
+# todo2: default output into a 1-page pager of 9 lines - wc counts - chars set sort
+
+# todo2: str.ljust str.rjust str.center
 
 # todo2: |pb dt datetime struggle to convert input into date/time-stamps
 # todo2: timedelta absolute local """astimezone""
@@ -1499,37 +1544,30 @@ if __name__ == "__main__":
 # todo2: timedelta relative previous """timedelta"""  # """dt.timedelta(_[0] - _[-1] for _ in zip)"""
 # todo2: timedelta relative t0 """- _[0]"""  # """dt.timedelta(_ - list(sys.i)[0])""
 # todo2: test with our favourite TZ=America/Los_Angeles TZ=Europe/Prague TZ=Asia/Kolkata
+# todo2: pb for work with date/time's as utc floats in order - rel & abs & utc & zone & float
 
 # todo2: |pb range - defaults to 1 2 3
 # todo2: |pb random - defaults to 9 dice - random 100 - random 0 100 1 - head 9 head -9
 
-# todo8: |pb echo ...
-# todo8: |pb ^ prefix
-# todo8: |pb $ suffix
-# todo8: |pb removeprefix 'prefix'
-# todo8: |pb removesuffix 'prefix'
-# todo8: |pb prefix 'prefix'
-# todo8: |pb suffix 'suffix'
-# todo8: |pb insertprefix 'prefix'
-# todo8: |pb appendsuffix 'suffix'
-# todo8: |sed 's,^,...,'
-# todo8: |sed 's,$,...,'
-# todo8: |'sys.oline = "pre fix" + sys.iline'
+# todo6: pb for reorder and transpose arrays of tsv, for split into tsv
+# todo6: pb for work with tsv's
+# todo6: tables
 
-# todo9: |1 or |1| and same across 0, 1, 2, 3
-# todo9: |pb _ like same _ as we have outside
-# todo9: + mv 0 ... && pbpaste |pb upper |tee >(pbcopy) >./0
-# todo9: more than one of ("0", "1", "2", "3"), such as Shell ? while 'ls -C ?' is '0 1 2 3'
+# todo7: |pb echo ...
+# todo7: |pb ^ prefix
+# todo7: |pb $ suffix
+# todo7: |pb removeprefix 'prefix'
+# todo7: |pb removesuffix 'prefix'
+# todo7: |pb prefix 'prefix'
+# todo7: |pb suffix 'suffix'
+# todo7: |pb insertprefix 'prefix'
+# todo7: |pb appendsuffix 'suffix'
+# todo7: |sed 's,^,...,'
+# todo7: |sed 's,$,...,'
+# todo7: |'sys.oline = "pre fix" + sys.iline'
 
-
-# todo: brick helps
-
-# todo: pb for work with date/time's as utc floats in order - rel & abs & utc & zone & float
-
-# todo: pb for reorder and transpose arrays of tsv, for split into tsv
-# todo: pb for work with tsv's
-# todo: tables
-# todo: str.ljust str.rjust str.center
+# todo8: brick helps
+# todo: brief alias for stack peek/ dump at:  grep . ?
 
 # todo: pb --sep=/ 'a 1 -2 3'
 # todo: pb --alt chars len, --alt v, --alt e
@@ -1540,7 +1578,12 @@ if __name__ == "__main__":
 
 # todo: |wc -L into |pb line len max, |pb word len max
 
-# todo: brief alias for stack peek/ dump at:  grep . ?
+# todo9: |1 or |1| and same across 0, 1, 2, 3
+# todo9: |pb _ like same _ as we have outside
+# todo9: + mv 0 ... && pbpaste |pb upper |tee >(pbcopy) >./0
+# todo9: more than one of ("0", "1", "2", "3"), such as Shell ? while 'ls -C ?' is '0 1 2 3'
+
+# todo9: adopt the complex -R, --RAW-CONTROL-CHARS from |less, no only the simple -r from |less
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/litshell.py
