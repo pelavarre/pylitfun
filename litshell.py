@@ -391,7 +391,6 @@ class ShellBrick:
             "sort": self.from_lines_sort,  # |s
             "sorted": self.from_lines_sort,  # our ["sorted"] aliases our ["sort"]
             "sum": self.from_lines_sum,
-            # "if":  # todo: not yet
             # "list":  # nope
             # "tuple":  # nope
             #
@@ -400,7 +399,6 @@ class ShellBrick:
             "lstrip": self.for_line_lstrip,
             "rstrip": self.for_line_rstrip,
             "strip": self.for_line_strip,
-            # "for":  # todo: not yet
             #
             # Python Dotted Double Words
             #
@@ -1518,6 +1516,25 @@ if __name__ == "__main__":
 
 #
 
+# todo0: |pb /$ /  # to mean close to |cat -etv
+
+# todo0: |pb insert /pre fix/  # ('pre fix' + _) for _ in list(sys.i)
+# todo0: |pb append /suf fix/  # (_ + 'suf fix') for _ in list(sys.i)
+# todo0: |pb ^ /pre fix/
+# todo0: |pb $ /suf fix/
+# todo0: |pb removeprefix /pre fix/  # (_.removeprefix('pre fix')) for _ in list(sys.i)
+# todo0: |pb removesuffix /suf fix/  # (_.removesuffix('suf fix')) for _ in list(sys.i)
+
+# todo0: |pb replace .stale. .fresh.
+# todo0: |pb sub .pattern. .repl.
+
+# todo0: |pb translate .from. .to.
+# todo0: |pb remove .from.
+
+# todo0: accept , . / as open quote & close quote
+
+#
+
 # todo0: |wc -L into |pb for.len int.max, |pb split for.len int.max
 
 #
@@ -1622,17 +1639,6 @@ if __name__ == "__main__":
 # todo6: tables
 
 # todo7: |pb echo ...
-# todo7: |pb ^ prefix
-# todo7: |pb $ suffix
-# todo7: |pb removeprefix 'prefix'
-# todo7: |pb removesuffix 'prefix'
-# todo7: |pb prefix 'prefix'
-# todo7: |pb suffix 'suffix'
-# todo7: |pb insertprefix 'prefix'
-# todo7: |pb appendsuffix 'suffix'
-# todo7: |sed 's,^,...,'
-# todo7: |sed 's,$,...,'
-# todo7: |'sys.oline = "pre fix" + sys.iline'
 
 # todo8: brick helps
 # todo: brief alias for stack peek/ dump at:  grep . ?
