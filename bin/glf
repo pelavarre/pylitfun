@@ -1,4 +1,4 @@
 #!/bin/sh
-# git ls-files
-# git ls-files |grep -ai -e ... -e ...
+# : glf && git ls-files
+# : glf && git ls-files |grep -ai -e ... -e ...
 g.py --shfile="$0" "$@"

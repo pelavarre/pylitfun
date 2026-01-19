@@ -38,3 +38,7 @@ except KeyboardInterrupt:
 
 
 sys.exit(run.returncode)
+
+
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/g.py
+# copied from:  git clone https://github.com/pelavarre/pylitfun.git

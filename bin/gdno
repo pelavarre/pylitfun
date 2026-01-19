@@ -1,3 +1,3 @@
 #!/bin/sh
-# git diff --name-only [...]
+# : gdno && git diff --name-only [...]
 g.py --shfile="$0" "$@"

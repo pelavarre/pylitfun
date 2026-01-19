@@ -943,6 +943,8 @@ if __name__ == "__main__":
 
 _ = """  # todo's
 
+# todo: regenerate bin/g* from ShlinePlusByShverb
+
 # todo: help rediscover 'gf --' is our not '--quiet' form
 
 # todo: measure latency added by calling these aliases in place of an explicit whole shline

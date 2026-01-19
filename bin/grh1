@@ -1,3 +1,3 @@
 #!/bin/sh
-# git reset HEAD~1
+# : grh1 && git reset HEAD~1
 g.py --shfile="$0" "$@"

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-usage: litshell.py [-h] [-r] [-V] [--sep SEP] [--start START] [BRICK ...]
+usage: litshell.py [-h] [-V] [-r] [-v] [--sep SEP] [--start START] [BRICK ...]
 
 read/ write the os copy/ paste clipboard buffer, write tty, and write files
 
@@ -10,8 +10,9 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  -r, --raw-control-ch  write Control Chars to Tty, don't replace with '?' Question-Mark
   -V, --version         show version numbers and exit
+  -r, --raw-control-ch  write Control Chars to Tty, don't replace with '?' Question-Mark
+  -v, --verbose         say more
   --sep SEP             a separator, such as ' ' or ',' or ', '
   --start START         a starting index, such as 0 or 1
 
@@ -98,6 +99,14 @@ if not __debug__:
 assert int(0x80 + signal.SIGINT) == 130
 
 
+#
+# Run from the Shell Command Line
+#
+
+
+verbose = list()
+
+
 def main() -> None:
     """Run from the Shell Command Line"""
 
@@ -165,7 +174,7 @@ class ShellGopher:
         self.x_wide = x_wide
         self.y_high = y_high
 
-    def run_main_argv_minus(self, argv_minus: list[str]) -> None:
+    def run_main_argv_minus(self, argv_minus: list[str]) -> None:  # noqa C901 too complex  # todo2:
         """Compile & run each Option or Positional Argument"""
 
         verbs = self.verbs
@@ -178,6 +187,9 @@ class ShellGopher:
         if ns.help:
             parser.print_help()
             sys.exit(0)
+
+        if ns.verbose:
+            verbose.append(True)
 
         for arg in sys.argv[1:]:
             number = str_to_number_if(arg)
@@ -202,9 +214,9 @@ class ShellGopher:
             if self.sep is None:
                 self.sep = str(ns.vOFS)
 
-        if ns.v is not None:  # -v=START mostly for |pb nl
-            if self.start is None:
-                self.start = int(ns.v, base=0)
+        # if ns.v is not None:  # -v=START mostly for |pb nl  # todo0:
+        #     if self.start is None:
+        #         self.start = int(ns.v, base=0)
 
         if ns.sep is not None:
             self.sep = str(ns.sep)
@@ -245,10 +257,12 @@ class ShellGopher:
         help_help = "show this help message and exit"
         raw_control_chars_help = "write Control Chars to Tty, don't replace with '?' Question-Mark"
         version_help = "show version numbers and exit"
+        verbose_help = "say more"
 
         parser.add_argument("-h", "--help", action="count", help=help_help)
-        parser.add_argument("-r", "--raw-control-ch", action="count", help=raw_control_chars_help)
         parser.add_argument("-V", "--version", action="count", help=version_help)
+        parser.add_argument("-r", "--raw-control-ch", action="count", help=raw_control_chars_help)
+        parser.add_argument("-v", "--verbose", action="count", help=verbose_help)
 
         sep_help = "a separator, such as ' ' or ',' or ', '"
         start_help = "a starting index, such as 0 or 1"
@@ -256,11 +270,10 @@ class ShellGopher:
         parser.add_argument("--start", metavar="START", help=start_help)
 
         parser.add_argument("-F", help=argparse.SUPPRESS)
-
-        parser.add_argument("--raw-control-chars", action="count", help=argparse.SUPPRESS)
         parser.add_argument("-pba", action="count", help=argparse.SUPPRESS)
         parser.add_argument("-vOFS", help=argparse.SUPPRESS)
-        parser.add_argument("-v", help=argparse.SUPPRESS)
+        # parser.add_argument("-v", help=argparse.SUPPRESS)  # todo0: -v=START for |pb nl etc
+        parser.add_argument("--raw-control-chars", action="count", help=argparse.SUPPRESS)
 
         return parser
 
@@ -422,7 +435,8 @@ class ShellGopher:
 
             s += " " + repr(doc)
 
-        print(s, file=sys.stderr)  # todo1: delay help till after first input
+        if verbose:
+            print(s, file=sys.stderr)  # todo1: delay help till after first input
 
         # doesn't show when inferring 'tee >(pbcopy)' and/or '|pb printable'
 
@@ -519,7 +533,7 @@ class ShellBrick:
             "removeprefix": self.for_line_removeprefix,
             "removesuffix": self.for_line_removesuffix,
             "rstrip": self.for_line_rstrip,
-            "strip": self.for_line_strip,
+            "strip": self.for_line_strip,  # unrelated to Shell "which strip" and "man strip"
             #
             # Python Dotted Double Words
             #
@@ -535,6 +549,7 @@ class ShellBrick:
             "float.sort": self.from_lines_number_sort,
             "float.sorted": self.from_lines_number_sort,
             #
+            ".dent": self.for_line_do_dent,
             ".head": self.from_lines_head,
             ".len": self.for_line_len,
             ".max": self.from_lines_number_max,
@@ -545,10 +560,10 @@ class ShellBrick:
             ".sort": self.from_lines_number_sort,
             ".tail": self.from_lines_tail,
             #
-            ".md5sum": self.from_bytes_md5,
-            ".sha256sum": self.from_bytes_sha256,
-            ".reversed": self.for_line_reverse,
-            ".sorted": self.from_lines_number_sort,
+            ".md5sum": self.from_bytes_md5,  # not ".md5":
+            ".sha256sum": self.from_bytes_sha256,  # not ".sha256":
+            ".reversed": self.for_line_reverse,  # not ".reverse":
+            ".sorted": self.from_lines_number_sort,  # not ".sort":
             #
             # Python & Shell names for data types of the File, most especially for |pb ... len,
             # tipping the hat to variable names, Shell 'wc' data types, Python result datatypes
@@ -616,7 +631,7 @@ class ShellBrick:
             #
             # Names for newer Shell Pipe Filter Bricks
             #
-            "dent": self.for_line_do_dent,  # |O
+            "dent": self.for_line_do_dent,  # the |O which is not |0
             "undent": self.from_text_do_undent,  # |o
             #
         }
@@ -1790,9 +1805,7 @@ if __name__ == "__main__":
 
 #
 
-# todo0: sh/which.py --all to list and count all executables of the Sh Path
-# todo0: sh/which.py --all PATTERN to search just the Basename for the Pattern
-# todo0: stderr for folder not found, for empty folder, for no executables in folder
+# todo0: don't trace except for -v, --verbose
 
 # todo0: sh/cal.py --, for to say 3 months at a time
 # todo0: sh/cal.py to mention part of year
@@ -1806,6 +1819,7 @@ if __name__ == "__main__":
 # todo0: trace |pb nl as '|nl -pba -v0', and accept the '-pba -v1' as input shline
 
 # todo0: sh/screen.py --, for to say screen -r at random
+# todo0: retire byoverbs/bin/screen.py
 
 # todo0: sh/uptime.py -- to give us --pretty by default at macOS
 
@@ -1824,6 +1838,8 @@ if __name__ == "__main__":
 # todo3: dt as date && date -u && time
 
 #
+
+# todo4: |pb clean up -F$sep vs -F=$sep especially for |pb awk
 
 # todo4: |pb slice for --sep=None --start=0, still defaulting to NF{$NF}
 # todo4: |pb a raises IndexError for slice out of range, such as 4 rather than 4,5 or 4..4
@@ -1874,7 +1890,7 @@ if __name__ == "__main__":
 
 # todo8: pb hexdump, especially for a -C, especially a memorizable 128 glyph set
 
-# todo8: |pb textwrap.wrap textwrap.fill or some such 
+# todo8: |pb textwrap.wrap textwrap.fill or some such
 # todo8: |pb fmt ... just to do |fmt, or more a la |fold -sw $W
 # todo8: |pb column ... like' |column -t' but default to --sep='  ' for intake
 # todo8: take -t at |column, but don't require it
