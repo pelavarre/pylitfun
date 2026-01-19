@@ -86,6 +86,7 @@ import hashlib
 import os
 import pathlib
 import random
+import re
 import shutil
 import signal
 import subprocess
@@ -557,7 +558,7 @@ class ShellBrick:
             ".min": self.from_lines_number_min,
             ".reverse": self.for_line_reverse,
             ".sha256": self.from_bytes_sha256,
-            ".sort": self.from_lines_number_sort,
+            ".sort": self.from_lines_number_sort,  # |LC_ALL=C sort
             ".tail": self.from_lines_tail,
             #
             ".md5sum": self.from_bytes_md5,  # not ".md5":
@@ -585,13 +586,14 @@ class ShellBrick:
             # "md5sum": self.from_bytes_md5,  # already said far above
             # "sha256sum": self.from_bytes_sha256,  # already said far above
             #
-            "expand": self.from_text_expandtabs,
+            "expand": self.from_text_expandtabs,  # |pb expandtabs
             #
             "head": self.from_lines_head,  # |h
-            "shuf": self.from_lines_shuffle,
+            "shuf": self.from_lines_shuffle,  # |pb shuffle
+            "strings": self.from_bytes_strings,  # |LC_ALL=C strings -n 4
             "tail": self.from_lines_tail,  # |t
-            "tac": self.from_lines_reverse,  # |r
-            # "uniq": self.from_lines_uniq,  # differs from |u  # todo1:
+            "tac": self.from_lines_reverse,  # |r  # |pb reverse
+            # "uniq": self.from_lines_uniq,  # differs from our |u  # |LC_ALL=C uniq  # todo1:
             #
             # "$": self.for_line_suffix,  # |$ ...  # todo8
             # "^": self.for_line_prefix,  # |^ ...  # todo8
@@ -858,14 +860,17 @@ class ShellBrick:
         """bytes(sys.i).decode(errors="replace").replace("\ufffd", "?")"""
 
         ReplacementCharacter = "\ufffd"  # PyPi Black rejects \uFFFD
+        repl = "?"  # todo0:  repl: str = "?"
 
         idata = self.fetch_bytes()
 
         iotext = idata.decode(errors="replace")
-        iotext = iotext.replace(ReplacementCharacter, "?")
+        iotext = iotext.replace(ReplacementCharacter, repl)
         otext = iotext
 
         self.store_otext(otext)
+
+        # todo0: default '|pb decode' to "¤"  # --sep='?'  # --sep=''
 
     def from_bytes_md5(self) -> None:
         """hashlib.md5(bytes(sys.i)).hexdigest()"""
@@ -935,6 +940,26 @@ class ShellBrick:
         self.store_olines(olines)
 
         # e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 0 stdin
+
+    def from_bytes_strings(self) -> None:
+        """strings(bytes(sys.i), min=4)"""
+
+        self.from_bytes_decode()  # silently implied, and not separately traced
+
+        idata = self.fetch_bytes()
+
+        n = 4  # todo0: |strings -n 4
+        regex = (n * rb"[ -~]") + rb"[ -~]*"  # todo0: strings for all printable
+
+        olines = list()
+        for m in re.finditer(regex, string=idata):
+            obytes = m.group(0)
+            oline = obytes.decode()
+            olines.append(oline)
+
+        self.store_olines(olines)
+
+        # '|pb strings' runs with default .repl  # todo0: should there be a --repl=REPL
 
     #
     # Work from the File taken as 1 Str
