@@ -23,7 +23,7 @@ small bricks:
   + -  0 1 2 3  F L O T U  a h i n o r s t u w x  nl pb
 
 memorable bricks:
-  append bytes casefold counter decode enumerate expandtabs frame
+  append bytes casefold counter decode dent enumerate expandtabs frame
   head if insert join len lower lstrip max md5 min printable removeprefix
   removesuffix reverse rstrip set sha256 shuffle slice sort split str
   strings strip sum tail title unframe upper
@@ -550,7 +550,7 @@ class ShellBrick:
             "float.sort": self.from_lines_number_sort,
             "float.sorted": self.from_lines_number_sort,
             #
-            ".frame": self.for_line_do_frame,
+            ".frame": self.for_line_do_frame,  # without any ".dent":
             ".head": self.from_lines_head,
             ".len": self.for_line_len,
             ".max": self.from_lines_number_max,
@@ -633,6 +633,7 @@ class ShellBrick:
             #
             # Names for newer Shell Pipe Filter Bricks
             #
+            "dent": self.for_line_do_dent,  # per line without .rstrip
             "frame": self.for_line_do_frame,  # the |O which is not |0
             "unframe": self.from_text_do_unframe,  # |o
             #
@@ -1369,11 +1370,18 @@ class ShellBrick:
         sep = sg.sep
 
         _sep_ = "  " if (sep is None) else sep
-        splits = [str(_) for _ in posargs]
+        splits = [str(_) for _ in posargs] if posargs else ["$"]
         join = _sep_.join(splits)
 
         ilines = self.fetch_ilines()
         olines = list((_ + join) for _ in ilines)
+        self.store_olines(olines)
+
+    def for_line_do_dent(self) -> None:
+        """list((4*" " + _) for _ in list(sys.i))"""
+
+        ilines = self.fetch_ilines()
+        olines = list((4 * " " + _) for _ in ilines)
         self.store_olines(olines)
 
     def for_line_do_frame(self) -> None:
@@ -1428,7 +1436,7 @@ class ShellBrick:
         sep = sg.sep
 
         _sep_ = "  " if (sep is None) else sep
-        splits = [str(_) for _ in posargs]
+        splits = [str(_) for _ in posargs] if posargs else [4 * " "]
         join = _sep_.join(splits)
 
         ilines = self.fetch_ilines()
