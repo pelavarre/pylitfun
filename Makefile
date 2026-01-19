@@ -64,7 +64,7 @@ bin:
 	rm -fr ~/bin/pwnme
 	rm -fr ~/bin/pylitfun.py
 	:
-	cp -p sh/* ~/bin/.
+	cp -p sh/* sh/.[0-9A-Z_a-z]* ~/bin/.
 
 
 #

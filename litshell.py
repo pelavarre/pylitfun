@@ -323,7 +323,7 @@ class ShellGopher:
         assert self.writing_file is None, (self.writing_file,)
         assert self.writing_stdout is None, (self.writing_stdout,)
 
-        self.writing_file = self._compile_writing_pbcopy_()
+        self.writing_pbcopy = self._compile_writing_pbcopy_()
         self.writing_file = self._compile_writing_file_()
         self.writing_stdout = self._compile_writing_stdout_()
 
@@ -610,7 +610,7 @@ class ShellBrick:
             #
             "head": self.from_lines_head,  # |h
             "shuf": self.from_lines_shuffle,  # |pb shuffle
-            "strings": self.from_bytes_strings,  # |LC_ALL=C strings -n 4
+            "strings": self.from_bytes_textruns,  # |LC_ALL=C strings -n 4
             "tail": self.from_lines_tail,  # |t
             "tac": self.from_lines_reverse,  # |r  # |pb reverse
             # "uniq": self.from_lines_uniq,  # differs from our |u  # |LC_ALL=C uniq  # todo1:
@@ -964,25 +964,26 @@ class ShellBrick:
 
         # e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 0 stdin
 
-    def from_bytes_strings(self) -> None:
-        """strings(bytes(sys.i), min=4)"""
-
-        self.from_bytes_decode()  # silently implied, and not separately traced
+    def from_bytes_textruns(self) -> None:
+        """textruns(decode(bytes(sys.i), repl="¤"), floor=4, of="ascii")"""
 
         idata = self.fetch_bytes()
 
-        n = 4  # todo0: |strings -n 4
-        regex = (n * rb"[ -~]") + rb"[ -~]*"  # todo0: strings for all printable
+        iotext = idata.decode(errors="replace")
+
+        ReplacementCharacter = "\ufffd"  # PyPi Black rejects \uFFFD
+        repl = "¤"  # U+00A4 'Currency Sign'
+        iotext = iotext.replace(ReplacementCharacter, repl)
+
+        n = 4  # todo0: |pb strings -n 4
+        regex = (n * r"[ -~]") + r"[ -~]*"  # todo0: |pb --of=isprintable
 
         olines = list()
-        for m in re.finditer(regex, string=idata):
-            obytes = m.group(0)
-            oline = obytes.decode()
+        for m in re.finditer(regex, string=iotext):
+            oline = m.group(0)
             olines.append(oline)
 
         self.store_olines(olines)
-
-        # '|pb strings' runs with default .repl  # todo0: should there be a --repl=REPL
 
     #
     # Work from the File taken as 1 Str
@@ -1860,16 +1861,28 @@ if __name__ == "__main__":
 
 #
 
-# todo0: sh/which.py, finish up how we've begun offline
+# todo0: write pipe-bricks.md in terms of what's too fiddly without them
+# todo0: suppose you don't like how your the 'foo' in your shell goes wrong, and you fix it
+# todo0: how do you remember where you put the fix, when next you need it again, a week from now
+# todo0: well, you can put it nearby
+# todo0: like you can put it into => function .od () { echo od ...; }
+# todo0: like you can put it into 'foo.py --'
+# todo0: and you can mention it at 'foo.py'
 
-# todo0: sh/ls.py to give us --full-time at macOS
+# todo0: backup and clear out the '@" marks from my main macOS localhost clone
 
-# todo0: sh/uptime.py -- to give us --pretty by default at macOS
+#
+
+# todo0: sh/ls.py -- to give us --full-time at macOS
+
+# todo0: sh/uptime.py -- to give us --pretty at macOS
 
 # todo0: sh/screen.py --, for to say screen -r at random
 # todo0: retire byoverbs/bin/screen.py
 
 #
+
+# todo0: sh/which.py, finish up how we've begun offline
 
 # todo1: sh/cal.py --, for to say 3 months at a time
 # todo1: sh/cal.py to mention part of year
