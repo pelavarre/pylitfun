@@ -23,13 +23,13 @@ small bricks:
   + -  0 1 2 3  F L O T U  a h i n o r s t u w x  nl pb
 
 memorable bricks:
-  append bytes casefold counter decode dent enumerate expandtabs head
-  if insert join len lower lstrip max md5 min printable removeprefix
+  append bytes casefold counter decode enumerate expandtabs frame
+  head if insert join len lower lstrip max md5 min printable removeprefix
   removesuffix reverse rstrip set sha256 shuffle slice sort split str
-  strip sum tail title undent upper
+  strings strip sum tail title unframe upper
 
 alt bricks:
-  .dent .head .len .max .md5 .min .reverse .sha256 .sort .tail
+  .frame .head .len .max .md5 .min .reverse .sha256 .sort .tail
 
 examples:
   cat README.md |pb
@@ -331,7 +331,7 @@ class ShellGopher:
 
         if not verbs[1:]:
             if sys_stdin_isatty:
-                pipe_verbs.append("undent")
+                pipe_verbs.append("unframe")
 
         pipe_verbs.append("__exit__")
 
@@ -550,7 +550,7 @@ class ShellBrick:
             "float.sort": self.from_lines_number_sort,
             "float.sorted": self.from_lines_number_sort,
             #
-            ".dent": self.for_line_do_dent,
+            ".frame": self.for_line_do_frame,
             ".head": self.from_lines_head,
             ".len": self.for_line_len,
             ".max": self.from_lines_number_max,
@@ -615,7 +615,7 @@ class ShellBrick:
             #
             "F": self.from_text_casefold,  # |F for Fold
             "L": self.from_text_lower,
-            "O": self.for_line_do_dent,  # |O for Outdent
+            "O": self.for_line_do_frame,  # |O for Outdent
             "T": self.from_text_title,
             "U": self.from_text_upper,
             #
@@ -623,7 +623,7 @@ class ShellBrick:
             "h": self.from_lines_head,
             "i": self.from_text_split,
             "n": self.for_line_enumerate,
-            "o": self.from_text_do_undent,  # |o because it rounds off ← ↑ → ↓
+            "o": self.from_text_do_unframe,  # |o because it rounds off ← ↑ → ↓
             "r": self.from_lines_reverse,
             "s": self.from_lines_sort,
             "t": self.from_lines_tail,
@@ -633,8 +633,8 @@ class ShellBrick:
             #
             # Names for newer Shell Pipe Filter Bricks
             #
-            "dent": self.for_line_do_dent,  # the |O which is not |0
-            "undent": self.from_text_do_undent,  # |o
+            "frame": self.for_line_do_frame,  # the |O which is not |0
+            "unframe": self.from_text_do_unframe,  # |o
             #
         }
 
@@ -990,7 +990,7 @@ class ShellBrick:
         otext = itext.casefold()
         self.store_otext(otext)
 
-    def from_text_do_undent(self) -> None:
+    def from_text_do_unframe(self) -> None:
         """_.rstrip() for _ in textwrap.dedent(str(sys.i)).strip().splitlines()"""
 
         itext = self.fetch_itext()
@@ -1376,7 +1376,7 @@ class ShellBrick:
         olines = list((_ + join) for _ in ilines)
         self.store_olines(olines)
 
-    def for_line_do_dent(self) -> None:
+    def for_line_do_frame(self) -> None:
         """[""2*""] + list((4*" " + _ + 4*" ") for _ in list(sys.i)) + [2*""]"""
 
         verb = self.verb
