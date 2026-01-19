@@ -132,8 +132,9 @@ class ShellGopher:
     bricks: list[ShellBrick]  # Code that works over the Sponge
     sys_stdin_isatty: bool  # Dev Tty at Stdin means get Input Bytes from PasteBuffer
     sys_stdout_isatty: bool  # Dev Tty at Stdout means write Output Bytes back to PasteBuffer
-
     raw_control_chars: bool | None  # False means translate Control Chars to ? when writing to Tty
+
+    writing_pbcopy: bool | None  # Writing to PbCopy
     writing_file: bool | None  # Writing to ./0 after writing into |pbcopy
     writing_stdout: bool | None  # Writing to Stdout
 
@@ -167,8 +168,9 @@ class ShellGopher:
         self.bricks = list()
         self.sys_stdin_isatty = sys_stdin_isatty
         self.sys_stdout_isatty = sys_stdout_isatty
-
         self.raw_control_chars = None
+
+        self.writing_pbcopy = None
         self.writing_file = None
         self.writing_stdout = None
 
@@ -317,10 +319,12 @@ class ShellGopher:
 
         # Choose what to write at exit
 
+        assert self.writing_pbcopy is None, (self.writing_pbcopy,)
         assert self.writing_file is None, (self.writing_file,)
-        self.writing_file = self._compile_writing_file_()
-
         assert self.writing_stdout is None, (self.writing_stdout,)
+
+        self.writing_file = self._compile_writing_pbcopy_()
+        self.writing_file = self._compile_writing_file_()
         self.writing_stdout = self._compile_writing_stdout_()
 
         # Add implied Bricks
@@ -368,6 +372,22 @@ class ShellGopher:
 
             brick = self._compile_brick_if_(verb)
             bricks.append(brick)
+
+    def _compile_writing_pbcopy_(self) -> bool:
+        """Choose to write into PbCopy at exit, or not"""
+
+        verbs = self.verbs
+        sys_stdin_isatty = self.sys_stdin_isatty
+
+        writing_file = self._compile_writing_file_()  # todo: calculate once, not twice
+
+        writing_pbcopy = False
+        if writing_file:
+            writing_pbcopy = True
+        elif (not sys_stdin_isatty) and (not verbs[1:]):  # |pb  # without Args
+            writing_pbcopy = True
+
+        return writing_pbcopy
 
     def _compile_writing_file_(self) -> bool:
         """Choose to write into ./0 at exit, or not"""
@@ -694,9 +714,11 @@ class ShellBrick:
         """Implicitly exit the Shell Pipe"""
 
         sg = self.shell_gopher
-        sys_stdin_isatty = sg.sys_stdin_isatty
+
         sys_stdout_isatty = sg.sys_stdout_isatty
         raw_control_chars = sg.raw_control_chars
+
+        writing_pbcopy = sg.writing_pbcopy
         writing_file = sg.writing_file
         writing_stdout = sg.writing_stdout
 
@@ -705,7 +727,7 @@ class ShellBrick:
 
         fd = sys.stdout.fileno()
 
-        if writing_file or not sys_stdin_isatty:  # as if sg.writing_pbcopy
+        if writing_pbcopy:
             self.pbcopy(pdata)
 
         fdata = pdata
@@ -1838,32 +1860,34 @@ if __name__ == "__main__":
 
 #
 
-# todo0: don't trace except for -v, --verbose
-
-# todo0: sh/cal.py --, for to say 3 months at a time
-# todo0: sh/cal.py to mention part of year
-# todo0: sh/cal.py to mention how to start on Mondays or Sundays
-# todo0: sh/cal.py to prefer python3 -m calendar
+# todo0: sh/which.py, finish up how we've begun offline
 
 # todo0: sh/ls.py to give us --full-time at macOS
 
-# todo0: |sh/nl.py --, for to say |nl -pba -v0
-# todo0: default --start=0 for |pb nl because -v1 is nonnegotiable at |cat -n, can't cat -n0
-# todo0: trace |pb nl as '|nl -pba -v0', and accept the '-pba -v1' as input shline
+# todo0: sh/uptime.py -- to give us --pretty by default at macOS
 
 # todo0: sh/screen.py --, for to say screen -r at random
 # todo0: retire byoverbs/bin/screen.py
 
-# todo0: sh/uptime.py -- to give us --pretty by default at macOS
+#
+
+# todo1: sh/cal.py --, for to say 3 months at a time
+# todo1: sh/cal.py to mention part of year
+# todo1: sh/cal.py to mention how to start on Mondays or Sundays
+# todo1: sh/cal.py to prefer python3 -m calendar
+
+# todo1: |sh/nl.py --, for to say |nl -pba -v0
+# todo1: default --start=0 for |pb nl because -v1 is nonnegotiable at |cat -n, can't cat -n0
+# todo1: trace |pb nl as '|nl -pba -v0', and accept the '-pba -v1' as input shline
 
 #
 
-# todo1: |pb cut ... to |cut -c to fit width on screen but with "... " marks
-# todo1: take -c at |cut, but don't require it, but do reject -c misplaced
+# todo2: |pb cut ... to |cut -c to fit width on screen but with "... " marks
+# todo2: take -c at |cut, but don't require it, but do reject -c misplaced
 
-# todo1: |pb expandtabs 2
+# todo2: |pb expandtabs 2
 
-# todo1: default output into a 1-page pager of 9 lines - wc counts - chars set sort
+# todo2: default output into a 1-page pager of 9 lines - wc counts - chars set sort
 
 #
 
