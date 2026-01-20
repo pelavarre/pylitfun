@@ -18,7 +18,7 @@ examples:
   git.py --shfile=~/gg -w gg ggl
   : gg ... && git grep -ai -w -e gg -e ggl
   gla
-  : gla && git log --pretty=fuller --no-decorate --color-moved --author=jqdoe
+  : gla && git log --pretty=fuller --no-decorate --color-moved --numstat --author=jqdoe
 """
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -69,7 +69,7 @@ ShlinePlusByShverb = {  # sorted by key
     # 15
     "ggl": "git grep -l -ai -e ... -e ...",
     "gl": "git log --pretty=fuller --no-decorate --color-moved [...]",
-    "gla": "git log --pretty=fuller --no-decorate --color-moved --author=...",
+    "gla": "git log --pretty=fuller --no-decorate --color-moved --numstat --author=...",
     "glf": "git ls-files |grep -ai -e ... -e ...",
     "glq": "git log --oneline --no-decorate --color-moved [...]",
     "gls": "git log --pretty=fuller --no-decorate --color-moved --numstat [...]",

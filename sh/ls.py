@@ -34,6 +34,7 @@ examples:
 """
 
 # todo: sort by creation time
+# except maybe i'll end up preferring to go for date/time-created over date/time-modified when those sort orders differ
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
 
