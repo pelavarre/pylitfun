@@ -1,0 +1,25 @@
+if [ $# -eq 0 ]; then
+
+    set -xe
+    echo ssh -A -t -F /dev/null \
+        -o 'UserKnownHostsFile /dev/null' \
+        -o 'StrictHostKeyChecking no' \
+        -o 'LogLevel QUIET' "$USER@localhost"
+
+elif [ $1 =~ @  [; then
+
+    set -xe
+    echo ssh -A -t -F /dev/null \
+        -o 'UserKnownHostsFile /dev/null' \
+        -o 'StrictHostKeyChecking no' \
+        -o 'LogLevel QUIET' "@"
+
+else:
+
+    set -xe
+    echo ssh -A -t -F /dev/null \
+        -o 'UserKnownHostsFile /dev/null' \
+        -o 'StrictHostKeyChecking no' \
+        -o 'LogLevel QUIET' "$USER@$@"
+
+fi

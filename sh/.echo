@@ -1,0 +1,6 @@
+set -xe
+python3 -c '''
+import sys
+s = "\n".join(f"{i + 1}: {a!r}" for (i, a) in enumerate(sys.argv[1:]))
+print(s if s else "0")'
+'''
