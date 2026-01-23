@@ -1861,6 +1861,20 @@ if __name__ == "__main__":
 
 #
 
+# todo0: because 'python3 better than python3 -O'
+# todo0: 'better python3 than python3 -O'
+
+# todo0: confusion in having 'pb --sep=-' work while 'pb split /-/' quietly doesn't
+
+#
+
+# todo0: .jq to give full path find of each object ["top"]["branch"]["leaf"] = 'repr'
+# todo0: .jq to create each dict explicitly
+# todo0: .echo .head .uniq .sort .tail .vim .emacs .zsh .bash .ssh
+# todo0: .make copies in my ~/bin/Makefile to run it, if no ./Makefile
+
+#
+
 # todo0: write pipe-bricks.md in terms of what's too fiddly without them
 # todo0: suppose you don't like how your the 'foo' in your shell goes wrong, and you fix it
 # todo0: how do you remember where you put the fix, when next you need it again, a week from now

@@ -136,9 +136,9 @@ flake8:
 
 
 mypy:
-	PYTHONPATH="$$PWD/.." ~/.pyvenvs/mypy/bin/mypy \
-		--strict \
-			$$(ls *.py bin/*.py)
+	~/.pyvenvs/mypy/bin/mypy --strict "$$PWD"
+
+# without PYTHONPATH="$$PWD/.."
 
 
 #

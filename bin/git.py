@@ -17,8 +17,8 @@ examples:
   gg -w gg ggl
   git.py --shfile=~/gg -w gg ggl
   : gg ... && git grep -ai -w -e gg -e ggl
-  gla
-  : gla && git log --pretty=fuller --no-decorate --color-moved --numstat --author=jqdoe
+  gla -p
+  : gla && git log --pretty=fuller --no-decorate --color-moved --numstat --author=jqdoe -p
 """
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -326,8 +326,8 @@ class GitGopher:
         alt_shverb = shverb
         if shverb == "gg":  # 'git status' without args, or 'git grep' with args
             alt_shverb = "gg/n"
-            obvious_posargs = list(_ for _ in shargv[1:] if not _.startswith("-"))
-            if not obvious_posargs:
+            posargv = self.maybe_posargv_from_shargv(shargv)
+            if not posargv:
                 alt_shverb = "gg/0"
 
                 # takes 'gg --ignored --short' is a kind of 'git status', not a 'git grep -ai -e'
@@ -382,6 +382,8 @@ class GitGopher:
     ) -> tuple[str, str]:
         """Handle case where >= 1 Shell Args are required"""
 
+        posargv = self.maybe_posargv_from_shargv(shargv)
+
         assert shverb_shline_plus.endswith("..."), (shverb_shline_plus,)
         required_args_usage = f"usage: {shverb} ..."
 
@@ -405,11 +407,14 @@ class GitGopher:
             return (shline, shsuffix)
 
         if shverb_shline_plus.endswith(" --author=..."):
+            assert shverb == "gla", (shverb, shverb_shline_plus)
             shline = shverb_shline_plus.removesuffix(" --author=...")
+
             shsuffix = " ..."  # shouts out Args
-            if not shargv[1:]:
+            if not posargv:
                 shline += " " + shlex.quote(f"--author={gwho}")
-                shsuffix = ""  # shouts out (and forgives) No Pos Args (indeed No Args)
+                if not shargv[1:]:
+                    shsuffix = ""  # shouts out (and forgives) No Args
 
             assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
             return (shline, shsuffix)
@@ -441,6 +446,22 @@ class GitGopher:
         return (shline, shsuffix)
 
         # ga, gcp, gg/n, ggl, glf, grh
+
+    def maybe_posargv_from_shargv(self, shargv: tuple[str, ...]) -> tuple[str, ...]:
+        """Pick out the Args with a look of a Pos Arg, though maybe the substance of an Option"""
+
+        posargv: list[str] = list()
+
+        for index, arg in enumerate(shargv):
+            if index == 0:
+                continue
+            if arg == "--":
+                posargv.extend(shargv[(index + 1) :])
+                break
+            if not arg.startswith("-"):
+                posargv.append(arg)
+
+        return tuple(posargv)
 
     def _form_shline_optional_args_(
         self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...]
@@ -710,6 +731,8 @@ class GitGopher:
     def shargv_tweak_up(self, shverb: str, shargv: tuple[str, ...]) -> tuple[str, ...]:
         """Tune Greps to presume text, ignore case, and match >= 1 patterns"""
 
+        posargv = self.maybe_posargv_from_shargv(shargv)
+
         shline_plus_by_shverb = ShlinePlusByShverb
         shline_plus = shline_plus_by_shverb[shverb]
 
@@ -717,10 +740,20 @@ class GitGopher:
 
         if shverb in ("gla",):
             assert shline_plus.endswith(" --author=..."), (shline_plus, shverb)
-            if shargv[1:]:
-                alt_sharg1 = "--author=" + shargv[1]
+            if posargv:
+                author = posargv[0]
 
-                tweaked_shargv = shargv[:1] + (alt_sharg1,) + shargv[2:]
+                alt_sharg1 = "--author=" + author  # already unquoted
+
+                alt_shargv_1 = list()
+                for index, arg in enumerate(shargv):
+                    if index == 0:
+                        continue
+                    if arg == author:  # todo: make this remove-the-arg Code layered and elegant?
+                        continue
+                    alt_shargv_1.append(arg)
+
+                tweaked_shargv = shargv[:1] + (alt_sharg1,) + tuple(alt_shargv_1)
                 return tweaked_shargv
 
             return shargv
@@ -942,6 +975,8 @@ if __name__ == "__main__":
 
 
 _ = """  # todo's
+
+# todo: solve gla -p
 
 # todo: regenerate bin/g* from ShlinePlusByShverb
 
