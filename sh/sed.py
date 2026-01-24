@@ -16,40 +16,18 @@ examples:
   sed -i.bak 's,old,new,g' FILE ...  # edits File's in place
 
   git show --pretty= --name-only |sed "s,\",$'," |sed "s,\",'," |sed 's,^,echo ,'  # unescapes
+  pbpaste |awk '{print $NF}' |sed 's,^,-- ,' |sed 's,$, --,' |pbcopy  # f"-- {line} --" for each
 
   |sed 's,^  *,,' |sed 's,  *$,,'  # drops Space's from start and end of each line  # |pb strip
   |sed 's,  *, ,g'  # collapses each run of Space's into a single Space  # |pb split join
-  |sed "s,.*,'&',"  # encloses each line in a pair of Apostrophes  # |pb repr
+  |sed "s,.*,'&',"  # enclose each Line inside two ' Apostrophe's  # |pb repr
   |sed 's,^.*$,& = self.&,'  # replaces each Line with Itself and some Text and Itself again
 """
 
 # unescapes tested with:  touch å∫ç && git add å∫ç
 
 
-import __main__
-import textwrap
-import sys
-
-
-doc = __main__.__doc__
-assert doc, (doc,)
-
-helpdoc = textwrap.dedent(doc).strip()
-
-testdoc = doc[doc.index("examples:"):]
-testdoc = testdoc.removeprefix("examples:")
-testdoc = textwrap.dedent(testdoc).strip()
-
-if sys.argv[1:] != ["--"]:
-
-    if sys.argv[1:]:
-        print(helpdoc)
-    else:
-        print()
-        print(testdoc)
-        print()
-
-    sys.exit()
+import litnotes
 
 
 print("NotImplementedError: sed.py --", file=sys.stderr)
