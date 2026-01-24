@@ -6382,5 +6382,5 @@ if __name__ == "__main__":
 
 # 3456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/litglass.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/litglass.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

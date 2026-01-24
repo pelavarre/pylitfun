@@ -51,20 +51,11 @@ help:
 
 
 bin:
-	# @echo Press ⌃D to auth:  rm ~/bin/... of what we replace there ..
-	# @cat - >/dev/null
-	:
-	rm -fr ~/bin/pylitfun/
-	echo bin/* sh/* |(cd ~/ && xargs -n1 rm -fr)
-	:
-	mkdir -p ~/bin/pylitfun/
-	cp -ip *.py ~/bin/pylitfun/.
-	:
-	cp -p bin/* ~/bin/.
+	echo bin/* sh/* sh/.[0-9A-Z_a-z]* |(cd ~/ && xargs -n1 rm -fr)
+	cp -p bin/* sh/* sh/.[0-9A-Z_a-z]* ~/bin/.
 	rm -fr ~/bin/pwnme
-	rm -fr ~/bin/pylitfun.py
-	:
-	cp -p sh/* sh/.[0-9A-Z_a-z]* ~/bin/.
+
+# beware: the classic 'sh' can add ./ and ../ into sh/.*
 
 
 #

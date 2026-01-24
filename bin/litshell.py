@@ -2013,5 +2013,5 @@ if __name__ == "__main__":
 # todo9: drop all the unhelped verbs?
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/litshell.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/litshell.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

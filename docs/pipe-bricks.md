@@ -45,14 +45,24 @@ TERMINAL CONSOLE TRANSCRIPT
 
 QUICK INSTALL
 
-This is conventional, and it works
-
     git clone https://github.com/pelavarre/pylitfun.git
     cd pylitfun/
-    export PATH="$PATH:$PWD/bin:$PWD"
+    export PATH=$PATH:$PWD/bin
     which 0
 
-It's not the simplest lightest touch that works
+<!--
+
+You can often get by on just
+
+    git clone https://github.com/pelavarre/pylitfun.git
+    PATH=$PATH:pylitfun/bin
+    which 0
+
+But so very directly including the 'pylitfun/' step into the Path breaks, if you unthinkingly already did a conventional 'cd pylitfun/' after the 'git clone'. And leaving out the absolute $PWD would stop finding us, if next you did change the $PWD later, while experimenting. And leaving out the conventional 'export' would by definition disconnect us when you launch your next Shell. And anybody with an unset or empty Path is going to end up with the relative pathname "" as their implicit first Dir to search as soon as they run a PATH=$PATH:
+
+But our Terminal Shell's community convention has been to remind you of none of this. So here we are, speaking these extra truths only in a very soft voice, by way of this steganography
+
+-->
 
 GET IT?
 

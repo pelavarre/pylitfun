@@ -556,5 +556,5 @@ if __name__ == "__main__":
 
 # 3456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/litpython.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/litpython.py
 # copied from:  git clone https://github.com/pelavarre/litpython.git
