@@ -45,8 +45,14 @@ TERMINAL CONSOLE TRANSCRIPT
 
 QUICK INSTALL
 
+This is conventional, and it works
+
     git clone https://github.com/pelavarre/pylitfun.git
-    PATH=$PATH:pylitfun/bin
+    cd pylitfun/
+    export PATH="$PATH:$PWD/bin:$PWD"
+    which 0
+
+It's not the simplest lightest touch that works
 
 GET IT?
 

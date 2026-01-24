@@ -6051,9 +6051,11 @@ def _try_unicode_source_texts_() -> None:
     assert unicodedata.name("🟫").title() == "Large Brown Square"  # U+1F7EB  # 100 52
 
     #
-    # The Apple ⌥ Option/Alt Keys send lots of printable U+00A1 .. U+00FF
+    # The Apple ⌥ Option/Alt Keys send lots of printable U+00A1 .. U+00AC, U+00AE .. U+00FF
     #
-    #   ÀÁÂÃÄÅ Æ ÈÉÊË ÌÍÎÏ Ñ ÒÓÔÕÖ Ø ÙÚÛÜ àáâãäå æ èéêë ìíîï ñ òóôõö ùúûü ÿ
+    #   ¡ ¢ £ ¥ § ¨ © ª « ¬ ® ¯ ° ± ´ µ ¶ · ¸ º » ¿
+    #   ÀÁÂÃÄÅ Æ Ç ÈÉÊË ÌÍÎÏ Ñ ÒÓÔÕÖ Ø ÙÚÛÜ ß
+    #   àáâãäå æ ç èéêë ìíîï ñ òóôõö ÷ ø ùúûü ÿ
     #
     # but not
     #
@@ -6075,6 +6077,10 @@ def _try_unicode_source_texts_() -> None:
     #   chr(0x00F0)  # "ð"  # Latin Small Letter Eth
     #   chr(0x00FD)  # "ý"  # Latin Small Letter Y With Acute
     #   chr(0x00FE)  # "þ"  # Latin Small Letter Thorn
+    #
+    # and not
+    #
+    #   chr(0x22C5)  # "⋅"  # Dot Operator  # "⋅·" aren't two of the same Character
     #
 
     #

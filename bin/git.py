@@ -196,11 +196,13 @@ class GitGopher:
         if git_run.returncode:
             print("+ exit", git_run.returncode, file=sys.stderr)
 
-            if diff_shverb == "gcaa":
+            if tagged_shverb == "gcaa":
                 self.rescue_git_commit_message(git_run.returncode)
 
         if not git_run.returncode:
-            if diff_shverb == "gf":
+            if tagged_shverb == "gf":
+                if tagged_shline.endswith(" --quiet"):
+                    print("# did you want quiet, or did you mean:  gf --", file=sys.stderr)
                 print("# next:  git rebase", file=sys.stderr)
 
         # Exit happy or sad, same as the Shell
@@ -701,10 +703,10 @@ class GitGopher:
 
             if gdno_run_stdout:
 
-                gdiff_shverb = "gdno"
-                gdiff_shline = gdno_shline
+                diff_shverb = "gdno"
+                diff_shline = gdno_shline
 
-                return (gdiff_shverb, gdiff_shline)
+                return (diff_shverb, diff_shline)  # this 'gno' is 'gdno'
 
             return ("gspno", gspno_shline)  # this 'gno' is 'gspno'
 
@@ -714,13 +716,21 @@ class GitGopher:
         assert shline == "git commit --all -m wip", (shline,)
 
         if not gdno_run_stdout:
-            return (shverb, shline)  # no change
+
+            diff_shverb = shverb
+            diff_shline = shline
+
+            return (shverb, shline)  # this 'gcam' learned nothing from 'gdno'
 
         pathnames = gdno_run_stdout.decode().splitlines()
         message = "wip - " + " ".join(pathnames)
 
         gcam_shline_plus = "git commit --all -m " + repr(message)
-        return ("gcam", gcam_shline_plus)  # this 'gcam' knows its 'gdno'
+
+        diff_shverb = shverb
+        diff_shline = gcam_shline_plus
+
+        return (shverb, shline)  # this 'gcam' knows its 'gdno'
 
         # todo: run .gdno_shline at most once per Process
 
@@ -976,11 +986,11 @@ if __name__ == "__main__":
 
 _ = """  # todo's
 
-# todo: solve gla -p
+# todo: give up on trying to keep the lit*.py at bin/../ and at ~/bin/pylitfun/
+
+# todo: steal the first pos arg, to stop making callers learn --shfile=
 
 # todo: regenerate bin/g* from ShlinePlusByShverb
-
-# todo: help rediscover 'gf --' is our not '--quiet' form
 
 # todo: measure latency added by calling these aliases in place of an explicit whole shline
 
