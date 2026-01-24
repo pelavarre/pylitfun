@@ -1,0 +1,3 @@
+# vgno = Run Vim on the Files in $(gno) Focus at Git
+
+vim $(gno) "$@"

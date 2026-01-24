@@ -1,0 +1,4 @@
+# emacs = Find the Homebrew Emacs and run it
+
+set -xe
+/opt/homebrew/bin/emacs "$@"

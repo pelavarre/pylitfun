@@ -1,0 +1,3 @@
+# egno = Run Emacs on the Files in $(gno) Focus at Git, and with less Spam
+
+/opt/homebrew/bin/emacs --no-splash -nw --eval '(menu-bar-mode -1)' $(gno) "$@"

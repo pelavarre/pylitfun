@@ -26,11 +26,11 @@ options:
   -d      show the directory itself, not its contents
 
 examples:
-  ls.py --
-  ls.py ~
-  ls.py ~ ~
-  TZ=Europe/London ls.py --
-  TZ=America/Los_Angeles ls.py --
+  ls.py --  # ls -hlAF --full-time -rt
+  ls.py ~  # ls -hlAF --full-time -rt ~
+  ls.py / ~  # ls -hlAF --full-time -rt -d / -d ~
+  TZ=Europe/London ls.py --  # TZ=Europe/London ls -hlAF --full-time -rt
+  TZ=America/Los_Angeles ls.py --  # TZ=America/Los_Angeles ls -hlAF --full-time -rt
 """
 
 # todo: sort by creation time
@@ -40,6 +40,8 @@ examples:
 
 
 import subprocess
+
+import litnotes
 
 
 #

@@ -140,7 +140,7 @@ We put these into our bin/ Folder as Shell Scripts named by single letters
     b is for env -i PS1='bash \$ ' bash --noprofile --norc
     c
     d is for diff -brpu a b
-    e is for emacs -nw --no-splash --eval '(menu-bar-mode -1)', or emacs ... -Q
+    e is for emacs --no-splash -nw --eval '(menu-bar-mode -1)', or emacs -Q ...
 
     f is for find .
     g is for git.py, but |g is for grep.py

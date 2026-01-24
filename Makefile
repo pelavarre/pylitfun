@@ -51,11 +51,12 @@ help:
 
 
 bin:
-	echo bin/* sh/* sh/.[0-9A-Z_a-z]* |(cd ~/ && xargs -n1 rm -fr)
-	cp -p bin/* sh/* sh/.[0-9A-Z_a-z]* ~/bin/.
+	echo bin/[0-9A-Za-z]* sh/[0-9A-Za-z]* sh/_ sh/.[0-9A-Za-z]* |(cd ~/ && xargs -n1 rm -fr)
+	cp -p bin/[0-9A-Za-z]* sh/[0-9A-Za-z]* sh/_ sh/.[0-9A-Za-z]* ~/bin/.
 	rm -fr ~/bin/pwnme
 
 # beware: the classic 'sh' can add ./ and ../ into sh/.*
+# beware: the classic bin/* or sh/* can include a bin/__init__.py or sh/__init__.py
 
 
 #

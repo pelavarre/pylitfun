@@ -27,10 +27,12 @@ examples:
 # unescapes tested with:  touch å∫ç && git add å∫ç
 
 
+import sys
+
 import litnotes
 
 
-print("NotImplementedError: sed.py --", file=sys.stderr)
+print("NotImplementedError: sed.py ...", file=sys.stderr)
 sys.exit(2)
 
 

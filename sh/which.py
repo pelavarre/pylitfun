@@ -21,6 +21,8 @@ import collections
 import os
 import pathlib
 
+import litnotes
+
 
 #
 # Run from the Shell Command Line
