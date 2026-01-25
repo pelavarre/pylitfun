@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-usage: emacs.py [-h] [-Q] [-q] [--no-splash] [-nw] [--script PROFILE] [--eval COMMAND]
+usage: emacs.py [-Q] [-q] [--no-splash] [-nw] [--script PROFILE] [--eval COMMAND]
                 [FILE ...]
 
 read files, accept edits, write files, in the way of classic Gnu Emacs
@@ -10,7 +10,6 @@ positional arguments:
   FILE                     a file to edit (default: None)
 
 options:
-  -h, --help               show this help message and exit
   -Q, --quick              run as if --no-init-file --no-splash etc
   -q, --no-init-file       don't default to run '~/.emacs' after args
   --no-splash              start with an empty file, not a file of help

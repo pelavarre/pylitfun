@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 """
-usage: sed.py [--h] ...
+usage: sed.py ...
 
 copy to output from input, without much buffer, and edit it all on the fly
 
 options:
-  --help  show this help message and exit
+  -i EXT  add or replace backup copies of the Files edited in place
 
 quirks:
   speaks of Stream EDit as S E D

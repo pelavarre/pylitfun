@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
 """
-usage: vim.py [--help] [-u PROFILE]
+usage: vim.py [-u PROFILE]
 
 read files, accept edits, write files, in the way of classic Vim
 
 options:
-  -h, --help  show this help message and exit
   -u VIMRC    edit after running a file before args (default: ~/.vimrc)
 
 quirks:

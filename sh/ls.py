@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 """
-usage: ls.py [--help] [-h] [-l] [-A] [-F] [-r] [-t] [-d] [PATHNAME ...]
+usage: ls.py [-h] [-l] [-A] [-F] [-r] [-t] [-d] [PATHNAME ...]
 
 call 'ls', but default to -hlAF -rt for one Arg, and -d for more, and ask for --full-time
 
 positional arguments:
-  PATHNAME     a brick of the shell pipe
+  PATHNAME     a relative or absolute Pathname of a Folder or File or Device or whatever
 
 quirks:
   gives you -hlAF -rt --full-time results, no matter what you ask for, like even at:  ls.py --
@@ -16,7 +16,6 @@ quirks:
   calls 'ls -lAF -rt' to do most of the work, then finishes the work
 
 options:
-  --help  show this help message and exit
   -h      give byte counts as quick metric round, not exact
   -l      long lines of permissions, hardlinks, owner, group, size, full-time, and pathname
   -A      don't show . and .., do show the rest, evem when hidden by name starts with '.' Dot

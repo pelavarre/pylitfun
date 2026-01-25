@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 
 r"""
-usage: screen.py [-h]
+usage: screen.py [-rr] [-ls] [HINT]
 
-reconnect with the only detached session, else with one detached session chosen at random
+reconnect with one Screen Session
 
 options:
-  -h, --help     show this help message and exit
+  -rr     reconnect with one Screen Session
+  -ls     list the Screen Sessions from most to least recently created (except unreliable at Linux?)
 
-quirks same as classic:
+quirks:
   steals ⌃A away, burying the work of ⌃A at ⌃A A
-  appends more lines into the -L -Logfile $T.screen, doesn't start over
-  defaults to flush faster than 'script $T.screen' does
+  appends more lines into the "logfile $T.screen", doesn't start over
+  flushes often only when told "logfile flush 0"
 
 quirks better than classic:
   starts by showing the disconnected & connected Screen Sessions
@@ -38,12 +39,14 @@ examples:
   screen -ls |sort -n  # sort by Process Id, thus often by Date Added
   screen -X hardcopy -h ~/s1.screenlog  # post-mortem call for a Screen Session Log
 
-  PID=$(screen -ls |awk -F'\t' '(NF > 1){print $2}' |cut -d. -f1 |sort -n |tail -1)
+  HEAD_PID=$(screen -ls |awk -F'\t' '(NF > 1){print $2}' |cut -d. -f1 |head -1)
+  MAX_PID=$(screen -ls |awk -F'\t' '(NF > 1){print $2}' |cut -d. -f1 |sort -n |tail -1)
+  screen -r $MAX_PID
 
   T=$(echo alfa) \
     && echo "logfile $T.screen" >$T.cfg \
     && echo "logfile flush 0" >>$T.cfg \
-    && T=$T screen -S $T -L -c $T.cfg  # for real-time log into a chosen Pathname
+    && T=$T screen -S $T -L -c $T.cfg  # for to make a real-time $T.screen log file
 """
 
 # ⌃B D to disconnect Shell TMux, a la ⌃A D for Shell Screen
@@ -65,27 +68,16 @@ import re
 import shlex
 import subprocess
 import sys
-import textwrap
+
+import litnotes
 
 
 def main() -> None:
     """Run from the Shell Command Line"""
 
-    doc = __main__.__doc__
-    assert doc, (doc,)
-
-    graf = doc[doc.index("examples:") :]
-    testdoc = textwrap.dedent("\n".join(graf.splitlines()[1:])).strip()
-
-    if not sys.argv[1:]:
-        print()
-        print(testdoc)
-        print()
-        sys.exit()
-
-    if sys.argv[1:] != ["--"]:
-        print(doc.strip())
-        sys.exit()
+    if sys.argv[1:] not in (["--"],):
+        print("usage: screen.py [--help]", file=sys.stderr)
+        sys.exit(2)  # exits 2 for bad Args
 
     screen_reconnect()
 
@@ -201,11 +193,7 @@ def scrape_reconnect_shlines_from_body(lines: list[str]) -> list[str]:
 
                 if body_lines[1:]:
                     print()
-                    sys_platform = sys.platform
-                    if sys_platform == "darwin":
-                        print("sorted from least to most recently created is")
-                    else:
-                        print("sorted from most to least recently detached or attached is")
+                    print("sorted from most to least recently created is")
 
             sessionpath = splits[1]
 

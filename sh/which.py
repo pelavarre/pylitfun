@@ -6,7 +6,7 @@ usage: which.py [-h] [-a] [PATTERN ...]
 search the Shell $PATH so as to sum up what's found in there, here and now
 
 positional arguments:
-  PATTERN     a brick of the shell pipe
+  PATTERN     a Python Regular Expression to say which Verbs to show
 
 options:
   -h, --help  show this help message and exit
