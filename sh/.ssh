@@ -3,23 +3,23 @@
 if [ $# -eq 0 ]; then
 
     set -xe
-    echo ssh -A -t -F /dev/null \
+    ssh -A -t -F /dev/null \
         -o 'UserKnownHostsFile /dev/null' \
         -o 'StrictHostKeyChecking no' \
         -o 'LogLevel QUIET' "$USER@localhost"
 
-elif [ $1 =~ @  [; then
+elif [[ "$1" =~ @ ]]; then
 
     set -xe
-    echo ssh -A -t -F /dev/null \
+    ssh -A -t -F /dev/null \
         -o 'UserKnownHostsFile /dev/null' \
         -o 'StrictHostKeyChecking no' \
-        -o 'LogLevel QUIET' "@"
+        -o 'LogLevel QUIET' "$@"
 
-else:
+else
 
     set -xe
-    echo ssh -A -t -F /dev/null \
+    ssh -A -t -F /dev/null \
         -o 'UserKnownHostsFile /dev/null' \
         -o 'StrictHostKeyChecking no' \
         -o 'LogLevel QUIET' "$USER@$@"
