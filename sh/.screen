@@ -4,19 +4,27 @@ echo + screen -ls >&2
 SCREEN_LS=$(screen -ls)
 echo "$SCREEN_LS"
 
-TAIL_PID=$(echo "$SCREEN_LS" |awk -F'\t' '(NF > 1){print $2}' |cut -d. -f1 |tail -1)
-
-MAX_PID=$(echo "$SCREEN_LS" |awk -F'\t' '(NF > 1){print $2}' |cut -d. -f1 |sort -n |tail -1)
-
 if [ $# -ne 0 ]; then
+
     set -xe
-    screen -r "$@"
-elif [ "$MAX_PID" == "" ]; then
+    screen -rr "$@"
+
+elif [ "$(uname)" != "Darwin" ]; then
+
     set -xe
-    screen -r
-elif [ "$TAIL_PID" == "$MAX_PID" ]; then
-    set -xe
-    screen -r "$MAX_PID"
+    screen -rr
+
 else
-    echo do you mean: '' screen -r "$MAX_PID"
+    MAX_PID=$(echo "$SCREEN_LS" |awk -F'\t' '(NF > 1){print $2}' |cut -d. -f1 |sort -n |tail -1)
+    if [ "$MAX_PID" == "" ]; then
+
+        set -xe
+        screen -rr
+
+    else
+
+        set -xe
+        screen -r "$MAX_PID"
+
+    fi
 fi
