@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""
+r"""
 usage: screen.py [-h]
 
 reconnect with the only detached session, else with one detached session chosen at random
@@ -33,10 +33,17 @@ more easter eggs, same as classic:
   ⌃A ⇧X to Close Pane
 
 examples:
+
   screen.py --  # for to call 'screen -r' for you on one Screen Session
-  T=session-name && T=$T screen -S $T -L  # macOS Apple Screen can't -Logfile $T.screen
-  T=session-name && T=$T screen -S $T -L -Logfile $T.screen  # Linux can -Logfile
-  screen -X hardcopy -h ~/s1.screenlog
+  screen -ls |sort -n  # sort by Process Id, thus often by Date Added
+  screen -X hardcopy -h ~/s1.screenlog  # post-mortem call for a Screen Session Log
+
+  PID=$(screen -ls |awk -F'\t' '(NF > 1){print $2}' |cut -d. -f1 |sort -n |tail -1)
+
+  T=$(echo alfa) \
+    && echo "logfile $T.screen" >$T.cfg \
+    && echo "logfile flush 0" >>$T.cfg \
+    && T=$T screen -S $T -L -c $T.cfg  # for real-time log into a chosen Pathname
 """
 
 # ⌃B D to disconnect Shell TMux, a la ⌃A D for Shell Screen
@@ -198,7 +205,7 @@ def scrape_reconnect_shlines_from_body(lines: list[str]) -> list[str]:
                     if sys_platform == "darwin":
                         print("sorted from least to most recently created is")
                     else:
-                        print("sorted from least to most recently detached or attached is")
+                        print("sorted from most to least recently detached or attached is")
 
             sessionpath = splits[1]
 

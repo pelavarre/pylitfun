@@ -1,3 +1,5 @@
+# Call Ssh with lots less Local Reconfiguration
+
 if [ $# -eq 0 ]; then
 
     set -xe

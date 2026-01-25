@@ -1,4 +1,4 @@
-# .emacs = Run Homebrew Emacs, like on an Empty Buffer, and with less Spam
+# .emacs = Run Homebrew Emacs with the -Q kind of lots less Local Reconfiguration
 
 # sh/.emacs is same Basename different Pathname vs the ~/.emacs that is the ~/.vimrc of Emacs
 

@@ -173,6 +173,12 @@ class GitGopher:
 
         run_shargv = shlex.split(authed) + list(diff_shargv[1:])
 
+        # Mention what might should run instead
+
+        if diff_shverb == "gl":
+            if not shfile_shargv[1:]:
+                print("# you got 'gl -1'  # did you mean:  gl --", file=sys.stderr)
+
         # Loudly promise to call the Shell now
 
         taggable_shline = taggable + " " + " ".join(shlex_quote_calmly(_) for _ in diff_shargv[1:])
@@ -183,7 +189,7 @@ class GitGopher:
 
         print(tagged_shline, file=sys.stderr)  # prints its ":", not after a "+" or "|"
 
-        # Call the Shell now
+        # Call the Shell now, and talk up the Results
 
         if shell:
             git_run = subprocess.run(run_shline, shell=True)

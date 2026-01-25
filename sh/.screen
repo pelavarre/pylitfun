@@ -1,0 +1,16 @@
+# .screen = reconnect one Screen Session, usually the latest
+
+HEAD_PID=$(screen -ls |awk -F'\t' '(NF > 1){print $2}' |cut -d. -f1 |head -1)
+
+MAX_PID=$(screen -ls |awk -F'\t' '(NF > 1){print $2}' |cut -d. -f1 |sort -n |tail -1)
+
+if [ "$MAX_PID" == "" ]; then
+    set -xe
+    screen -r
+elif [ "$HEAD_PID" == "$MAX_PID" ]; then
+    set -xe
+    screen -r "$MAX_PID"
+else
+    set -xe
+    echo do you mean: '' screen -r "$MAX_PID"
+fi

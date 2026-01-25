@@ -1,6 +1,15 @@
-set -xe
+# .echo = show each of the Shell sys.argv[1:] as one accurate line of Py Repr
+
+echo "+ python3 -c ''' ..." >&2
+
 python3 -c '''
+
 import sys
-s = "\n".join(f"{i + 1}: {a!r}" for (i, a) in enumerate(sys.argv[1:]))
-print(s if s else "0")'
-'''
+
+for (i, a) in enumerate(sys.argv[1:]):
+    print(f"{i + 1}: {a!r}")  # 1: "Hello, ArgV World!"
+
+if not sys.argv[1:]:
+    print(len(sys.argv[1:]))  # "0"
+
+''' "$@"
