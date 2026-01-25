@@ -5860,7 +5860,7 @@ def _chop_nonnegative_(f: float) -> str:
 
     diff = f - float_lit
     precision = 10 ** (eng - 3 + span)
-    assert diff < precision, (f, sci, mag, triple, eng, span, dotted, lit, diff, precision)
+    assert diff <= precision, (diff, precision, f, sci, mag, triple, eng, span, dotted, lit)
 
     return lit
 
