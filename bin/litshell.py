@@ -94,7 +94,7 @@ import sys  # doesn't limit launch to >= Oct/2020 Python 3.9
 import textwrap
 
 if not __debug__:
-    raise NotImplementedError([__debug__])  # because 'python3 better than python3 -O'
+    raise NotImplementedError([__debug__])  # 'better python3 than python3 -O'
 
 
 assert int(0x80 + signal.SIGINT) == 130
@@ -1861,9 +1861,6 @@ if __name__ == "__main__":
 
 #
 
-# todo0: because 'python3 better than python3 -O'
-# todo0: 'better python3 than python3 -O'
-
 # todo0: confusion in having 'pb --sep=-' work while 'pb split /-/' quietly doesn't
 
 #
@@ -1883,16 +1880,11 @@ if __name__ == "__main__":
 # todo0: like you can put it into 'foo.py --'
 # todo0: and you can mention it at 'foo.py'
 
-# todo0: backup and clear out the '@" marks from my main macOS localhost clone
+# todo0: repro and explain '@' marks on 'ls -l' permissions of tracked Files in local Git Clone
 
 #
 
-# todo0: sh/ls.py -- to give us --full-time at macOS
-
-# todo0: sh/uptime.py -- to give us --pretty at macOS
-
-# todo0: sh/screen.py --, for to say screen -r at random
-# todo0: retire byoverbs/bin/screen.py
+# todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
 
 #
 

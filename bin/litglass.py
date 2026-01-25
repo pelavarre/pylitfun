@@ -85,7 +85,7 @@ import unicodedata  # of a .unicodedata.unidata_version for friends of 웃 襾 �
 _: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
 
 if not __debug__:
-    raise NotImplementedError([__debug__])  # because 'python3 better than python3 -O'
+    raise NotImplementedError([__debug__])  # 'better python3 than python3 -O'
 
 
 ImportStamp = dt.datetime.now().astimezone()
