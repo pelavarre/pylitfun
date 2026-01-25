@@ -8,15 +8,24 @@ if [ $# -ne 0 ]; then
 else
 
     echo + screen -ls >&2
-    SCREEN_LS=$(screen -ls)
+    SCREEN_LS=$(screen -ls |tr -d '\r')
+
+    SESSIONS=$(echo "$SCREEN_LS" |awk -F'\t' '(NF > 1)')
+    I=$(echo "$SESSIONS" |awk NF |wc -l |awk '{print $1}')
+
+    CHOICES=$(echo "$SESSIONS" |grep -v Attached.$ |awk -F'\t' '{print $2}')
+    J=$(echo "$CHOICES" |awk NF |wc -l |awk '{print $1}')
+
+    MAX_PID=$(echo "$CHOICES" |cut -d. -f1 |awk '{print $1}' |sort -n |tail -1)
 
     if [ "$(uname)" != "Darwin" ]; then
 
-        N=$(echo "$SCREEN_LS" |awk -F'\t' '(NF > 1){print $2}' |wc -l |sed 's,^  *,,')
-        if [ "$N" == "0" ]; then
-            echo "$SCREEN_LS" |tr -d '\r' |'grep' .
-        elif [ "$N" == "1" ]; then
-            echo "$SCREEN_LS" |tr -d '\r' |'grep' .
+        if [ "$I" == "0" ]; then
+            echo "$SCREEN_LS"
+        elif [ "$J" == "1" ]; then
+            echo "$SCREEN_LS"
+        else
+            echo ...
         fi
 
         set -xe
@@ -24,9 +33,13 @@ else
 
     else
 
-        echo "$SCREEN_LS" |tr -d '\r' |'grep' .
-
-        MAX_PID=$(echo "$SCREEN_LS" |awk -F'\t' '(NF > 1){print $2}' |cut -d. -f1 |sort -n |tail -1)
+        if [ "$I" == "0" ]; then
+            echo "$SCREEN_LS"
+        elif [ "$J" == "0" ]; then
+            echo ...
+        else
+            echo "$SCREEN_LS"
+        fi
 
         if [ "$MAX_PID" == "" ]; then
 
