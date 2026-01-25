@@ -85,12 +85,12 @@ class OsWalker:
     headlines: list[str] = list()  # the 0 or 1 Head Lines
 
     permissions: list[str] = list()  # ['-rw-r--r--', '-rw-r--r--@', 'drwxr-xr-x', etc ]
-    hardlinks: list[int] = list()
-    owners: list[str] = list()
-    groups: list[str] = list()
-    bytecounts: list[int] = list()
-    stamps: list[tuple[str, str, str]] = list()
-    pathnames: list[str] = list()  # todo: report in common, extra, missing
+    hardlinks: list[int] = list()  # 1
+    owners: list[str] = list()  # ['jqdoe']
+    groups: list[str] = list()  # ['jqdoe']
+    bytecounts: list[int] = list()  # 0
+    stamps: list[tuple[str, str, str]] = list()  # ['Jan', '25', '08:21']
+    pathname_plus_list: list[str] = list()  # ['folder/', 'file', 'symlink@']
 
     bytechops: list[str] = list()  # the 0 or more Chopped Bytecounts
     fulltimes: list[str] = list()  # the 0 or more Full Times
@@ -177,7 +177,7 @@ class OsWalker:
         groups = self.groups
         bytecounts = self.bytecounts
         stamps = self.stamps
-        pathnames = self.pathnames
+        pathname_plus_list = self.pathname_plus_list
 
         maxsplit = 8
         assert len("permission hardlink owner group bytecount stamp stamp stamp".split()) == 8
@@ -197,7 +197,7 @@ class OsWalker:
 
                 continue
 
-            # Else take up a Pathname
+            # Add to Columns
 
             assert len(splits) > maxsplit, (len(splits), maxsplit, splits, line)
 
@@ -211,7 +211,8 @@ class OsWalker:
             stamp = (s0, s1, s2)
             stamps.append(stamp)
 
-            pathnames.append(splits[8])
+            pathname_plus = splits[8]
+            pathname_plus_list.append(pathname_plus)
 
     def count_bytes(self) -> None:
         """Count bytes in the output"""
@@ -226,12 +227,17 @@ class OsWalker:
     def stamp_date_time(self) -> None:
         """Stamp date and time"""
 
-        pathnames = self.pathnames
+        tops = self.tops
+
+        pathname_plus_list = self.pathname_plus_list
         fulltimes = self.fulltimes
 
-        for pathname in pathnames:
-            path = pathlib.Path(pathname)
+        for pathname_plus in pathname_plus_list:
+            pathname = self.to_pathname_guess_from_plus(pathname_plus)
+            if len(tops) == 1:
+                pathname = os.path.join(tops[0], pathname)
 
+            path = pathlib.Path(pathname)
             stat = path.stat()
 
             mtime_ns = stat.st_mtime_ns  # todo: .st_ctime for -c, and/or by default
@@ -247,6 +253,19 @@ class OsWalker:
 
             # todo: compare with the .stamps
 
+    def to_pathname_guess_from_plus(self, pathname_plus: str) -> str:
+        """Guess the Pathname from the Pathname Plus"""
+
+        marks = "%*/=@|" if (sys.platform == "darwin") else "*/=>@|"
+
+        suffix = pathname_plus[-1]
+
+        pathname = pathname_plus
+        if suffix in marks:
+            pathname = pathname_plus.removesuffix(suffix)
+
+        return pathname
+
     def print_table(self) -> None:
         """Print the formatted table"""
 
@@ -256,11 +275,11 @@ class OsWalker:
         groups = self.groups
         bytechops = self.bytechops
         fulltimes = self.fulltimes
-        pathnames = self.pathnames
+        pathname_plus_list = self.pathname_plus_list
 
         # Left-justify the Str's and right-justify the Int's
 
-        columns: tuple[list[str] | list[int], ...] = (permissions, hardlinks, owners, groups, bytechops, fulltimes, pathnames)
+        columns: tuple[list[str] | list[int], ...] = (permissions, hardlinks, owners, groups, bytechops, fulltimes, pathname_plus_list)
 
         str_columns = list(list(str(_) for _ in column) for column in columns)
         for column, str_column in zip(columns, str_columns):
