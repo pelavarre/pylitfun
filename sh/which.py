@@ -3,7 +3,7 @@
 """
 usage: which.py [-h] [-a] [PATTERN ...]
 
-search the Shell $PATH so as to sum up what's found in there, here and now
+search out and sum up what's found in the Shell $PATH now
 
 positional arguments:
   PATTERN     a Python Regular Expression to say which Verbs to show
@@ -13,13 +13,15 @@ options:
   -a, --all   explicitly ask to show more than one match, in the tradition of 'which -a'
 
 examples:
-  which.py --
+  which.py --  # show the 'which -a' of every Shell Verb
+  which.py python  # show the 'which -a' of every form of a Python Shell Verb
 """
 
 
 import collections
 import os
 import pathlib
+
 
 import litnotes
 
@@ -111,10 +113,6 @@ class ShellPath:
 
         for index, pathname in enumerate(pathnames):
 
-            cells: list[int | str] = list()
-            cells.append(index)
-            cells.append(pathname)
-
             realname = realname_by_pathname[pathname]
             is_dir = is_dir_by_realname[realname]
             verbs = verbs_by_realname[realname]
@@ -122,6 +120,16 @@ class ShellPath:
             sorted_verbs = sorted(verbs)
             assert sorted_verbs == sorted(set(sorted_verbs))
 
+            cells: list[str | int] = list()
+            cells.append(index)
+
+            if not is_dir:
+                assert sorted_verbs == list(), (sorted_verbs,)
+                cells.append("-")
+            else:
+                cells.append(len(sorted_verbs))
+
+            cells.append(pathname)
             if realname != pathname:
                 cells.append(realname)
 
@@ -130,9 +138,8 @@ class ShellPath:
             elif not is_dir:
                 cells.append("# isn't dir")
             elif not sorted_verbs:
-                cells.append("# adds no verbs")
+                pass
             else:
-                cells.append(len(sorted_verbs))
                 if len(sorted_verbs) == 1:
                     cells.append(sorted_verbs[0])
                 elif len(sorted_verbs) == 2:
@@ -145,6 +152,12 @@ class ShellPath:
 
             join = "\t".join(str(_) for _ in cells)
             print(join)  # todo0: join with " \t" when "\t" means " "?
+
+            # todo: show the ~/... folders as such
+
+            # todo: show groups of verbs - initial Upper, initial Lower, other
+
+            # todo: show common suffix at left as '/...'
 
     def print_files(self) -> None:
         ...
