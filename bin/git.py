@@ -681,7 +681,7 @@ class GitGopher:
         if shverb == "gno":
             assert shline == "git diff/show --pretty= --name-only", (shline,)
             if tweaked_shargv[1:]:
-                return ("gspno", gspno_shline)  # this 'gno' is 'gspno'
+                return ("gspno", gspno_shline)  # 'gno' with Args/Opts is 'gspno'
 
         # Try Git Diff once, and complain & exit nonzero if it fails
 
@@ -702,17 +702,13 @@ class GitGopher:
 
         gdno_run_stdout = gdno_run.stdout
 
-        # Plan for 'gno' to sum up the Git Diff if truthy, else to sum up the Git Show
+        # Tell 'gno' to sum the Git Diff if truthy, else say to sum the Git Show
 
         if shverb == "gno":
             assert shline == "git diff/show --pretty= --name-only", (shline,)
 
             if gdno_run_stdout:
-
-                diff_shverb = "gdno"
-                diff_shline = gdno_shline
-
-                return (diff_shverb, diff_shline)  # this 'gno' is 'gdno'
+                return ("gdno", gdno_shline)  # this 'gno' is 'gdno'
 
             return ("gspno", gspno_shline)  # this 'gno' is 'gspno'
 
@@ -722,21 +718,16 @@ class GitGopher:
         assert shline == "git commit --all -m wip", (shline,)
 
         if not gdno_run_stdout:
-
-            diff_shverb = shverb
-            diff_shline = shline
-
             return (shverb, shline)  # this 'gcam' learned nothing from 'gdno'
+
+            # todo: gcam should pick up new Added Files into the wip
 
         pathnames = gdno_run_stdout.decode().splitlines()
         message = "wip - " + " ".join(pathnames)
 
         gcam_shline_plus = "git commit --all -m " + repr(message)
 
-        diff_shverb = shverb
-        diff_shline = gcam_shline_plus
-
-        return (shverb, shline)  # this 'gcam' knows its 'gdno'
+        return ("gcam", gcam_shline_plus)  # this 'gcam' knows its 'gdno'
 
         # todo: run .gdno_shline at most once per Process
 
