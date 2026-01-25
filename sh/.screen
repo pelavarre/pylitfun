@@ -1,30 +1,43 @@
-# .screen = reconnect with the youngest Screen Session
-
-echo + screen -ls >&2
-SCREEN_LS=$(screen -ls)
-echo "$SCREEN_LS"
+# .screen = reconnect with the youngest Screen Session, after showing the Session Names
 
 if [ $# -ne 0 ]; then
 
     set -xe
     screen -rr "$@"
 
-elif [ "$(uname)" != "Darwin" ]; then
-
-    set -xe
-    screen -rr
-
 else
-    MAX_PID=$(echo "$SCREEN_LS" |awk -F'\t' '(NF > 1){print $2}' |cut -d. -f1 |sort -n |tail -1)
-    if [ "$MAX_PID" == "" ]; then
+
+    echo + screen -ls >&2
+    SCREEN_LS=$(screen -ls)
+
+    if [ "$(uname)" != "Darwin" ]; then
+
+        N=$(echo "$SCREEN_LS" |awk -F'\t' '(NF > 1){print $2}' |wc -l |sed 's,^  *,,')
+        if [ "$N" == "0" ]; then
+            echo "$SCREEN_LS" |tr -d '\r' |'grep' .
+        elif [ "$N" == "1" ]; then
+            echo "$SCREEN_LS" |tr -d '\r' |'grep' .
+        fi
 
         set -xe
         screen -rr
 
     else
 
-        set -xe
-        screen -r "$MAX_PID"
+        echo "$SCREEN_LS" |tr -d '\r' |'grep' .
 
+        MAX_PID=$(echo "$SCREEN_LS" |awk -F'\t' '(NF > 1){print $2}' |cut -d. -f1 |sort -n |tail -1)
+
+        if [ "$MAX_PID" == "" ]; then
+
+            set -xe
+            screen -rr
+
+        else
+
+            set -xe
+            screen -rr "$MAX_PID"
+
+        fi
     fi
 fi
