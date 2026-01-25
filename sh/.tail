@@ -1,0 +1,4 @@
+# Call '|tail' but fill Screen a la '|less -FIRX'
+
+set -xe
+tail -$((LINES - 2))

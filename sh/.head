@@ -1,0 +1,5 @@
+# Call '|head' but fill Screen a la '|less -FIRX'
+
+set -xe
+head -$((LINES - 2))
+

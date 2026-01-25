@@ -1,0 +1,4 @@
+# Call '|sort' but duck out of messy pre-UTF-8 legacy at macOS
+
+set -xe
+LC_ALL=C sort "$@"

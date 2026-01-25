@@ -1861,13 +1861,15 @@ if __name__ == "__main__":
 
 #
 
+# todo0: sh/which.py, finish up how we've begun offline
+
 # todo0: confusion in having 'pb --sep=-' work while 'pb split /-/' quietly doesn't
 
 #
 
 # todo0: .jq to give full path find of each object ["top"]["branch"]["leaf"] = 'repr'
 # todo0: .jq to create each dict explicitly
-# todo0: .echo .head .uniq .sort .tail .vim .emacs .zsh .bash .ssh
+# todo0: .head .uniq .sort .tail
 # todo0: .make copies in my ~/bin/Makefile to run it, if no ./Makefile
 
 #
@@ -1887,8 +1889,6 @@ if __name__ == "__main__":
 # todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
 
 #
-
-# todo0: sh/which.py, finish up how we've begun offline
 
 # todo1: sh/cal.py --, for to say 3 months at a time
 # todo1: sh/cal.py to mention part of year
