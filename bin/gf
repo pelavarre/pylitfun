@@ -1,3 +1,4 @@
 #!/bin/sh
-# : gf && git fetch --prune --prune-tags --force  # --quiet
+# : gf && date && date -u && time git fetch --prune --prune-tags --force
+# often --quiet
 g.py "$0" "$@"

@@ -1,3 +1,3 @@
 #!/bin/sh
-# : glq && git log --oneline --no-decorate [...]
+# : glq && git log --oneline --no-decorate --color-moved [...]
 g.py "$0" "$@"

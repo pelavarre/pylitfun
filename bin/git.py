@@ -236,39 +236,59 @@ class GitGopher:
 
         shline_plus_by_shverb = ShlinePlusByShverb
 
-        gg_framed_text = f"""
-
-            #!/bin/sh
-            # {shline_plus_by_shverb["gg/0"]}
-            # {shline_plus_by_shverb["gg/n"]}
-            g.py --shfile="$0" "$@"
-
+        extra_gla_shline_str = """
+            git log --pretty=fuller --no-decorate --color-moved --numstat
+                --author=$(git config user.email)
         """
 
+        before_shline_by_shverb = {
+            "glf": "# : glf && git ls-files",
+        }
+
+        after_shline_by_shverb = {
+            "g": "# or pipe sink |grep -ai -e ... -e ...",
+            "gf": "# often --quiet",
+            "gg/0": "# : gg && " + shline_plus_by_shverb["gg/n"],
+            "gla": "# : gla && " + " ".join(extra_gla_shline_str.split()),
+        }
+
         for shverb, shline_plus in shline_plus_by_shverb.items():
+
+            alt_shverb = shverb
+            pathname = f"bin/{shverb}"
+            if "/" in shverb:
+                assert shverb in ("gg/0", "gg/n"), (shverb,)
+                alt_shverb = "gg"
+                pathname = "bin/gg"
+
+                if shverb == "gg/n":
+                    continue
 
             framed_text = f"""
 
                 #!/bin/sh
-                # {shline_plus}
-                g.py --shfile="$0" "$@"
+                # : {alt_shverb} && {shline_plus}
+                g.py "$0" "$@"
 
             """
 
-            pathname = f"bin/{shverb}"
-            if "/" in shverb:
-                assert shverb in ("gg/0", "gg/n"), (shverb,)
-                framed_text = gg_framed_text
-                pathname = "bin/gg"  # written twice, to no purpose
-
             text = textwrap.dedent(framed_text).strip()
+
+            lines = text.splitlines()
+            if shverb in before_shline_by_shverb:
+                lines[1:1] = [before_shline_by_shverb[shverb]]
+            if shverb in after_shline_by_shverb:
+                lines[-1:-1] = [after_shline_by_shverb[shverb]]
+
+            text_plus = "\n".join(lines) + "\n"
 
             path = pathlib.Path(pathname)
             _ = path.read_text()  # requires readable
+
             x_ok = os.access(pathname, mode=os.X_OK)
             assert x_ok, (pathname, x_ok)  # requires executable
 
-            path.write_text(text + "\n")
+            path.write_text(text_plus)
 
         sys.exit()
 
@@ -937,10 +957,6 @@ if __name__ == "__main__":
 
 
 _ = """  # todo's
-
-# todo: steal the first pos arg, to stop making callers learn --shfile=
-
-# todo: regenerate bin/g* from ShlinePlusByShverb
 
 # todo: measure latency added by calling these aliases in place of an explicit whole shline
 

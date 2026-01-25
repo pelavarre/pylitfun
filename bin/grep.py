@@ -29,7 +29,6 @@ import os
 import shlex
 import subprocess
 import sys
-import typing
 
 if not __debug__:
     raise NotImplementedError([__debug__])  # 'better python3 than python3 -O'
