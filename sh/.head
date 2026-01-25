@@ -1,5 +1,5 @@
 # Call '|head' but fill Screen a la '|less -FIRX'
 
+ROWS=$(stty size </dev/tty|cut -d' ' -f1)  # $LINES flakes out variously
 set -xe
-head -$((LINES - 2))
-
+head -$((ROWS - 2))

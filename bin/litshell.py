@@ -1156,7 +1156,7 @@ class ShellBrick:
         ilines = self.fetch_ilines()
 
         icolumns = self._take_number_columns_(ilines, func=str_to_based_int, strict=False)
-        m = max(zip(icolumns, ilines))
+        m = max(zip(*icolumns, ilines))
         oline = m[-1]
 
         olines = [oline]
@@ -1168,7 +1168,7 @@ class ShellBrick:
         ilines = self.fetch_ilines()
 
         icolumns = self._take_number_columns_(ilines, func=str_to_based_int, strict=False)
-        m = min(zip(icolumns, ilines))
+        m = min(zip(*icolumns, ilines))
         oline = m[-1]
 
         olines = [oline]
@@ -1180,7 +1180,7 @@ class ShellBrick:
         ilines = self.fetch_ilines()
 
         icolumns = self._take_number_columns_(ilines, func=str_to_based_int, strict=False)
-        sortables = list(zip(icolumns, ilines))
+        sortables = list(zip(*icolumns, ilines))
         sortables.sort()
         olines: list[str] = list(oline for (_, oline) in sortables)
 
@@ -1220,7 +1220,7 @@ class ShellBrick:
         ilines = self.fetch_ilines()
 
         icolumns = self._take_number_columns_(ilines, func=str_to_number, strict=False)
-        m = max(zip(icolumns, ilines))
+        m = max(zip(*icolumns, ilines))
         oline = m[-1]
 
         olines = [oline]
@@ -1232,7 +1232,7 @@ class ShellBrick:
         ilines = self.fetch_ilines()
 
         icolumns = self._take_number_columns_(ilines, func=str_to_number, strict=False)
-        m = min(zip(icolumns, ilines))
+        m = min(zip(*icolumns, ilines))
         oline = m[-1]
 
         olines = [oline]
@@ -1244,7 +1244,7 @@ class ShellBrick:
         ilines = self.fetch_ilines()
 
         icolumns = self._take_number_columns_(ilines, func=str_to_number, strict=False)
-        sortables = list(zip(icolumns, ilines))
+        sortables = list(zip(*icolumns, ilines))
         sortables.sort()
         olines: list[str] = list(oline for (_, oline) in sortables)
 
@@ -1869,7 +1869,6 @@ if __name__ == "__main__":
 
 # todo0: .jq to give full path find of each object ["top"]["branch"]["leaf"] = 'repr'
 # todo0: .jq to create each dict explicitly
-# todo0: .head .uniq .sort .tail
 # todo0: .make copies in my ~/bin/Makefile to run it, if no ./Makefile
 
 #
