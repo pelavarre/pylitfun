@@ -1,3 +1,3 @@
 #!/bin/sh
 # : gno && git diff/show --pretty= --name-only [...]
-g.py --shfile="$0" "$@"
+g.py "$0" "$@"

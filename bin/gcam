@@ -1,3 +1,3 @@
 #!/bin/sh
 # : gcam && git commit --all -m wip
-g.py --shfile="$0" "$@"
+g.py "$0" "$@"

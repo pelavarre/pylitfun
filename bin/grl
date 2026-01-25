@@ -1,3 +1,3 @@
 #!/bin/sh
 # : grl && git reflog --date=relative --numstat
-g.py --shfile="$0" "$@"
+g.py "$0" "$@"

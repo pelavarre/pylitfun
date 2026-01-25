@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 
 """
-usage: grep.py [--shfile=SHFILE] SHWORD [SHWORD ...]
+usage: grep.py SHFILE [SHWORD ...]
 
 call Grep but as |grep -ai -e ... -e ...
 
 positional arguments:
-  SHWORD           option or positional argument of Grep
+  SHFILE  disclose who is calling (often a pathname of bin/g)
+  SHWORD  option or positional argument of Grep
 
 options:
-  --help           show this help message and exit (-h is for Grep, not for Grep·Py)
-  --shfile SHFILE  a filename as the Git alias to decode (default: '/dev/null/g')
+  --help  show this help message and exit (-h is for Grep, not for Grep·Py)
 
 quirks:
   tunes to presume text, ignore case, and match >= 1 patterns (like for 2025, in place of 1973)
 
 examples:
   cat bin/*.py |g -nw def print
-  cat bin/*.py |grep.py --shfile=$HOME/bin/g -nw def print
+  cat bin/*.py |grep.py $HOME/bin/g -nw def print
   cat bin/*.py |grep -ai -nw -e def -e print
 """
 
@@ -47,11 +47,19 @@ class GrepGopher:
 
     def go_for_it(self) -> None:
 
+        # Fail if no Shell Args
+
+        usage = "usage: grep.py SHFILE [SHWORD ...]"
+
+        if not sys.argv[1:]:
+            print(usage)
+            sys.exit(2)  # exits 2 for bad args
+
         # Find the Shell Verb and the Shell Args after it
 
         self.exit_if_dash_dash_help()
 
-        shfile_shargv = self.dash_dash_shfile_shargv(sys.argv, default="/dev/null/g")
+        shfile_shargv = shfile_shargv = sys.argv[1:]
 
         shverb = os.path.basename(shfile_shargv[0])
         assert shverb, (shfile_shargv, shverb)
@@ -102,55 +110,6 @@ class GrepGopher:
         if "--help" in sys.argv[1:]:
             print(__main__.__doc__, file=sys.stderr)
             sys.exit(0)  # exits 0 after printing Help
-
-        # todo: merge .exit_if_dash_dash_help with git.GitGopher
-
-    def dash_dash_shfile_shargv(
-        self, sys_argv: typing.Iterable[str], default: str
-    ) -> tuple[str, ...]:
-        """Move the '--shfile FILE' into ArgV 0 when given as 1 or 2 Shell Args"""
-
-        tuple_sys_argv = tuple(sys_argv)
-        assert tuple_sys_argv, (tuple_sys_argv,)
-
-        # Fail if no Shell Args
-
-        default_shargv = (default, *tuple_sys_argv[1:])
-        if not tuple_sys_argv[1:]:
-            return default_shargv
-
-        # Fail if the '--shfile' option isn't the leading Shell Arg
-
-        sys_argv_1 = tuple_sys_argv[1]
-        (head, sep, tail) = sys_argv_1.partition("--shfile=")
-        if head or (not sep):
-            return default_shargv
-
-        # Fail if the '--shfile' option carries no Pathname
-
-        pathname = tail  # like from --shfile=/dev/null/g
-        shargv = (pathname, *tuple_sys_argv[2:])
-
-        if not tail:
-            if not tuple_sys_argv[2:]:
-                return default_shargv
-
-            sys_argv_2 = tuple_sys_argv[1]
-
-            pathname = sys_argv_2  # like from --shfile /dev/null/g
-            shargv = (pathname, *sys.argv[3:])
-
-        # Fail if the --shfile=Pathname carries no Basename
-
-        shverb = os.path.basename(pathname)
-        if not shverb:
-            return default_shargv
-
-        # Else succeed
-
-        return shargv
-
-        # todo: merge .dash_dash_shfile_shargv with git.GitGopher
 
     def _shargs_grep_expand_ai_e_(self, shargs: tuple[str, ...]) -> tuple[str, ...]:
         """Tune to presume text, ignore case, and match >= 1 patterns"""

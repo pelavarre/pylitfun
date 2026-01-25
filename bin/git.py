@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 
 """
-usage: git.py [--help] [--make-bin] [--shfile SHFILE] [SHWORD ...]
+usage: git.py [--help] [--make-bin] SHFILE [SHWORD ...]
 
 abbreviate the subcommands to call Git, but do show them in full
 
 positional arguments:
-  SHWORD           option or positional argument of Git
+  SHFILE      disclose who is calling (often a pathname of bin/g*)
+  SHWORD      option or positional argument of Git
 
 options:
-  --help           show this help message and exit (-h is for Git, not for Git·Py)
-  --shfile SHFILE  a filename as the Git alias to decode (default: '/dev/null/g')
-  --make-bin       rewrite bin/g* as Shell Scripts to call g.py to call git.py
+  --help      show this help message and exit (-h is for Git, not for Git·Py)
+  --make-bin  rewrite bin/g* as Shell Scripts to call g.py to call git.py
 
 examples:
   gg -w gg ggl
-  git.py --shfile=~/gg -w gg ggl
+  git.py ~/gg -w gg ggl
   : gg ... && git grep -ai -w -e gg -e ggl
   gla -p
   : gla && git log --pretty=fuller --no-decorate --color-moved --numstat --author=jqdoe -p
@@ -116,7 +116,7 @@ class GitGopher:
 
         # Fail if no Shell Args
 
-        usage = "usage: git.py [--help] [--make-bin] [--shfile SHFILE] [SHWORD ...]"
+        usage = "usage: git.py [--help] [--make-bin] SHFILE [SHWORD ...]"
 
         if not sys.argv[1:]:
             print(usage)
@@ -127,7 +127,7 @@ class GitGopher:
         self.exit_if_dash_dash_help()
         self.exit_if_dash_dash_make_bin()
 
-        shfile_shargv = self.dash_dash_shfile_shargv(sys.argv, default="/dev/null/g")
+        shfile_shargv = sys.argv[1:]
 
         shverb = os.path.basename(shfile_shargv[0])
         assert shverb, (shfile_shargv, shverb)
@@ -271,51 +271,6 @@ class GitGopher:
             path.write_text(text + "\n")
 
         sys.exit()
-
-    def dash_dash_shfile_shargv(
-        self, sys_argv: typing.Iterable[str], default: str
-    ) -> tuple[str, ...]:
-        """Move the '--shfile FILE' into ArgV 0 when given as 1 or 2 Shell Args"""
-
-        tuple_sys_argv = tuple(sys_argv)
-        assert tuple_sys_argv, (tuple_sys_argv,)
-
-        # Fail if no Shell Args
-
-        default_shargv = (default, *tuple_sys_argv[1:])
-        if not tuple_sys_argv[1:]:
-            return default_shargv
-
-        # Fail if the '--shfile' option isn't the leading Shell Arg
-
-        sys_argv_1 = tuple_sys_argv[1]
-        (head, sep, tail) = sys_argv_1.partition("--shfile=")
-        if head or (not sep):
-            return default_shargv
-
-        # Fail if the '--shfile' option carries no Pathname
-
-        pathname = tail  # like from --shfile=/dev/null/g
-        shargv = (pathname, *tuple_sys_argv[2:])
-
-        if not tail:
-            if not tuple_sys_argv[2:]:
-                return default_shargv
-
-            sys_argv_2 = tuple_sys_argv[1]
-
-            pathname = sys_argv_2  # like from --shfile /dev/null/g
-            shargv = (pathname, *sys.argv[3:])
-
-        # Fail if the --shfile=Pathname carries no Basename
-
-        shverb = os.path.basename(pathname)
-        if not shverb:
-            return default_shargv
-
-        # Else succeed
-
-        return shargv
 
     #
     # Choose the ShVerb
@@ -983,8 +938,6 @@ if __name__ == "__main__":
 
 _ = """  # todo's
 
-# todo: give up on trying to keep the lit*.py at bin/../ and at ~/bin/pylitfun/
-
 # todo: steal the first pos arg, to stop making callers learn --shfile=
 
 # todo: regenerate bin/g* from ShlinePlusByShverb
@@ -993,8 +946,10 @@ _ = """  # todo's
 
 # todo: gcam should pick up new Added Files into the wip
 
-# todo: add:  git checkout -, git push, git rebase, local/remote mkdir/rmdir of git branches, ...
+# todo: add:  git checkout -
 # todo: no 'git checkout' on purpose:  without args it cancels cherry-pick and hides rebase
+
+# todo: add git commit, git push, git rebase, local/remote mkdir/rmdir of git branches, ...
 
 """
 

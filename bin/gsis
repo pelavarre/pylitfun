@@ -1,3 +1,3 @@
 #!/bin/sh
 # : gsis && find . -type p && git status --ignored --short
-g.py --shfile="$0" "$@"
+g.py "$0" "$@"

@@ -1,4 +1,4 @@
 #!/bin/sh
 # : gla && git log --pretty=fuller --no-decorate --numstat --author=...
 # : gla && git log --pretty=fuller --no-decorate --numstat --author=$(git config user.email)
-g.py --shfile="$0" "$@"
+g.py "$0" "$@"
