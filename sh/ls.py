@@ -324,10 +324,32 @@ def chop(f: float) -> str:
 
     s = ("-" + _chop_nonnegative_(-f)) if (f < 0) else _chop_nonnegative_(f)
 
+    if f == int(f):
+        assert int_chop(int(f)) == s, (f, int_chop(int(f)), s)
+
     return s
 
     # never says '0' except to mean Float +0e0 and Int 0
     # values your ink & time properly, by never saying '.' nor '.0' nor '.00' nor 'e+0'
+
+
+def int_chop(i: int) -> str:
+    """Find a nonzero Float Literal closer to zero with <= 3 Digits"""
+
+    s = str(int(i))
+
+    (_, sep, digits) = s.rpartition("-")
+    sci = len(digits) - 1
+    eng = 3 * (sci // 3)
+
+    if not eng:
+        return s
+
+    mag = digits[:-eng] + "." + digits[-eng:]
+    mag = mag[:4]
+    mag = mag.rstrip("0").rstrip(".")  # lacks '.' if had only '.' or'.0' or '.00'
+
+    return sep + mag + "e" + str(eng)
 
 
 def _chop_nonnegative_(f: float) -> str:
@@ -444,9 +466,23 @@ def _try_chop_() -> None:
     """
 
 
+def _try_int_chop_() -> None:
+
+    assert int_chop(0) == "0", (int_chop(0),)
+    assert int_chop(99) == "99", (int_chop(99),)
+    assert int_chop(999) == "999", (int_chop(999),)
+
+    assert int_chop(9000) == "9e3", (int_chop(9000),)
+    assert int_chop(9800) == "9.8e3", (int_chop(9800),)
+    assert int_chop(9870) == "9.87e3", (int_chop(9870),)
+    assert int_chop(9876) == "9.87e3", (int_chop(9876),)
+
+
 chop(23)
 
 _try_chop_()
+
+_try_int_chop_()
 
 
 #
