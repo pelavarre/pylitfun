@@ -64,6 +64,7 @@ def main() -> None:
 
     ow = OsWalker(env_tz)
 
+    litnotes.print_doc_and_exit_zero_if("examples:")
     ow.parse_args_if()
     ow.call_shell_ls_once()
     ow.scrape_columns()
@@ -104,14 +105,18 @@ class OsWalker:
 
         tops = self.tops
 
-        for arg in sys.argv[1:]:
-            if arg == "--":
-                break
-            if arg.startswith("-"):
-                print(f"usage: ls.py [--help] [PATHNAME ...]", file=sys.stderr)
+        for i, arg in enumerate(sys.argv):
+            if i == 0:
+                continue
+            if arg.startswith("-") and (arg != "--"):
+                print("usage: ls.py [--help] [PATHNAME ...]", file=sys.stderr)
                 sys.exit(2)  # exits 2 for bad Args
 
-        tops.extend(sys.argv[1:])
+            if arg == "--":
+                tops.extend(sys.argv[(i + 1) :])
+                break
+
+            tops.append(arg)
 
     def call_shell_ls_once(self) -> None:
         """Call the Shell 'ls' command exactly once"""
@@ -279,7 +284,15 @@ class OsWalker:
 
         # Left-justify the Str's and right-justify the Int's
 
-        columns: tuple[list[str] | list[int], ...] = (permissions, hardlinks, owners, groups, bytechops, fulltimes, pathname_plus_list)
+        columns: tuple[list[str] | list[int], ...] = (
+            permissions,
+            hardlinks,
+            owners,
+            groups,
+            bytechops,
+            fulltimes,
+            pathname_plus_list,
+        )
 
         str_columns = list(list(str(_) for _ in column) for column in columns)
         for column, str_column in zip(columns, str_columns):
@@ -328,9 +341,11 @@ def _chop_nonnegative_(f: float) -> str:
     mag = f / (10**sci)
     assert 1 <= mag < 10, (mag, f)
 
-    # Choose a Floor, in the way of Engineering Notation
+    # Choose a Floor, in the way of Engineering Notation,
+    # but do round out the distortions introduced by 'mag = f / (10**sci)'
 
-    triple = str(int(100 * mag))  # 100 == 10 ** 2
+    triple = str(int(100 * mag + 0.000123))  # arbitrary 0.000123
+    # triple = str(int(100 * mag))
     assert "100" <= triple <= "999", (triple, mag, sci, f)
 
     eng = 3 * (sci // 3)  # ..., -6, -3, 0, 3, 6, ...
@@ -348,11 +363,11 @@ def _chop_nonnegative_(f: float) -> str:
 
     # But never wander far
 
-    float_lit = float(lit)
+    alt_f = float(lit)
 
-    diff = f - float_lit
+    diff = f - alt_f
     precision = 10 ** (eng - 3 + span)
-    assert diff <= precision, (diff, precision, f, sci, mag, triple, eng, span, dotted, lit)
+    assert diff < precision, (diff, precision, f, alt_f, sci, mag, triple, eng, span, dotted, lit)
 
     return lit
 
@@ -361,7 +376,13 @@ def _chop_nonnegative_(f: float) -> str:
 
 def _try_chop_() -> None:
 
-    pairs = [
+    pairs = list()
+
+    for i in range(1000):
+        pair: tuple[float, str] = (i, str(i))
+        pairs.append(pair)
+
+    more_pairs = [
         (0, "0"),
         (0e0, "0"),
         (-0e0, "-0e0"),
@@ -379,10 +400,13 @@ def _try_chop_() -> None:
         (9.876e1, "98.7"),  # not '98.8'
         (1e2, "100"),
         (1.23e2, "123"),
+        (987, "987"),  # not '986.9999999999999'
         #
         (1e3, "1e3"),
         #
     ]
+
+    pairs.extend(more_pairs)
 
     for f, lit in pairs:
 
@@ -393,6 +417,34 @@ def _try_chop_() -> None:
             chop_minus_f = chop(-f)
             assert chop_minus_f == (f"-{lit}"), (chop_f, lit, f"{f:.2e}", f)
 
+    _ = """
+
+        ints = list(range(1000))
+        strs = list(str(int((_ / 100) * 100)) for _ in ints)
+        diffs = list(_ for _ in zip(ints, strs) if str(_[0]) != _[-1])
+        len(diffs)  # more than five dozen found
+
+    """
+
+    _ = """
+
+        wholes = list(range(1000))
+        tenths = list((_ / 10) for _ in range(1000))
+        hundredths = list((_ / 100) for _ in range(1000))
+
+        floats = wholes + tenths + hundredths
+
+        strs = list(str(_ / 1) for _ in wholes)
+        strs += list(str((_ / 10) * 10) for _ in tenths)
+        strs += list(str((_ / 100) * 100) for _ in hundredths)
+
+        diffs = list(_ for _ in zip(floats, strs) if _[0] != float(_[-1]))
+        len(diffs)  # 235 found
+
+    """
+
+
+chop(23)
 
 _try_chop_()
 

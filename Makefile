@@ -107,16 +107,15 @@ smoke: black flake8 mypy
 black:
 	~/.pyvenvs/black/bin/black \
 		--line-length=101 \
-			$$(ls *.py bin/*.py)
+			$$PWD
 
 # --line-length=101  # my 2024 Window Width, over PyPi·Org Black Default of 89 != 80 != 71
 
 
 flake8:
-	ls bin/*.py |grep -v ^bin/__main__.py
 	~/.pyvenvs/flake8/bin/flake8 \
 		--max-line-length=999 --max-complexity 15 --ignore=E203,E704,W503 \
-			$$(ls *.py bin/*.py)
+			$$PWD
 
 # --max-line-length=999  # Black max line lengths over Flake8 max line lengths
 # --max-complexity 10  # limit how much McCabe Cyclomatic Complexity we accept

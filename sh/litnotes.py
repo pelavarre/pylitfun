@@ -8,39 +8,39 @@ print examples if no Shell Args, else Help if asked for, else return from import
 
 
 import __main__
-import textwrap
 import sys
+import textwrap
 
 
-doc = __main__.__doc__
-assert doc, (doc,)
+def print_doc_and_exit_zero_if(indexable: str) -> None:
+    "Print Examples if no Shell Args, else Help if asked for, else return"
 
-helpdoc = textwrap.dedent(doc).strip()
+    doc = __main__.__doc__
+    assert doc, (doc,)
 
-testdoc = doc[doc.index("examples:"):]
-testdoc = testdoc.removeprefix("examples:")
-testdoc = textwrap.dedent(testdoc).strip()
+    helpdoc = textwrap.dedent(doc).strip()
 
+    testdoc = doc[doc.index(indexable) :]
+    testdoc = testdoc.removeprefix(indexable)
+    testdoc = textwrap.dedent(testdoc).strip()
 
-for sharg in sys.argv[1:]:
-    if sharg == "--":
-        break
-    if sharg.startswith("--h") and "--help".startswith(sharg):
+    for sharg in sys.argv[1:]:
+        if sharg == "--":
+            break
+        if sharg.startswith("--h") and "--help".startswith(sharg):
 
-        print(helpdoc)
+            print(helpdoc)
 
-        sys.exit()
+            sys.exit(0)
 
+    if not sys.argv[1:]:
 
-if not sys.argv[1:]:
+        print()
+        print(testdoc)
+        print()
 
-    print()
-    print(testdoc)
-    print()
-
-    sys.exit()
+        sys.exit(0)
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/sh/litnotes.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git
-

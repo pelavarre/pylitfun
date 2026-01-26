@@ -62,7 +62,6 @@ examples:
 
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
 
-import __main__
 import random
 import re
 import shlex
@@ -74,6 +73,8 @@ import litnotes
 
 def main() -> None:
     """Run from the Shell Command Line"""
+
+    litnotes.print_doc_and_exit_zero_if("examples:")
 
     if sys.argv[1:] not in (["--"],):
         print("usage: screen.py [--help]", file=sys.stderr)

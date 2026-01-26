@@ -5836,9 +5836,11 @@ def _chop_nonnegative_(f: float) -> str:
     mag = f / (10**sci)
     assert 1 <= mag < 10, (mag, f)
 
-    # Choose a Floor, in the way of Engineering Notation
+    # Choose a Floor, in the way of Engineering Notation,
+    # but do round out the distortions introduced by 'mag = f / (10**sci)'
 
-    triple = str(int(100 * mag))  # 100 == 10 ** 2
+    triple = str(int(100 * mag + 0.000123))  # arbitrary 0.000123
+    # triple = str(int(100 * mag))
     assert "100" <= triple <= "999", (triple, mag, sci, f)
 
     eng = 3 * (sci // 3)  # ..., -6, -3, 0, 3, 6, ...
@@ -5852,15 +5854,15 @@ def _chop_nonnegative_(f: float) -> str:
 
     # And never say 'e0' either
 
-    lit = str_removesuffix(f"{dotted}e{eng}", suffix="e0")  # may lack both '.' and 'e'
+    lit = f"{dotted}e{eng}".removesuffix("e0")  # may lack both '.' and 'e'
 
     # But never wander far
 
-    float_lit = float(lit)
+    alt_f = float(lit)
 
-    diff = f - float_lit
+    diff = f - alt_f
     precision = 10 ** (eng - 3 + span)
-    assert diff <= precision, (diff, precision, f, sci, mag, triple, eng, span, dotted, lit)
+    assert diff < precision, (diff, precision, f, alt_f, sci, mag, triple, eng, span, dotted, lit)
 
     return lit
 
@@ -5869,7 +5871,13 @@ def _chop_nonnegative_(f: float) -> str:
 
 def _try_chop_() -> None:
 
-    pairs = [
+    pairs = list()
+
+    for i in range(1000):
+        pair: tuple[float, str] = (i, str(i))
+        pairs.append(pair)
+
+    more_pairs = [
         (0, "0"),
         (0e0, "0"),
         (-0e0, "-0e0"),
@@ -5887,10 +5895,13 @@ def _try_chop_() -> None:
         (9.876e1, "98.7"),  # not '98.8'
         (1e2, "100"),
         (1.23e2, "123"),
+        (987, "987"),  # not '986.9999999999999'
         #
         (1e3, "1e3"),
         #
     ]
+
+    pairs.extend(more_pairs)
 
     for f, lit in pairs:
 
@@ -5900,6 +5911,37 @@ def _try_chop_() -> None:
         if f:
             chop_minus_f = chop(-f)
             assert chop_minus_f == (f"-{lit}"), (chop_f, lit, f"{f:.2e}", f)
+
+    _ = """
+
+        ints = list(range(1000))
+        strs = list(str(int((_ / 100) * 100)) for _ in ints)
+        diffs = list(_ for _ in zip(ints, strs) if str(_[0]) != _[-1])
+        len(diffs)  # more than five dozen found
+
+    """
+
+    _ = """
+
+        wholes = list(range(1000))
+        tenths = list((_ / 10) for _ in range(1000))
+        hundredths = list((_ / 100) for _ in range(1000))
+
+        floats = wholes + tenths + hundredths
+
+        strs = list(str(_ / 1) for _ in wholes)
+        strs += list(str((_ / 10) * 10) for _ in tenths)
+        strs += list(str((_ / 100) * 100) for _ in hundredths)
+
+        diffs = list(_ for _ in zip(floats, strs) if _[0] != float(_[-1]))
+        len(diffs)  # 235 found
+
+    """
+
+
+chop(23)
+
+_try_chop_()
 
 
 #

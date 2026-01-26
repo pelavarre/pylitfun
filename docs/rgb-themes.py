@@ -5,9 +5,11 @@ import math
 
 far16 = math.sqrt(3 * 0xFFFF * 0xFFFF)
 
+
 def rgb16_distance(r: int, g: int, b: int) -> float:
     f = math.sqrt(r * r + g * g + b * b) / far16
     return f
+
 
 def func(o10: tuple[int, ...], o11: tuple[int, ...], o12: tuple[int, ...], t: str) -> None:
 
@@ -29,7 +31,7 @@ def func(o10: tuple[int, ...], o11: tuple[int, ...], o12: tuple[int, ...], t: st
 #
 
 t = "Dark iTerm2"
-func((0xDCAA, 0xDCAB, 0xDCAA), o11=(0x158E, 0x193A, 0x1E75), o12=(0xFFFD, 0xFFFE, 0xFFFe), t=t)
+func((0xDCAA, 0xDCAB, 0xDCAA), o11=(0x158E, 0x193A, 0x1E75), o12=(0xFFFD, 0xFFFE, 0xFFFE), t=t)
 
 t = "Light iTerm2"
 func((0x1010, 0x1010, 0x1010), o11=(0xFAE0, 0xFAE0, 0xFAE0), o12=(0x0000, 0x0000, 0x0000), t=t)
@@ -73,7 +75,6 @@ func((0x0000, 0x0000, 0x0000), o11=(0x9282, 0x9282, 0x9282), o12=(0xE101, 0xE101
 
 t = "Solid Colors"
 func((0x0000, 0x0000, 0x0000), o11=(0xFFFF, 0xFFFF, 0xFFFF), o12=(0xCB95, 0xCB95, 0xCB95), t=t)
-
 
 
 _ = """

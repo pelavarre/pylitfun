@@ -34,6 +34,8 @@ import litnotes
 def main() -> None:
     """Run from the Shell Command Line"""
 
+    litnotes.print_doc_and_exit_zero_if("examples:")
+
     default_eq_str = str()
     env_path = os.getenv("PATH", default_eq_str)
 
@@ -159,8 +161,7 @@ class ShellPath:
 
             # todo: show common suffix at left as '/...'
 
-    def print_files(self) -> None:
-        ...
+    def print_files(self) -> None: ...
 
 
 #
