@@ -112,6 +112,11 @@ def main() -> None:
 class GitGopher:
     """Init and run, once"""
 
+    stdout_isatty: bool
+
+    def __init__(self) -> None:
+        self.stdout_isatty = sys.stdout.isatty()  # sampled only once
+
     def go_for_it(self) -> None:
 
         # Fail if no Shell Args
@@ -177,7 +182,8 @@ class GitGopher:
 
         if diff_shverb == "gl":
             if not shfile_shargv[1:]:
-                print("# you got 'gl -1'  # did you mean:  gl --", file=sys.stderr)
+                if self.stdout_isatty:
+                    print("# you got 'gl -1'  # did you mean:  gl --", file=sys.stderr)
 
         # Loudly promise to call the Shell now
 
@@ -245,9 +251,18 @@ class GitGopher:
             "glf": "# : glf && git ls-files",
         }
 
+        with_shline_by_shverb = {
+            "gcaf": "  # --default=HEAD",
+            "gcf": "  # --default=HEAD",
+            "gf": "  # --default=--quiet",
+            "gl": "  # --default=-1",
+            "glq": "  # --default=-9",
+            "gls": "  # --default=-9",
+            "glv": "  # --default=-9",
+        }
+
         after_shline_by_shverb = {
             "g": "# or pipe sink |grep -ai -e ... -e ...",
-            "gf": "# often --quiet",
             "gg/0": "# : gg && " + shline_plus_by_shverb["gg/n"],
             "gla": "# : gla && " + " ".join(extra_gla_shline_str.split()),
         }
@@ -277,6 +292,8 @@ class GitGopher:
             lines = text.splitlines()
             if shverb in before_shline_by_shverb:
                 lines[1:1] = [before_shline_by_shverb[shverb]]
+            if shverb in with_shline_by_shverb:
+                lines[1] += with_shline_by_shverb[shverb]
             if shverb in after_shline_by_shverb:
                 lines[-1:-1] = [after_shline_by_shverb[shverb]]
 
@@ -469,12 +486,14 @@ class GitGopher:
 
             elif shverb_shline_plus == "git log --pretty=fuller --no-decorate --color-moved [...]":
                 assert shverb == "gl", (shverb, shline)
-                shline += " -1"  # tilts into:  gl -1
+                if self.stdout_isatty:
+                    shline += " -1"  # tilts into:  gl -1
 
             elif shverb_shline_plus.startswith("git log "):
                 assert shverb in ("glq", "gls", "glv"), (shverb, shline)
                 if shverb not in ("gls",):  # tilts into:  gls --
-                    shline += " -9"  # tilts into:  glq -9, glv -9
+                    if self.stdout_isatty:
+                        shline += " -9"  # tilts into:  glq -9, glv -9
 
         assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
