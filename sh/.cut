@@ -1,0 +1,5 @@
+# Call '|cut' but fill Screen horizontally, a la '|less -FIRX' vertically
+
+COLUMNS=$(stty size </dev/tty|cut -d' ' -f2)  # $COLUMNS flakes out variously
+set -xe
+cut -c1-$((COLUMNS - 4))

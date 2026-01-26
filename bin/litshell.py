@@ -1114,13 +1114,13 @@ class ShellBrick:
     def from_lines_head(self) -> None:
         """list(sys.i)[:9]"""  # todo1: help .head correctly
 
-        n = self._take_dot_or_posargs_as_y_high_(default=9)
+        n = self._take_dot_or_posargs_as_y_high_minus_(default=9)
 
         ilines = self.fetch_ilines()
         olines = ilines[:n]
         self.store_olines(olines)
 
-    def _take_dot_or_posargs_as_y_high_(self, default: int) -> int:
+    def _take_dot_or_posargs_as_y_high_minus_(self, default: int) -> int:
         """Take Default, or a Dot Verb as Y High Minus 4, or Negative PosArg"""
 
         sg = self.shell_gopher
@@ -1129,7 +1129,7 @@ class ShellBrick:
         posargs = self.posargs
 
         if not posargs:
-            n = (y_high - 4) if verb.startswith(".") else default
+            n = (y_high - 2) if verb.startswith(".") else default
         else:
             assert not verb.startswith("."), (verb,)
             option_int = self._take_posargs_as_one_int_()
@@ -1291,7 +1291,7 @@ class ShellBrick:
     def from_lines_tail(self) -> None:
         """list(sys.i)[-9:]"""  # todo1: help .tail correctly
 
-        n = self._take_dot_or_posargs_as_y_high_(default=9)
+        n = self._take_dot_or_posargs_as_y_high_minus_(default=9)
 
         ilines = self.fetch_ilines()
         olines = ilines[-n:]
@@ -1860,6 +1860,8 @@ if __name__ == "__main__":
 # todo's
 
 #
+
+# todo0: |pb .cut for 'git log --oneline --decorate --color-moved -1 --color=always |pb .cut'
 
 # todo0: sh/which.py, finish up how we've begun offline
 
