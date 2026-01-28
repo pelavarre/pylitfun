@@ -318,6 +318,12 @@ class OsWalker:
 def chop(f: float) -> str:
     """Find a nonzero Float Literal closer to zero with <= 3 Digits"""
 
+    if math.isnan(f):
+        return "NaN"  # unsigned as neither positive nor negative
+    elif math.isinf(f):
+        s = "-Inf" if (f < 0) else "Inf"  # unsigned as positive
+        return s
+
     if not f:
         lit = "-0e0" if (math.copysign(1e0, f) < 0e0) else "0"
         return lit
@@ -426,6 +432,10 @@ def _try_chop_() -> None:
         #
         (1e3, "1e3"),
         #
+        (float("-inf"), "-Inf"),
+        (float("+inf"), "Inf"),
+        (float("nan"), "NaN"),
+        #
     ]
 
     pairs.extend(more_pairs)
@@ -435,9 +445,9 @@ def _try_chop_() -> None:
         chop_f = chop(f)
         assert chop_f == lit, (chop_f, lit, f"{f:.2e}", f)
 
-        if f:
+        if f > 0:
             chop_minus_f = chop(-f)
-            assert chop_minus_f == (f"-{lit}"), (chop_f, lit, f"{f:.2e}", f)
+            assert chop_minus_f == (f"-{lit}"), (chop_minus_f, f"-{lit}", f)
 
     _ = """
 
