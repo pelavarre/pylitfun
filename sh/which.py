@@ -17,14 +17,12 @@ examples:
   which.py python  # show the 'which -a' of every form of a Python Shell Verb
 """
 
-
 import collections
 import os
 import pathlib
 
 
 import litnotes
-
 
 #
 # Run from the Shell Command Line

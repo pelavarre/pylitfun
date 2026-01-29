@@ -50,7 +50,6 @@ import sys
 
 import litnotes
 
-
 #
 # Run from the Shell Command Line
 #
@@ -212,7 +211,7 @@ class OsWalker:
             groups.append(splits[3])
             bytecounts.append(int(splits[4]))
 
-            (s0, s1, s2) = tuple(splits[5:][:3])
+            s0, s1, s2 = tuple(splits[5:][:3])
             stamp = (s0, s1, s2)
             stamps.append(stamp)
 
@@ -344,7 +343,7 @@ def int_chop(i: int) -> str:
 
     s = str(int(i))
 
-    (_, sep, digits) = s.rpartition("-")
+    _, sep, digits = s.rpartition("-")
     sci = len(digits) - 1
     eng = 3 * (sci // 3)
 

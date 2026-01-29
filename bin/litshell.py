@@ -148,7 +148,7 @@ class ShellGopher:
         sys_stdin_isatty = sys.stdin.isatty()  # sampled only once
         sys_stdout_isatty = sys.stdout.isatty()  # likewise, sampled only once
 
-        (y_high, x_wide) = (80, 25)
+        y_high, x_wide = (80, 25)
         try:
             fd = sys.stderr.fileno()
             size = os.get_terminal_size(fd)  # Columns x Lines

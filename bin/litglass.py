@@ -582,7 +582,7 @@ class ColorPickerGame:
         # Place the board
 
         if game_yx:
-            (y, x) = game_yx
+            y, x = game_yx
             sw.write_control(f"\033[{y};{x}H")
 
         # Form the Board
@@ -640,7 +640,7 @@ class ColorPickerGame:
         # Place the Board
 
         if first:
-            (h, w, y, x) = kr.sample_hwyx()
+            h, w, y, x = kr.sample_hwyx()
             y -= y_high
             game_yx = (y, x)  # replaces
 
@@ -649,7 +649,7 @@ class ColorPickerGame:
         sw.write_control(f"\033[38;5;{ps}m")
 
         if not first:
-            (ya, xa) = (kr.row_y, kr.column_x)
+            ya, xa = (kr.row_y, kr.column_x)
             sw.write_control(f"\033[{ya};{xa}H")
 
         return game_yx
@@ -807,7 +807,7 @@ class KeycapsGame:
         game_yx = self.kc_game_draw()
         self.game_yx = game_yx  # replaces
 
-        (h, w, y, x) = kr.sample_hwyx()
+        h, w, y, x = kr.sample_hwyx()
         self.chat_yx = (y, x)  # replaces
 
         # Run till Quit
@@ -856,7 +856,7 @@ class KeycapsGame:
 
         unhit_kseqs: list[object] = list()
 
-        (h, w, y, x) = kr.sample_hwyx()
+        h, w, y, x = kr.sample_hwyx()
 
         for frame in frames:
             echoes = kd.bytes_to_echoes_if(frame)
@@ -946,7 +946,7 @@ class KeycapsGame:
 
         # Place the Gameboard
 
-        (h, w, y, x) = kr.sample_hwyx()
+        h, w, y, x = kr.sample_hwyx()
 
         assert h >= high, (h, high)  # todo: negotiate Height more gracefully
         assert w >= wide, (w, wide)  # todo: negotiate Width more gracefully
@@ -1075,7 +1075,7 @@ class KeycapsGame:
                 assert decode, (decode, echo_plus_key)
 
                 tangible = True  # todo: why split the .echo_plus that we joined?
-                (_shifts_, _cap_) = kd.echo_split_shifts_cap(echo_plus)
+                _shifts_, _cap_ = kd.echo_split_shifts_cap(echo_plus)
                 if (_shifts_ != shifts) or (not _cap_):
                     if echo != shifts:
 
@@ -1123,7 +1123,7 @@ class KeycapsGame:
 
             # todo8: solve for Screens less wide than 10 Columns
 
-        (y, x) = chat_yx
+        y, x = chat_yx
         y += len(scrollables)
 
         assert KeycapsGame.MAX_SCROLLABLES_1 == 1
@@ -1171,7 +1171,7 @@ class KeycapsGame:
         wipeouts = self.wipeouts
         wipeouts_by_shifts = self.wipeouts_by_shifts
 
-        (game_y, game_x) = game_yx
+        game_y, game_x = game_yx
         assert wipeouts is wipeouts_by_shifts[shifts]
 
         # Switch Tabs
@@ -1179,7 +1179,7 @@ class KeycapsGame:
         assert echoes, (echoes,)
 
         echo = echoes[0]
-        (_shifts_, _cap_) = kd.echo_split_shifts_cap(echo) if echo else ("", "")
+        _shifts_, _cap_ = kd.echo_split_shifts_cap(echo) if echo else ("", "")
         if echo == "⎋":
             _shifts_ = "⎋"  # takes "⎋" as a Shifts Key, not as a Cap
 
@@ -1226,7 +1226,7 @@ class KeycapsGame:
 
         shifts = self.shifts
         for echo in echoes:
-            (_shifts_, _cap_) = kd.echo_split_shifts_cap(echo)
+            _shifts_, _cap_ = kd.echo_split_shifts_cap(echo)
 
             # Search only once for each rendering of a Key Cap
 
@@ -1276,7 +1276,7 @@ class KeycapsGame:
         wipeouts = self.wipeouts
 
         sw = tb.screen_writer
-        (game_y, game_x) = game_yx
+        game_y, game_x = game_yx
 
         # Form the Rows of the Gameboards
 
@@ -1380,7 +1380,7 @@ class SquaresGame:
 
         # Draw the Gameboard
 
-        (h, w, y, x) = kr.sample_hwyx()
+        h, w, y, x = kr.sample_hwyx()
         self.game_yx = (y, x)  # replaces
 
         self.sq_game_form()
@@ -1495,7 +1495,7 @@ class SquaresGame:
 
         # Place the Gameboard
 
-        (y, x) = game_yx
+        y, x = game_yx
         sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
         # Draw the Northern Border
@@ -1535,7 +1535,7 @@ class SquaresGame:
         """Eval 1 Box of Input and print Output"""
 
         f = KeyByteFrame(box.data)
-        (marks, ints) = f.to_csi_marks_ints_if()
+        marks, ints = f.to_csi_marks_ints_if()
 
         # Take some and not all of Tap, Mouse Release/ Press, Key Release
 
@@ -1655,7 +1655,7 @@ class SquaresGame:
         by_y_by_x = self.by_y_by_x
 
         for east_bar in east_bars:
-            (y, x, wide) = east_bar
+            y, x, wide = east_bar
             by_x = by_y_by_x[y]
             for xw in range(x, x + wide):
 
@@ -1667,7 +1667,7 @@ class SquaresGame:
         by_y_by_x = self.by_y_by_x
 
         for south_pole in south_poles:
-            (y, x, high) = south_pole
+            y, x, high = south_pole
             for ys in range(y, y + high):
                 by_x = by_y_by_x[ys]
 
@@ -2041,14 +2041,14 @@ class TerminalBoss:
 
         if flags.scrollback or ((not flags.enter) and (not flags._exit_)):
 
-            (h, w, y, x) = kr.sample_hwyx()
+            h, w, y, x = kr.sample_hwyx()
 
             if flags.games:
                 if (h * w) < (30 * 30):
                     flags.mobile = True
 
             if flags.games:
-                (dark, light) = kr.guess_dark_light()
+                dark, light = kr.guess_dark_light()
                 if (not dark) and (not light):
                     dark = flags.google  # todo9: discover don't guess Google Cloud Shell Darkmode
                 flags.darkmode |= dark
@@ -2090,7 +2090,7 @@ class TerminalBoss:
             sw.write_control("\033[4l")  # replacing ⎋[4L vs ⎋[4H
             sw.write_control("\033[?25h")  # cursor-show ⎋[⇧?25H vs ⎋[?25L
 
-            (h, w, y, x) = kr.sample_hwyx()
+            h, w, y, x = kr.sample_hwyx()
             sw.write_control("\033[?1049l")  # main-screen ⎋[⇧?1049L vs ⎋[⇧?1049H
             sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
@@ -2212,7 +2212,7 @@ class TerminalBoss:
                 self.tb_write_frame_echo(data)
                 continue
 
-            (y, x) = (kr.row_y, kr.column_x)
+            y, x = (kr.row_y, kr.column_x)
 
             # Take in the Frame by itself, while Order incomplete
 
@@ -2256,7 +2256,7 @@ class TerminalBoss:
         """Run this Order as completed by this Frame"""
 
         yx = order.yx
-        (row_y, column_x) = yx
+        row_y, column_x = yx
 
         strong = order.strong
         factor = order.factor
@@ -2382,10 +2382,10 @@ class TerminalBoss:
         # Leap the Cursor to the ⌥-Click  # todo9: also ⎋[⇧M Click Releases
 
         f = KeyByteFrame(data)
-        (marks, ints) = f.to_csi_marks_ints_if()
+        marks, ints = f.to_csi_marks_ints_if()
 
         if (marks == b"<m") and (len(ints) == 3):
-            (b, x, y) = ints  # todo: bounds check on Click Release
+            b, x, y = ints  # todo: bounds check on Click Release
             sw.write_control(f"\033[{y};{x}H")
             sw.write_printable("@")  # '@' to make ⌥-Click's visible
             return
@@ -2484,7 +2484,7 @@ class TerminalBoss:
             sw.write_some_controls(["\r", "\n"])
 
             if boxes_yx:  # vertically pastes multiple Frames of Input
-                (y, x) = boxes_yx
+                y, x = boxes_yx
                 if x > X1:
                     sw.write_control(f"\033[{x - X1}C")
 
@@ -2616,7 +2616,7 @@ class TerminalBoss:
         assert CUP_Y_X == "\033[" "{};{}H"
 
         frame_t1t0 = t1t0
-        (y, x) = (kr.row_y, kr.column_x)
+        y, x = (kr.row_y, kr.column_x)
 
         for frame_index in range(len(frames)):
 
@@ -3045,7 +3045,7 @@ class ScreenWriter:
 
         #
 
-        (marks, ints) = f.to_csi_marks_ints_if()
+        marks, ints = f.to_csi_marks_ints_if()
 
         if marks == f.backtail:
             if f.backtail == b"'}":
@@ -3224,7 +3224,7 @@ class KeyboardReader:
 
         frame_list = list()
 
-        (start, end) = self._read_click_release_frame_and_after_()
+        start, end = self._read_click_release_frame_and_after_()
         assert start or end, (start, end)
 
         if start:
@@ -3232,7 +3232,7 @@ class KeyboardReader:
 
         data = end
         while data:
-            (start, end) = self._bytes_split_frame_(data)
+            start, end = self._bytes_split_frame_(data)
             assert (start + end) == data, (start, end, data)
             assert start, (start, end, data)
 
@@ -3296,7 +3296,7 @@ class KeyboardReader:
         data = self.read_bytes()
         assert data, (data,)
 
-        (arrowheads, end) = self._bytes_split_arrowheads_(data)
+        arrowheads, end = self._bytes_split_arrowheads_(data)
         assert arrowheads or end, (arrowheads, end, data)
 
         frame = b""
@@ -3490,7 +3490,7 @@ class KeyboardReader:
             sw.write_control(osc_control)
 
             reads_endswith_rgb = self.read_bytes()
-            (reads, rgb) = self._bytes_split_osc_rgb_ints_(reads_endswith_rgb, osc=osc)
+            reads, rgb = self._bytes_split_osc_rgb_ints_(reads_endswith_rgb, osc=osc)
 
             rgb_by_osc[osc] = rgb
             if rgb:
@@ -3516,7 +3516,7 @@ class KeyboardReader:
         if 11 in rgb_by_osc.keys():
             rgb = rgb_by_osc[11]
             if rgb:
-                (r, g, b) = rgb
+                r, g, b = rgb
                 if (r + g + b) <= 0xFFFF:  # todo9: less simple Terminal Luminance models
                     dark = True
 
@@ -3561,7 +3561,7 @@ class KeyboardReader:
 
         sw.write_control("\033[5n")  # sends ⎋[5N for reply ⎋[0N
         dsr0_bytes = self.read_bytes()
-        (h, w, y, x) = (self.y_high, self.x_wide, self.row_y, self.column_x)
+        h, w, y, x = (self.y_high, self.x_wide, self.row_y, self.column_x)
 
         dsr0 = b"\033[0n"
         assert dsr0_bytes.endswith(dsr0), (dsr0_bytes, dsr0)
@@ -3599,7 +3599,7 @@ class KeyboardReader:
 
         # Else take a Cursor Position Frame of Input Bytes from Terminal
 
-        (hwyx, reads) = self._read_hwyx_bytes_()
+        hwyx, reads = self._read_hwyx_bytes_()
         self._store_h_w_y_x_(*hwyx)
 
         return reads
@@ -3632,13 +3632,13 @@ class KeyboardReader:
 
         # Read one Byte, then send for Y X Cursor Position, then block till it comes
 
-        (yx, reads) = self._read_yx_bytes_()
-        (y, x) = yx
+        yx, reads = self._read_yx_bytes_()
+        y, x = yx
 
         # Sample H W just after the last Input Byte arrives
 
         fd = fileno
-        (w, h) = os.get_terminal_size(fd)
+        w, h = os.get_terminal_size(fd)
         if (h, w) != (self.y_high, self.x_wide):
             logger_print(f"took ⎋[8;{h};{w}T")
 
@@ -5839,7 +5839,7 @@ def int_chop(i: int) -> str:
 
     s = str(int(i))
 
-    (_, sep, digits) = s.rpartition("-")
+    _, sep, digits = s.rpartition("-")
     sci = len(digits) - 1
     eng = 3 * (sci // 3)
 
@@ -6367,7 +6367,7 @@ class KeyboardScreenIOWrapper:
         assert self.tcgetattr, (self.tcgetattr,)
 
         stdio.flush()  # before select.select of .stdio_select_select
-        (r, w, x) = select.select([fileno], [], [], timeout)
+        r, w, x = select.select([fileno], [], [], timeout)
 
         hit = fileno in r
 

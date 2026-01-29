@@ -2,7 +2,6 @@
 
 import math
 
-
 far16 = math.sqrt(3 * 0xFFFF * 0xFFFF)
 
 

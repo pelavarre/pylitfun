@@ -143,12 +143,12 @@ class GitGopher:
 
         # Replace the Shell Verb with a Git Shell Line, and edit the Args
 
-        (found_shline, given_shsuffix) = self.form_shverb_shline(chosen_shargv)
+        found_shline, given_shsuffix = self.form_shverb_shline(chosen_shargv)
         tweaked_shargv = self.shargv_tweak_up(chosen_shverb, shargv=chosen_shargv)
 
         # Choose to call Git through Shell or not
 
-        (shell, shell_shline) = self.form_shell_shline(
+        shell, shell_shline = self.form_shell_shline(
             chosen_shverb, shline=found_shline, given_shsuffix=given_shsuffix
         )
 
@@ -161,7 +161,7 @@ class GitGopher:
             if chosen_shverb in ("ga", "gcl", "glf"):
                 print(f"# {chosen_shverb!r} not at:  cd {relpath}/", file=sys.stderr)
 
-        (diff_shverb, diff_shline) = self.shline_at_git_diff(
+        diff_shverb, diff_shline = self.shline_at_git_diff(
             chosen_shverb, shline=shell_shline, tweaked_shargv=tweaked_shargv
         )
 
@@ -169,7 +169,7 @@ class GitGopher:
 
         # Explicitly auth the especially destructive ops
 
-        (authed, taggable) = self.auth_git_shline(diff_shline)
+        authed, taggable = self.auth_git_shline(diff_shline)
 
         # Shove back on Python ShLex Quote fussily quoting mentions of HEAD~... to no purpose
 
@@ -362,15 +362,15 @@ class GitGopher:
 
         if shverb_shline_plus.endswith("..."):
 
-            (shline, shsuffix) = self._form_shline_required_args_(shverb, shverb_shline_plus, shargv)
+            shline, shsuffix = self._form_shline_required_args_(shverb, shverb_shline_plus, shargv)
 
         elif shverb_shline_plus.endswith(" [...]"):
 
-            (shline, shsuffix) = self._form_shline_optional_args_(shverb, shverb_shline_plus, shargv)
+            shline, shsuffix = self._form_shline_optional_args_(shverb, shverb_shline_plus, shargv)
 
         else:
 
-            (shline, shsuffix) = self._form_shline_no_leading_pos_arg_(
+            shline, shsuffix = self._form_shline_no_leading_pos_arg_(
                 shverb, shverb_shline_plus, shargv
             )
 

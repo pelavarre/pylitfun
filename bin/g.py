@@ -13,12 +13,10 @@ examples:
     cat <(</dev/tty g.py) |cat -  # git.py
 """
 
-
 import os
 import signal
 import subprocess
 import sys
-
 
 shverb = "git.py" if sys.stdin.isatty() else "grep.py"  # sadly, Zsh <() turns Stdin Isatty False
 sys.argv[0] = shverb

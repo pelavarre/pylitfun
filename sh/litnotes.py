@@ -6,7 +6,6 @@ usage: import litnotes
 print examples if no Shell Args, else Help if asked for, else return from import
 """
 
-
 import __main__
 import sys
 import textwrap

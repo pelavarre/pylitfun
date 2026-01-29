@@ -31,7 +31,6 @@ import sys
 
 import litnotes
 
-
 litnotes.print_doc_and_exit_zero_if("examples:")
 
 print("NotImplementedError: sed.py ...", file=sys.stderr)

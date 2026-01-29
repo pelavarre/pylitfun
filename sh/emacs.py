@@ -24,11 +24,9 @@ examples:
   pbpaste >./pb && emacs ... ./pb && pbcopy <./pb  # run on a Proxy of the Paste Buffer
 """
 
-
 import sys
 
 import litnotes
-
 
 litnotes.print_doc_and_exit_zero_if("examples:")
 
