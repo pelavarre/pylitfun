@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+
 """
 usage: ls.py [-h] [-l] [-A] [-F] [-r] [-t] [-d] [PATHNAME ...]
 
@@ -27,18 +28,16 @@ options:
 examples:
 
   ls.py --  # ls -hlAF --full-time -rt
-  ls.py ~  # ls -hlAF --full-time -rt ~
-  ls.py / ~  # ls -hlAF --full-time -rt -d / -d ~
+  ls.py ./  # ls -hlAF --full-time -rt .
+  ls.py / ~/  # ls -hlAF --full-time -rt -d / -d ~
 
   TZ=Europe/London ls.py --  # TZ=Europe/London ls -hlAF --full-time -rt
   TZ=America/Los_Angeles ls.py --  # TZ=America/Los_Angeles ls -hlAF --full-time -rt
 """
 
-# todo: sort by creation time
-# except maybe i'll end up preferring to go for date/time-created over date/time-modified when those sort orders differ
-
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
 
+#
 
 import datetime as dt
 import math
@@ -49,6 +48,8 @@ import subprocess
 import sys
 
 import litnotes
+
+#
 
 #
 # Run from the Shell Command Line
@@ -133,10 +134,10 @@ class OsWalker:
             shline += f"TZ={shlex.quote(env_tz)} "  # _calmly not needed
 
         if not tops[1:]:
-            shline += "ls -hlAF --full-time -rt"
-            shargv = shlex.split("ls -lAF -rt")
+            shline += "           ls -hlAF --full-time -rt".strip()  # the look I wear
+            shargv = shlex.split("ls -lAF -rt")  # ................  # the code I call
         else:
-            shline += "ls -hlAF --full-time -rt -d"
+            shline += "           ls -hlAF --full-time -rt -d".strip()
             shargv = shlex.split("ls -lAF -rt -d")
 
         shline += " " + " ".join(shlex_quote_calmly(_) for _ in tops)
@@ -242,7 +243,7 @@ class OsWalker:
                 pathname = os.path.join(tops[0], pathname)
 
             path = pathlib.Path(pathname)
-            stat = path.stat()
+            stat = path.stat(follow_symlinks=False)
 
             mtime_ns = stat.st_mtime_ns  # todo: .st_ctime for -c, and/or by default
             microsecond = int((mtime_ns / 1e3) % 1e6)
@@ -262,11 +263,15 @@ class OsWalker:
 
         marks = "%*/=@|" if (sys.platform == "darwin") else "*/=>@|"
 
-        suffix = pathname_plus[-1]
+        p0 = pathname_plus
+        p1, sep, _ = p0.partition(" -> ")
 
-        pathname = pathname_plus
+        p2 = p1
+        suffix = p1[-1]
         if suffix in marks:
-            pathname = pathname_plus.removesuffix(suffix)
+            p2 = p1.removesuffix(suffix)
+
+        pathname = p2
 
         return pathname
 
@@ -283,6 +288,8 @@ class OsWalker:
 
         # Left-justify the Str's and right-justify the Int's
 
+        datatypes = (str, int, str, str, float, str, str)
+
         columns: tuple[list[str] | list[int], ...] = (
             permissions,
             hardlinks,
@@ -294,11 +301,11 @@ class OsWalker:
         )
 
         str_columns = list(list(str(_) for _ in column) for column in columns)
-        for column, str_column in zip(columns, str_columns):
+        for datatype, column, str_column in zip(datatypes, columns, str_columns):
             assert len(column) == len(columns[0]), (len(column), len(columns[0]))
 
             max_len = max(len(_) for _ in str_column)
-            if isinstance(column[0], int):
+            if (datatype is float) or (datatype is int):
                 str_column[::] = list(_.rjust(max_len) for _ in str_column)
             else:
                 str_column[::] = list(_.ljust(max_len) for _ in str_column)
@@ -339,7 +346,7 @@ def chop(f: float) -> str:
 
 
 def int_chop(i: int) -> str:
-    """Find a nonzero Float Literal closer to zero with <= 3 Digits"""
+    """Find a nonzero Int Literal closer to zero with <= 3 Digits"""
 
     s = str(int(i))
 
@@ -527,6 +534,10 @@ assert shlex_quote_calmly("HEAD~1") == "HEAD~1", (shlex_quote_calmly("HEAD~1"),)
 
 if __name__ == "__main__":
     main()
+
+
+# todo: sort by creation time
+# except maybe i'll end up preferring to go for date/time-created over date/time-modified when those sort orders differ
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/which.py

@@ -1861,9 +1861,9 @@ if __name__ == "__main__":
 
 #
 
-# todo0: |pb .cut for 'git log --oneline --decorate --color-moved -1 --color=always |pb .cut'
-
 # todo0: sh/which.py, finish up how we've begun offline
+
+# todo0: |pb .cut for like 'git log --oneline --decorate --color-moved -1 --color=always'
 
 # todo0: confusion in having 'pb --sep=-' work while 'pb split /-/' quietly doesn't
 
@@ -1904,6 +1904,8 @@ if __name__ == "__main__":
 
 # todo2: |pb cut ... to |cut -c to fit width on screen but with "... " marks
 # todo2: take -c at |cut, but don't require it, but do reject -c misplaced
+
+# todo2: |pb for the grep -H thing of visually group the Hits by File
 
 # todo2: |pb expandtabs 2
 

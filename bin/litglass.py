@@ -5835,7 +5835,7 @@ def chop(f: float) -> str:
 
 
 def int_chop(i: int) -> str:
-    """Find a nonzero Float Literal closer to zero with <= 3 Digits"""
+    """Find a nonzero Int Literal closer to zero with <= 3 Digits"""
 
     s = str(int(i))
 
