@@ -7,3 +7,5 @@ else
     set -xe
     ls -hlAF -rt -d "$@"
 fi
+
+# and Linux knows about:  ls -hlAF -rt --full-time

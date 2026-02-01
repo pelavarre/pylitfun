@@ -1,0 +1,7 @@
+# sh/.od = Run like '|hexdump -C' in places where it doesn't go
+
+if [ "$(uname)" == "Darwin" ]; then
+    od -A x -t x1c -v
+else
+    od -A x -t x1z -v
+fi

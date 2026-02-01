@@ -1,5 +1,7 @@
 # .screen = reconnect with the youngest Screen Session, after showing the Session Names
 
+# (except if first you learn 'screen -rr' exists, then you might not bother with the rest of this)
+
 if [ $# -ne 0 ]; then
 
     set -xe

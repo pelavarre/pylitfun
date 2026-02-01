@@ -20,7 +20,7 @@ quirks:
   separates output same as input, as if you wrote |awk -F$sep -vOFS=$sep
 
 small bricks:
-  + -  0 1 2 3  F L O T U  a h i n o r s t u w x  nl pb
+  -  0 1 2 3  F L O T U  a h i n o r s t u w x  nl pb
 
 memorable bricks:
   append bytes casefold counter decode dent enumerate expandtabs frame
@@ -29,7 +29,7 @@ memorable bricks:
   strings strip sum tail title unframe upper
 
 alt bricks:
-  .frame .head .len .max .md5 .min .reverse .sha256 .sort .tail
+  .enumerate .frame .head .len .max .md5 .min .reverse .sha256 .sort .tail
 
 examples:
   cat README.md |pb
@@ -92,6 +92,7 @@ import signal
 import subprocess
 import sys  # doesn't limit launch to >= Oct/2020 Python 3.9
 import textwrap
+import traceback
 
 if not __debug__:
     raise NotImplementedError([__debug__])  # 'better python3 than python3 -O'
@@ -547,7 +548,7 @@ class ShellBrick:
             # "tuple":  # nope
             #
             "append": self.for_line_append,
-            "enumerate": self.for_line_enumerate,  # |n  # todo: -v1
+            "enumerate": self.for_line_enumerate,  # like |n or |cat -n but --start=0
             "if": self.for_line_if,
             "insert": self.for_line_insert,
             "lstrip": self.for_line_lstrip,
@@ -570,12 +571,14 @@ class ShellBrick:
             "float.sort": self.from_lines_number_sort,
             "float.sorted": self.from_lines_number_sort,
             #
-            ".frame": self.for_line_do_frame,  # without any ".dent":
+            ".enumerate": self.for_line_enumerate,  # like |n or |cat -n and with --start=1
+            ".frame": self.for_line_do_frame,  # with .rstrip
             ".head": self.from_lines_head,
             ".len": self.for_line_len,
             ".max": self.from_lines_number_max,
             ".md5": self.from_bytes_md5,
             ".min": self.from_lines_number_min,
+            ".nl": self.for_line_enumerate,  # like |nl but --start=1
             ".reverse": self.for_line_reverse,
             ".sha256": self.from_bytes_sha256,
             ".sort": self.from_lines_number_sort,  # |LC_ALL=C sort
@@ -618,13 +621,13 @@ class ShellBrick:
             # "$": self.for_line_suffix,  # |$ ...  # todo8
             # "^": self.for_line_prefix,  # |^ ...  # todo8
             "awk": self.for_line_awk_nth_slice,  # |a
-            "nl": self.for_line_enumerate,  # although Shell defaults to --start=1
+            "nl": self.for_line_enumerate,  # like |.nl but --start=0
             "rev": self.for_line_reverse,
             #
             # Famously Abbreviated Single Character Aliases
             #
             "$": self.for_line_append,
-            "+": self.from_lines_sum,
+            # "+": self.from_lines_sum,
             "-": self.from_bytes_as_bytes,
             "^": self.for_line_insert,
             #
@@ -642,7 +645,7 @@ class ShellBrick:
             "a": self.for_line_awk_nth_slice,
             "h": self.from_lines_head,
             "i": self.from_text_split,
-            "n": self.for_line_enumerate,
+            "n": self.for_line_enumerate,  # but defaulting to --start=1
             "o": self.from_text_do_unframe,  # |o because it rounds off ← ↑ → ↓
             "r": self.from_lines_reverse,
             "s": self.from_lines_sort,
@@ -668,12 +671,21 @@ class ShellBrick:
     def run_as_brick(self) -> None:
         """Run Self as a Shell Pipe Filter Brick"""
 
+        sg = self.shell_gopher
+        stdin_isatty = sg.sys_stdin_isatty
+
         verb = self.verb
         assert verb, (verb,)
 
         func = self.func
         try:
             func()
+        except UnicodeDecodeError as exc:
+            if stdin_isatty:  # taking from 'pbpaste' practically never raises UnicodeDecodeError
+                print(f"{verb=}", file=sys.stderr)
+                raise
+            traceback.print_exception(exc, limit=0)  # colorize=sys.stderr.isatty()
+            sys.exit(1)
         except Exception:
             print(f"{verb=}", file=sys.stderr)
             raise
@@ -880,10 +892,10 @@ class ShellBrick:
         self.fetch_bytes()  # todo: unneeded
 
     def from_bytes_decode(self) -> None:
-        """bytes(sys.i).decode(errors="replace").replace("\ufffd", "?")"""
+        """bytes(sys.i).decode(errors="replace").replace("\ufffd", "¤")"""
 
         ReplacementCharacter = "\ufffd"  # PyPi Black rejects \uFFFD
-        repl = "?"  # todo0:  repl: str = "?"
+        repl = "¤"  # U+00A4 'Currency Sign'  # todo0:  option of |pb decode /?/ and --repl='?'
 
         idata = self.fetch_bytes()
 
@@ -917,14 +929,15 @@ class ShellBrick:
         # d41d8cd98f00b204e9800998ecf8427e  0  -
 
     def from_bytes_printable(self) -> None:  # todo: .__doc__ doesn't mention '\n' as printable
-        """Replace with ? till decodable, and then till str.isprintable"""  # todo: code up as Code
+        """Replace with ¤ till decodable, and then till str.isprintable"""  # todo: code up as Code
 
         ReplacementCharacter = "\ufffd"  # PyPi Black rejects \uFFFD
+        repl = "¤"  # U+00A4 'Currency Sign'  # todo0:  option of |pb printable /?/ and --repl='?'
 
         idata = self.fetch_bytes()
 
         iotext = idata.decode(errors="replace")
-        iotext = iotext.replace(ReplacementCharacter, "?")
+        iotext = iotext.replace(ReplacementCharacter, repl)
 
         otext = ""
         for t in iotext:
@@ -933,7 +946,7 @@ class ShellBrick:
             elif t.isprintable():
                 otext += t
             else:
-                otext += "?"
+                otext += repl
 
         self.store_otext(otext)
 
@@ -1433,7 +1446,7 @@ class ShellBrick:
         start = sg.start
 
         _start_ = 0 if (start is None) else start
-        if self.verb == "nl":
+        if self.verb in (".enumerate", "n", ".nl"):
             _start_ = 1 if (start is None) else start
 
         ilines = self.fetch_ilines()
@@ -1858,6 +1871,10 @@ if __name__ == "__main__":
 
 
 # todo's
+
+#
+
+# todo0: revive |pb a -F/ -1 etc etc
 
 #
 
