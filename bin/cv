@@ -1,0 +1,4 @@
+#!/bin/sh
+# : cv | ... && pbpaste |...
+# : ... |cv && ... |pbcopy
+$(dirname "$0")/litshell.py cv "$@"

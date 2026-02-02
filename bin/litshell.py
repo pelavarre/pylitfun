@@ -347,8 +347,8 @@ class ShellGopher:
             if index == 0:
                 assert verb == "__enter__", (verb,)
 
-            if index == 1:
-                if verb == "pb":  # todo2: say this more simply - pb could mean __enter__
+            if index == 1:  # todo2: say this more simply - pb could mean __enter__
+                if verb in ("cv", "pb"):
                     continue
 
             if index > 1:
@@ -452,7 +452,7 @@ class ShellGopher:
 
             doc = func.__doc__
 
-            if verb in ("0", "1", "2", "3", "pb", "__enter__", "__exit__"):
+            if verb in ("0", "1", "2", "3", "cv", "pb", "__enter__", "__exit__"):
                 continue
 
             s += " " + repr(doc)
