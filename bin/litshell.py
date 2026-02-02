@@ -1875,6 +1875,7 @@ if __name__ == "__main__":
 #
 
 # todo0: revive |pb a -F/ -1 etc etc
+# todo0: write out what 'pbcopy; pbpaste' does to the single-byte UnicodeDecodeError's
 
 #
 

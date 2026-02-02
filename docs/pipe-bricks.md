@@ -119,7 +119,7 @@ You don't have to keep straight whether you mean 'pbpaste' or 'pbcopy'. You don'
 
 This kind of 'pb' works by branching on sys.stdin.fileno().isatty()
 
-    % cat pb
+    % cat sh/.pb
     if [ ! -t 0 ]; then
         pbcopy "$@A"
     else
@@ -231,11 +231,18 @@ By the end you're looking at
     Hello, World!
     %
 
-Get it?
+Does this make sense now?
 
 We give you a Stack of Paste Buffers. 0 is your latest revision, 1 is your second to last, 2 is your third to last, 3 is your fourth to last
 
 You choosing 1 works like you choosing the "Over" of a Forth Stack Machine, or the "Rcl Y" of an HP Calculator Stack Machine. You choosing 0 after 0 works like you choosing the "Dup" of a Forth Stack Machine, the "Enter" of an HP Calculator Stack Machine
+
+We store these revisions of your Paste Buffer in a very local and destructive way. Without your permission and without backup, we replace one or more of the four Files at
+
+    ./0
+    ./1
+    ./2
+    ./3
 
 ## 1.6 How many Words are out there?
 
@@ -249,7 +256,7 @@ You can see like 75 Words suggested at
 
 You can speak each of these Words as the Name of a Pipe Brick. Each of these Pipe Bricks works like a Shell Pipe Filter, but each Pipe Brick is easier to grab a hold of and stick to other Bricks, like a LEGO® Brick is
 
-Their names come from tradition. Learn the stories the old people tell, and you'll find the names memorable
+Their names come from Python and Shell traditions. Learn the stories the old people tell, and you'll find these names memorable
 
 # 2 Steer well clear of Unicode Decode Error, even at Apple macOS
 
@@ -1148,6 +1155,7 @@ Memorable Lowercase Letters
 
 | Letter | Brick |
 | ------ | ----- |
+| a | awk |
 | h | head |
 | i | split |
 | n | enumerate --start=1 |
