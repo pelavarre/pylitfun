@@ -1381,18 +1381,48 @@ class ShellBrick:
     #
 
     def for_line_awk_nth_slice(self) -> None:
-        """_.split(sep)[-1]) for _ in list(sys.i)"""  # .sep may be None
+        """_.split(sep)[-1]) for _ in list(sys.i) if _.split(sep)"""
 
         sg = self.shell_gopher
-        sep = sg.sep
+        sep = sg.sep  # .sep may be None
+        posargs = self.posargs
+
+        joinable = "  " if (sep is None) else sep  # defaults to Two Spaces
 
         ilines = self.fetch_ilines()
+
+        indices = [-1]
+        if posargs:
+            indices = list(int(_) for _ in posargs)
 
         olines = list()
         for iline in ilines:
             splits = iline.split(sep)  # .sep may be None
-            if splits:
-                olines.append(splits[-1])
+            n = len(splits)
+
+            found = False
+
+            owords = list()
+            for index in indices:
+                index_minus = index - 1
+
+                if index == 0:
+                    found = found or bool(splits)
+                    owords.extend(splits)
+                elif -n < index < 0:
+                    found = True
+                    oword = splits[index]
+                    owords.append(oword)
+                elif index_minus < n:
+                    found = True
+                    oword = splits[index_minus]
+                    owords.append(oword)
+                else:
+                    owords.append("")
+
+            if found:
+                oline = joinable.join(owords)
+                olines.append(oline)
 
         self.store_olines(olines)
 

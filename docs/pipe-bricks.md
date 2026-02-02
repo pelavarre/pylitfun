@@ -921,6 +921,25 @@ Not yet Spec'd out and implemented
     sh
     % 
 
+    % ls -l |pb awk -1   
+    40
+    bin
+    docs
+    Makefile
+    README.md
+    requirements.txt
+    sh
+    % 
+
+    % ls -l |pb awk 6 7 8
+    Feb  2  11:56
+    Feb  1  17:12
+    Jan  25  18:51
+    Feb  1  12:12
+    Feb  1  12:32
+    Feb  2  11:57
+    % 
+
 Often we'll just say '|pb a' to mean '|pb .slice -1'
 
 
@@ -1124,9 +1143,11 @@ In our Sh Folder
 | sh/.ls | ls -hlAF -rt --full-time -d except also at macOS and -d only for multiple Args |
 | sh/.od | Come close to '|hexdump -C' when that's not available |
 | sh/.pb | Pb but without Args and without its implicit Unframes |
+| sh/.ps | Call Ps to disclose which Shell is calling Ps |
 | sh/.screen | Celebrate 'screen -rr' and probably do nothing else as helpful |
 | sh/.sed | Convert a Git 'Changes to be committed' into Commit Message Lines |
 | sh/.sort | Sort but inside LC_ALL=C |
+| sh/.sh | Sh but without Profile |
 | sh/.ssh | Ssh but without Profile |
 | sh/.tail | Tail but fill Screen |
 | sh/.uniq | Uniq but inside LC_ALL=C |

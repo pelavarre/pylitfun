@@ -1,4 +1,4 @@
-# .vim = Call Vim with the -u kind of lots less Local Reconfiguration
+# .vim = Call Vim but without Profile
 
 set -xe
 vim -u /dev/null "$@"
