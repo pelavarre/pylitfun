@@ -10,10 +10,10 @@
   - [1.6 Run your Paste Buffer through a Shell Pipe](#16-run-your-paste-buffer-through-a-shell-pipe)
   - [1.7 How many Words are out there?](#17-how-many-words-are-out-there)
 - [2 Steer well clear of Unicode Decode Error, even at Apple macOS](#2-steer-well-clear-of-unicode-decode-error-even-at-apple-macos)
-  - [2.1 Dash](#21-dash)
+  - [2.1 Dash, to show the Bytes Written](#21-dash-to-show-the-bytes-written)
   - [2.1.1 More particular than macOS '|cat -tv'](#211-more-particular-than-macos-cat--tv)
   - [2.1.2 Less deceptive than macOS '|cat -tv'](#212-less-deceptive-than-macos-cat--tv)
-  - [2.2 Decode](#22-decode)
+  - [2.2 Decode, to forward all the Bytes in some form](#22-decode-to-forward-all-the-bytes-in-some-form)
   - [2.3 Take out the Trash](#23-take-out-the-trash)
 - [3 Count out all the things](#3-count-out-all-the-things)
   - [3.1 Count Lines](#31-count-lines)
@@ -63,7 +63,9 @@
   - [8.3 Parallel Processing](#83-parallel-processing)
 - [9 Links](#9-links)
 
+
 # 1 Welcome
+
 
 ## 1.1 Please help yourself
 
@@ -74,6 +76,7 @@ Ouch, you're working too hard
 I'm sorry, you are. You're tripping yourself out, to no purpose
 
 Believe me for just long enough to read on a bit, and you'll see what I mean
+
 
 ## 1.2 Download & run
 
@@ -95,6 +98,7 @@ It's a quicker test if you skip the 'cd' and just say
 But that stops working as soon as you change your $PWD
 
 -->
+
 
 ## 1.3 Edit your own Os Copy/Paste Clipboard Buffer
 
@@ -141,13 +145,16 @@ A unified 'pb' works by branching on sys.stdin.isatty() and sys.stdout.isatty().
 
 You can see that '|pb ' ends up meaning '| (pbcopy; pbpaste)', which works much like '|sponge' but leaves a copy in '|tee >(pbcopy) |' as it runs oruns on
 
-You can adopt this sh/.pb Shell Script into your Shell Path and workflow now. Read a bit more, and you'll immediately pick up your next small Shell Integration win
+You can adopt this sh/.pb Shell Script into your Shell Path and workflow now
+
+Read a bit more, and you'll immediately pick up your next small Shell Integration win
 
 <!--
 
 Linux folk have to work first to make pbpaste, pbpaste|, and |pbcopy go. Those two come built-in at Apple macOS.
 
 -->
+
 
 ## 1.4 Write into a Shell Pipe without spelling out the fiddly | and ' parts
 
@@ -176,11 +183,13 @@ Or you add it into your Path
 
 You name it what you like. Some of us like 'pb', short for Paste Buffer. Some of us like 'cv', short for ⌘C Edit Copy and ⌘V Edit Paste
 
+
 ## 1.5 Familiar vocabulary
 
-Our word UPPER comes from the Python BuiltIns. One of their datatypes is STR. And one of its methods is UPPER. This way of choosing a Word makes this '|pb upper' Shell Hack memorable for Shell & Python people. You can add dozens of conveniences and then still find these a month later, when next you need them
+Our word UPPER comes from the Python BuiltIns. One of their datatypes is STR. And one of its methods is UPPER. This way of choosing a Word makes this '|pb upper' Shell Hack memorable for Shell & Python people. You can add dozens of shortcuts and then still find these shortcuts a month later, when next you need them
 
-All of the Python and Shell words could work, and dozens already do. Like you can try '|pb lower' and '|pb title' and '|pb casefold' now, just as seeing '|pb upper' work teaches you to hope you can, working from your memory of Python's 'dir(str)'
+All of the Python and Shell words could work, and six dozen already do. Like you can try '|pb lower' and '|pb title' and '|pb casefold' now, just as seeing '|pb upper' work teaches you to hope you can, working from your memorization of Python's 'dir(str)'
+
 
 ## 1.6 Run your Paste Buffer through a Shell Pipe
 
@@ -266,6 +275,7 @@ We store these revisions of your Paste Buffer in a very local and destructive wa
     ./2
     ./3
 
+
 ## 1.7 How many Words are out there?
 
 Lots and lots
@@ -280,19 +290,20 @@ You can speak each of these Python and Shell Words as the Name of a Pipe Brick. 
 
 The names of our Pipe Bricks come from Python and Shell traditions. Learn the stories the old people tell, and you'll find these names memorable
 
+
 # 2 Steer well clear of Unicode Decode Error, even at Apple macOS
 
-## 2.1 Dash
 
-Show the Bytes Written
+## 2.1 Dash, to show the Bytes Written
 
 When you do pipe a text back into the Paste Buffer, you often need to review it immediately. We let you say '|pb -' in place of '|pb' to mean that you want to see what you wrote
 
     echo Abc |cat -n |pb -
 
-We chose to write this out as '|pb -' by analogy with '|cat -', which does much the same thing
+We chose to spell this out as '|pb -' by analogy with '|cat -', which does much the same thing
 
     printf '\033[1m''bold\n''\033[m''plain\n' |cat -
+
 
 ## 2.1.1 More particular than macOS '|cat -tv'
 
@@ -313,11 +324,12 @@ The Apple macOS '|cat -tv' lets the 0xC0 Byte through, as if it were printable, 
     tr: Illegal byte sequence
     %
 
-Try this in Apple macOS and it tells you talk to the hand while it's making a Stop Sign. Apple's '|cat -tv' makes this Byte Trouble a problem for you, but our '|pb -' doesn't. We substitute the Bytes b"\xC2\xA4" 'Currency Sign' that are printable as ¤, much like a 💥 'Collision' Boom, as often as you send us Unprintable Bytes
+Try this in Apple macOS and it tells you talk to the hand while it's making a Stop Sign. Apple's '|cat -tv' makes this Byte Trouble a problem for you, but our '|pb -' doesn't. We substitute the Bytes b"\xC2\xA4" 'Currency Sign' that are printable as ¤, much like a 💥 'Collision' Boom, as often as you send us Unprintable Bytes to print for you
 
     % printf 'Tab\tNac\xC0\x80Lf\n' |pb -
     Tab¤Nac¤¤Lf
     %
+
 
 ## 2.1.2 Less deceptive than macOS '|cat -tv'
 
@@ -334,65 +346,66 @@ The Character Trouble that most often trips macOS folk out is the U+00A0 No-Brea
 
 You see that?
 
-The Apple macOS '|cat -tv' lets the Bytes b"\xC2\xA0 through, as if they were as printable as a U+0020 Space. But the Python str.isprintable test knows to reject these, so we know to substitute the ¤ 'Currency Sign'
+The Apple macOS '|cat -tv' lets the Bytes b"\xC2\xA0 through, as if they were as printable as a U+0020 Space. But the Python str.isprintable test knows to reject these. We let it tell us to substitute the ¤ 'Currency Sign'
 
     % printf 'abc\xC2\xA0def\n' |pb -
     abc¤def
     %
 
-## 2.2 Decode
 
-Decode all the Bytes
+## 2.2 Decode, to forward all the Bytes in some form
 
-As above, but for inside the Pipe. We've shown you '|pb -', but that's scrubbing the unprintables out of your life only when you try to write them to a Tty
+We define '|pb decode |' inside the Shell Pipe to work a lot like '|pb -' at the far end of the Pipe
 
-You remember, Apple macOS will flatly deny service when you stray far from US Ascii
+Our '|pb -' scrubs the unprintables out of your life, but only when you try to write them to a Tty
 
-    % printf '\xC0\x80\n''Not a character\n' |sed 's/N/Just bytes, n/'
+Let's look back at how Apple macOS will flatly deny service when you stray far from US Ascii
+
+    % printf 'Just \xC0\x80 Bytes\n' |sed 's/$/, not a Character/'
     sed: RE error: illegal byte sequence
     %
 
-Because Apple macOS is still fighting the Character Encoding Wars of late last century
+And you'll remember, linux folk dream that '|cat -tv' should fix this. They're correct to say it should work, and they're wrong to feel it does work
 
-And you remember, linux folk dream that '|cat -tv' should fix this. They're correct to say it should work, and they're wrong to feel it does work
-
-    % printf '\xC0\x80\n''Not a character\n' |cat -tv |sed 's/N/Just bytes, n/'
+    $ printf 'Just \xC0\x80 Bytes\n' |cat -tv |sed 's/$/, not a Character/'
     sed: RE error: illegal byte sequence
     %
+
+Apple macOS is still fighting the Character Encoding Wars of late last century. Their C*pyright fight with Gnu stalled out by freezing their Bash in the Oct/2006 Release Line at the Nov/2014 Bash 3.2.57. The bug fixes for this don't ship into macOS from Linux
 
 Our Python bytes.decode Pipe Brick does just work. We don't freak over rare bytes so much as to deny service. We substitute ¤ 'Currency Symbol'
 
-    % printf '\xC0\x80\n''Not a character\n' |pb decode |sed 's/N/Just bytes, n/'
-    ¤¤
-    Just bytes, not a character
+    % printf 'Just \xC0\x80 Bytes\n' |pb decode |sed 's/$/, not a Character/'
+    Just ¤¤ Bytes, not a Character
     %
 
-As you learn these corners, you might want to go so far as to substitute macOS Homebrew Shell Pipes for your Apple macOS Shell Pipes. Until you do that, your macOS Shell Pipes will flame out at random times, because still fighting the Character Encoding Wars of late last century. We help with this, but we only solve it for you reliably if you put us into your every Shell Pipe
+As you learn these corners, you may wish to go so far as to substitute macOS Homebrew Shell Pipes for your Apple macOS Shell Pipes. Until you do that, your macOS Shell Pipes will flame out at random times, because still fighting the Character Encoding Wars of late last century. We help with this, but we only solve it for you reliably if you put us into your every Shell Pipe
+
 
 ## 2.3 Take out the Trash
 
 We call our Pb Decode for you when you ask for '|pb -', but just for what you show at the Terminal
 
-When you do want to change what you're writing, not just show approximately what you're writing, then you have to ask to change it
+When you do want to change what you're writing, and not only show what you're writing, then you do have to ask to change what you're writing
 
-    % printf '\xC0\x80\n' |pb -
-    ¤¤
-    % pb |hexdump -C |sed 's,   *,  ,g'
-    00000000  c2 bf c3 84 0a  |.....|
+    % printf '\xC0\x80\n' |hexdump -C |column -t
+    00000000  c0  80  0a  |...|
+    00000003
+    %
+
+    % printf '\xC0\x80\n' |pb decode |hexdump -C |column -t
+    00000000  c2  a4  c2  a4  0a  |.....|
     00000005
     %
 
-    % printf '\xC0\x80\n' |pb decode |pb
-    % pb |hexdump -C |sed 's,   *,  ,g'
-    00000000  c2 a4 c2 a4 0a  |.....|
-    00000005
-    % pb
+    % printf '\xC0\x80\n' |pb decode
     ¤¤
     %
+
 
 # 3 Count out all the things
 
-By default, we work with Lines, exactly as Python str.splitlines does, which is much like Shell '|awk'
+We default to work with the Lines found between Line-Break's and the Line found at End-of-File, exactly as Python str.splitlines and Shell '|awk' do
 
 
 ## 3.1 Count Lines
@@ -433,23 +446,23 @@ You can keep fighting that war, or you can move on
 
 When what you want is the length of each Line, in the style of the Shell '|wc -L' that is not Shell '|wc -l, then you can say
 
-    % ls -l |pb .len int.max
+    % ls -l |pb .len .max
     67
     %
 
 
 # 4 Byte by Byte
 
-Above, we've already spoken of 9 Pipe Bricks
+Above, we've already spoken of ten Pipe Bricks (and their .max and .len variations)
 
-    bytes casefold decode len lower split str title upper
+    bytes casefold decode max len  lower split str title upper
 
-For working with Bytes, we offer more
+For working with Bytes, we offer more Pipe Bricks
 
 
 ### 4.1 Md5 and Sha256
 
-You can ask for the Shell 'md5sum', and you can ask to include the Byte Length
+You can ask for the Shell 'md5sum', and you can ask it to include the Byte Length
 
     % cat /dev/null |pb md5
     d41d8cd98f00b204e9800998ecf8427e  -
@@ -459,7 +472,7 @@ You can ask for the Shell 'md5sum', and you can ask to include the Byte Length
     d41d8cd98f00b204e9800998ecf8427e  0  -
     %
 
-The Shell 'md5sum' and 'sha256sum' tools often mislead people by neglecting to mention Zeroed Byte Lengths. People come out wrongly feeling the Hash of Zero Bytes is indecipherable, while it's actually very well known
+The merely classic Shell 'md5sum' and 'sha256sum' tools do too often mislead people by neglecting to mention Zeroed Byte Lengths. People come out wrongly feeling the Hash of Zero Bytes is indecipherable, while it's actually very well known. If you always ask for the Byte Length, then you don't have that problem
 
     % cat /dev/null |pb sha256
     e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  -
@@ -472,9 +485,9 @@ The Shell 'md5sum' and 'sha256sum' tools often mislead people by neglecting to m
 
 ### 4.2 Strings
 
-You've often heard that Apple macOS is still fighting the Character Encoding Wars of late last century
+You'll remember that Apple macOS still fighting the Character Encoding Wars of last century means they forward the Byte b"\xC0" as if it were printable
 
-Yea. Well, both their '|cat -etv' and their '|strings' do wrongly forward some of the 0x80 .. 0xFF Bytes as if they were Printable Characters. In our particular example here, the Unprintable Byte 0xC0
+Ayup. This is a problem not only for their '|cat -tv' but also for their '|strings'. Oops
 
     % printf 'abcd\xC0wxyz\n' |cat -etv
     abcd¤wxyz$
@@ -504,7 +517,7 @@ Odds on your Terminal is showing you those unprintable ¤ Characters ambiguously
     wxyz
     %
 
-You can call on us in place of Apple macOS, as often as you remember you dislike their error as much as I do
+You can call on us in place of Apple macOS, any time you regret their error as much as I do
 
     % cat $(which cat) |pb strings |head -3
     __PAGEZERO
@@ -515,16 +528,19 @@ You can call on us in place of Apple macOS, as often as you remember you dislike
 
 # 5 Character by Character
 
-Above, we've already spoken of 12 Pipe Bricks
+Above, we've already spoken of thirteen Pipe Bricks (and their .max, .md5, .len, and .sha256 variations)
 
-    bytes casefold decode md5 len lower sha256 split str strings title upper
+    bytes casefold decode max md5  len lower sha256 split str
+    strings title upper
+
+For working with Characters, we offer more Pipe Bricks
 
 
 ### 5.1 ExpandTabs
 
 Python str.expandtabs
 
-For working with Characters, we also offer expandtabs
+For working with Characters, we offer '|pb expandtabs'
 
     % echo Abc |cat -n |pb -
          1¤Abc
@@ -537,7 +553,7 @@ For working with Characters, we also offer expandtabs
 
 Python str.ord
 
-You can work with the Character Codes spoken as Decimal Int Literals, rather than the Characters themselves, when you like
+For working with Character Codes spoken as Decimal Int Literals, we offer '|pb ord'
 
     % echo Abc |cat -n |pb ord
     32
@@ -553,18 +569,19 @@ You can work with the Character Codes spoken as Decimal Int Literals, rather tha
     10
     %
 
+
 ### 5.3 Str
 
 Python str
 
-You've not yet seen our work with Lines, but I want you to know up front to hold in mind as you learn, yes we do make all our work with Lines available to you for work with Characters
+I want you to know up front to hold in mind as you learn, yes we do make all our work with Lines available to you for work with Characters
 
-For example, to show which Characters show up in a Source File in the order of their first occurrence, you can call on us
+For example, after you learn how we help you work with Lines, then you can come back and tell us to show which Characters show up in a Source File in the order of their first occurrence
 
     % cat bin/litshell.py |pb decode str set |pb join --sep=''
     #!/usrbinev pytho3"ag:l.[-]VSEPTARBICKdwcf,mkx'?QM01q|F$O=+2LUj56DHWz8&_>9N()G%Y·Z*{}4^←↑→↓\;7¤~<@
 
-And you might prefer to tell us to sort the Characters before deduplicating them
+And you can tell us to sort the Characters before deduplicating them
 
     % cat bin/litshell.py |pb decode str sort set |pb join --sep=''
      !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIKLMNOPQRSTUVWYZ[\]^_abcdefghijklmnopqrstuvwxyz{|}~¤·←↑→↓
@@ -573,11 +590,19 @@ And you might prefer to tell us to sort the Characters before deduplicating them
 
 # 6 Line by Line
 
-We've developed most of our Bricks to work with Lines, in particular these twenty-five
+We've developed the most Bricks to work with Lines, in the way of Shell '|awk'
 
-    append counter dent enumerate frame head if insert join max min
-    printable removeprefix removesuffix reverse rstrip set shuffle slice
-    sort strip strip sum tail unframe
+Here are twenty-six of them
+
+    append counter dent enumerate frame  head if insert join lstrip
+    max min printable removeprefix removesuffix  reverse rstrip set shuffle slice
+    sort strip sum tail translate  unframe
+
+And they come in variations
+
+    .enumerate .frame .head .max .min  .reverse .sort .tail
+
+The .enumerate variation defaults to --start=1. The .frame variation implicitly adds a '|pb rstrip' after itself. The .head and .tail variations fill the Screen Rows, not just taking 9 Rows. The .max and .min and .sort variations take the Lines as Float, not as Str. The .reverse variation reverses the Characters in each Line, not the Lines of the File
 
 
 ## 6.1 Append
@@ -654,7 +679,7 @@ Python list[str].enumerate
 
 Often we'll just say '|pb n' or '|pb nl' to mean '|pb enumerate'
 
-We define '|pb enumerate' and '|pb nl' to default to ' --start=0', while defining '|pb .enumerate' and '|pb .nl' and '|pb n' to default to ' --start=1', in homage to Shell tradition. We don't define a '|pb .n'
+We define '|pb enumerate' and '|pb nl' to default to ' --start=0'. We define '|pb .enumerate' and '|pb .nl' and '|pb n' to default to ' --start=1'. We don't define a '|pb .n'
 
 
 ## 6.5 Frame
@@ -681,7 +706,7 @@ We define '|pb enumerate' and '|pb nl' to default to ' --start=0', while definin
     $
     %
 
-We define '|pb .frame' to mean '|pb frame' but str.rstrip each Line out
+We define '|pb .frame' to mean '|pb frame' but also str.rstrip each Line out
 
 Often we'll just say '|pb O' to mean Pb Frame in its four dimensions, and '|pb o' to mean Pb Unframe
 
@@ -818,7 +843,7 @@ Python list[str].max, or Python list[float].max, or Python list[int].max
     15
     %
 
-You can also say '|pb .max' to mean '|pb float.max'
+We give you list[str].max by default, but you can say '|pb .max' to mean '|pb float.max'
 
 See also Pb Min, Pb Sort, and Pb Sum
 
@@ -835,7 +860,7 @@ Python list[str].max, or Python list[float].max, or Python list[int].max
     3
     %
 
-You can also say '|pb .min' to mean '|pb float.min'
+We give you list[str].min by default, but you can say '|pb .min' to mean '|pb float.min'
 
 See also Pb Max, Pb Sort, and Pb Sum
 
@@ -914,7 +939,7 @@ When you're working with Lines, our '|pb reverse' comes across like a macOS '|ta
     1
     %
 
-For when you want a line-by-line reversal of the Characters in each Line, we define '|pb .reverse' to work like Shell '|rev'
+We define '|pb .reverse' to work like Shell '|rev', for when you want the Characters in each Line reversed, rather than the Lines of the File
 
     % printf 'Hello\n''Goodbye' |pb .reverse
     olleH
@@ -930,7 +955,7 @@ Often we'll just say '|pb r' to mean '|pb reverse'
 
 In particular '|pb r set r' means wait till the last Line arrives, then show me the Lines in the order they arrived, but with the duplicates removed from the top
 
-And we do let you say '|pb reversed' in place of 'pb reverse', in homage of 'list(reversed(list[str]))'
+And we do let you say '|pb reversed' in place of 'pb reverse', in homage of 'list(reversed(list[str]))'. And we do let you say '|pb rev' to mean '|pb .reverse', in the Shell tradition
 
 See also Pb Shuffle, and Pb Sort
 
@@ -1019,6 +1044,8 @@ Not yet Spec'd out and implemented
 
 Often we'll just say '|pb a' to mean '|pb .slice -1'
 
+Comparable to the most basic deployments of Shell '|awk'
+
 
 ## 6.21 Sort
 
@@ -1045,7 +1072,7 @@ Python list[str].sort, or Python list[float].sort, or Python list[int].sort
     15
     %
 
-You can also say '|pb .sort' to mean '|pb float.sort'
+We give you list[str].sort by default, but you can say '|pb .sort' to mean '|pb float.sort'
 
 And we do let you say '|pb sorted' in place of 'pb sort', in homage of 'list(sorted(list[str]))'
 
@@ -1112,6 +1139,8 @@ See also Pb Head
 Not yet Spec'd out and implemented
 
 Calls Python str.maketrans once and then Python str.translate on the Characters
+
+Comparable to the most basic deployments of Shell '|tr' and '|tr -c' and '|tr -d'
 
 
 ## 6.26 Unframe
@@ -1192,12 +1221,16 @@ We often let you type a familiar Shell Word in place of our Python Word
 | head | head |
 | lines | splitlines |
 | md5sum | md5 |
-| nl | .enumerate |
+| nl | enumerate |
 | rev | .reverse |
+| sha256sum | sha256 |
 | shuf | shuffle |
-| tac | r |
+| tac | reverse |
+| tail | tail |
 | text | str |
 | words | split |
+
+Our head, md5sum, nl, sha256sum, & tail come in also as dot variations: .head, .md5sum, .nl, .sha256sum, & .tail
 
 The '|uniq' and '|uniq -c' of Shell come with their bizarre small-machine limitation of needing sorted input. Because of this, we don't emulate them, even though we could. For now you have to find your way to calling for '|pb counter' or '|pb set', much more in the way of "|awk '!d[$0]++'"
 
@@ -1212,21 +1245,25 @@ In our Sh Folder
 
 | Shell Script | Meaning |
 | ------------ | ------- |
+| sh/.awk | Pick out the last Column when it's not empty |
 | sh/.bash | Bash but without Profile |
 | sh/.cat | Cat but as 'echo Press ⌃D to continue' && cat - >/dev/null |
+| sh/.cp | Copy with 1 Pos Arg = Make a backup copy of a File or Folder and put a date-time stamp on it |
 | sh/.cut | Cut to Screen |
+| sh/.cv | Same as sh/.pb, but collides with other people's 'cv' rather than their 'pb' |
 | sh/.echo | Print an unambiguous Python Repr of the Sys ArgV |
 | sh/.emacs | Emacs but without Profile |
 | sh/.exit.sh | Shell Source for .exit to mean show the Shell's $? Process Exit Status Return Code |
 | sh/.head | Head but fill Screen |
 | sh/.ls | ls -hlAF -rt --full-time -d except also at macOS and -d only for multiple Args |
+| sh/.mv | Rename with 1 Pos Arg = Put a date-time stamp on an original File or Folder so that it looks deleted |
 | sh/.od | Come close to '|hexdump -C' when that's not available |
 | sh/.pb | Pb but without Args and without its implicit Unframes |
 | sh/.ps | Call Ps to disclose which Shell is calling Ps |
 | sh/.screen | Celebrate 'screen -rr' and probably do nothing else as helpful |
 | sh/.sed | Convert a Git 'Changes to be committed' into Commit Message Lines |
-| sh/.sort | Sort but inside LC_ALL=C |
 | sh/.sh | Sh but without Profile |
+| sh/.sort | Sort but inside LC_ALL=C |
 | sh/.ssh | Ssh but without Profile |
 | sh/.tail | Tail but fill Screen |
 | sh/.uniq | Uniq but inside LC_ALL=C |
