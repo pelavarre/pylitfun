@@ -6139,6 +6139,14 @@ def _try_unicode_source_texts_() -> None:
     assert unicodedata.name("🟫").title() == "Large Brown Square"  # U+1F7EB  # 100 52
 
     #
+    # The Apple Os Copy/Paste Buffer takes in the 128 Undecodable Bytes of 0x80..0xFF as
+    #
+    #   ÄÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûü†°¢£§•¶ß®¤™´¨≠
+    #   ÆØ∞±≤≥¥µ∂∑∏π∫ªºΩæø¿¡¬√ƒ≈∆«»…¤ÀÃÕŒœ–—“”‘’÷◊ÿŸ⁄€
+    #   ‹›ﬁﬂ‡·‚„‰ÂÊÁËÈÍÎÏÌÓÔ¤ÒÚÛÙıˆ˜¯˘˙˚¸˝˛ˇ
+    #
+
+    #
     # The Apple ⌥ Option/Alt Keys send lots of printable U+00A1 .. U+00AC, U+00AE .. U+00FF
     #
     #   ¡ ¢ £ ¥ § ¨ © ª « ¬ ® ¯ ° ± ´ µ ¶ · ¸ º » ¿

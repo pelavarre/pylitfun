@@ -1413,7 +1413,7 @@ class ShellBrick:
                     found = True
                     oword = splits[index]
                     owords.append(oword)
-                elif index_minus < n:
+                elif 0 <= index_minus < n:
                     found = True
                     oword = splits[index_minus]
                     owords.append(oword)
@@ -1906,6 +1906,7 @@ if __name__ == "__main__":
 
 # todo0: revive |pb a -F/ -1 etc etc
 # todo0: write out what 'pbcopy; pbpaste' does to the single-byte UnicodeDecodeError's
+# todo0: dream up some great way to pass Bytes through |pbcopy
 
 #
 
