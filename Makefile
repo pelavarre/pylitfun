@@ -51,8 +51,8 @@ help:
 
 
 bin:
-	echo bin/[0-9A-Za-z]* sh/[0-9@A-Z_a-z]* sh/_ sh/.[0-9A-Za-z]* |(cd ~/ && xargs -n1 rm -fr)
-	cp -p bin/[0-9A-Za-z]* sh/[0-9@A-Z_a-z]* sh/_ sh/.[0-9A-Za-z]* ~/bin/.
+	echo bin/[0-9A-Za-z]* sh/[0-9A-Za-z]* sh/@ sh/_ sh/.[0-9A-Za-z]* |(cd ~/ && xargs -n1 rm -fr)
+	cp -p bin/[0-9A-Za-z]* sh/[0-9A-Za-z]* sh/@ sh/_ sh/.[0-9A-Za-z]* ~/bin/.
 	rm -fr ~/bin/pwnme
 
 # beware: the classic 'sh' can add ./ and ../ into sh/.*
