@@ -24,9 +24,9 @@ small bricks:
 
 memorable bricks:
   append bytes casefold counter decode dent enumerate expandtabs frame
-  head if insert join len lower lstrip max md5 min printable removeprefix
-  removesuffix reverse rstrip set sha256 shuffle slice sort split str
-  strings strip sum tail title unframe upper
+  head if insert join len lower lstrip max md5 min ord printable
+  removeprefix removesuffix reverse rstrip set sha256 shuffle slice
+  sort split str strings strip sum tail title unframe upper
 
 alt bricks:
   .enumerate .frame .head .len .max .md5 .min .reverse .sha256 .sort .tail
@@ -528,6 +528,7 @@ class ShellBrick:
             "casefold": self.from_text_casefold,  # |F for Fold
             "expandtabs": self.from_text_expandtabs,
             "lower": self.from_text_lower,  # |L
+            "ord": self.from_text_ord,
             "split": self.from_text_split,  # aka words
             "title": self.from_text_title,  # |T
             "upper": self.from_text_upper,  # |U
@@ -895,7 +896,7 @@ class ShellBrick:
         """bytes(sys.i).decode(errors="replace").replace("\ufffd", "¤")"""
 
         ReplacementCharacter = "\ufffd"  # PyPi Black rejects \uFFFD
-        repl = "¤"  # U+00A4 'Currency Sign'  # todo0:  option of |pb decode /?/ and --repl='?'
+        repl = "¤"  # U+00A4 'Currency Sign'
 
         idata = self.fetch_bytes()
 
@@ -906,6 +907,7 @@ class ShellBrick:
         self.store_otext(otext)
 
         # todo0: default '|pb decode' to "¤"  # --sep='?'  # --sep=''
+        # todo0: option of |pb printable /?/ and --repl='?' and ='💥' for decode/ printable/ textruns
 
     def from_bytes_md5(self) -> None:
         """hashlib.md5(bytes(sys.i)).hexdigest()"""
@@ -932,7 +934,7 @@ class ShellBrick:
         """Replace with ¤ till decodable, and then till str.isprintable"""  # todo: code up as Code
 
         ReplacementCharacter = "\ufffd"  # PyPi Black rejects \uFFFD
-        repl = "¤"  # U+00A4 'Currency Sign'  # todo0:  option of |pb printable /?/ and --repl='?'
+        repl = "¤"  # U+00A4 'Currency Sign'
 
         idata = self.fetch_bytes()
 
@@ -1048,6 +1050,14 @@ class ShellBrick:
         itext = self.fetch_itext()
         otext = itext.lower()
         self.store_otext(otext)
+
+    def from_text_ord(self) -> None:
+        """(ord(_) for _ in str(sys.i))"""
+
+        itext = self.fetch_itext()
+        oints = list(ord(_) for _ in itext)
+        olines = list(str(_) for _ in oints)
+        self.store_olines(olines)
 
     def from_text_split(self) -> None:
         """str(sys.i).split(sep)"""  # .sep may be None

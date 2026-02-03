@@ -149,7 +149,7 @@ Because I like turning "impossible" into "done"
 ## Links
 
 - [GitHub Repository](https://github.com/pelavarre/pylitfun)
-- [Questions/Feedback](https://twitter.com/intent/tweet?text=/@PELaVarre+%23PyLitFun)
+- [Questions/ Feedback](https://twitter.com/intent/tweet?text=/@PELaVarre+%23PyLitFun)
 
 
 <!--

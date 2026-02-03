@@ -6,10 +6,13 @@
   - [1.2 Download \& run](#12-download--run)
   - [1.3 Edit your own Os Copy/Paste Clipboard Buffer](#13-edit-your-own-os-copypaste-clipboard-buffer)
   - [1.4 Write into a Shell Pipe without spelling out the fiddly | and ' parts](#14-write-into-a-shell-pipe-without-spelling-out-the-fiddly--and--parts)
-  - [1.5 Run the Paste Buffer through a Shell Pipe](#15-run-the-paste-buffer-through-a-shell-pipe)
-  - [1.6 How many Words are out there?](#16-how-many-words-are-out-there)
+  - [1.5 Familiar vocabulary](#15-familiar-vocabulary)
+  - [1.6 Run your Paste Buffer through a Shell Pipe](#16-run-your-paste-buffer-through-a-shell-pipe)
+  - [1.7 How many Words are out there?](#17-how-many-words-are-out-there)
 - [2 Steer well clear of Unicode Decode Error, even at Apple macOS](#2-steer-well-clear-of-unicode-decode-error-even-at-apple-macos)
   - [2.1 Dash](#21-dash)
+  - [2.1.1 More particular than macOS '|cat -tv'](#211-more-particular-than-macos-cat--tv)
+  - [2.1.2 Less deceptive than macOS '|cat -tv'](#212-less-deceptive-than-macos-cat--tv)
   - [2.2 Decode](#22-decode)
   - [2.3 Take out the Trash](#23-take-out-the-trash)
 - [3 Count out all the things](#3-count-out-all-the-things)
@@ -21,7 +24,8 @@
     - [4.2 Strings](#42-strings)
 - [5 Character by Character](#5-character-by-character)
     - [5.1 ExpandTabs](#51-expandtabs)
-    - [5.2 Str](#52-str)
+    - [5.2 Ord](#52-ord)
+    - [5.3 Str](#53-str)
 - [6 Line by Line](#6-line-by-line)
   - [6.1 Append](#61-append)
   - [6.2 Counter](#62-counter)
@@ -52,7 +56,12 @@
 - [7 Shell Aliases for Pipe Bricks](#7-shell-aliases-for-pipe-bricks)
   - [7.1 Inside the Pipe](#71-inside-the-pipe)
   - [7.2 Outside the Pipe](#72-outside-the-pipe)
-- [8 Single Letter Aliases for Pipe Bricks](#8-single-letter-aliases-for-pipe-bricks)
+  - [7.3 Built most quickly](#73-built-most-quickly)
+- [8 Future work](#8-future-work)
+  - [8.1 Please tell your friends](#81-please-tell-your-friends)
+  - [8.2 Your Input Errors](#82-your-input-errors)
+  - [8.3 Parallel Processing](#83-parallel-processing)
+- [9 Links](#9-links)
 
 # 1 Welcome
 
@@ -89,13 +98,11 @@ But that stops working as soon as you change your $PWD
 
 ## 1.3 Edit your own Os Copy/Paste Clipboard Buffer
 
-So you know you can say
+Like to rework your Paste Buffer, you think you can say
 
     pbpaste |tr '[a-z]' '[A-Z]' |pbcopy
 
-Yes that works. And it's a horribly fiddly input line
-
-For starters, I'm pointing out you can instead just say
+I admit that works. But it's a horribly fiddly input line. You can instead just say
 
     pb |tr '[a-z]' '[A-Z]' |pb
 
@@ -115,9 +122,9 @@ That comes out looking as clean as this
 
 Get it?
 
-You don't have to keep straight whether you mean 'pbpaste' or 'pbcopy'. You don't have to spell out '|pbcopy' and 'pbpaste' in full. The 'pb' and '|pb' are hints enough
+You don't have to keep straight whether you mean 'pbpaste' or 'pbcopy'. You don't have to spell out '|pbcopy' and 'pbpaste' in full. Your 'pb' and '|pb' are hints enough
 
-This kind of 'pb' works by branching on sys.stdin.fileno().isatty()
+A unified 'pb' works by branching on sys.stdin.isatty()
 
     % cat sh/.pb
     if [ ! -t 0 ]; then
@@ -127,7 +134,7 @@ This kind of 'pb' works by branching on sys.stdin.fileno().isatty()
     fi
     %
 
-You can adopt this sh/.pb Shell Script into your Shell Path and workflow now. Read a bit more, and you'll immediately pick up your next small win
+You can adopt this sh/.pb Shell Script into your Shell Path and workflow now. Read a bit more, and you'll immediately pick up your next small Shell Integration win
 
 <!--
 
@@ -137,9 +144,7 @@ Linux folk have to work first to make pbpaste, pbpaste|, and |pbcopy go. Those t
 
 ## 1.4 Write into a Shell Pipe without spelling out the fiddly | and ' parts
 
-We can carry this same line of thinking a step farther
-
-You can just say
+This same line of thinking can go a step farther. You can just say
 
     pb upper
 
@@ -154,15 +159,27 @@ That comes out looking as clean as this
     HELLO, WORLD!
     %
 
-Our sh/.pb alone isn't change enough to make all of this work. You have to adopt our bin/pb to make this work
+You do have to adopt our bin/pb to make this work. You make it into an Shell Alias
+
+    alias cv=~/Public/pelavarre/pylitfun/bin/pb
+
+Or you add it into your Path
+
+    ln -s ~/Public/pelavarre/pylitfun/bin/pb ~/bin/pb
+
+You name it what you like. Some of us like 'pb', short for Paste Buffer. Some of us like 'cv', short for ⌘C Edit Copy and ⌘V Edit Paste
+
+## 1.5 Familiar vocabulary
 
 Our word UPPER comes from the Python BuiltIns. One of their datatypes is STR. And one of its methods is UPPER. This way of choosing a Word makes this Shell Hack memorable for Shell & Python people. You can add dozens of conveniences and then still find them a month later, when next you need them
 
 All of the Python words could work, and dozens already do. Like you can try 'pb lower' and 'pb title' and 'pb casefold' now, just as seeing 'pb upper' work teaches you to hope you can
 
-## 1.5 Run the Paste Buffer through a Shell Pipe
+## 1.6 Run your Paste Buffer through a Shell Pipe
 
-However, in our rush to show you can say 'upper' in place of "|tr '[a-z]' '[A-Z]'", we did run past mentioning that you're not rewriting the Paste Buffer when you say it that way
+We did leave out a key detail, as we rushed to show you can say 'upper' in place of "|tr '[a-z]' '[A-Z]'"
+
+We owe you mention that you're not rewriting the Paste Buffer when you say it that way
 
     % echo Hello, World! |pbcopy
     % pbpaste
@@ -179,11 +196,11 @@ However, in our rush to show you can say 'upper' in place of "|tr '[a-z]' '[A-Z]
 
 See that? No change to the Paste Buffer
 
-Next, from our talk so far, you know already know you could fix this by adding the four characters ' |pb'
+But it gets better. Like you know you can fix this by adding the four characters ' |pb'
 
     pb upper |pb
 
-But there is a better way. Try
+And we're here to tell you, there is a better way. Try
 
     0 upper
 
@@ -202,11 +219,9 @@ This comes out as clean as
     HELLO, WORLD!
     %
 
-Our 'pb' was a middling kind of explicit. You don't spell out if you meant 'pbpaste' or 'pbcopy', but you do still say when you do and don't want to write into the Paste Buffer
+Our 'pb' was a middling kind of explicit. You didn't spell out if you meant 'pbpaste' or 'pbcopy', but you did still say when you did and didn't want to write into the Paste Buffer
 
-Our '0' and '1' and '2' and '3' always do write back into the Paste Buffer
-
-When you pick '0', then you read from the Paste Buffer and write back. When you pick '1' then you read from the -1'th copy
+Our '0' and '1' and '2' and '3' do more work for you, but implicitly, automagically. These four always do write back into the Paste Buffer. When you pick '0', then you read from the Paste Buffer and write back into it. When you pick '1' then you read from your -1'th revision of the Paste Buffer, but you write into the present Paste Buffer
 
 Try
 
@@ -217,7 +232,7 @@ Try
     1
     pbpaste
 
-By the end you're looking at
+By the end of all that, you're looking at
 
     % pbpaste
     HELLO, WORLD!
@@ -231,7 +246,7 @@ By the end you're looking at
     Hello, World!
     %
 
-Does this make sense now?
+You see what you made happen?
 
 We give you a Stack of Paste Buffers. 0 is your latest revision, 1 is your second to last, 2 is your third to last, 3 is your fourth to last
 
@@ -244,19 +259,19 @@ We store these revisions of your Paste Buffer in a very local and destructive wa
     ./2
     ./3
 
-## 1.6 How many Words are out there?
+## 1.7 How many Words are out there?
 
-An awful lot
+Lots and lots
 
-Try some word that you remember from Python or from Shell and tell us when you feel a word is missing or running wrong?
+Please try some word that you remember from Python or from Shell. Tell us if you feel a word is missing or running wrong
 
 You can see like 75 Words suggested at
 
     pb --help
 
-You can speak each of these Words as the Name of a Pipe Brick. Each of these Pipe Bricks works like a Shell Pipe Filter, but each Pipe Brick is easier to grab a hold of and stick to other Bricks, like a LEGO® Brick is
+You can speak each of these Python and Shell Words as the Name of a Pipe Brick. Each of these Pipe Bricks runs like a Shell Pipe Filter, but each Pipe Brick is easier to grab a hold of and stick to other Bricks, like a LEGO® Brick is
 
-Their names come from Python and Shell traditions. Learn the stories the old people tell, and you'll find these names memorable
+The names of our Pipe Bricks come from Python and Shell traditions. Learn the stories the old people tell, and you'll find these names memorable
 
 # 2 Steer well clear of Unicode Decode Error, even at Apple macOS
 
@@ -264,19 +279,23 @@ Their names come from Python and Shell traditions. Learn the stories the old peo
 
 Show the Bytes Written
 
-When you do pipe a text back into the Paste Buffer, you often need to review it immediately. We let you say '| pb -' to mean that
+When you do pipe a text back into the Paste Buffer, you often need to review it immediately. We let you say '|pb -' in place of '|pb' to mean that you want to see what you wrote
 
     echo Abc |cat -n |pb -
 
-We learned to spell Dash as the U+002D Hyphen-Minus by analogy with '|cat -'
+We chose to write this out as '|pb -' by analogy with '|cat -', which does much the same thing
 
     printf '\033[1m''bold\n''\033[m''plain\n' |cat -
+
+## 2.1.1 More particular than macOS '|cat -tv'
 
 Linux folk dream that Apple macOS lets you say make-it-printable with '|cat -tv'. Until one day they try out enough of the 0x80..0xFF Bytes
 
     % printf 'Tab\tNac\xC0\x80Lf\n' |cat -tv |hexdump -C
     00000000  54 61 62 5e 49 4e 61 63  c0 4d 2d 5e 40 4c 66 0a  |Tab^INac.M-^@Lf.|
     00000010
+    %
+    % # .............................. ^^
     %
 
 You see that?
@@ -287,34 +306,61 @@ The Apple macOS '|cat -tv' lets the 0xC0 Byte through, as if it were printable, 
     tr: Illegal byte sequence
     %
 
-Try that in Apple macOS and it tells you talk to the hand while it's making a Stop sign. Apple's '|cat -tv' makes this trouble a problem for you, but our '|pb -' doesn't
+Try this in Apple macOS and it tells you talk to the hand while it's making a Stop Sign. Apple's '|cat -tv' makes this Byte Trouble a problem for you, but our '|pb -' doesn't. We substitute the Bytes b"\xC2\xA4" 'Currency Sign' that are printable as ¤, much like a 💥 'Collision' Boom, as often as you send us Unprintable Bytes
+
+    % printf 'Tab\tNac\xC0\x80Lf\n' |pb -
+    Tab¤Nac¤¤Lf
+    %
+
+## 2.1.2 Less deceptive than macOS '|cat -tv'
+
+Linux folk dream that Apple macOS lets you pick apart U+0020 Space from other kinds of blanks with '|cat -tv'. Until one day they try out enough of the U+0080..U+00FF Characters
+
+The Character Trouble that most often trips macOS folk out is the U+00A0 No-Break Space (Nbsp), encoded as the Bytes b"\xC2\xA0", struck on the Macbook Keyboard as ⌥ Spacebar
+
+    % printf 'abc\xC2\xA0def\n' |cat -tv |hexdump -C |column -t
+    00000000  61  62  63  c2  a0  64  65  66  0a  |abc..def.|
+    00000009
+    %
+    % # ................. ^^^^^^
+    %
+
+You see that?
+
+The Apple macOS '|cat -tv' lets the Bytes b"\xC2\xA0 through, as if they were as printable as a U+0020 Space. But the Python str.isprintable test knows to reject these, so we know to substitute the ¤ 'Currency Sign'
+
+    % printf 'abc\xC2\xA0def\n' |pb -
+    abc¤def
+    %
 
 ## 2.2 Decode
 
 Decode all the Bytes
 
-Apple macOS will flatly deny service when you stray far from US Ascii
+As above, but for inside the Pipe. We've shown you '|pb -', but that's scrubbing the unprintables out of your life only when you try to write them to a Tty
+
+You remember, Apple macOS will flatly deny service when you stray far from US Ascii
 
     % printf '\xC0\x80\n''Not a character\n' |sed 's/N/Just bytes, n/'
     sed: RE error: illegal byte sequence
     %
 
-Why? Because Apple macOS is still fighting the Character Encoding Wars of late last century
+Because Apple macOS is still fighting the Character Encoding Wars of late last century
 
-Linux folk dream that '|cat -tv' should fix this. They're correct to say it should work, but they're wrong to feel it does work
+And you remember, linux folk dream that '|cat -tv' should fix this. They're correct to say it should work, and they're wrong to feel it does work
 
     % printf '\xC0\x80\n''Not a character\n' |cat -tv |sed 's/N/Just bytes, n/'
     sed: RE error: illegal byte sequence
     %
 
-Our Python bytes.decode Pipe Brick does just work. We don't freak over rare bytes so much as to deny service
+Our Python bytes.decode Pipe Brick does just work. We don't freak over rare bytes so much as to deny service. We substitute ¤ 'Currency Symbol'
 
     % printf '\xC0\x80\n''Not a character\n' |pb decode |sed 's/N/Just bytes, n/'
     ¤¤
     Just bytes, not a character
     %
 
-You might want to substitute macOS Homebrew Shell Pipes for your Apple macOS Shell Pipes. Until you do that, your macOS Shell Pipes will flame out at random times, because still fighting the Character Encoding Wars of late last century
+As you learn these corners, you might want to go so far as to substitute macOS Homebrew Shell Pipes for your Apple macOS Shell Pipes. Until you do that, your macOS Shell Pipes will flame out at random times, because still fighting the Character Encoding Wars of late last century. We help with this, but we only solve it for you reliably if you put us into your every Shell Pipe
 
 ## 2.3 Take out the Trash
 
@@ -469,6 +515,8 @@ Above, we've already spoken of 12 Pipe Bricks
 
 ### 5.1 ExpandTabs
 
+Python str.expandtabs
+
 For working with Characters, we also offer expandtabs
 
     % echo Abc |cat -n |pb -
@@ -478,9 +526,31 @@ For working with Characters, we also offer expandtabs
     %
 
 
-### 5.2 Str
+### 5.2 Ord
 
-You've not yet seen our work with Lines, but I want you to know up front we do make all our work with Lines available to you for work with Characters
+Python str.ord
+
+You can work with the Character Codes spoken as Decimal Int Literals, rather than the Characters themselves, when you like
+
+    % echo Abc |cat -n |pb ord
+    32
+    32
+    32
+    32
+    32
+    49
+    9
+    65
+    98
+    99
+    10
+    %
+
+### 5.3 Str
+
+Python str
+
+You've not yet seen our work with Lines, but I want you to know up front to hold in mind as you learn, yes we do make all our work with Lines available to you for work with Characters
 
 For example, to show which Characters show up in a Source File in the order of their first occurrence, you can call on us
 
@@ -842,12 +912,12 @@ For when you want a line-by-line reversal of the Characters in each Line, we def
     % printf 'Hello\n''Goodbye' |pb .reverse
     olleH
     eybdooG
-    % 
+    %
 
-    % printf 'Hello\n''Goodbye' |rev        
+    % printf 'Hello\n''Goodbye' |rev
     olleH
     eybdooG
-    % 
+    %
 
 Often we'll just say '|pb r' to mean '|pb reverse'
 
@@ -919,9 +989,9 @@ Not yet Spec'd out and implemented
     README.md
     requirements.txt
     sh
-    % 
+    %
 
-    % ls -l |pb awk -1   
+    % ls -l |pb awk -1
     40
     bin
     docs
@@ -929,7 +999,7 @@ Not yet Spec'd out and implemented
     README.md
     requirements.txt
     sh
-    % 
+    %
 
     % ls -l |pb awk 6 7 8
     Feb  2  11:56
@@ -938,7 +1008,7 @@ Not yet Spec'd out and implemented
     Feb  1  12:12
     Feb  1  12:32
     Feb  2  11:57
-    % 
+    %
 
 Often we'll just say '|pb a' to mean '|pb .slice -1'
 
@@ -1101,6 +1171,7 @@ As easy as we make it to unframe by default, we also keep it easy quick to expli
 
 # 7 Shell Aliases for Pipe Bricks
 
+
 ## 7.1 Inside the Pipe
 
 We often let you type a familiar Shell Word in place of our Python Word
@@ -1122,6 +1193,7 @@ We often let you type a familiar Shell Word in place of our Python Word
 | words | split |
 
 The '|uniq' and '|uniq -c' of Shell come with their bizarre small-machine limitation of needing sorted input. Because of this, we don't emulate them, even though we could. For now you have to find your way to calling for '|pb counter' or '|pb set', much more in the way of "|awk '!d[$0]++'"
+
 
 ## 7.2 Outside the Pipe
 
@@ -1162,9 +1234,10 @@ In our Bin Folder
 | \|g | \|grep -ai -e ... -e ... |
 | p | python3 -c 'import ...; ...' |
 
-# 8 Single Letter Aliases for Pipe Bricks
 
-We let you type just one Memorable Letter to stand for a whole Pipe Brick
+## 7.3 Built most quickly
+
+When you like, we do let you type just one Memorable Letter to stand for a whole Pipe Brick
 
 For example, a search of Shell Input History can look like
 
@@ -1198,7 +1271,60 @@ Memorable Uppercase Letters
 | T | title |
 | U | upper |
 
-The pun with 'FLOTUS' amuses me, but I've not found a convincing case for defining '|pb S' to mean anything in particular. We do define '|pb .sort' to mean the Float Sort not the Str Sort
+The pun with 'First Lady of the United States (FLOTUS)' does amuse me, but I've not found a convincing case for defining '|pb S' to mean anything in particular. We do define '|pb .sort' to mean the Float Sort not the Str Sort, in contrast with '|pb s' to mean the Str Sort of the default Locale
+
+
+# 8 Future work
+
+
+## 8.1 Please tell your friends
+
+The bots feel this is written for you if ...
+
+
+**You are an intermediate to advanced Terminal Shell command-line user**
+
++ You already use shell pipes regularly (assumes knowledge of tr, sed, awk, grep, etc.)
++ You know Python basics (methods like str.upper, list.append, and more of the ~150 Python builtins)
++ You work primarily like on a macOS Macbook (pbpaste/pbcopy to reach the Paste Buffer, and dealing with BSD-specific issues)
++ You appreciate Unix philosophy but want modern conveniences
+
+Does this sound like a friend of yours? Please tell them about us
+
+Does this sound like you? Please stick around, and make time to come say hi
+
+
+## 8.2 Your Input Errors
+
+We've focused first on bringing up what should work
+
+Presently you can toss extra input into your Shell Command Lines near us, and receive no pushback to tell you that you placed it wrong
+
+    % echo hello |sh/.pb 1 2 3
+    %
+
+    % bin/pb 4 5 6
+    hello
+    %
+
+That's not nice. We can do better
+
+
+## 8.3 Parallel Processing
+
+A classic Shell Pipe Filter can write output before and while it receives input
+
+By contrast, most of our Pipe Bricks wait for end-of-file. They wait to copy the whole Input into Process Memory before working on it, like a Shell '| sponge' Pipe Filter
+
+A few of our Pipe Bricks must wait for end-of-file:  counter, join, len, max, md5, min, reverse, set, sha256, sort, sum
+
+The rest could learn to run in parallel with one another, so as to give you your first output sooner, and occupy less Process Memory
+
+
+# 9 Links
+
+- [GitHub Repository](https://github.com/pelavarre/pylitfun)
+- [Questions/ Feedback](https://twitter.com/intent/tweet?text=/@PELaVarre+%23PyLitFun)
 
 
 <!--
