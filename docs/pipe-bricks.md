@@ -124,15 +124,22 @@ Get it?
 
 You don't have to keep straight whether you mean 'pbpaste' or 'pbcopy'. You don't have to spell out '|pbcopy' and 'pbpaste' in full. Your 'pb' and '|pb' are hints enough
 
-A unified 'pb' works by branching on sys.stdin.isatty()
+A unified 'pb' works by branching on sys.stdin.isatty() and sys.stdout.isatty(). Inside of Shell, you speak of these as a '-t' test of sys.stdin.fileno() == 0, and as a '-t' test of sys.stdout.fileno() == 1
 
     % cat sh/.pb
-    if [ ! -t 0 ]; then
-        pbcopy "$@A"
+    # .pb = Edit your Os Copy/Paste Clipboard Buffer
+
+    if [ -t 0 ]; then
+        pbpaste "$@"
     else
-        pbpaste "$@A"
+        pbcopy "$@"
+        if [ ! -t 1 ]; then
+            pbpaste
+        fi
     fi
     %
+
+You can see that '|pb ' ends up meaning '| (pbcopy; pbpaste)', which works much like '|sponge' but leaves a copy in '|tee >(pbcopy) |' as it runs oruns on
 
 You can adopt this sh/.pb Shell Script into your Shell Path and workflow now. Read a bit more, and you'll immediately pick up your next small Shell Integration win
 
@@ -171,9 +178,9 @@ You name it what you like. Some of us like 'pb', short for Paste Buffer. Some of
 
 ## 1.5 Familiar vocabulary
 
-Our word UPPER comes from the Python BuiltIns. One of their datatypes is STR. And one of its methods is UPPER. This way of choosing a Word makes this Shell Hack memorable for Shell & Python people. You can add dozens of conveniences and then still find them a month later, when next you need them
+Our word UPPER comes from the Python BuiltIns. One of their datatypes is STR. And one of its methods is UPPER. This way of choosing a Word makes this '|pb upper' Shell Hack memorable for Shell & Python people. You can add dozens of conveniences and then still find these a month later, when next you need them
 
-All of the Python words could work, and dozens already do. Like you can try 'pb lower' and 'pb title' and 'pb casefold' now, just as seeing 'pb upper' work teaches you to hope you can
+All of the Python and Shell words could work, and dozens already do. Like you can try '|pb lower' and '|pb title' and '|pb casefold' now, just as seeing '|pb upper' work teaches you to hope you can, working from your memory of Python's 'dir(str)'
 
 ## 1.6 Run your Paste Buffer through a Shell Pipe
 
@@ -221,7 +228,7 @@ This comes out as clean as
 
 Our 'pb' was a middling kind of explicit. You didn't spell out if you meant 'pbpaste' or 'pbcopy', but you did still say when you did and didn't want to write into the Paste Buffer
 
-Our '0' and '1' and '2' and '3' do more work for you, but implicitly, automagically. These four always do write back into the Paste Buffer. When you pick '0', then you read from the Paste Buffer and write back into it. When you pick '1' then you read from your -1'th revision of the Paste Buffer, but you write into the present Paste Buffer
+Our '0' and '1' and '2' and '3' do more work for you, but more implicitly, more automagically. These four always do write back into the Paste Buffer. When you pick '0', then you read from the Paste Buffer and write back into it. When you pick '1' then you read from your -1'th revision of the Paste Buffer, but you write into the present Paste Buffer
 
 Try
 
