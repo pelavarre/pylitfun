@@ -20,7 +20,7 @@ quirks:
   separates output same as input, as if you wrote |awk -F$sep -vOFS=$sep
 
 small bricks:
-  -  0 1 2 3  F L O T U  a h i n o r s t u w x  nl pb
+  -  0 1 2 3  F L O T U  a h i j n o r s t u w x  nl pb
 
 memorable bricks:
   append bytes casefold counter decode dent enumerate expandtabs frame
@@ -83,6 +83,7 @@ import dataclasses
 import datetime as dt
 import difflib
 import hashlib
+import json
 import os
 import pathlib
 import random
@@ -354,6 +355,11 @@ class ShellGopher:
             if index > 1:
                 newborn = bricks[-1]
 
+                dot = verb
+                if verb == ".":
+                    newborn.posargs += (dot,)
+                    continue
+
                 number = str_to_number_if(verb)  # takes float | int | bool
                 if number is not None:
                     newborn.posargs += (number,)
@@ -527,6 +533,7 @@ class ShellBrick:
             #
             "casefold": self.from_text_casefold,  # |F for Fold
             "expandtabs": self.from_text_expandtabs,
+            "jq": self.from_text_jq,  # |j
             "lower": self.from_text_lower,  # |L
             "ord": self.from_text_ord,
             "split": self.from_text_split,  # aka words
@@ -575,6 +582,7 @@ class ShellBrick:
             ".enumerate": self.for_line_enumerate,  # like |n or |cat -n and with --start=1
             ".frame": self.for_line_do_frame,  # with .rstrip
             ".head": self.from_lines_head,
+            ".jq": self.from_text_jq,
             ".len": self.for_line_len,
             ".max": self.from_lines_number_max,
             ".md5": self.from_bytes_md5,
@@ -646,6 +654,7 @@ class ShellBrick:
             "a": self.for_line_awk_nth_slice,
             "h": self.from_lines_head,
             "i": self.from_text_split,
+            "j": self.from_text_jq,
             "n": self.for_line_enumerate,  # but defaulting to --start=1
             "o": self.from_text_do_unframe,  # |o because it rounds off ← ↑ → ↓
             "r": self.from_lines_reverse,
@@ -1042,6 +1051,23 @@ class ShellBrick:
 
         itext = self.fetch_itext()
         otext = itext.expandtabs()
+        self.store_otext(otext)
+
+    def from_text_jq(self) -> None:
+        """json.dumps(json.loads(str(sys.i)), indent=2)"""
+
+        verb = self.verb
+
+        itext = self.fetch_itext()
+
+        otext = itext
+        if itext:
+            loads = json.loads(itext)
+
+            otext = json.dumps(loads, indent=2) + "\n"
+            if verb in ("j", ".jq"):
+                otext = json_dumps_as_py(loads)
+
         self.store_otext(otext)
 
     def from_text_lower(self) -> None:
@@ -1485,8 +1511,10 @@ class ShellBrick:
         sg = self.shell_gopher
         start = sg.start
 
+        verb = self.verb
+
         _start_ = 0 if (start is None) else start
-        if self.verb in (".enumerate", "n", ".nl"):
+        if verb in (".enumerate", "n", ".nl"):
             _start_ = 1 if (start is None) else start
 
         ilines = self.fetch_ilines()
@@ -1871,6 +1899,100 @@ def str_removeflanks_if(lit: str, marks: str) -> str | None:
                 return lit[1:-1]
 
     return None
+
+
+#
+# Amp up Import Json
+#
+
+
+def json_dumps_as_py(j: object) -> str:
+    """Print a Python Program that forms a copy of this Object"""
+
+    pylines = list()
+
+    pylines.append("import json")
+    pylines.append("")
+
+    if isinstance(j, dict):
+        pylines.append("j = dict()")
+        dict_pylines = json_dumps_items_as_py_lines(j, keys=list())
+        pylines.extend(dict_pylines)
+    else:
+        raise NotImplementedError(type(j))
+
+    pylines.append("")
+    pylines.append("print(json.dumps(j, indent=2))  # from |pb .jq")
+
+    py = "\n".join(pylines) + "\n"
+    return py
+
+
+def json_dumps_items_as_py_lines(
+    j: list[object] | dict[str, object], keys: list[str | int]
+) -> list[str]:
+    """Print a Python Program that forms a copy of this Dict"""
+
+    q = str_int_quote_as_py
+
+    above = "".join(("[" + q(_) + "]") for _ in keys)
+
+    jitems: list[tuple[str | int, object]] = list()
+    if isinstance(j, list):
+        jitems = list(enumerate(j))
+    else:
+        assert isinstance(j, dict), (type(j),)
+        jitems = list(j.items())
+
+    pylines = list()
+    for k, v in jitems:
+        assert isinstance(k, (int, str)), (type(k), keys)
+        keys_plus = list(keys) + [k]
+
+        if isinstance(v, (bool, int, float, type(None))):
+            pylines.append(f"j{above}[{q(k)}] = {v}")
+            continue
+
+        if isinstance(v, str):
+            pylines.append(f"j{above}[{q(k)}] = {q(v)}")
+            continue
+
+        if isinstance(v, list):
+            if not v:
+                pylines.append(f"j{above}[{q(k)}] = list()")
+                continue
+
+            n = len(v)
+            pylines.append(f"j{above}[{q(k)}] = {n} * [None]")
+            list_pylines = json_dumps_items_as_py_lines(j=v, keys=keys_plus)
+            pylines.extend(list_pylines)
+            continue
+
+        if isinstance(v, dict):
+            pylines.append(f"j{above}[{q(k)}] = dict()")
+            dict_pylines = json_dumps_items_as_py_lines(j=v, keys=keys_plus)
+            pylines.extend(dict_pylines)
+            continue
+
+        raise NotImplementedError(type(v), keys)
+
+    return pylines
+
+
+def str_int_quote_as_py(o: str | int) -> str:
+    """Quote like Repr but default to U+0022 Quotation-Mark"""
+
+    r = repr(o)
+
+    if r.startswith("'") and ('"' not in r):
+        assert r.endswith("'"), (
+            r[-1:],
+            r,
+        )
+        r2 = '"' + r.removeprefix("'").removesuffix("'") + '"'
+        return r2
+
+    return r
 
 
 #

@@ -53,15 +53,17 @@
   - [6.24 Tail](#624-tail)
   - [6.25 Translate](#625-translate)
   - [6.26 Unframe](#626-unframe)
-- [7 Shell Aliases for Pipe Bricks](#7-shell-aliases-for-pipe-bricks)
-  - [7.1 Inside the Pipe](#71-inside-the-pipe)
-  - [7.2 Outside the Pipe](#72-outside-the-pipe)
-  - [7.3 Built most quickly](#73-built-most-quickly)
-- [8 Future work](#8-future-work)
-  - [8.1 Please tell your friends](#81-please-tell-your-friends)
-  - [8.2 Your Input Errors](#82-your-input-errors)
-  - [8.3 Parallel Processing](#83-parallel-processing)
-- [9 Links](#9-links)
+- [7 File by File](#7-file-by-file)
+- [7.1 Json Files](#71-json-files)
+- [8 Shell Aliases for Pipe Bricks](#8-shell-aliases-for-pipe-bricks)
+  - [8.1 Inside the Pipe](#81-inside-the-pipe)
+  - [8.2 Outside the Pipe](#82-outside-the-pipe)
+  - [8.3 Built most quickly](#83-built-most-quickly)
+- [9 Future work](#9-future-work)
+  - [9.1 Please tell your friends](#91-please-tell-your-friends)
+  - [9.2 Your Input Errors](#92-your-input-errors)
+  - [9.3 Parallel Processing](#93-parallel-processing)
+- [10 Links](#10-links)
 
 
 # 1 Welcome
@@ -1205,10 +1207,46 @@ Showing this persuasively can be difficult, because we so often unframe by defau
 As easy as we make it to unframe by default, we also keep it easy quick to explicitly say do unframe it. We'll just say '|pb o' to mean Pb Unframe in its four dimensions, and '|pb O' to mean Pb Frame
 
 
-# 7 Shell Aliases for Pipe Bricks
+# 7 File by File
 
 
-## 7.1 Inside the Pipe
+# 7.1 Json Files
+
+Many macOS and Linux understand between one and three of
+
+    echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |python3 -m json.tool
+
+    echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |python3 -m json
+
+    echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |jq .
+
+We give you the uncolored experience like that, via Python json.loads/ json.dumps, at
+
+    echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pb jq .
+
+But we also offer
+
+    echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pb .jq
+
+Call our alt .jq like that and you see the nests go flat
+
+    import json
+
+    j = dict()
+    j["alfa"] = 11
+    j["bravo"] = dict()
+    j["bravo"]["charlie"] = 33
+    j["bravo"]["delta"] = 44
+
+    print(json.dumps(j, indent=2))  # from |pb .jq
+
+Given these flat paths to values, you can |grep the values and then find again what values the |grep surfaced in full context, without having to fiddle with line numbers
+
+
+# 8 Shell Aliases for Pipe Bricks
+
+
+## 8.1 Inside the Pipe
 
 We often let you type a familiar Shell Word in place of our Python Word
 
@@ -1219,6 +1257,7 @@ We often let you type a familiar Shell Word in place of our Python Word
 | data | bytes |
 | expand | expandtabs |
 | head | head |
+| jq | jq |
 | lines | splitlines |
 | md5sum | md5 |
 | nl | enumerate |
@@ -1230,12 +1269,14 @@ We often let you type a familiar Shell Word in place of our Python Word
 | text | str |
 | words | split |
 
-Our head, md5sum, nl, sha256sum, & tail come in also as dot variations: .head, .md5sum, .nl, .sha256sum, & .tail
+Our jq, head, md5sum, nl, sha256sum, & tail come in also as dot variations: .jq, .head, .md5sum, .nl, .sha256sum, & .tail
 
-The '|uniq' and '|uniq -c' of Shell come with their bizarre small-machine limitation of needing sorted input. Because of this, we don't emulate them, even though we could. For now you have to find your way to calling for '|pb counter' or '|pb set', much more in the way of "|awk '!d[$0]++'"
+Our jq and .jq are minimal, nothing like as ambitious as the real '|jq' that is more than its '|jq .'
+
+We could emulate the '|uniq' and '|uniq -c' of Shell, and we don't. Those two come with their bizarre small-machine limitation of needing sorted input. For now, with us, you have to find your way to calling for '|pb counter' or '|pb set', much more in the way of "|awk '!d[$0]++'"
 
 
-## 7.2 Outside the Pipe
+## 8.2 Outside the Pipe
 
 Adopt our 'bin/pb' and you get most of what we discuss in this doc, but if you tire of typing 'pb 0' to mean 0 then you can also adopt our bin/0, bin/1, bin/2, and bin/3 as we've shown
 
@@ -1279,7 +1320,7 @@ In our Bin Folder
 | p | python3 -c 'import ...; ...' |
 
 
-## 7.3 Built most quickly
+## 8.3 Built most quickly
 
 When you like, we do let you type just one Memorable Letter to stand for a whole Pipe Brick
 
@@ -1318,10 +1359,10 @@ Memorable Uppercase Letters
 The pun with 'First Lady of the United States (FLOTUS)' does amuse me, but I've not found a convincing case for defining '|pb S' to mean anything in particular. We do define '|pb .sort' to mean the Float Sort not the Str Sort, in contrast with '|pb s' to mean the Str Sort of the default Locale
 
 
-# 8 Future work
+# 9 Future work
 
 
-## 8.1 Please tell your friends
+## 9.1 Please tell your friends
 
 The bots feel this is written for you if ...
 
@@ -1338,7 +1379,7 @@ Does this sound like a friend of yours? Please tell them about us
 Does this sound like you? Please stick around, and make time to come say hi
 
 
-## 8.2 Your Input Errors
+## 9.2 Your Input Errors
 
 We've focused first on bringing up what should work
 
@@ -1354,7 +1395,7 @@ Presently you can toss extra input into your Shell Command Lines near us, and re
 That's not nice. We can do better
 
 
-## 8.3 Parallel Processing
+## 9.3 Parallel Processing
 
 A classic Shell Pipe Filter can write output before and while it receives input
 
@@ -1365,7 +1406,7 @@ A few of our Pipe Bricks must wait for end-of-file:  counter, join, len, max, md
 The rest could learn to run in parallel with one another, so as to give you your first output sooner, and occupy less Process Memory
 
 
-# 9 Links
+# 10 Links
 
 - [GitHub Repository](https://github.com/pelavarre/pylitfun)
 - [Questions/ Feedback](https://twitter.com/intent/tweet?text=/@PELaVarre+%23PyLitFun)
