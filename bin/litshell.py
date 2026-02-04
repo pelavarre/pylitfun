@@ -1909,17 +1909,24 @@ def str_removeflanks_if(lit: str, marks: str) -> str | None:
 def json_dumps_as_py(j: object) -> str:
     """Print a Python Program that forms a copy of this Object"""
 
+    object_pylines = list()
+
+    if isinstance(j, dict):
+        object_pylines.append("j: typing.Any = dict()")
+        dict_pylines = json_dumps_items_as_py_lines(j, keys=list())
+        object_pylines.extend(dict_pylines)
+    else:
+        raise NotImplementedError(type(j))
+
     pylines = list()
 
     pylines.append("import json")
+    if " = textwrap." in "\n".join(object_pylines):  # a little too often
+        pylines.append("import textwrap")
+    pylines.append("import typing")
     pylines.append("")
 
-    if isinstance(j, dict):
-        pylines.append("j = dict()")
-        dict_pylines = json_dumps_items_as_py_lines(j, keys=list())
-        pylines.extend(dict_pylines)
-    else:
-        raise NotImplementedError(type(j))
+    pylines.extend(object_pylines)
 
     pylines.append("")
     pylines.append("print(json.dumps(j, indent=2))  # from |pb .jq")
@@ -1927,13 +1934,15 @@ def json_dumps_as_py(j: object) -> str:
     py = "\n".join(pylines) + "\n"
     return py
 
+    # often agrees with Flake8, Mypy Strict, and:  black --line-length=1001 p.py
+
 
 def json_dumps_items_as_py_lines(
     j: list[object] | dict[str, object], keys: list[str | int]
 ) -> list[str]:
     """Print a Python Program that forms a copy of this Dict"""
 
-    q = str_int_quote_as_py
+    q = str_int_quote_as_flat_py
 
     above = "".join(("[" + q(_) + "]") for _ in keys)
 
@@ -1949,27 +1958,37 @@ def json_dumps_items_as_py_lines(
         assert isinstance(k, (int, str)), (type(k), keys)
         keys_plus = list(keys) + [k]
 
+        py = f"j{above}[{q(k)}]"
+
         if isinstance(v, (bool, int, float, type(None))):
-            pylines.append(f"j{above}[{q(k)}] = {v}")
+            pylines.append(f"{py} = {v}")
             continue
 
         if isinstance(v, str):
-            pylines.append(f"j{above}[{q(k)}] = {q(v)}")
+            tall_py = str_quote_as_tall_py_if(v)
+            if tall_py:
+                for index, pyline in enumerate(tall_py.splitlines()):
+                    if index == 0:
+                        pylines.append(f"{py} = {pyline}")
+                    else:
+                        pylines.append(f"{pyline}")
+            else:
+                pylines.append(f"{py} = {q(v)}")
             continue
 
         if isinstance(v, list):
             if not v:
-                pylines.append(f"j{above}[{q(k)}] = list()")
+                pylines.append(f"{py} = list()")
                 continue
 
             n = len(v)
-            pylines.append(f"j{above}[{q(k)}] = {n} * [None]")
+            pylines.append(f"{py} = {n} * [None]")
             list_pylines = json_dumps_items_as_py_lines(j=v, keys=keys_plus)
             pylines.extend(list_pylines)
             continue
 
         if isinstance(v, dict):
-            pylines.append(f"j{above}[{q(k)}] = dict()")
+            pylines.append(f"{py} = dict()")
             dict_pylines = json_dumps_items_as_py_lines(j=v, keys=keys_plus)
             pylines.extend(dict_pylines)
             continue
@@ -1979,7 +1998,40 @@ def json_dumps_items_as_py_lines(
     return pylines
 
 
-def str_int_quote_as_py(o: str | int) -> str:
+def str_quote_as_tall_py_if(s: str) -> str:
+    """Quote as TextWrap DeDent Strip if it fits"""
+
+    # Give up a little too often
+
+    if "\n" not in s:
+        return ""
+
+    if s != s.lstrip():
+        return ""
+
+    if s != s.rstrip():
+        return ""
+
+    if '"""' in s:
+        return ""
+
+    # Quote by way of >= 1 Unquoted Line-Break's
+
+    dent4 = 4 * " "
+
+    pylines = list()
+    pylines.append('textwrap.dedent("""')
+    for pyline in s.splitlines():
+        pylines.append(f"{dent4}{pyline}")  # could .rstrip, and doesn't
+    pylines.append('""").strip()')
+
+    # Succeed
+
+    py = "\n".join(pylines)  # doesn't end with + "\n"
+    return py
+
+
+def str_int_quote_as_flat_py(o: str | int) -> str:
     """Quote like Repr but default to U+0022 Quotation-Mark"""
 
     r = repr(o)
