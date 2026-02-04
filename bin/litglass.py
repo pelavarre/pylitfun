@@ -573,7 +573,7 @@ class ColorPickerGame:
         assert CUF_X == "\033[" "{}" "C"
         assert SGR_PS == "\033[" "{}" "m"
 
-        dent = 4 * " "
+        dent4 = 4 * " "
 
         # Find the present Color
 
@@ -604,11 +604,11 @@ class ColorPickerGame:
         sw.print()
         sw.print()  # twice
 
-        sw.print(dent + gap + n + dent)
+        sw.print(dent4 + gap + n + dent4)
         sw.print()
-        sw.print(dent + f"rgb color {r} {g} {b} is {ps=}" + dent)
+        sw.print(dent4 + f"rgb color {r} {g} {b} is {ps=}" + dent4)
         sw.print()
-        sw.print(dent + gap + s + dent)
+        sw.print(dent4 + gap + s + dent4)
 
         sw.print()
         sw.print()  # twice
@@ -621,7 +621,7 @@ class ColorPickerGame:
 
         for _ in range(3):
             sep = "\033[2C"
-            text = dent + "█" + sep + "██" + sep + "███" + sep + "██" + sep + "█" + dent + "\r\n"
+            text = dent4 + "█" + sep + "██" + sep + "███" + sep + "██" + sep + "█" + dent4 + "\r\n"
             sw.write_text(text)
 
         y_high += 3
@@ -972,14 +972,14 @@ class KeycapsGame:
             index = m.start() + len(m.group(1))
             text = text[:index] + repl + text[index + len(render) :]
 
-        dent = 4 * " "
+        dent4 = 4 * " "
         splitlines = text.splitlines()
 
         # Print each Row
 
         sw.print()
         for line in splitlines:
-            text = dent + line + dent
+            text = dent4 + line + dent4
 
             sw.write_text(text)
             sw.write_control("\033[K")
@@ -1288,10 +1288,10 @@ class KeycapsGame:
 
         # Leap to this found Key Cap
 
-        dent = 4 * " "
+        dent4 = 4 * " "
 
         y = game_y + len(found_lines)
-        x = game_x + len(dent) + len(found_lines[-1]) - 1
+        x = game_x + len(dent4) + len(found_lines[-1]) - 1
 
         sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
@@ -1491,7 +1491,7 @@ class SquaresGame:
         sw = tb.screen_writer
 
         squares = SquaresGame.Squares
-        dent = 4 * " "
+        dent4 = 4 * " "
 
         # Place the Gameboard
 
@@ -1513,12 +1513,12 @@ class SquaresGame:
             if flags.darkmode:
                 y_text = y_text.replace("⬜", "⬛")
 
-            sw.write_printable(dent + y_text + dent)
+            sw.write_printable(dent4 + y_text + dent4)
             sw.write_some_controls(["\r", "\n"])
 
         # Draw the Southern Decor and the Southern Border
 
-        sw.print(dent + "  ↓    ↓  " + dent)
+        sw.print(dent4 + "  ↓    ↓  " + dent4)
 
         sw.print()
         sw.print()  # twice
@@ -5219,9 +5219,9 @@ class KeyByteFrame:
 
         assert not encodes, (encodes,)
 
-        dent = len(head) - len(head.lstrip(b"\033"))
-        dent = (dent - 1) if dent else 0
-        undented_head = head[dent:]
+        escapes = len(head) - len(head.lstrip(b"\033"))
+        escapes = (escapes - 1) if escapes else 0
+        undented_head = head[escapes:]
 
         if undented_head == b"\033":
             extras = self._take_after_esc_if_(data)
@@ -5243,7 +5243,7 @@ class KeyByteFrame:
             extras = self._take_after_osc_if_(data, text=text)
             return extras
 
-        assert False, (head, head[dent:], dent, self)
+        assert False, (head, head[escapes:], escapes, self)
 
     def _take_before_head_if_(self, data: bytes, text: str) -> bytes:
         """Take 1..4 more Bytes in, before any Head, else return what doesn't fit"""
