@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+
+""".free = Count Bytes of Ram - at macOS or Linux, in the Linux way"""
+
+import os
+
+sc_hys_pages = os.sysconf("SC_PHYS_PAGES")
+sc_page_size = os.sysconf("SC_PAGE_SIZE")
+ram = sc_hys_pages * sc_page_size
+try:
+    print("{:_}".format(ram))
+except ValueError:
+    print(ram / 1e9)
