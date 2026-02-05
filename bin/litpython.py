@@ -319,7 +319,7 @@ class ArgDocParser:
             if sys.version_info >= _ARGPARSE_3_10_:
                 print("\n".join(diffs))
 
-                sys.exit(2)  # exits 2 for wrong Args in Help Doc
+                sys.exit(2)  # exits 2 for Help Doc and/or Parser gone wrong
 
             # takes 'usage: ... [HINT ...]', rejects 'usage: ... HINT [HINT ...]'
             # takes 'options:', rejects 'optional arguments:'

@@ -102,6 +102,16 @@ if not __debug__:
 assert int(0x80 + signal.SIGINT) == 130
 
 
+class LitSystemExit(SystemExit):
+    """Exit with a Nonzero Process Exit Status Return Code, with a Message or not"""
+
+    occasion: object | None
+
+    def __init__(self, code: int, occasion: object | None) -> None:
+        super().__init__(code)
+        self.occasion = occasion
+
+
 #
 # Run from the Shell Command Line
 #
@@ -114,12 +124,16 @@ def main() -> None:
     """Run from the Shell Command Line"""
 
     shg = ShellGopher()
-
     shg.run_main_argv_minus(sys.argv[1:])
-    shg.compile_pipe_if()
-    shg.sketch_pipe()
 
-    shg.run_pipe()
+    try:
+        shg.compile_pipe_if()
+        shg.sketch_pipe()
+        shg.run_pipe()
+    except LitSystemExit as exc:
+        if exc.occasion is not None:
+            print(str(exc.occasion), file=sys.stderr)
+        sys.exit(exc.code)
 
 
 class ShellGopher:
@@ -184,14 +198,30 @@ class ShellGopher:
 
         verbs = self.verbs
 
-        doc = __main__.__doc__
-        assert doc, (doc,)
+        # Take Options & Pos Args in from the Shell Command Line
 
-        parser = self.arg_doc_to_parser(doc)
+        parser = self.arg_doc_to_parser(__main__.__doc__ or "")
         ns = self.shell_args_take_in(argv_minus, parser=parser)
+
         if ns.help:
             parser.print_help()
-            sys.exit(0)
+            sys.exit(0)  # exits 0 after printing Help Doc
+
+        if ns.version:
+            pathname = __file__
+            path = pathlib.Path(pathname)
+
+            mtime = path.stat().st_mtime
+            maware = dt.datetime.fromtimestamp(mtime).astimezone()
+
+            mmmyyyy = maware.strftime("%b/%Y")
+            title = "Lit" + path.name.removeprefix("lit").title().replace(".", "·")
+            version = pathlib_path_read_version(pathname)
+
+            print(mmmyyyy, title, version)
+            sys.exit(0)  # exits 0 after printing Version
+
+        # Run differently because Options & Pos Args
 
         if ns.verbose:
             verbose.append(True)
@@ -230,20 +260,6 @@ class ShellGopher:
 
         if ns.raw_control_ch:
             self.raw_control_chars = True
-
-        if ns.version:
-            pathname = __file__
-            path = pathlib.Path(pathname)
-
-            mtime = path.stat().st_mtime
-            maware = dt.datetime.fromtimestamp(mtime).astimezone()
-
-            mmmyyyy = maware.strftime("%b/%Y")
-            title = "Lit" + path.name.removeprefix("lit").title().replace(".", "·")
-            version = pathlib_path_read_version(pathname)
-
-            print(mmmyyyy, title, version)
-            sys.exit(0)
 
         # todo8: reject conflicts between --sep -F -vOFS
 
@@ -433,8 +449,8 @@ class ShellGopher:
         brick = ShellBrick(self, verb=verb)
 
         if not brick.verb:
-            print(f"Unknown Pipe Brick: {verb!r}", file=sys.stderr)
-            sys.exit(2)  # exits 2 for bad Args
+            occasion = f"NameError: name '{verb}' is not defined"
+            raise LitSystemExit(code=1, occasion=occasion)  # NameError of a Brick
 
         return brick
 
@@ -689,16 +705,23 @@ class ShellBrick:
 
         func = self.func
         try:
+
             func()
+
         except UnicodeDecodeError as exc:
-            if stdin_isatty:  # taking from 'pbpaste' practically never raises UnicodeDecodeError
-                print(f"{verb=}", file=sys.stderr)
-                raise
-            traceback.print_exception(exc, limit=0)  # colorize=sys.stderr.isatty()
-            sys.exit(1)
-        except Exception:
+
+            if not stdin_isatty:
+                texts = traceback.format_exception(exc, limit=0)  # colorize=sys.stderr.isatty()
+                assert len(texts) == 1, (texts,)
+                raise LitSystemExit(code=1, occasion=texts[0].rstrip())  # UnicodeDecodeError of |pb
+
             print(f"{verb=}", file=sys.stderr)
-            raise
+            raise  # UnicodeDecodeError from Brick Func while .stdin_isatty
+
+        except Exception:
+
+            print(f"{verb=}", file=sys.stderr)
+            raise  # Exception from Brick Func
 
     #
     # Enter & exit entirely outside our Stack of 4 Revisions of the Paste Buffer
@@ -773,7 +796,7 @@ class ShellBrick:
             try:
                 os.write(fd, data)
             except BrokenPipeError:
-                sys.exit(141)  # 0x80 + signal.SIGPIPE
+                raise LitSystemExit(code=141, occasion=None)  # 0x80 + signal.SIGPIPE
 
             # tested by:  set -o pipefail && seq 123456 |pb && pb |head; echo + exit $?
             # else:  BrokenPipeError: [Errno 32] Broken pipe
@@ -796,8 +819,8 @@ class ShellBrick:
 
         path = pathlib.Path(str(n))
         if not path.exists():
-            print(f"./{n} file not found", file=sys.stderr)
-            sys.exit(1)
+            occasion = f"./{n} file not found"
+            raise LitSystemExit(code=1, occasion=occasion)  # pb stack entry not found
 
         data = path.read_bytes()
         self.pbcopy(data)
@@ -847,10 +870,7 @@ class ShellBrick:
             ["pbpaste"], stdin=subprocess.DEVNULL, check=True, stdout=subprocess.PIPE
         )
 
-        returncode = run.returncode
-        if returncode:
-            print(f"+ pbpaste + exit {returncode}", file=sys.stderr)
-            sys.exit(returncode)
+        assert not run.returncode  # because .check=True
 
         data = run.stdout
 
@@ -860,11 +880,7 @@ class ShellBrick:
         """Push Bytes into the Os Copy/Paste Clipboard Buffer"""
 
         run = subprocess.run(["pbcopy"], input=data, check=True, stdout=subprocess.PIPE)
-
-        returncode = run.returncode
-        if returncode:
-            print(f"+ pbcopy + exit {returncode}", file=sys.stderr)
-            sys.exit(returncode)
+        assert not run.returncode  # because .check=True
 
     #
     # Decline to work with the File
@@ -1356,7 +1372,7 @@ class ShellBrick:
         func: collections.abc.Callable[[str], float | int | bool],
         strict: bool,
     ) -> list[list[float | int | bool]]:
-        """Call Func to convert left of each Str to Floats and Ints"""
+        """Convert Left Columns of each Str to Floats and Ints and Bools, else raise LitSystemExit"""
 
         ilines = lines
 
@@ -1366,38 +1382,57 @@ class ShellBrick:
             assert func.__name__ == "str_to_number", (func.__name__,)
             functype = "float nor int nor bool"  # |pb .max, .min, .sort, sum
 
+        # Require Input Lines when Strict
+
+        if not ilines:
+            if strict:
+                occasion = "ValueError: No Lines of Columns"
+                raise LitSystemExit(code=1, occasion=occasion)  # .sum of no rows
+
+        # Visit each Input Line
+
         min_width = -1
 
-        irows: list[list[float | int | bool]] = list()  # rows
-        for iline in ilines:
+        irows = list()  # rows
+        for i, iline in enumerate(ilines):
+            lineno = 1 + i
+
+            # Count out its Number Columns
+
             isplits = iline.split()
 
             inumbers: list[float | int | bool] = list()
             for index, isplit in enumerate(isplits):
-                if (min_width != -1) and (index >= min_width):
-                    if strict:
-                        raise ValueError(f"more than {min_width} columns in some rows")
-                    break
-
                 try:
                     inumber = func(isplit)
                 except ValueError:
-                    if strict:
-                        raise  # |pb sum
                     break
-
                 inumbers.append(inumber)
 
-            if (min_width != -1) and (len(inumbers) < min_width):
-                if strict:
-                    raise ValueError(f"less than {min_width} columns in some rows")
+            # Require one or more Number Columns,
+            # and require the same Number of Columns per Line when Strict
+
+            width = len(inumbers)
+            if not width:
+                occasion = f"ValueError: Line {lineno} has no {functype} Columns"
+                raise LitSystemExit(code=1, occasion=occasion)  # .max, .min, .sort, sum of no cols
+
+            elif i == 0:
+                min_width = width
+
+            elif not strict:
+                min_width = min(min_width, width)
+
+            elif width != min_width:
+                occasion = f"ValueError: Line {lineno} has {width} Columns"
+                occasion += f", not the {min_width} Columns of Line 1"
+                raise LitSystemExit(code=1, occasion=occasion)  # .sum of ragged edge
 
             irows.append(inumbers)
-            min_width = len(inumbers) if (min_width == -1) else min(min_width, len(inumbers))
 
-        if lines and (min_width <= 0):
-            print(f"pb: no {functype} columns to sort", file=sys.stderr)
-            sys.exit(1)  # exits 1 for value error in taking up input
+        assert min_width >= 1, (min_width,)  # because >= 1 Lines visited
+
+        # Pick out the Whole Columns filled by every Line
 
         ocolumns: list[list[float | int | bool]] = list()  # columns
         for index in range(min_width):
@@ -1409,6 +1444,8 @@ class ShellBrick:
 
             assert len(ocolumn) == len(ilines), (len(ocolumn), len(ilines))
             ocolumns.append(ocolumn)
+
+        # Succeed
 
         return ocolumns
 
@@ -1684,7 +1721,7 @@ class ArgDocParser:
             if sys.version_info >= _ARGPARSE_3_10_:
                 print("\n".join(diffs))
 
-                sys.exit(2)  # exits 2 for wrong Args in Help Doc
+                sys.exit(2)  # exits 2 for Help Doc and/or Parser gone wrong
 
             # takes 'usage: ... [HINT ...]', rejects 'usage: ... HINT [HINT ...]'
             # takes 'options:', rejects 'optional arguments:'

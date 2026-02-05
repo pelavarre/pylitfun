@@ -110,7 +110,7 @@ class OsWalker:
                 continue
             if arg.startswith("-") and (arg != "--"):
                 print("usage: ls.py [--help] [PATHNAME ...]", file=sys.stderr)
-                sys.exit(2)  # exits 2 for bad Args
+                sys.exit(2)  # exits 2 for bad args
 
             if arg == "--":
                 tops.extend(sys.argv[(i + 1) :])

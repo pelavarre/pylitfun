@@ -78,7 +78,7 @@ def main() -> None:
 
     if sys.argv[1:] not in (["--"],):
         print("usage: screen.py [--help]", file=sys.stderr)
-        sys.exit(2)  # exits 2 for bad Args
+        sys.exit(2)  # exits 2 for bad args
 
     screen_reconnect()
 

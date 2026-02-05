@@ -187,7 +187,7 @@ class Flags:
                 "  assert, byteloop, color-picker, echoes, keycaps, repr, squares",
                 file=sys.stderr,
             )
-            sys.exit(2)  # exits 2 for bad Args
+            sys.exit(2)  # exits 2 for bad args
 
         return games
 
@@ -388,7 +388,7 @@ class LitGlass:
 
                     print_usage()
                     print(f"don't choose {split!r}, do choose from {s}", file=sys.stderr)
-                    sys.exit(2)  # exits 2 for bad Arg
+                    sys.exit(2)  # exits 2 for bad args
 
                 copies = list(_ for _ in dash_dash_eggs if _.strip("_") == split)
                 if copies != matches:
@@ -2068,7 +2068,7 @@ class TerminalBoss:
 
         return self
 
-    def __exit__(self, *args: object) -> None:
+    def __exit__(self, *exc_info: object) -> None:
 
         ks = self.keyboard_screen_i_o_wrapper
         sw = self.screen_writer
@@ -2094,7 +2094,7 @@ class TerminalBoss:
             sw.write_control("\033[?1049l")  # main-screen ⎋[⇧?1049L vs ⎋[⇧?1049H
             sw.write_control(f"\033[{y};{x}H")  # row-column-leap ⎋[⇧H
 
-        ks.__exit__(*args)
+        ks.__exit__(*exc_info)
 
     #
     # Run awhile
@@ -5598,7 +5598,7 @@ class ArgDocParser:
             if sys.version_info >= _ARGPARSE_3_10_:
                 print("\n".join(diffs))
 
-                sys.exit(2)  # exits 2 for wrong Args in Help Doc
+                sys.exit(2)  # exits 2 for Help Doc and/or Parser gone wrong
 
             # takes 'usage: ... [HINT ...]', rejects 'usage: ... HINT [HINT ...]'
             # takes 'options:', rejects 'optional arguments:'
@@ -6305,7 +6305,7 @@ class KeyboardScreenIOWrapper:
 
         # todo: try termios.TCSAFLUSH to discard Input while entering
 
-    def __exit__(self, *args: object) -> None:
+    def __exit__(self, *exc_info: object) -> None:
         r"""Restart line-buffering Input, restart taking \n Output as \r\n, etc"""
 
         kr = self.keyboard_reader
