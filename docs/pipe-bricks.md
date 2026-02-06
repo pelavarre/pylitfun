@@ -1226,9 +1226,9 @@ We give you the uncolored experience like that, via Python json.loads/ json.dump
 
 But we also offer
 
-    echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pb .jq
+    echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pb j
 
-Call our alt .jq like that and you see the nests go flat
+Call us like that and you see the nests go flat
 
     import json
 
@@ -1238,9 +1238,23 @@ Call our alt .jq like that and you see the nests go flat
     j["bravo"]["charlie"] = 33
     j["bravo"]["delta"] = 44
 
-    print(json.dumps(j, indent=2))  # from |pb .jq
+    print(json.dumps(j))  # from |pb .jq
 
-Given these flat paths to values, you can |grep the values and then find again what values the |grep surfaced in full context, without having to fiddle with line numbers
+You can say '|pb .jq' or 'pb j' to get this to come out
+
+You can run this output as Python to get back to where you started
+
+    % echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pb j |python3
+    {"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}
+    %
+
+You can grep this output to see what you've got, surfacing the exact path of keys that picks out the values you care about
+
+    % echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pb j |grep -ai -e BRAVO
+    j["bravo"] = dict()
+    j["bravo"]["charlie"] = 33
+    j["bravo"]["delta"] = 44
+    %
 
 
 # 8 Shell Aliases for Pipe Bricks

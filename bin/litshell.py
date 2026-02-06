@@ -1966,7 +1966,7 @@ def json_dumps_as_py(j: object) -> str:
     pylines.extend(object_pylines)
 
     pylines.append("")
-    pylines.append("print(json.dumps(j, indent=2))  # from |pb .jq")
+    pylines.append("print(json.dumps(j))  # from |pb .jq")
 
     py = "\n".join(pylines) + "\n"
     return py
