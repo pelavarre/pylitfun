@@ -23,8 +23,8 @@ small bricks:
   -  0 1 2 3  F L O T U  a h i j n o r s t u w x  nl pb
 
 memorable bricks:
-  append bytes casefold counter decode dent enumerate expandtabs frame
-  head if insert join len lower lstrip max md5 min ord printable
+  append bytes casefold counter decode dent eng enumerate expandtabs
+  frame head if insert join len lower lstrip max md5 min ord printable
   removeprefix removesuffix reverse rstrip set sha256 shuffle slice
   sort split str strings strip sum tail title unframe upper
 
@@ -84,6 +84,7 @@ import datetime as dt
 import difflib
 import hashlib
 import json
+import math
 import os
 import pathlib
 import random
@@ -537,6 +538,10 @@ class ShellBrick:
             #
             "__enter__": self.run_pipe_enter_if,
             "__exit__": self.run_pipe_exit,
+            #
+            # Hp Calculator  Words
+            #
+            "eng": self.from_text_eng,
             #
             # Python Single Words working with all the Bytes / Text / Lines, or with each Line
             #
@@ -1053,6 +1058,47 @@ class ShellBrick:
         itext = self.fetch_itext()
         otext = itext.casefold()
         self.store_otext(otext)
+
+    def from_text_eng(self) -> None:
+        """replace with chop(_).rjust for _: float in str(sys.i)"""
+
+        itext = self.fetch_itext()
+        expandtabs = itext.expandtabs()
+        ilines = expandtabs.splitlines()
+
+        olines = list()
+        for iline in ilines:
+
+            oline = ""
+            for m in re.finditer("[ ]*[^ ]*", string=iline):
+                isplit = m.group(0)
+
+                width = len(isplit)
+                ident = len(isplit) - len(isplit.lstrip())
+                ijust = min(ident, 2)  # 0, 1, or 2
+
+                osplit = isplit
+                try:
+                    f = float(isplit)
+                except ValueError:
+                    oline += osplit
+                    continue
+
+                iosplit = chop(f)
+
+                osplit = iosplit
+                if ijust:
+                    osplit = (ijust * " ") + iosplit
+                    if (ijust + len(iosplit)) < width:
+                        osplit = iosplit.rjust(width)
+
+                oline += osplit
+
+            olines.append(oline)
+
+        self.store_olines(olines)
+
+        # string.printable endswith '\n\r\x0b\x0c' which all do str.splitlines
 
     def from_text_do_unframe(self) -> None:
         """_.rstrip() for _ in textwrap.dedent(str(sys.i)).strip().splitlines()"""
@@ -1885,7 +1931,217 @@ class ArgDocParser:
 
 
 #
-# Amp up Import BuiltIns
+# Amp up Import BuiltIns Float and BuiltIns Int
+#
+
+
+Inf = float("inf")  # implicitly also defines -Inf and +Inf
+
+NaN = float("nan")  # actually implies NaN != NaN
+
+
+def int_chop(i: int) -> str:  # 'chop' as in drop excess precision
+    """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
+
+    s = str(int(i))  # '-120789'
+
+    _, sign, digits = s.rpartition("-")  # ('', '-', '120789')
+    sci = len(digits) - 1  # 5  # scientific power of ten
+    eng = 3 * (sci // 3)  # 3  # engineering power of ten
+
+    assert eng in (sci, sci - 1, sci - 2), (eng, sci, digits, i)
+
+    if not eng:
+        return s
+
+    assert len(digits) >= 4, (len(digits), eng, sci, digits, i)
+    assert 1 <= (len(digits) - eng) <= 3, (len(digits), eng, sci, digits, i)
+
+    precise = digits[:-eng] + "." + digits[-eng:]  # '120.789'  # significand, mantissa, multiplier
+    nearby = precise[:4]  # '120.'
+    worthy = nearby.rstrip("0").rstrip(".")  # '120'  # drops '.' or'.0' or '.00'
+
+    assert "." in nearby, (nearby, precise, eng, sci, digits, i)
+
+    return sign + worthy + "e" + str(eng)  # '-120e3'
+
+
+_int_chops_ = [
+    #
+    (0, "0"),
+    (99, "99"),
+    (999, "999"),
+    #
+    (9000, "9e3"),  # not '9.00e3'  # not '9e+03'
+    (9800, "9.8e3"),  # not '9.0e3'
+    (9870, "9.87e3"),
+    (9876, "9.87e3"),  # not rounded up to '9.88e3'
+    #
+]
+
+
+def _try_int_chops_() -> None:
+    for i, lit in _int_chops_:
+        assert int_chop(i) == lit, (int_chop(i), lit, i)
+
+        # print(i, lit, f"{i:.3g}")
+
+    # not 9e+03, 9.8e+03, 9.87e+03, 9.88e+03
+
+
+def chop(f: float) -> str:  # 'chop' as in drop excess precision
+    """Find the nearest Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
+
+    if math.isnan(f):
+        return "NaN"  # unsigned as neither positive nor negative
+    elif math.isinf(f):
+        s = "-Inf" if (f < 0) else "Inf"  # unsigned as positive
+        return s
+
+    if not f:
+        lit = "-0e0" if (math.copysign(1e0, f) < 0e0) else "0"
+        return lit
+
+    s = ("-" + _positive_float_chop_(-f)) if (f < 0) else _positive_float_chop_(f)
+
+    if f == int(f):
+        assert int_chop(int(f)) == s, (f, int_chop(int(f)), s)
+
+    return s
+
+    # never says '0' except to mean Float +0e0 and Int 0
+    # never ends with '.' nor '.0' nor '.00' nor 'e+0' - values your ink & time properly instead
+
+
+def _positive_float_chop_(f: float) -> str:
+    """Find the nearest Positive Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
+
+    assert f > 0, (f,)
+
+    # Form the Scientific Notation
+
+    sci = int(math.floor(math.log10(f)))
+    precise = f / (10**sci)
+    assert 1 <= precise < 10, (precise, f)
+
+    # Choose a Floor, in the way of Engineering Notation,
+    # but do round up the distortions introduced by 'mag = f / (10**sci)'
+
+    triple = str(int(100 * precise + 0.000123))  # arbitrary 0.000123
+    assert "100" <= triple <= "999", (triple, precise, sci, f)
+
+    eng = 3 * (sci // 3)  # ..., -6, -3, 0, 3, 6, ...
+
+    span = 1 + sci - eng  # 1, 2, or 3
+    assert 1 <= span <= 3, (span, triple, precise, eng, sci, f)
+
+    # Stand on the chosen Floor, except never say '.' nor '.0' nor '.00'
+
+    nearby = triple[:span] + "." + triple[span:]
+    worthy = nearby.rstrip("0").rstrip(".")  # lacks '.' if had only '.' or'.0' or '.00'
+
+    # And never say 'e0' either
+
+    lit = f"{worthy}e{eng}".removesuffix("e0")  # may lack both '.' and 'e'
+
+    # But never wander far
+
+    alt_f = float(lit)
+
+    diff = f - alt_f
+    precision = 10 ** (eng - 3 + span)
+    assert diff < precision, (diff, precision, f, alt_f, lit, eng, span, worthy, triple, span, f)
+
+    return lit
+
+    # "{:.3g}".format(9876) and "{:.3g}".format(1006) talk like this but say 'e+0' & round up
+
+    # math.trunc leaps too far, all the way down to the int ceil/ floor
+
+
+_float_chops_ = [  # not str(f)  # not f"{f:.3g}"  # not f"{f:.3f}"
+    #
+    (1e-4, "100e-6"),  # not '0.0001'  # not '0.000'
+    (1e-3, "1e-3"),  # not '0.001'
+    (1.2e-3, "1.2e-3"),  # not '0.0012'  # not '0.001'
+    (9.876e-3, "9.87e-3"),  # not '9.88e-3'  # not '0.009876'  # not '0.00988'  # not '0.010'
+    (1e-2, "10e-3"),  # not '0.01'  # not '0.010'
+    (1e-1, "100e-3"),  # not '0.1'  # not '0.100'
+    #
+    (1e0, "1"),  # not '1.0'  # not '1.000'
+    (1e1, "10"),  # not '10.0'  # not '10.000'
+    (1.2e1, "12"),  # not '12.0'  # not '12.000'
+    (9.876e1, "98.7"),  # not '98.76'  # not '98.8'  # not '98.760'
+    (1e2, "100"),  # not '100.0'  # not '100.000'
+    (1.23e2, "123"),  # not '123.0'  # not '123.000'
+    (987, "987"),  # not '987.000'
+    #
+    (1e3, "1e3"),  # not '1000.0'  # not '1e+03'  # not '1000.000'
+    #
+    (0, "0"),  # not '0.000'
+    (0e0, "0"),  # not '0.0'  # not '0.000'
+    (-0e0, "-0e0"),  # not '-0.0'  # not '-0.000'  # and never the inequivalent '-0' of f"{-0e0:g}"
+    #
+    (float("-inf"), "-Inf"),  # not '-inf'
+    (float("+inf"), "Inf"),  # not 'inf'
+    (float("nan"), "NaN"),  # not 'nan'
+    #
+]
+
+
+def _try_float_chops_() -> None:
+
+    float_chops = list()
+
+    for i in range(1000):
+        f = float(i)
+        lit = str(i)
+        float_chop = (f, lit)
+        float_chops.append(float_chop)
+
+    float_chops.extend(_float_chops_)
+
+    for f, lit in _float_chops_:
+        assert chop(f) == lit, (chop(f), lit, f)
+
+        if f > 0:
+            chop_minus_f = chop(-f)
+            assert chop_minus_f == (f"-{lit}"), (chop_minus_f, f"-{lit}", f)
+
+        # print(f, lit, f"{f:.3g}", f"{f:.3f}")
+
+
+# related explorations
+
+_ = """
+
+    ints = list(range(1000))
+    strs = list(str(int((_ / 100) * 100)) for _ in ints)
+    diffs = list(_ for _ in zip(ints, strs) if str(_[0]) != _[-1])
+    len(diffs)  # more than five dozen found
+
+"""
+
+_ = """
+
+    wholes = list(range(1000))
+    tenths = list((_ / 10) for _ in range(1000))
+    hundredths = list((_ / 100) for _ in range(1000))
+
+    floats = wholes + tenths + hundredths
+
+    strs = list(str(_ / 1) for _ in wholes)
+    strs += list(str((_ / 10) * 10) for _ in tenths)
+    strs += list(str((_ / 100) * 100) for _ in hundredths)
+
+    diffs = list(_ for _ in zip(floats, strs) if _[0] != float(_[-1]))
+    len(diffs)  # 235 found
+
+"""
+
+
+#
+# Amp up Import BuiltIns Str
 #
 
 
@@ -2125,6 +2381,10 @@ if __name__ == "__main__":
 
 #
 
+# todo0: '|pb column -t'
+
+# todo0: 'pb' vs 'pb -' @ pb split sort |fmt -n |sed 's,^,  ,' |pb -; pb
+
 # todo0: revive |pb a -F/ -1 etc etc
 # todo0: write out what 'pbcopy; pbpaste' does to the single-byte UnicodeDecodeError's
 # todo0: dream up some great way to pass Bytes through |pbcopy
@@ -2232,6 +2492,8 @@ if __name__ == "__main__":
 #
 
 # todo7: fill out 'pb .' so as to retire 'pq .'
+
+# todo7: add Hp Calculator Words:  fix, sci, ...
 
 #
 

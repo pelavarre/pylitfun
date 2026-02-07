@@ -23,9 +23,10 @@
     - [4.1 Md5 and Sha256](#41-md5-and-sha256)
     - [4.2 Strings](#42-strings)
 - [5 Character by Character](#5-character-by-character)
-    - [5.1 ExpandTabs](#51-expandtabs)
-    - [5.2 Ord](#52-ord)
-    - [5.3 Str](#53-str)
+    - [5.1 Eng](#51-eng)
+    - [5.2 ExpandTabs](#52-expandtabs)
+    - [5.3 Ord](#53-ord)
+    - [5.4 Str](#54-str)
 - [6 Line by Line](#6-line-by-line)
   - [6.1 Append](#61-append)
   - [6.2 Counter](#62-counter)
@@ -61,8 +62,9 @@
   - [8.3 Built most quickly](#83-built-most-quickly)
 - [9 Future work](#9-future-work)
   - [9.1 Please tell your friends](#91-please-tell-your-friends)
-  - [9.2 Your Input Errors](#92-your-input-errors)
-  - [9.3 Parallel Processing](#93-parallel-processing)
+  - [9.2 Their Testimonials](#92-their-testimonials)
+  - [9.3 Your Input Errors](#93-your-input-errors)
+  - [9.4 Parallel Processing](#94-parallel-processing)
 - [10 Links](#10-links)
 
 
@@ -538,7 +540,40 @@ Above, we've already spoken of thirteen Pipe Bricks (and their .max, .md5, .len,
 For working with Characters, we offer more Pipe Bricks
 
 
-### 5.1 ExpandTabs
+### 5.1 Eng
+
+Replace numeric Int or Float Literals, much as if rewritten by Python f"{:.3g}
+
+But truncate, never round up. Like don't talk of the next millisecond till after it arrives. And do conserve ink. Don't say 'e+0' to mean 'e'. Don't end with 'e0' nor '.0' nor '.' either, except in the obscure corner of saying '-0e0' to mean '-0e0'
+
+    % ls -lAF -rt |head -3
+    total 152
+    -rw-r--r--@  1 plavarre  staff    282 Feb  1 12:32 requirements.txt
+    -rw-r--r--@  1 plavarre  staff  10747 Feb  3 09:40 README.md
+    %
+    % ls -lAF -rt |head -3 |pb eng
+    total 152
+    -rw-r--r--@  1 plavarre  staff    282 Feb  1 12:32 requirements.txt
+    -rw-r--r--@  1 plavarre  staff  10.7e3 Feb  3 09:40 README.md
+    %
+
+    % du -s ~/Public/* |expand |head -3
+    99088   /Users/plavarre/Public/__pycache__
+    8       /Users/plavarre/Public/0
+    200     /Users/plavarre/Public/100k
+    %
+    % du -s ~/Public/* |expand |head -3 |pb eng
+    99e3   /Users/plavarre/Public/__pycache__
+    8       /Users/plavarre/Public/0
+    200     /Users/plavarre/Public/100k
+    %
+
+    % echo -- 2.718 3.14159 6.283 42. -inf -0e0 0e0 +inf nan |pb eng split join
+    --  2.71  3.14  6.28  42  -Inf  -0e0  0  Inf  NaN
+    % 
+
+
+### 5.2 ExpandTabs
 
 Python str.expandtabs
 
@@ -551,7 +586,7 @@ For working with Characters, we offer '|pb expandtabs'
     %
 
 
-### 5.2 Ord
+### 5.3 Ord
 
 Python str.ord
 
@@ -572,7 +607,7 @@ For working with Character Codes spoken as Decimal Int Literals, we offer '|pb o
     %
 
 
-### 5.3 Str
+### 5.4 Str
 
 Python str
 
@@ -1393,7 +1428,12 @@ Does this sound like a friend of yours? Please tell them about us
 Does this sound like you? Please stick around, and make time to come say hi
 
 
-## 9.2 Your Input Errors
+## 9.2 Their Testimonials
+
+"Love an artist/programmer/person's website where they matter-of-factly share some process/subject exploration in great detail, written from scratch" ~ Feb/2026 <!-- https://twitter.com/nbhdlady/status/2018683247157260551 -->
+
+
+## 9.3 Your Input Errors
 
 We've focused first on bringing up what should work
 
@@ -1409,7 +1449,7 @@ Presently you can toss extra input into your Shell Command Lines near us, and re
 That's not nice. We can do better
 
 
-## 9.3 Parallel Processing
+## 9.4 Parallel Processing
 
 A classic Shell Pipe Filter can write output before and while it receives input
 

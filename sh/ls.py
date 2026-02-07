@@ -40,7 +40,6 @@ examples:
 #
 
 import datetime as dt
-import math
 import os
 import pathlib
 import shlex
@@ -226,7 +225,7 @@ class OsWalker:
         bytechops = self.bytechops
 
         for bytecount in bytecounts:
-            bytechop = chop(bytecount)
+            bytechop = int_chop(bytecount)
             bytechops.append(bytechop)
 
     def stamp_date_time(self) -> None:
@@ -317,188 +316,34 @@ class OsWalker:
 
 
 #
-# Amp up Import BuiltIns Float
+# Amp up Import BuiltIns Int
 #
 
 
-def chop(f: float) -> str:
-    """Find a nonzero Float Literal closer to zero with <= 3 Digits"""
-
-    if math.isnan(f):
-        return "NaN"  # unsigned as neither positive nor negative
-    elif math.isinf(f):
-        s = "-Inf" if (f < 0) else "Inf"  # unsigned as positive
-        return s
-
-    if not f:
-        lit = "-0e0" if (math.copysign(1e0, f) < 0e0) else "0"
-        return lit
-
-    s = ("-" + _chop_nonnegative_(-f)) if (f < 0) else _chop_nonnegative_(f)
-
-    if f == int(f):
-        assert int_chop(int(f)) == s, (f, int_chop(int(f)), s)
-
-    return s
-
-    # never says '0' except to mean Float +0e0 and Int 0
-    # values your ink & time properly, by never saying '.' nor '.0' nor '.00' nor 'e+0'
-
-
 def int_chop(i: int) -> str:
-    """Find a nonzero Int Literal closer to zero with <= 3 Digits"""
+    """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
 
-    s = str(int(i))
+    s = str(int(i))  # '-120789'
 
-    _, sep, digits = s.rpartition("-")
-    sci = len(digits) - 1
-    eng = 3 * (sci // 3)
+    _, sign, digits = s.rpartition("-")  # ('', '-', '120789')
+    sci = len(digits) - 1  # 5  # scientific power of ten
+    eng = 3 * (sci // 3)  # 3  # engineering power of ten
+
+    assert eng in (sci, sci - 1, sci - 2), (eng, sci, digits, i)
 
     if not eng:
         return s
 
-    mag = digits[:-eng] + "." + digits[-eng:]
-    mag = mag[:4]
-    mag = mag.rstrip("0").rstrip(".")  # lacks '.' if had only '.' or'.0' or '.00'
+    assert len(digits) >= 4, (len(digits), eng, sci, digits, i)
+    assert 1 <= (len(digits) - eng) <= 3, (len(digits), eng, sci, digits, i)
 
-    return sep + mag + "e" + str(eng)
+    precise = digits[:-eng] + "." + digits[-eng:]  # '120.789'  # significand, mantissa, multiplier
+    nearby = precise[:4]  # '120.'
+    worthy = nearby.rstrip("0").rstrip(".")  # '120'  # drops '.' or'.0' or '.00'
 
+    assert "." in nearby, (nearby, precise, eng, sci, digits, i)
 
-def _chop_nonnegative_(f: float) -> str:
-    """Find a nonnegative nonzero Float Literal closer to zero with <= 3 Digits"""
-
-    assert f > 0, (f,)
-
-    # Form the Scientific Notation
-
-    sci = int(math.floor(math.log10(f)))
-    mag = f / (10**sci)
-    assert 1 <= mag < 10, (mag, f)
-
-    # Choose a Floor, in the way of Engineering Notation,
-    # but do round out the distortions introduced by 'mag = f / (10**sci)'
-
-    triple = str(int(100 * mag + 0.000123))  # arbitrary 0.000123
-    # triple = str(int(100 * mag))
-    assert "100" <= triple <= "999", (triple, mag, sci, f)
-
-    eng = 3 * (sci // 3)  # ..., -6, -3, 0, 3, 6, ...
-    span = 1 + sci - eng
-    assert 1 <= span <= 3, (span, triple, mag, eng, sci, f)
-
-    # Stand on the chosen Floor, but never say '.' nor '.0' nor '.00'
-
-    dotted = triple[:span] + "." + triple[span:]
-    dotted = dotted.rstrip("0").rstrip(".")  # lacks '.' if had only '.' or'.0' or '.00'
-
-    # And never say 'e0' either
-
-    lit = f"{dotted}e{eng}".removesuffix("e0")  # may lack both '.' and 'e'
-
-    # But never wander far
-
-    alt_f = float(lit)
-
-    diff = f - alt_f
-    precision = 10 ** (eng - 3 + span)
-    assert diff < precision, (diff, precision, f, alt_f, sci, mag, triple, eng, span, dotted, lit)
-
-    return lit
-
-    # Python math.trunc is a round towards zero, but can be zero, and leaps to the int ceil/ floor
-
-
-def _try_chop_() -> None:
-
-    pairs = list()
-
-    for i in range(1000):
-        pair: tuple[float, str] = (i, str(i))
-        pairs.append(pair)
-
-    more_pairs = [
-        (0, "0"),
-        (0e0, "0"),
-        (-0e0, "-0e0"),
-        #
-        (1e-4, "100e-6"),
-        (1e-3, "1e-3"),
-        (1.2e-3, "1.2e-3"),
-        (9.876e-3, "9.87e-3"),  # not '9.88e-3'
-        (1e-2, "10e-3"),
-        (1e-1, "100e-3"),
-        #
-        (1e0, "1"),
-        (1e1, "10"),
-        (1.2e1, "12"),
-        (9.876e1, "98.7"),  # not '98.8'
-        (1e2, "100"),
-        (1.23e2, "123"),
-        (987, "987"),  # not '986.9999999999999'
-        #
-        (1e3, "1e3"),
-        #
-        (float("-inf"), "-Inf"),
-        (float("+inf"), "Inf"),
-        (float("nan"), "NaN"),
-        #
-    ]
-
-    pairs.extend(more_pairs)
-
-    for f, lit in pairs:
-
-        chop_f = chop(f)
-        assert chop_f == lit, (chop_f, lit, f"{f:.2e}", f)
-
-        if f > 0:
-            chop_minus_f = chop(-f)
-            assert chop_minus_f == (f"-{lit}"), (chop_minus_f, f"-{lit}", f)
-
-    _ = """
-
-        ints = list(range(1000))
-        strs = list(str(int((_ / 100) * 100)) for _ in ints)
-        diffs = list(_ for _ in zip(ints, strs) if str(_[0]) != _[-1])
-        len(diffs)  # more than five dozen found
-
-    """
-
-    _ = """
-
-        wholes = list(range(1000))
-        tenths = list((_ / 10) for _ in range(1000))
-        hundredths = list((_ / 100) for _ in range(1000))
-
-        floats = wholes + tenths + hundredths
-
-        strs = list(str(_ / 1) for _ in wholes)
-        strs += list(str((_ / 10) * 10) for _ in tenths)
-        strs += list(str((_ / 100) * 100) for _ in hundredths)
-
-        diffs = list(_ for _ in zip(floats, strs) if _[0] != float(_[-1]))
-        len(diffs)  # 235 found
-
-    """
-
-
-def _try_int_chop_() -> None:
-
-    assert int_chop(0) == "0", (int_chop(0),)
-    assert int_chop(99) == "99", (int_chop(99),)
-    assert int_chop(999) == "999", (int_chop(999),)
-
-    assert int_chop(9000) == "9e3", (int_chop(9000),)
-    assert int_chop(9800) == "9.8e3", (int_chop(9800),)
-    assert int_chop(9870) == "9.87e3", (int_chop(9870),)
-    assert int_chop(9876) == "9.87e3", (int_chop(9876),)
-
-
-chop(23)
-
-_try_chop_()
-
-_try_int_chop_()
+    return sign + worthy + "e" + str(eng)  # '-120e3'
 
 
 #
