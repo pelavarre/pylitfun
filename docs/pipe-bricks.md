@@ -23,10 +23,11 @@
     - [4.1 Md5 and Sha256](#41-md5-and-sha256)
     - [4.2 Strings](#42-strings)
 - [5 Character by Character](#5-character-by-character)
-    - [5.1 Eng](#51-eng)
-    - [5.2 ExpandTabs](#52-expandtabs)
-    - [5.3 Ord](#53-ord)
-    - [5.4 Str](#54-str)
+    - [5.1 Columns](#51-columns)
+    - [5.2 Eng](#52-eng)
+    - [5.3 ExpandTabs](#53-expandtabs)
+    - [5.4 Ord](#54-ord)
+    - [5.5 Str](#55-str)
 - [6 Line by Line](#6-line-by-line)
   - [6.1 Append](#61-append)
   - [6.2 Counter](#62-counter)
@@ -540,7 +541,30 @@ Above, we've already spoken of thirteen Pipe Bricks (and their .max, .md5, .len,
 For working with Characters, we offer more Pipe Bricks
 
 
-### 5.1 Eng
+### 5.1 Columns
+
+Right-align the Numeric Columns, and left-align the Text Columns, after splitting Columns by two or more Spaces, except also taking Numeric Columns ended by single Spaces
+
+Try these
+
+    ls -lAF -rt |pb eng columns
+
+    du -s ~/Public/* |expand |pb eng columns
+
+And try them again but without asking for 'columns'
+
+    ls -lAF -rt |pb eng
+
+    du -s ~/Public/* |expand |pb eng
+
+You'll see. You get vertically aligned Columns when you ask for them, and you don't when you don't
+
+We don't require you to remember if it is "columns" or "column". We let you say singular '|pb column' in place of plural 'pb columns', in homage of Shell '|column -t', which does split Columns but doesn't volunteer to right-align any of them
+
+We don't engage with the unrelated Shell legacies of 'col' and 'colrm'
+
+
+### 5.2 Eng
 
 Replace numeric Int or Float Literals, much as if rewritten by Python f"{:.3g}
 
@@ -577,7 +601,7 @@ But truncate, never round up. Like don't talk of the next millisecond till after
     % 
 
 
-### 5.2 ExpandTabs
+### 5.3 ExpandTabs
 
 Python str.expandtabs
 
@@ -590,7 +614,7 @@ For working with Characters, we offer '|pb expandtabs'
     %
 
 
-### 5.3 Ord
+### 5.4 Ord
 
 Python str.ord
 
@@ -611,7 +635,7 @@ For working with Character Codes spoken as Decimal Int Literals, we offer '|pb o
     %
 
 
-### 5.4 Str
+### 5.5 Str
 
 Python str
 
@@ -996,7 +1020,7 @@ Often we'll just say '|pb r' to mean '|pb reverse'
 
 In particular '|pb r set r' means wait till the last Line arrives, then show me the Lines in the order they arrived, but with the duplicates removed from the top
 
-And we do let you say '|pb reversed' in place of 'pb reverse', in homage of 'list(reversed(list[str]))'. And we do let you say '|pb rev' to mean '|pb .reverse', in the Shell tradition
+And we do let you say past-tense '|pb reversed' in place of imperative-tense 'pb reverse', in homage of 'list(reversed(list[str]))'. And we do let you say '|pb rev' to mean '|pb .reverse', in the Shell tradition
 
 See also Pb Shuffle, and Pb Sort
 
@@ -1115,7 +1139,7 @@ Python list[str].sort, or Python list[float].sort, or Python list[int].sort
 
 We give you list[str].sort by default, but you can say '|pb .sort' to mean '|pb float.sort'
 
-And we do let you say '|pb sorted' in place of 'pb sort', in homage of 'list(sorted(list[str]))'
+And we do let you say past-tense '|pb sorted' in place of imperative-tense 'pb sort', in homage of 'list(sorted(list[str]))'
 
 See also Pb Max, Pn Reverse, Pb Shuffle, and Pb Sum
 
@@ -1244,6 +1268,8 @@ Showing this persuasively can be difficult, because we so often unframe by defau
     %
 
 As easy as we make it to unframe by default, we also keep it easy quick to explicitly say do unframe it. We'll just say '|pb o' to mean Pb Unframe in its four dimensions, and '|pb O' to mean Pb Frame
+
+Technically speaking, the work of Pb Frame can be done Line by Line, but the work of Pb Unframe has to wait for the whole File to arrive, so it can know how many Columns are Blank on the Left. Because this is a detail of the Undo, and not part of the Do, I figure our Doc comes across most clear if we gloss over this point, as we have
 
 
 # 7 File by File

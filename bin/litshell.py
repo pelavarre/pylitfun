@@ -11,7 +11,7 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   -V, --version         show version numbers and exit
-  -r, --raw-control-ch  write Control Chars to Tty, don't replace with '?' Question-Mark
+  -r, --raw-control-ch  write Control Chars to Tty, don't replace with '¤' Currency-Symbol
   -v, --verbose         say more
   --sep SEP             a separator, such as ' ' or ',' or ', '
   --start START         a starting index, such as 0 or 1
@@ -260,12 +260,17 @@ class ShellGopher:
             self.start = int(ns.start, base=0)
 
         if ns.raw_control_ch:
-            self.raw_control_chars = True
+            if not ns.raw_control_chars:
+                ns.raw_control_chars = 1
+            else:
+                ns.raw_control_chars += 1
 
         # todo8: reject conflicts between --sep -F -vOFS
 
     def arg_doc_to_parser(self, doc: str) -> ArgDocParser:
         """Declare the Options & Positional Arguments"""
+
+        # Spell out what --help says
 
         assert argparse.REMAINDER == "..."
         assert argparse.SUPPRESS == "==SUPPRESS=="
@@ -277,7 +282,7 @@ class ShellGopher:
         parser.add_argument("bricks", metavar="BRICK", nargs="*", help=brick_help)
 
         help_help = "show this help message and exit"
-        raw_control_chars_help = "write Control Chars to Tty, don't replace with '?' Question-Mark"
+        raw_control_chars_help = "write Control Chars to Tty, don't replace with '¤' Currency-Symbol"
         version_help = "show version numbers and exit"
         verbose_help = "say more"
 
@@ -291,11 +296,16 @@ class ShellGopher:
         parser.add_argument("--sep", metavar="SEP", help=sep_help)
         parser.add_argument("--start", metavar="START", help=start_help)
 
-        parser.add_argument("-F", help=argparse.SUPPRESS)
-        parser.add_argument("-pba", action="count", help=argparse.SUPPRESS)
-        parser.add_argument("-vOFS", help=argparse.SUPPRESS)
-        # parser.add_argument("-v", help=argparse.SUPPRESS)  # todo0: -v=START for |pb nl etc
+        # Spell out what --help doesn't say
+
+        parser.add_argument("-F", help=argparse.SUPPRESS)  # |pb awk -F/
+        parser.add_argument("-pba", action="count", help=argparse.SUPPRESS)  # |pb nl -pba -v0
+        parser.add_argument("-vOFS", help=argparse.SUPPRESS)  # |pb awk vOFS=x
+        # parser.add_argument("-t", help=argparse.SUPPRESS)  # |pb column -t
+        # parser.add_argument("-v", help=argparse.SUPPRESS)  # |pb nl -pba -v0
         parser.add_argument("--raw-control-chars", action="count", help=argparse.SUPPRESS)
+
+        # Succeed
 
         return parser
 
@@ -547,9 +557,7 @@ class ShellBrick:
             #
             "decode": self.from_bytes_decode,
             "md5": self.from_bytes_md5,
-            "md5sum": self.from_bytes_md5,
             "sha256": self.from_bytes_sha256,
-            "sha256sum": self.from_bytes_sha256,
             "printable": self.from_bytes_printable,
             #
             "casefold": self.from_text_casefold,  # |F for Fold
@@ -636,12 +644,12 @@ class ShellBrick:
             #
             # Shell Single Words working with all the Bytes / Lines, or with each Line
             #
-            # "md5sum": self.from_bytes_md5,  # already said far above
-            # "sha256sum": self.from_bytes_sha256,  # already said far above
-            #
             "expand": self.from_text_expandtabs,  # |pb expandtabs
-            #
+            "column": self.from_lines_do_columns,
+            "columns": self.from_lines_do_columns,
             "head": self.from_lines_head,  # |h
+            "md5sum": self.from_bytes_md5,
+            "sha256sum": self.from_bytes_sha256,
             "shuf": self.from_lines_shuffle,  # |pb shuffle
             "strings": self.from_bytes_textruns,  # |LC_ALL=C strings -n 4
             "tail": self.from_lines_tail,  # |t
@@ -1203,14 +1211,6 @@ class ShellBrick:
 
         sg.data = oencode
 
-    def from_lines_len(self) -> None:
-        """len(list(sys.i))"""
-
-        ilines = self.fetch_ilines()
-        oline = str(len(ilines))
-        olines = [oline]
-        self.store_olines(olines)
-
     def from_lines_counter(self) -> None:  # diff vs 'def from_lines_set'
         """collections.Counter(list(sys.i)).keys()"""
 
@@ -1219,6 +1219,82 @@ class ShellBrick:
         opairs = list(collections.Counter(ilines).items())
         vklines = list(f"{v}\t{k}" for (k, v) in opairs)
         olines = vklines
+
+        self.store_olines(olines)
+
+    def from_lines_do_columns(self) -> None:
+        """Justify Text Columns split by Two Spaces or Tabs, and Numeric Columns too"""
+
+        itext = self.fetch_itext()
+
+        # Take in Text Columns split by Two Spaces or Tabs
+
+        iotext = itext.replace("\t", "  ")
+        iolines = iotext.splitlines()
+
+        # Split each Line into Columns independently
+
+        textual_by_column_index = collections.defaultdict(bool)
+
+        iorows = list()
+        iowide = 0
+
+        for ioline in iolines:
+
+            iorow: list[str] = list()
+
+            iosplits = ioline.split("  ")
+            for iosplit in iosplits:
+                iowords = iosplit.split()
+
+                for i, ioword in enumerate(iowords):
+
+                    # Take each Numeric Word into its own Column
+
+                    try:
+                        _ = float(ioword)
+                    except ValueError:
+
+                        # Mark the Text Columns as Text as they grow
+
+                        c = len(iorow)
+                        textual_by_column_index[c] = True
+
+                        osplit = " ".join(iowords[i:])
+                        iorow.append(osplit)
+
+                        break
+
+                    iorow.append(ioword)
+
+            iorows.append(iorow)
+            iowide = max(iowide, len(iorow))
+
+        for iorow in iorows:
+            missing = iowide - len(iorow)
+            iorow.extend(missing * [""])
+
+        # Transpose and measure Column Width and right-align Numerics but left-align Texts
+
+        iocolumns = zip(*iorows)
+
+        ocolumns = list()
+        for c, iocolumn in enumerate(iocolumns):
+            ojust = max(len(_) for _ in iocolumn)
+
+            if textual_by_column_index[c]:
+                ocolumn = list(_.ljust(ojust) for _ in iocolumn)
+            else:
+                ocolumn = list(_.rjust(ojust) for _ in iocolumn)
+
+            ocolumns.append(ocolumn)
+
+        # Stitch the Columns back together, separated by Two Spaces (never yet by Tabs)
+
+        orows = zip(*ocolumns)
+        olines = list("  ".join(_) for _ in orows)
+
+        # Succeed
 
         self.store_olines(olines)
 
@@ -1306,6 +1382,14 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
         oline = _sep_.join(ilines)
+        olines = [oline]
+        self.store_olines(olines)
+
+    def from_lines_len(self) -> None:
+        """len(list(sys.i))"""
+
+        ilines = self.fetch_ilines()
+        oline = str(len(ilines))
         olines = [oline]
         self.store_olines(olines)
 
@@ -2381,8 +2465,6 @@ if __name__ == "__main__":
 
 #
 
-# todo0: '|pb column -t'
-
 # todo0: 'pb' vs 'pb -' @ pb split sort |fmt -n |sed 's,^,  ,' |pb -; pb
 
 # todo0: revive |pb a -F/ -1 etc etc
@@ -2393,7 +2475,7 @@ if __name__ == "__main__":
 
 # todo0: sh/which.py, finish up how we've begun offline
 
-# todo0: |pb .cut for like 'git log --oneline --decorate --color-moved -1 --color=always'
+# todo0: |pb cut for like 'git log --oneline --decorate --color-moved -1 --color=always'
 
 # todo0: confusion in having 'pb --sep=-' work while 'pb split /-/' quietly doesn't
 
@@ -2503,8 +2585,6 @@ if __name__ == "__main__":
 
 # todo8: |pb textwrap.wrap textwrap.fill or some such
 # todo8: |pb fmt ... just to do |fmt, or more a la |fold -sw $W
-# todo8: |pb column ... like' |column -t' but default to --sep='  ' for intake
-# todo8: take -t at |column, but don't require it
 # todo8: reject -t without |column
 
 # todo8: |wc -L into |pb .len .max, |pb split .len .max
