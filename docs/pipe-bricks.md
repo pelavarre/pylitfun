@@ -546,6 +546,8 @@ Replace numeric Int or Float Literals, much as if rewritten by Python f"{:.3g}
 
 But truncate, never round up. Like don't talk of the next millisecond till after it arrives. And do conserve ink. Don't say 'e+0' to mean 'e'. Don't end with 'e0' nor '.0' nor '.' either, except in the obscure corner of saying '-0e0' to mean '-0e0'
 
+**10.7e3 not 10747**
+
     % ls -lAF -rt |head -3
     total 152
     -rw-r--r--@  1 plavarre  staff    282 Feb  1 12:32 requirements.txt
@@ -556,6 +558,8 @@ But truncate, never round up. Like don't talk of the next millisecond till after
     -rw-r--r--@  1 plavarre  staff    282 Feb  1 12:32 requirements.txt
     -rw-r--r--@  1 plavarre  staff  10.7e3 Feb  3 09:40 README.md
     %
+
+**99e3 not 99088**
 
     % du -s ~/Public/* |expand |head -3
     99088   /Users/plavarre/Public/__pycache__
