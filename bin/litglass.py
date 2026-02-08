@@ -248,8 +248,8 @@ class LitGlass:
 
             now = dt.datetime.now().astimezone()
             boss = (now - MainStamp).total_seconds()
-            boss_chop = chop(boss)
-            logger.info("%s", f"and spent {boss_chop}s to launch TerminalBoss")
+            boss_clip = clip_float(boss)
+            logger.info("%s", f"and spent {boss_clip}s to launch TerminalBoss")
 
             if flags.byteloop:
                 tb.tb_run_byteloop()
@@ -293,24 +293,24 @@ class LitGlass:
             # now = dt.datetime.now().astimezone()
 
             # _import_ = (ImportStamp - aware).total_seconds()
-            # import_chop = chop(_import_)
+            # import_clip = clip_float(_import_)
 
             # _main_ = (MainStamp - aware).total_seconds()
-            # main_chop = chop(_main_)
+            # main_clip = clip_float(_main_)
 
             # launch = (now - aware).total_seconds()
-            # launch_chop = chop(launch)
+            # launch_clip = clip_float(launch)
 
             t = time.time() - mtime
 
             logger_print("")
             logger_print("")
-            logger_print(f"launched and spent {chop(t)}s since {mtime=}")
+            logger_print(f"launched and spent {clip_float(t)}s since {mtime=}")
             # logger_print(f"{mtime=}")
             # logger_print(f"{globals().get("t0")=}")
-            # logger_print(f"{import_chop=}")
-            # logger_print(f"{main_chop=}")
-            # logger_print(f"{launch_chop=}")
+            # logger_print(f"{import_clip=}")
+            # logger_print(f"{main_clip=}")
+            # logger_print(f"{launch_clip=}")
             # logger_print(f"{time.time()=}")
 
         # todo2: why "⌃\'" in place of "⌃'" in our logs
@@ -483,8 +483,8 @@ class LitGlass:
 
         t0 = time.time()
 
-        _try_float_chops_()
-        _try_int_chops_()
+        _try_clip_float_()
+        _try_clip_int_()
         _try_keyboard_decoder_()
         _try_key_byte_frame_()
         _try_unicode_source_texts_()
@@ -492,7 +492,7 @@ class LitGlass:
         t1 = time.time()
         t1t0 = t1 - t0
         if t1t0 > 250e-6:
-            logger_print(f"spent {chop(t1t0)}s on self-test")
+            logger_print(f"spent {clip_float(t1t0)}s on self-test")
 
 
 #
@@ -815,8 +815,8 @@ class KeycapsGame:
 
         now = dt.datetime.now().astimezone()
         kc = (now - MainStamp).total_seconds()
-        kc_chop = chop(kc)
-        logger.info("%s", f"and spent {kc_chop}s to launch KeycapsGame")
+        kc_clip = clip_float(kc)
+        logger.info("%s", f"and spent {kc_clip}s to launch KeycapsGame")
 
         while not tb.quitting:
 
@@ -2666,7 +2666,7 @@ class TerminalBoss:
             else:
                 joinables.append(text)
 
-        joinables.append(chop(1000 * t1t0))
+        joinables.append(clip_float(1000 * t1t0))
 
         if alt_kseqs[1:]:
             joinables.append(alt_kseqs[1:])
@@ -5807,7 +5807,7 @@ class BytesBox:
 
 
 #
-# Amp up Import BuiltIns Float and BuiltIns Int
+# Amp up Import BuiltIns Int & Float
 #
 
 
@@ -5816,7 +5816,7 @@ Inf = float("inf")  # implicitly also defines -Inf and +Inf
 NaN = float("nan")  # actually implies NaN != NaN
 
 
-def int_chop(i: int) -> str:  # 'chop' as in drop excess precision
+def clip_int(i: int) -> str:
     """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
 
     s = str(int(i))  # '-120789'
@@ -5828,7 +5828,7 @@ def int_chop(i: int) -> str:  # 'chop' as in drop excess precision
     assert eng in (sci, sci - 1, sci - 2), (eng, sci, digits, i)
 
     if not eng:
-        return s
+        return s  # drops 'e0'
 
     assert len(digits) >= 4, (len(digits), eng, sci, digits, i)
     assert 1 <= (len(digits) - eng) <= 3, (len(digits), eng, sci, digits, i)
@@ -5841,8 +5841,10 @@ def int_chop(i: int) -> str:  # 'chop' as in drop excess precision
 
     return sign + worthy + "e" + str(eng)  # '-120e3'
 
+    # -120789 --> -120e3, etc
 
-_int_chops_ = [
+
+_int_clips_ = [
     #
     (0, "0"),
     (99, "99"),
@@ -5856,40 +5858,45 @@ _int_chops_ = [
 ]
 
 
-def _try_int_chops_() -> None:
-    for i, lit in _int_chops_:
-        assert int_chop(i) == lit, (int_chop(i), lit, i)
+def _try_clip_int_() -> None:
+    for i, lit in _int_clips_:
+        assert clip_int(i) == lit, (clip_int(i), lit, i)
 
         # print(i, lit, f"{i:.3g}")
 
     # not 9e+03, 9.8e+03, 9.87e+03, 9.88e+03
 
 
-def chop(f: float) -> str:  # 'chop' as in drop excess precision
+def clip_float(f: float) -> str:
     """Find the nearest Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
 
     if math.isnan(f):
         return "NaN"  # unsigned as neither positive nor negative
-    elif math.isinf(f):
-        s = "-Inf" if (f < 0) else "Inf"  # unsigned as positive
-        return s
+
+    if math.isinf(f):
+        absclip = "Inf"
+        clip = ("-" + absclip) if (f < 0) else absclip
+        return clip
 
     if not f:
-        lit = "-0e0" if (math.copysign(1e0, f) < 0e0) else "0"
-        return lit
+        clip = "-0e0" if (math.copysign(1e0, f) < 0e0) else "0"
+        return clip
 
-    s = ("-" + _positive_float_chop_(-f)) if (f < 0) else _positive_float_chop_(f)
+    absclip = _clip_positive_float_(abs(f))
+    clip = ("-" + absclip) if (f < 0) else absclip
 
     if f == int(f):
-        assert int_chop(int(f)) == s, (f, int_chop(int(f)), s)
+        assert clip_int(int(f)) == clip, (f, clip_int(int(f)), clip)
 
-    return s
+    return clip
 
-    # never says '0' except to mean Float +0e0 and Int 0
-    # never ends with '.' nor '.0' nor '.00' nor 'e+0' - values your ink & time properly instead
+    # never says '0' except to mean exactly precisely Float +0e0 or Int 0
+    # never ends with '.' nor '.0' nor '.00' nor 'e+0'
+
+    # could return .clip_int for floats equal to ints, but doesn't
 
 
-def _positive_float_chop_(f: float) -> str:
+def _clip_positive_float_(f: float) -> str:
     """Find the nearest Positive Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
 
     assert f > 0, (f,)
@@ -5918,24 +5925,24 @@ def _positive_float_chop_(f: float) -> str:
 
     # And never say 'e0' either
 
-    lit = f"{worthy}e{eng}".removesuffix("e0")  # may lack both '.' and 'e'
+    clip = f"{worthy}e{eng}".removesuffix("e0")  # may lack both '.' and 'e'
 
     # But never wander far
 
-    alt_f = float(lit)
+    alt_f = float(clip)
 
     diff = f - alt_f
     precision = 10 ** (eng - 3 + span)
-    assert diff < precision, (diff, precision, f, alt_f, lit, eng, span, worthy, triple, span, f)
+    assert diff < precision, (diff, precision, f, alt_f, clip, eng, span, worthy, triple, span, f)
 
-    return lit
+    return clip
 
     # "{:.3g}".format(9876) and "{:.3g}".format(1006) talk like this but say 'e+0' & round up
 
     # math.trunc leaps too far, all the way down to the int ceil/ floor
 
 
-_float_chops_ = [  # not str(f)  # not f"{f:.3g}"  # not f"{f:.3f}"
+_float_clips_ = [  # not str(f)  # not f"{f:.3g}"  # not f"{f:.3f}"
     #
     (1e-4, "100e-6"),  # not '0.0001'  # not '0.000'
     (1e-3, "1e-3"),  # not '0.001'
@@ -5965,24 +5972,24 @@ _float_chops_ = [  # not str(f)  # not f"{f:.3g}"  # not f"{f:.3f}"
 ]
 
 
-def _try_float_chops_() -> None:
+def _try_clip_float_() -> None:
 
-    float_chops = list()
+    float_clips = list()
 
     for i in range(1000):
         f = float(i)
         lit = str(i)
-        float_chop = (f, lit)
-        float_chops.append(float_chop)
+        float_clip = (f, lit)
+        float_clips.append(float_clip)
 
-    float_chops.extend(_float_chops_)
+    float_clips.extend(_float_clips_)
 
-    for f, lit in _float_chops_:
-        assert chop(f) == lit, (chop(f), lit, f)
+    for f, lit in _float_clips_:
+        assert clip_float(f) == lit, (clip_float(f), lit, f)
 
         if f > 0:
-            chop_minus_f = chop(-f)
-            assert chop_minus_f == (f"-{lit}"), (chop_minus_f, f"-{lit}", f)
+            clip_minus_f = clip_float(-f)
+            assert clip_minus_f == (f"-{lit}"), (clip_minus_f, f"-{lit}", f)
 
         # print(f, lit, f"{f:.3g}", f"{f:.3f}")
 

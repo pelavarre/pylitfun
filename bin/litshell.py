@@ -20,7 +20,7 @@ quirks:
   separates output same as input, as if you wrote |awk -F$sep -vOFS=$sep
 
 small bricks:
-  -  0 1 2 3  F L O T U  a h i j n o r s t u w x  nl pb
+  -  0 1 2 3  F L O T U  a h i j k n o r s t u w x  nl pb
 
 memorable bricks:
   append bytes casefold counter cut decode dent eng enumerate expandtabs
@@ -44,6 +44,14 @@ examples:
   1
   1
 """
+
+#
+# No name collision in |pb with: bin/[gp] sh/[defmv]
+#
+
+#
+# No precedent yet in |pb or sh/ for [bclqwyz] but many Linux define [lw]
+#
 
 #
 # Floods of aliases to forgive slightly creative spelling detailed only below help
@@ -229,9 +237,9 @@ class ShellGopher:
             verbose_because.append(True)
 
         for arg in sys.argv[1:]:
-            number = str_to_number_if(arg)
+            number = parse_number_else(arg)
             if number is None:
-                text = str_removeflanks_if(arg, marks=",./")
+                text = str_removeflanks_else(arg, marks=",./")
                 if text is None:
                     if arg.startswith("-") and (arg != "-"):
                         continue
@@ -388,12 +396,12 @@ class ShellGopher:
                     newborn.posargs += (dot,)
                     continue
 
-                number = str_to_number_if(verb)  # takes float | int | bool
+                number = parse_number_else(verb)  # takes float | int | bool
                 if number is not None:
                     newborn.posargs += (number,)
                     continue
 
-                text = str_removeflanks_if(verb, marks=",./")  # takes str
+                text = str_removeflanks_else(verb, marks=",./")  # takes str
                 if text is not None:
                     if index == 2:
                         newborn = self._compile_brick_if_("append")
@@ -652,6 +660,7 @@ class ShellBrick:
             "columns": self.from_lines_do_columns,
             "cut": self.from_lines_cut,
             "head": self.from_lines_head,  # |h
+            "less": self.from_text_less,  # |k
             "md5sum": self.from_bytes_md5,
             "sha256sum": self.from_bytes_sha256,
             "shuf": self.from_lines_shuffle,  # |pb shuffle
@@ -686,6 +695,7 @@ class ShellBrick:
             "h": self.from_lines_head,
             "i": self.from_text_split,
             "j": self.from_text_jq,
+            "k": self.from_text_less,
             "n": self.for_line_enumerate,  # but defaulting to --start=1
             "o": self.from_text_do_unframe,  # |o because it rounds off ← ↑ → ↓
             "r": self.from_lines_reverse,
@@ -911,7 +921,7 @@ class ShellBrick:
     # Work with the File taken as Bytes
     #
 
-    def fetch_bytes(self) -> bytes:
+    def fetch_idata(self) -> bytes:
         """Fetch the bytes(sys.i)"""
 
         sg = self.shell_gopher
@@ -923,14 +933,14 @@ class ShellBrick:
     def from_bytes_as_ints(self) -> None:
         """list(bytes(sys.i))"""
 
-        idata = self.fetch_bytes()
+        idata = self.fetch_idata()
         olines = list(str(_) for _ in idata)  # ['65', '66', '67']
         self.store_olines(olines)
 
     def from_bytes_as_bytes(self) -> None:
         """bytes(sys.i)"""
 
-        self.fetch_bytes()  # todo: unneeded
+        self.fetch_idata()  # todo: unneeded
 
     def from_bytes_decode(self) -> None:
         """bytes(sys.i).decode(errors="replace").replace("\ufffd", "¤")"""
@@ -938,7 +948,7 @@ class ShellBrick:
         ReplacementCharacter = "\ufffd"  # PyPi Black rejects \uFFFD
         repl = "¤"  # U+00A4 'Currency Sign'
 
-        idata = self.fetch_bytes()
+        idata = self.fetch_idata()
 
         iotext = idata.decode(errors="replace")
         iotext = iotext.replace(ReplacementCharacter, repl)
@@ -955,7 +965,7 @@ class ShellBrick:
 
         verb = self.verb
 
-        idata = self.fetch_bytes()
+        idata = self.fetch_idata()
 
         h = hashlib.md5()
         h.update(idata)
@@ -977,7 +987,7 @@ class ShellBrick:
         ReplacementCharacter = "\ufffd"  # PyPi Black rejects \uFFFD
         repl = "¤"  # U+00A4 'Currency Sign'
 
-        idata = self.fetch_bytes()
+        idata = self.fetch_idata()
 
         iotext = idata.decode(errors="replace")
         iotext = iotext.replace(ReplacementCharacter, repl)
@@ -1004,7 +1014,7 @@ class ShellBrick:
 
         verb = self.verb
 
-        idata = self.fetch_bytes()
+        idata = self.fetch_idata()
 
         h = hashlib.sha256()
         h.update(idata)
@@ -1023,7 +1033,7 @@ class ShellBrick:
     def from_bytes_textruns(self) -> None:
         """textruns(decode(bytes(sys.i), repl="¤"), floor=4, of="ascii")"""
 
-        idata = self.fetch_bytes()
+        idata = self.fetch_idata()
 
         iotext = idata.decode(errors="replace")
 
@@ -1071,7 +1081,7 @@ class ShellBrick:
         self.store_otext(otext)
 
     def from_text_eng(self) -> None:
-        """replace with chop(_).rjust for _: float in str(sys.i)"""
+        """replace with clip_float(_).rjust for _: float in str(sys.i)"""
 
         itext = self.fetch_itext()
         expandtabs = itext.expandtabs()
@@ -1095,7 +1105,7 @@ class ShellBrick:
                     oline += osplit
                     continue
 
-                iosplit = chop(f)
+                iosplit = clip_float(f)
 
                 osplit = iosplit
                 if ijust:
@@ -1142,6 +1152,49 @@ class ShellBrick:
                 otext = json_dumps_as_py(loads)
 
         self.store_otext(otext)
+
+    def from_text_less(self) -> None:
+        """less(list(sys.i)))"""  # todo8: help less correctly`
+
+        idata = self.fetch_idata()
+        itext = self.fetch_itext()
+        iwords = itext.split()
+        ilines = itext.splitlines()
+
+        n = len(ilines)
+        m = (n // 2) + (n % 2)
+
+        b = clip_int(len(idata))
+        _n_ = clip_int(len(ilines))
+        w = clip_int(len(iwords))
+        c = clip_int(len(itext))
+
+        repl = "¤"  # U+00A4 'Currency Sign'
+        cc = "".join((_ if _.isprintable() else repl) for _ in collections.Counter(itext).keys())
+        ccn = len(cc)
+
+        _eq_cc = f" = {cc}" if ilines else ""
+
+        iolines = list()
+        iolines.append(f"1:{ilines[0]}" if n else "")
+        iolines.append(f"2:{ilines[1]}" if (1 < n) else "")
+        iolines.append("")
+        iolines.append(f"{m}:{ilines[m - 1]}" if (n >= 5) else "")
+        iolines.append("")
+        iolines.append(f"{1 + n - 2}:{ilines[-2]}" if (n >= 4) else "")
+        iolines.append(f"{1 + n - 1}:{ilines[-1]}" if (n >= 3) else "")
+        iolines.append("")
+        iolines.append(
+            f"{b} Bytes of {_n_} Lines of {w} Words of {c} Copies of {ccn} Characters{_eq_cc}"
+        )
+
+        olines = list()
+        if iolines:
+            for i, ioline in enumerate(iolines):
+                if ioline or (i and (iolines[i - 1])):
+                    olines.append(ioline)
+
+        self.store_olines(olines)
 
     def from_text_lower(self) -> None:
         """str(sys.i).lower()"""
@@ -1240,6 +1293,7 @@ class ShellBrick:
                 continue
 
             ichop, isuffix = tty_split_after(iline, width=n)
+            assert (ichop + isuffix) == iline, (ichop + isuffix, iline)
 
             osuffix = " ..." if isuffix.startswith(" ") else "..."
             oline = ichop + osuffix
@@ -1392,7 +1446,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_to_based_int, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=parse_int, strict=False)
         m = max(zip(*icolumns, ilines))
         oline = m[-1]
 
@@ -1404,7 +1458,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_to_based_int, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=parse_int, strict=False)
         m = min(zip(*icolumns, ilines))
         oline = m[-1]
 
@@ -1416,7 +1470,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_to_based_int, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=parse_int, strict=False)
         sortables = list(zip(*icolumns, ilines))
         sortables.sort()
         olines: list[str] = list(oline for (_, oline) in sortables)
@@ -1464,7 +1518,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_to_number, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=parse_number, strict=False)
         m = max(zip(*icolumns, ilines))
         oline = m[-1]
 
@@ -1476,7 +1530,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_to_number, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=parse_number, strict=False)
         m = min(zip(*icolumns, ilines))
         oline = m[-1]
 
@@ -1488,7 +1542,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_to_number, strict=False)
+        icolumns = self._take_number_columns_(ilines, func=parse_number, strict=False)
         sortables = list(zip(*icolumns, ilines))
         sortables.sort()
         olines: list[str] = list(oline for (_, oline) in sortables)
@@ -1569,7 +1623,7 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=str_to_number, strict=True)
+        icolumns = self._take_number_columns_(ilines, func=parse_number, strict=True)
         ocolumns = list(sum(_) for _ in icolumns)
         oline = " ".join(str(_) for _ in ocolumns)
 
@@ -1599,10 +1653,10 @@ class ShellBrick:
 
         ilines = lines
 
-        if func.__name__ == "str_to_based_int":
+        if func.__name__ == "parse_int":
             functype = "int"  # |pb int.max, int.min, int.sort
         else:
-            assert func.__name__ == "str_to_number", (func.__name__,)
+            assert func.__name__ == "parse_number", (func.__name__,)
             functype = "float nor int nor bool"  # |pb .max, .min, .sort, sum
 
         # Require Input Lines when Strict
@@ -2108,16 +2162,11 @@ class ArgDocParser:
 
 
 #
-# Amp up Import BuiltIns Float and BuiltIns Int
+# Amp up Import BuiltIns Int & Float
 #
 
 
-Inf = float("inf")  # implicitly also defines -Inf and +Inf
-
-NaN = float("nan")  # actually implies NaN != NaN
-
-
-def int_chop(i: int) -> str:  # 'chop' as in drop excess precision
+def clip_int(i: int) -> str:
     """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
 
     s = str(int(i))  # '-120789'
@@ -2129,7 +2178,7 @@ def int_chop(i: int) -> str:  # 'chop' as in drop excess precision
     assert eng in (sci, sci - 1, sci - 2), (eng, sci, digits, i)
 
     if not eng:
-        return s
+        return s  # drops 'e0'
 
     assert len(digits) >= 4, (len(digits), eng, sci, digits, i)
     assert 1 <= (len(digits) - eng) <= 3, (len(digits), eng, sci, digits, i)
@@ -2142,55 +2191,36 @@ def int_chop(i: int) -> str:  # 'chop' as in drop excess precision
 
     return sign + worthy + "e" + str(eng)  # '-120e3'
 
-
-_int_chops_ = [
-    #
-    (0, "0"),
-    (99, "99"),
-    (999, "999"),
-    #
-    (9000, "9e3"),  # not '9.00e3'  # not '9e+03'
-    (9800, "9.8e3"),  # not '9.0e3'
-    (9870, "9.87e3"),
-    (9876, "9.87e3"),  # not rounded up to '9.88e3'
-    #
-]
+    # -120789 --> -120e3, etc
 
 
-def _try_int_chops_() -> None:
-    for i, lit in _int_chops_:
-        assert int_chop(i) == lit, (int_chop(i), lit, i)
-
-        # print(i, lit, f"{i:.3g}")
-
-    # not 9e+03, 9.8e+03, 9.87e+03, 9.88e+03
-
-
-def chop(f: float) -> str:  # 'chop' as in drop excess precision
+def clip_float(f: float) -> str:
     """Find the nearest Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
 
     if math.isnan(f):
         return "NaN"  # unsigned as neither positive nor negative
-    elif math.isinf(f):
-        s = "-Inf" if (f < 0) else "Inf"  # unsigned as positive
-        return s
+
+    if math.isinf(f):
+        absclip = "Inf"
+        clip = ("-" + absclip) if (f < 0) else absclip
+        return clip
 
     if not f:
-        lit = "-0e0" if (math.copysign(1e0, f) < 0e0) else "0"
-        return lit
+        clip = "-0e0" if (math.copysign(1e0, f) < 0e0) else "0"
+        return clip
 
-    s = ("-" + _positive_float_chop_(-f)) if (f < 0) else _positive_float_chop_(f)
+    absclip = _clip_positive_float_(abs(f))
+    clip = ("-" + absclip) if (f < 0) else absclip
 
-    if f == int(f):
-        assert int_chop(int(f)) == s, (f, int_chop(int(f)), s)
+    return clip
 
-    return s
+    # never says '0' except to mean exactly precisely Float +0e0 or Int 0
+    # never ends with '.' nor '.0' nor '.00' nor 'e+0'
 
-    # never says '0' except to mean Float +0e0 and Int 0
-    # never ends with '.' nor '.0' nor '.00' nor 'e+0' - values your ink & time properly instead
+    # could return .clip_int for floats equal to ints, but doesn't
 
 
-def _positive_float_chop_(f: float) -> str:
+def _clip_positive_float_(f: float) -> str:
     """Find the nearest Positive Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
 
     assert f > 0, (f,)
@@ -2219,102 +2249,21 @@ def _positive_float_chop_(f: float) -> str:
 
     # And never say 'e0' either
 
-    lit = f"{worthy}e{eng}".removesuffix("e0")  # may lack both '.' and 'e'
+    clip = f"{worthy}e{eng}".removesuffix("e0")  # may lack both '.' and 'e'
 
     # But never wander far
 
-    alt_f = float(lit)
+    alt_f = float(clip)
 
     diff = f - alt_f
     precision = 10 ** (eng - 3 + span)
-    assert diff < precision, (diff, precision, f, alt_f, lit, eng, span, worthy, triple, span, f)
+    assert diff < precision, (diff, precision, f, alt_f, clip, eng, span, worthy, triple, span, f)
 
-    return lit
+    return clip
 
     # "{:.3g}".format(9876) and "{:.3g}".format(1006) talk like this but say 'e+0' & round up
 
     # math.trunc leaps too far, all the way down to the int ceil/ floor
-
-
-_float_chops_ = [  # not str(f)  # not f"{f:.3g}"  # not f"{f:.3f}"
-    #
-    (1e-4, "100e-6"),  # not '0.0001'  # not '0.000'
-    (1e-3, "1e-3"),  # not '0.001'
-    (1.2e-3, "1.2e-3"),  # not '0.0012'  # not '0.001'
-    (9.876e-3, "9.87e-3"),  # not '9.88e-3'  # not '0.009876'  # not '0.00988'  # not '0.010'
-    (1e-2, "10e-3"),  # not '0.01'  # not '0.010'
-    (1e-1, "100e-3"),  # not '0.1'  # not '0.100'
-    #
-    (1e0, "1"),  # not '1.0'  # not '1.000'
-    (1e1, "10"),  # not '10.0'  # not '10.000'
-    (1.2e1, "12"),  # not '12.0'  # not '12.000'
-    (9.876e1, "98.7"),  # not '98.76'  # not '98.8'  # not '98.760'
-    (1e2, "100"),  # not '100.0'  # not '100.000'
-    (1.23e2, "123"),  # not '123.0'  # not '123.000'
-    (987, "987"),  # not '987.000'
-    #
-    (1e3, "1e3"),  # not '1000.0'  # not '1e+03'  # not '1000.000'
-    #
-    (0, "0"),  # not '0.000'
-    (0e0, "0"),  # not '0.0'  # not '0.000'
-    (-0e0, "-0e0"),  # not '-0.0'  # not '-0.000'  # and never the inequivalent '-0' of f"{-0e0:g}"
-    #
-    (float("-inf"), "-Inf"),  # not '-inf'
-    (float("+inf"), "Inf"),  # not 'inf'
-    (float("nan"), "NaN"),  # not 'nan'
-    #
-]
-
-
-def _try_float_chops_() -> None:
-
-    float_chops = list()
-
-    for i in range(1000):
-        f = float(i)
-        lit = str(i)
-        float_chop = (f, lit)
-        float_chops.append(float_chop)
-
-    float_chops.extend(_float_chops_)
-
-    for f, lit in _float_chops_:
-        assert chop(f) == lit, (chop(f), lit, f)
-
-        if f > 0:
-            chop_minus_f = chop(-f)
-            assert chop_minus_f == (f"-{lit}"), (chop_minus_f, f"-{lit}", f)
-
-        # print(f, lit, f"{f:.3g}", f"{f:.3f}")
-
-
-# related explorations
-
-_ = """
-
-    ints = list(range(1000))
-    strs = list(str(int((_ / 100) * 100)) for _ in ints)
-    diffs = list(_ for _ in zip(ints, strs) if str(_[0]) != _[-1])
-    len(diffs)  # more than five dozen found
-
-"""
-
-_ = """
-
-    wholes = list(range(1000))
-    tenths = list((_ / 10) for _ in range(1000))
-    hundredths = list((_ / 100) for _ in range(1000))
-
-    floats = wholes + tenths + hundredths
-
-    strs = list(str(_ / 1) for _ in wholes)
-    strs += list(str((_ / 10) * 10) for _ in tenths)
-    strs += list(str((_ / 100) * 100) for _ in hundredths)
-
-    diffs = list(_ for _ in zip(floats, strs) if _[0] != float(_[-1]))
-    len(diffs)  # 235 found
-
-"""
 
 
 #
@@ -2322,26 +2271,27 @@ _ = """
 #
 
 
-def str_to_based_int(lit: str) -> int:
-    """Call int(_, base=0) but without forcing the Caller to pass in the 0"""
+def parse_int(lit: str) -> int:
+    """Evaluate an Int Literal of Base in (0b10, 0o10, 10, 0x10), else raise ValueError"""
 
     i = int(lit, base=0)
+
     return i
 
 
-def str_to_number_if(lit: str) -> float | int | bool | None:
-    """Take a repr(float) or repr(int) or repr(bool) as a float | int | bool, else return None"""
+def parse_number_else(lit: str) -> float | int | bool | None:
+    """Evaluate a Float or Int or Bool Literal, else return None"""
 
     try:
-        number = str_to_number(lit)
+        number = parse_number(lit)
     except ValueError:
         return None
 
     return number
 
 
-def str_to_number(lit: str) -> float | int | bool:
-    """Take a repr(float) or repr(int) or repr(bool) as a float | int | bool"""
+def parse_number(lit: str) -> float | int | bool:
+    """Evaluate a Float or Int or Bool Literal, else raise ValueError"""
 
     number: float | int | bool
 
@@ -2357,8 +2307,11 @@ def str_to_number(lit: str) -> float | int | bool:
 
     return number
 
+    # could call ast.literal_eval but doesn't
+    # does raise ValueError if not isinstance(number, (float, int, bool))
 
-def str_removeflanks_if(lit: str, marks: str) -> str | None:
+
+def str_removeflanks_else(lit: str, marks: str) -> str | None:
     """Remove the same Mark once from both ends, else return None"""
 
     if lit[1:]:
@@ -2369,6 +2322,8 @@ def str_removeflanks_if(lit: str, marks: str) -> str | None:
                 return lit[1:-1]
 
     return None
+
+    # todo0: take a quoted Str with Spaces in it as Str  # |pb replace ' ' '  '
 
 
 #
@@ -2587,6 +2542,8 @@ def tty_split_after(text: str, width: int) -> tuple[str, str]:
 
         if column_x >= width:
             suffix = text[i:]
+
+            assert (chop + suffix) == text, (chop, suffix, text)
             return (chop, suffix)
 
         if not text[i:].startswith(csi):
@@ -2620,6 +2577,7 @@ def tty_split_after(text: str, width: int) -> tuple[str, str]:
             break
 
     suffix = ""
+    assert (chop + suffix) == text, (chop, suffix, text)
 
     return (chop, suffix)
 
@@ -2634,9 +2592,6 @@ if __name__ == "__main__":
 
 
 # todo's
-
-# todo0: '|pb less' as a 1-page pager of 9 lines - wc counts - chars set sort
-# todo0: sh/.less as |less -FIRX
 
 # todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
 
