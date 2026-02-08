@@ -3639,7 +3639,7 @@ class KeyboardReader:
         # Sample H W just after the last Input Byte arrives
 
         fd = fileno
-        w, h = os.get_terminal_size(fd)
+        w, h = os.get_terminal_size(fd)  # Columns x Lines
         if (h, w) != (self.y_high, self.x_wide):
             logger_print(f"took ⎋[8;{h};{w}T")
 

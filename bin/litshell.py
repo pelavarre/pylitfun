@@ -171,9 +171,7 @@ class ShellGopher:
         y_high, x_wide = (80, 25)
         try:
             fd = sys.stderr.fileno()
-            size = os.get_terminal_size(fd)  # Columns x Lines
-            x_wide = size.columns
-            y_high = size.lines
+            x_wide, y_high = os.get_terminal_size(fd)  # Columns x Lines
         except OSError:
             pass  # todo: log how .get_terminal_size failed
 
@@ -577,6 +575,7 @@ class ShellBrick:
             "len": self.from_lines_len,  # |w
             "max": self.from_lines_max,
             "min": self.from_lines_min,
+            "partition": self.from_lines_partition,
             "reverse": self.from_lines_reverse,  # |r
             "reversed": self.from_lines_reverse,  # our ["reversed"] aliases our ["reverse"]
             "shuffle": self.from_lines_shuffle,
@@ -1507,6 +1506,49 @@ class ShellBrick:
         ilines = self.fetch_ilines()
         olines = list(collections.Counter(ilines).keys())
         self.store_olines(olines)
+
+    def from_lines_partition(self) -> None:  # classic Awk App
+        """_.partition(sep) for _ in list(sys.i)"""  # todo8: help .partition meaningfully
+
+        sep = ":"
+        dent4 = 4 * " "
+
+        ilines = self.fetch_ilines()
+
+        olines = list()
+
+        iolines: list[str] = list()
+
+        def iolines_rollover_into_olines() -> None:
+
+            olines.append(iolines[0])
+
+            iotext = "\n".join(iolines[1:])
+            iotext = textwrap.dedent(iotext)  # no .strip()
+            olines.extend((dent4 + _) for _ in iotext.splitlines())
+
+            iolines.clear()
+
+        printed = None
+        for iline in ilines:
+            prefix, sep, suffix = iline.partition(sep)
+
+            if prefix != printed:
+                printed = prefix
+                if iolines:
+                    iolines_rollover_into_olines()
+                iolines.append(prefix + sep)
+
+            iolines.append(dent4 + suffix)
+
+        if iolines:
+            iolines_rollover_into_olines()
+
+        self.store_olines(olines)
+
+        # todo8: alt isep for '|pb partition'
+        # todo8: alt osep for '|pb partition'
+        # todo8: '|pb rpartition'
 
     def from_lines_reverse(self) -> None:
         """list(sys.i).reverse()"""
@@ -2593,19 +2635,12 @@ if __name__ == "__main__":
 
 # todo's
 
-#
+# todo0: '|pb less' as a 1-page pager of 9 lines - wc counts - chars set sort
+# todo0: sh/.less as |less -FIRX
 
-# todo0: .make copies in my ~/bin/Makefile to run it, if no ./Makefile
-
-# todo0: |pb for the grep -H thing of visually group the Hits by File
-
-# todo0: |eng '* 512' '1/_' to alter before reformatting
+# todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
 
 #
-
-# todo1: .uptime to sh/uptime.py -- to give us --pretty at macOS
-
-# todo1: default output into a 1-page pager of 9 lines - wc counts - chars set sort
 
 # todo1: sh/cal.py --, for to say 3 months at a time
 # todo1: sh/cal.py to mention part of year
@@ -2626,6 +2661,8 @@ if __name__ == "__main__":
 
 # todo2: |pb translate .from. .to.
 # todo2: |pb remove .from.
+
+# todo2: |eng '* 512' '1/_' to alter before reformatting
 
 #
 

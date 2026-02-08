@@ -42,20 +42,21 @@
   - [6.11 LStrip](#611-lstrip)
   - [6.12 Max](#612-max)
   - [6.13 Min](#613-min)
-  - [6.14 Printable](#614-printable)
-  - [6.15 RemovePrefix](#615-removeprefix)
-  - [6.16 RemoveSuffix](#616-removesuffix)
-  - [6.17 Reverse](#617-reverse)
-  - [6.18 RStrip](#618-rstrip)
-  - [6.19 Set](#619-set)
-  - [6.20 Shuffle](#620-shuffle)
-  - [6.21 Slice](#621-slice)
-  - [6.22 Sort](#622-sort)
-  - [6.23 Strip](#623-strip)
-  - [6.24 Sum](#624-sum)
-  - [6.25 Tail](#625-tail)
-  - [6.26 Translate](#626-translate)
-  - [6.27 Unframe](#627-unframe)
+  - [6.14 Partition](#614-partition)
+  - [6.15 Printable](#615-printable)
+  - [6.16 RemovePrefix](#616-removeprefix)
+  - [6.17 RemoveSuffix](#617-removesuffix)
+  - [6.18 Reverse](#618-reverse)
+  - [6.19 RStrip](#619-rstrip)
+  - [6.20 Set](#620-set)
+  - [6.21 Shuffle](#621-shuffle)
+  - [6.22 Slice](#622-slice)
+  - [6.23 Sort](#623-sort)
+  - [6.24 Strip](#624-strip)
+  - [6.25 Sum](#625-sum)
+  - [6.26 Tail](#626-tail)
+  - [6.27 Translate](#627-translate)
+  - [6.28 Unframe](#628-unframe)
 - [7 File by File](#7-file-by-file)
 - [7.1 Json Files](#71-json-files)
 - [8 Shell Aliases for Pipe Bricks](#8-shell-aliases-for-pipe-bricks)
@@ -730,7 +731,7 @@ You can spell out the Line Width in Screen Columns if you like
     1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19 ...
     % seq 99 |pb join cut -70
     1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  1...
-    % 
+    %
 
 We define '|pb .cut' to mean fill your Terminal Screen with as much of each Line as fits, don't chop it exactly just past the classic 72 Columns
 
@@ -742,7 +743,7 @@ Like to fit into 101-Column Terminal
 
     % stty size
     40 101
-    % 
+    %
 
 Our Counting of Columns comes out far more accurately than classic Shell '|cut -c' when you've got Ansi Color in your Output, or Ansi Bold, and some such
 
@@ -970,7 +971,34 @@ We give you list[str].min by default, but you can say '|pb .min' to mean '|pb fl
 See also Pb Max, Pb Sort, and Pb Sum
 
 
-## 6.14 Printable
+## 6.14 Partition
+
+Python str.partition
+
+    % git grep ^class bin/litpython.py bin/litshell.py |pb partition
+    bin/litpython.py:
+        class LazyImport:
+        class ArgDocParser:
+    bin/litshell.py:
+        class LitSystemExit(SystemExit):
+        class ShellGopher:
+        class ShellBrick:
+        class ArgDocParser:
+    %
+
+    % git grep terminal.size bin/*.py |pb partition
+    bin/litglass.py:
+        w, h = os.get_terminal_size(fd)  # Columns x Lines
+    bin/litshell.py:
+        x_wide, y_high = os.get_terminal_size(fd)  # Columns x Lines
+        pass  # todo: log how .get_terminal_size failed
+    %
+
+And also try
+
+    git grep -n terminal.size |pb partition
+
+## 6.15 Printable
 
 Python str.isprintable
 
@@ -988,7 +1016,7 @@ Our '|pb -' inside of a Pipe faithfully stores a copy of Stdin and forwards thos
 Technically speaking, Python defines both a Python string.printable and also a similar but different Python str.isprintable. Fun fun name collision! We regret their error. We go with the Python str.printable
 
 
-## 6.15 RemovePrefix
+## 6.16 RemovePrefix
 
 Python str.removeprefix
 
@@ -1007,7 +1035,7 @@ See also Pb Insert of prefix, and Pb RemoveSuffix
     %
 
 
-## 6.16 RemoveSuffix
+## 6.17 RemoveSuffix
 
 Python str.removesuffix
 
@@ -1026,7 +1054,7 @@ Python str.removesuffix
 See also Pb Append of suffix, and Pb RemoveSuffix
 
 
-## 6.17 Reverse
+## 6.18 Reverse
 
 Python list[str].reverse, or Python str.reverse
 
@@ -1065,7 +1093,7 @@ And we do let you say past-tense '|pb reversed' in place of imperative-tense 'pb
 See also Pb Shuffle, and Pb Sort
 
 
-## 6.18 RStrip
+## 6.19 RStrip
 
 Python str.rstrip
 
@@ -1080,7 +1108,7 @@ Python str.rstrip
     %
 
 
-## 6.19 Set
+## 6.20 Set
 
 Python set(list[str])
 
@@ -1103,7 +1131,7 @@ Adding '|pb set' to a Shell Pipe comes out looking a lot like '|uniq', but witho
 See also Pb Counter
 
 
-## 6.20 Shuffle
+## 6.21 Shuffle
 
 Python random.shuffle(list[str])
 
@@ -1114,7 +1142,7 @@ Try it, you'll like it. It's the pseudo-random roll of one 6-face die
 See also Pb Sort
 
 
-## 6.21 Slice
+## 6.22 Slice
 
 Not yet Spec'd out and implemented
 
@@ -1152,7 +1180,7 @@ Often we'll just say '|pb a' to mean '|pb .slice -1'
 Comparable to the most basic deployments of Shell '|awk'
 
 
-## 6.22 Sort
+## 6.23 Sort
 
 Python list[str].sort, or Python list[float].sort, or Python list[int].sort
 
@@ -1184,7 +1212,7 @@ And we do let you say past-tense '|pb sorted' in place of imperative-tense 'pb s
 See also Pb Max, Pn Reverse, Pb Shuffle, and Pb Sum
 
 
-## 6.23 Strip
+## 6.24 Strip
 
 Python str.strip
 
@@ -1199,7 +1227,7 @@ Python str.strip
     %
 
 
-## 6.24 Sum
+## 6.25 Sum
 
 list[float].sum or list[int].sum
 
@@ -1214,7 +1242,7 @@ list[float].sum or list[int].sum
 See also Pb Max, Pb Min, and Pb Sort
 
 
-## 6.25 Tail
+## 6.26 Tail
 
 Python list[str][slice(len(_) - stop, len(_))]
 
@@ -1239,7 +1267,7 @@ We also ship '|sh/.tail' to fill your Terminal Screen with the many Last Lines
 See also Pb Head
 
 
-## 6.26 Translate
+## 6.27 Translate
 
 Not yet Spec'd out and implemented
 
@@ -1248,7 +1276,7 @@ Calls Python str.maketrans once and then Python str.translate on the Characters
 Comparable to the most basic deployments of Shell '|tr' and '|tr -c' and '|tr -d'
 
 
-## 6.27 Unframe
+## 6.28 Unframe
 
 Let's say you do frame some Lines. Well, after you frame them and copy them out somewhere, often enough you'll want to unframe them again
 
