@@ -1,4 +1,4 @@
-# .ssh = Call Ssh but without Profile
+# sh/.ssh = Call Ssh but without Profile
 
 if [ $# -eq 0 ]; then
 

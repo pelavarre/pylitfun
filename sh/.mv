@@ -1,3 +1,3 @@
-# .mv = Put a date-time stamp on an original File or Folder so that it looks deleted
+# sh/.mv = Put a date-time stamp on an original File or Folder so that it looks deleted
 
 F=$(echo "$@") && echo + mv -i $F{,~$(date -r $F +%m%djqd%H%M)~} |tee /dev/stderr |sed 's,^+ ,,' |sh

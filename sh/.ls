@@ -1,4 +1,4 @@
-# .ls = show latest columns of datatype, metric byte size, exact date/time
+# sh/.ls = show latest columns of datatype, metric byte size, exact date/time
 
 if [ $# -le 1 ]; then
     set -xe

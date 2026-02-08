@@ -1,4 +1,4 @@
-# .cv = Edit your Os Copy/Paste Clipboard Buffer
+# sh/.cv = Edit your Os Copy/Paste Clipboard Buffer
 
 if [ -t 0 ]; then
     pbpaste "$@"

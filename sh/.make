@@ -1,3 +1,9 @@
-# .make = Do something good with some Makefiles = Presently mostly NotImplementedError
+# sh/.make: Run the localhost:~/bin/Makefile as the next new ./Makefile
+# often set up by:  ln -s $PWD/Makefile ~/bin/makefile
 
-make sense
+if [ ! -e Makefile ]; then
+    (set -xe; cp -ip ~/bin/Makefile .) || exit $?
+fi
+
+set -xe
+make "$@"

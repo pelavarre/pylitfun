@@ -1,4 +1,4 @@
-# .head = Call '|head' but fill Screen a la '|less -FIRX'
+# sh/.head = Call '|head' but fill Screen a la '|less -FIRX'
 
 ROWS=$(stty size </dev/tty|cut -d' ' -f1)  # $LINES flakes out variously
 set -xe

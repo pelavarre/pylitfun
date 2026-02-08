@@ -121,7 +121,7 @@ class LitSystemExit(SystemExit):
 #
 
 
-verbose = list()
+verbose_because = list()
 
 
 def main() -> None:
@@ -228,7 +228,7 @@ class ShellGopher:
         # Run differently because Options & Pos Args
 
         if ns.verbose:
-            verbose.append(True)
+            verbose_because.append(True)
 
         for arg in sys.argv[1:]:
             number = str_to_number_if(arg)
@@ -240,7 +240,7 @@ class ShellGopher:
 
             verbs.append(arg)
 
-            # todo1: tighter discards of Dash and Dash-Dash Options
+            # todo8: tighter discards of Dash and Dash-Dash Options
 
         if ns.F is not None:  # -F mostly for |pb awk
             if self.sep is None:
@@ -253,7 +253,7 @@ class ShellGopher:
             if self.sep is None:
                 self.sep = str(ns.vOFS)
 
-        # if ns.v is not None:  # -v=START mostly for |pb nl  # todo0:
+        # if ns.v is not None:  # -v=START mostly for |pb nl  # todo7:
         #     if self.start is None:
         #         self.start = int(ns.v, base=0)
 
@@ -378,7 +378,7 @@ class ShellGopher:
             if index == 0:
                 assert verb == "__enter__", (verb,)
 
-            if index == 1:  # todo2: say this more simply - pb could mean __enter__
+            if index == 1:  # todo3: say this more simply - pb could mean __enter__
                 if verb in ("cv", "pb"):
                     continue
 
@@ -404,8 +404,8 @@ class ShellGopher:
                     newborn.posargs += (text,)
                     continue
 
-                # todo0: accept 'None' as a Pos Arg of a Shell Brick ?
-                # todo0: declare which Bricks take which Args, compile-time reject TypeError
+                # todo8: accept 'None' as a Pos Arg of a Shell Brick ?
+                # todo8: declare which Bricks take which Args, compile-time reject TypeError
 
             brick = self._compile_brick_if_(verb)
             bricks.append(brick)
@@ -416,7 +416,7 @@ class ShellGopher:
         verbs = self.verbs
         sys_stdin_isatty = self.sys_stdin_isatty
 
-        writing_file = self._compile_writing_file_()  # todo: calculate once, not twice
+        writing_file = self._compile_writing_file_()  # todo2: calculate once, not twice
 
         writing_pbcopy = False
         if writing_file:
@@ -493,8 +493,8 @@ class ShellGopher:
 
             s += " " + repr(doc)
 
-        if verbose:
-            print(s, file=sys.stderr)  # todo1: delay help till after first input
+        if verbose_because:  # todo8: remember --verbose could do good things
+            print(s, file=sys.stderr)  # todo8: delay trace till after first input
 
         # doesn't show when inferring 'tee >(pbcopy)' and/or '|pb printable'
 
@@ -659,10 +659,8 @@ class ShellBrick:
             "strings": self.from_bytes_textruns,  # |LC_ALL=C strings -n 4
             "tail": self.from_lines_tail,  # |t
             "tac": self.from_lines_reverse,  # |r  # |pb reverse
-            # "uniq": self.from_lines_uniq,  # differs from our |u  # |LC_ALL=C uniq  # todo1:
+            # "uniq": self.from_lines_uniq,  # differs from our |u  # |LC_ALL=C uniq  # todo8:
             #
-            # "$": self.for_line_suffix,  # |$ ...  # todo8
-            # "^": self.for_line_prefix,  # |^ ...  # todo8
             "awk": self.for_line_awk_nth_slice,  # |a
             "nl": self.for_line_enumerate,  # like |.nl but --start=0
             "rev": self.for_line_reverse,
@@ -949,8 +947,9 @@ class ShellBrick:
 
         self.store_otext(otext)
 
-        # todo0: default '|pb decode' to "¤"  # --sep='?'  # --sep=''
-        # todo0: option of |pb printable /?/ and --repl='?' and ='💥' for decode/ printable/ textruns
+        # todo8: |pb decode --sep='?'
+        # todo8: |pb decode --sep=''
+        # todo8: option of |pb printable /?/ and --repl='?' and ='💥' for decode/ printable/ textruns
 
     def from_bytes_md5(self) -> None:
         """hashlib.md5(bytes(sys.i)).hexdigest()"""
@@ -974,7 +973,7 @@ class ShellBrick:
         # d41d8cd98f00b204e9800998ecf8427e  0  -
 
     def from_bytes_printable(self) -> None:  # todo: .__doc__ doesn't mention '\n' as printable
-        """Replace with ¤ till decodable, and then till str.isprintable"""  # todo: code up as Code
+        """Replace with ¤ till decodable, and then till str.isprintable"""  # todo: help as Code
 
         ReplacementCharacter = "\ufffd"  # PyPi Black rejects \uFFFD
         repl = "¤"  # U+00A4 'Currency Sign'
@@ -1033,8 +1032,8 @@ class ShellBrick:
         repl = "¤"  # U+00A4 'Currency Sign'
         iotext = iotext.replace(ReplacementCharacter, repl)
 
-        n = 4  # todo0: |pb strings -n 4
-        regex = (n * r"[ -~]") + r"[ -~]*"  # todo0: |pb --of=isprintable
+        n = 4  # todo8: |pb strings -n 4
+        regex = (n * r"[ -~]") + r"[ -~]*"  # todo8: |pb strings --of=isprintable
 
         olines = list()
         for m in re.finditer(regex, string=iotext):
@@ -1228,7 +1227,7 @@ class ShellBrick:
         self.store_olines(olines)
 
     def from_lines_cut(self) -> None:
-        """list(sys.i)[:72] + ' ...'"""  # todo1: help .cut correctly
+        """list(sys.i)[:72] + ' ...'"""  # todo8: help .cut correctly
 
         x_wide = self._take_dot_or_posargs_as_x_wide_minus_(default=72, minus=0)
         n = 5 if (x_wide < (5 + 1)) else x_wide - 5  # todo: '|pb cut' for extremely thin Screens
@@ -1359,7 +1358,7 @@ class ShellBrick:
         self.store_olines(olines)
 
     def from_lines_head(self) -> None:
-        """list(sys.i)[:9]"""  # todo1: help .head correctly
+        """list(sys.i)[:9]"""  # todo8: help .head correctly
 
         n = self._take_dot_or_posargs_as_y_high_minus_(default=9, minus=2)
 
@@ -1524,7 +1523,7 @@ class ShellBrick:
         self.store_olines(olines=iolines)
 
     def from_lines_sum(self) -> None:
-        """sum(list(sys.i)) for each column"""  # todo: code up 'for each column' as Code
+        """sum(list(sys.i)) for each column"""  # todo: help 'for each column' as Code
 
         ilines = self.fetch_ilines()
 
@@ -1536,7 +1535,7 @@ class ShellBrick:
         self.store_olines(olines)
 
     def from_lines_tail(self) -> None:
-        """list(sys.i)[-9:]"""  # todo1: help .tail correctly
+        """list(sys.i)[-9:]"""  # todo8: help .tail correctly
 
         n = self._take_dot_or_posargs_as_y_high_minus_(default=9, minus=2)
 
@@ -2598,13 +2597,15 @@ if __name__ == "__main__":
 
 # todo0: .make copies in my ~/bin/Makefile to run it, if no ./Makefile
 
-# todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
-
 # todo0: |pb for the grep -H thing of visually group the Hits by File
 
 # todo0: |eng '* 512' '1/_' to alter before reformatting
 
 #
+
+# todo1: .uptime to sh/uptime.py -- to give us --pretty at macOS
+
+# todo1: default output into a 1-page pager of 9 lines - wc counts - chars set sort
 
 # todo1: sh/cal.py --, for to say 3 months at a time
 # todo1: sh/cal.py to mention part of year
@@ -2612,50 +2613,25 @@ if __name__ == "__main__":
 # todo1: sh/cal.py to prefer python3 -m calendar
 
 # todo1: |sh/nl.py --, for to say |nl -pba -v0
-# todo1: default --start=0 for |pb nl because -v1 is nonnegotiable at |cat -n, can't cat -n0
-# todo1: trace |pb nl as '|nl -pba -v0', and accept the '-pba -v1' as input shline
 
 # todo1: sh/which.py, finish up how we've begun offline
 
 #
 
-# todo2: default output into a 1-page pager of 9 lines - wc counts - chars set sort
+# todo2: finish porting pelavarre/xshverb/ of bin/ k and of bin/ dt ht pq
+# todo2: dt as date && date -u && time
 
-# todo2: 'pb' vs 'pb -' @ pb split sort |fmt -n |sed 's,^,  ,' |pb -; pb
+# todo2: |pb replace .stale. .fresh.
+# todo2: |pb sub .pattern. .repl.
 
-# todo2: dream up some great way to pass Bytes through |pbcopy
-# todo2: confusion in having 'pb --sep=-' work while 'pb split /-/' quietly doesn't
-# todo2: repro and explain '@' marks on 'ls -l' permissions of tracked Files in local Git Clone
-
-# todo2: |pb expandtabs 2
-
-#
-
-# todo3: finish porting pelavarre/xshverb/ of bin/ k and of bin/ dt ht pq
-# todo3: dt as date && date -u && time
+# todo2: |pb translate .from. .to.
+# todo2: |pb remove .from.
 
 #
 
-# todo4: |pb clean up -F$sep vs -F=$sep especially for |pb awk
-
-# todo4: |pb slice for --sep=None --start=0, still defaulting to NF{$NF}
-# todo4: |pb a raises IndexError for slice out of range, such as 4 rather than 4,5 or 4..4
-# todo4: |pb a --sep=None --start=1 implied
-# todo4: |pb a 2,4,1 is the 2..3  # |pb a 0 --start=1 takes 0 as 1..
-# todo4: |pb a 3.. 1..3 -4 2 3 4 0 0..  # |pb a 0 1..  # the 0.. is intact, not a join
-# todo4: |pb nl -pba -v1 implied
-
-# todo4: block 0 1 2 3 as verbs after first verbs, take as ints, for |pb awk, for |pb expandtabs
-# todo4: but block ints/floats as first verbs
-# todo4: signed/ unsigned floats before ints before verbs
-# todo4: int ranges 1..4
-# todo4: --start=0 for |awk when you want that, else 0 for the whole in between the rest
-
-# todo4: |pb replace .stale. .fresh.
-# todo4: |pb sub .pattern. .repl.
-
-# todo4: |pb translate .from. .to.
-# todo4: |pb remove .from.
+# todo3: 'pb' vs 'pb -' @ pb split sort |fmt -n |sed 's,^,  ,' |pb -; pb
+# todo3: dream up some great way to pass Bytes through |pbcopy
+# todo3: repro and explain '@' marks on 'ls -l' permissions of tracked Files in local Git Clone
 
 #
 
@@ -2671,17 +2647,24 @@ if __name__ == "__main__":
 
 # todo6: take --seed as unhelped to repeat random
 
-# todo6: brick helps
-
-# todo6: reject -F misplaced
-# todo6: reject -v misplaced
-# todo6: reject -vOFS= misplaced
-
 #
 
 # todo7: fill out 'pb .' so as to retire 'pq .'
 
 # todo7: add Hp Calculator Words:  fix, sci, ...
+
+# todo7: |pb slice for --sep=None --start=0, still defaulting to NF{$NF}
+# todo7: |pb a raises IndexError for slice out of range, such as 4 rather than 4,5 or 4..4
+# todo7: |pb a --sep=None --start=1 implied
+# todo7: |pb a 2,4,1 is the 2..3  # |pb a 0 --start=1 takes 0 as 1..
+# todo7: |pb a 3.. 1..3 -4 2 3 4 0 0..  # |pb a 0 1..  # the 0.. is intact, not a join
+# todo7: |pb nl -pba -v1 implied
+
+# todo7: block 0 1 2 3 as verbs after first verbs, take as ints, for |pb awk, for |pb expandtabs
+# todo7: but block ints/floats as first verbs
+# todo7: signed/ unsigned floats before ints before verbs
+# todo7: int ranges 1..4
+# todo7: --start=0 for |awk when you want that, else 0 for the whole in between the rest
 
 #
 
@@ -2689,10 +2672,19 @@ if __name__ == "__main__":
 
 # todo8: pb hexdump, especially for a -C, especially a memorizable 128 glyph set
 
+# todo8: brick helps
+
+# todo8: |pb expandtabs 2
+# todo8: confusion in having 'pb --sep=-' work while 'pb split /-/' quietly doesn't
 # todo8: |pb textwrap.wrap textwrap.fill or some such
 # todo8: |pb fmt ... just to do |fmt, or more a la |fold -sw $W
 # todo8: reject -t without |column
-# todo2: take -c at |cut, but don't require it, but do reject -c misplaced
+# todo8: take -c at |cut, but don't require it, but do reject -c misplaced
+# todo8: trace |pb nl as '|nl -pba -v0', and accept the '-pba -v1' as input shline
+# todo8: |pb clean up -F$sep vs -F=$sep especially for |pb awk
+# todo8: reject -F misplaced
+# todo8: reject -v misplaced
+# todo8: reject -vOFS= misplaced
 
 # todo8: |wc -L into |pb .len .max, |pb split .len .max
 

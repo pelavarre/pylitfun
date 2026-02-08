@@ -13,7 +13,7 @@ make  # shows a few examples and exits zero
 make help  # shows many help lines and exits zero
 make bin  # updates your Shell Path ~/bin/ Folder
 make pips  # installs/ updates Add-on's for Python from PyPi·Org
-make smoke  # calls for Code Review from Black, Flake8, and MyPy Strict
+make sense  # calls for Code Review from Black, Flake8, and MyPy Strict
 
 endef
 
@@ -24,14 +24,14 @@ usage: make TARGET
 help download, run, and give back changes
 
 positional arguments:
-  TARGET  which work to do (one of help, bin, pips, smoke)
+  TARGET  which work to do (one of help, bin, pips, sense)
 
 examples:
   make  # shows a few examples and exits zero
   make help  # shows many help lines and exits zero
   make bin  # updates your Shell Path ~/bin/ Folder from our bin/ and sh/
   make pips  # installs/ updates Python add-on's from PyPi·Org
-  make smoke  # calls for Code Review from Black, Flake8, and MyPy Strict
+  make sense  # calls for Code Review from Black, Flake8, and MyPy Strict
 endef
 
 
@@ -96,11 +96,11 @@ push:  # as in do push now, without rerunning any tests
 	git push
 
 
-sense: smoke
+smoke: sense
 	:
 
 
-smoke: black flake8 mypy
+sense: black flake8 mypy
 	:
 
 

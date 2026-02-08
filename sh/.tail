@@ -1,4 +1,4 @@
-# .tail = Call '|tail' but fill Screen a la '|less -FIRX'
+# sh/.tail = Call '|tail' but fill Screen a la '|less -FIRX'
 
 ROWS=$(stty size </dev/tty|cut -d' ' -f1)  # $LINES flakes out variously
 set -xe

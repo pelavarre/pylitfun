@@ -1,4 +1,4 @@
-# .cat = Echo one copy of Input on Screen, not two, and prompt to say How to Quit Vi
+# sh/.cat = Echo one copy of Input on Screen, not two, and prompt to say How to Quit Vi
 
 echo Press ⌃D to continue, or ⌃C to quit >&2
 cat - >/dev/null

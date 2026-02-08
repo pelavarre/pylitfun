@@ -1,4 +1,4 @@
-# .echo = show each of the Shell sys.argv[1:] as one accurate line of Py Repr
+# sh/.echo = show each of the Shell sys.argv[1:] as one accurate line of Py Repr
 
 echo "+ python3 -c ''' ..." >&2
 

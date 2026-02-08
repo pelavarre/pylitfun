@@ -1,4 +1,4 @@
-# .uniq = Call '|uniq' but duck out of messy pre-UTF-8 legacy at macOS
+# sh/.uniq = Call '|uniq' but duck out of messy pre-UTF-8 legacy at macOS
 
 set -xe
 LC_ALL=C uniq "$@"
