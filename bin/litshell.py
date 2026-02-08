@@ -23,7 +23,7 @@ small bricks:
   -  0 1 2 3  F L O T U  a h i j n o r s t u w x  nl pb
 
 memorable bricks:
-  append bytes casefold counter decode dent eng enumerate expandtabs
+  append bytes casefold counter cut decode dent eng enumerate expandtabs
   frame head if insert join len lower lstrip max md5 min ord printable
   removeprefix removesuffix reverse rstrip set sha256 shuffle slice
   sort split str strings strip sum tail title unframe upper
@@ -95,10 +95,13 @@ import subprocess
 import sys  # doesn't limit launch to >= Oct/2020 Python 3.9
 import textwrap
 import traceback
+import unicodedata
 
 if not __debug__:
     raise NotImplementedError([__debug__])  # 'better python3 than python3 -O'
 
+
+_os_environ_get_cloud_shell_ = os.environ.get("CLOUD_SHELL", "")
 
 assert int(0x80 + signal.SIGINT) == 130
 
@@ -609,18 +612,19 @@ class ShellBrick:
             "float.sorted": self.from_lines_number_sort,
             #
             ".enumerate": self.for_line_enumerate,  # like |n or |cat -n and with --start=1
+            ".cut": self.from_lines_cut,  # as wide as the Screen
             ".frame": self.for_line_do_frame,  # with .rstrip
-            ".head": self.from_lines_head,
-            ".jq": self.from_text_jq,
-            ".len": self.for_line_len,
-            ".max": self.from_lines_number_max,
-            ".md5": self.from_bytes_md5,
-            ".min": self.from_lines_number_min,
+            ".head": self.from_lines_head,  # as tall as the Screen
+            ".jq": self.from_text_jq,  # converts to Python
+            ".len": self.for_line_len,  # width of Lines, not length of Lines
+            ".max": self.from_lines_number_max,  # by Number not by Str
+            ".md5": self.from_bytes_md5,  # Byte Length too, not just Hash
+            ".min": self.from_lines_number_min,  # by Number not by Str
             ".nl": self.for_line_enumerate,  # like |nl but --start=1
-            ".reverse": self.for_line_reverse,
-            ".sha256": self.from_bytes_sha256,
-            ".sort": self.from_lines_number_sort,  # |LC_ALL=C sort
-            ".tail": self.from_lines_tail,
+            ".reverse": self.for_line_reverse,  # reverse Characters in each Line, not all the Lines
+            ".sha256": self.from_bytes_sha256,  # Byte Length too, not just Hash
+            ".sort": self.from_lines_number_sort,  # by Number not by Str
+            ".tail": self.from_lines_tail,  # as tall as the Screen
             #
             ".md5sum": self.from_bytes_md5,  # not ".md5":
             ".sha256sum": self.from_bytes_sha256,  # not ".sha256":
@@ -647,6 +651,7 @@ class ShellBrick:
             "expand": self.from_text_expandtabs,  # |pb expandtabs
             "column": self.from_lines_do_columns,
             "columns": self.from_lines_do_columns,
+            "cut": self.from_lines_cut,
             "head": self.from_lines_head,  # |h
             "md5sum": self.from_bytes_md5,
             "sha256sum": self.from_bytes_sha256,
@@ -1222,6 +1227,61 @@ class ShellBrick:
 
         self.store_olines(olines)
 
+    def from_lines_cut(self) -> None:
+        """list(sys.i)[:72] + ' ...'"""  # todo1: help .cut correctly
+
+        x_wide = self._take_dot_or_posargs_as_x_wide_minus_(default=72, minus=0)
+        n = 5 if (x_wide < (5 + 1)) else x_wide - 5  # todo: '|pb cut' for extremely thin Screens
+
+        ilines = self.fetch_ilines()
+
+        olines = list()
+        for iline in ilines:
+            if len(iline) <= n:
+                olines.append(iline)
+                continue
+
+            ichop, isuffix = tty_split_after(iline, width=n)
+
+            osuffix = " ..." if isuffix.startswith(" ") else "..."
+            oline = ichop + osuffix
+
+            olines.append(oline)
+
+            # takes Negative PosArg in the way of classic Shell '|tail -9'
+
+        self.store_olines(olines)
+
+    def _take_dot_or_posargs_as_x_wide_minus_(self, default: int, minus: int) -> int:
+        """Take Default, or a Dot Verb as X Wide minus enough, or Negative PosArg"""
+
+        sg = self.shell_gopher
+        x_wide = sg.x_wide
+        verb = self.verb
+        posargs = self.posargs
+
+        if not posargs:
+            n = (x_wide - minus) if verb.startswith(".") else default
+        else:
+            assert not verb.startswith("."), (verb,)
+            option_int = self._take_posargs_as_one_int_()
+
+            assert option_int < 0, (option_int,)
+            n = -option_int
+
+        assert n >= 1, (n, x_wide)
+        return n
+
+    def _take_posargs_as_one_int_(self) -> int:
+        """Take the one Pos Arg as an Int, else raise an Exception"""
+
+        posargs = self.posargs
+        assert len(posargs) == 1, (posargs,)
+        posarg = posargs[-1]
+        assert isinstance(posarg, int), (posarg,)
+
+        return posarg
+
     def from_lines_do_columns(self) -> None:
         """Justify Text Columns split by Two Spaces or Tabs, and Numeric Columns too"""
 
@@ -1301,14 +1361,14 @@ class ShellBrick:
     def from_lines_head(self) -> None:
         """list(sys.i)[:9]"""  # todo1: help .head correctly
 
-        n = self._take_dot_or_posargs_as_y_high_minus_(default=9)
+        n = self._take_dot_or_posargs_as_y_high_minus_(default=9, minus=2)
 
         ilines = self.fetch_ilines()
         olines = ilines[:n]
         self.store_olines(olines)
 
-    def _take_dot_or_posargs_as_y_high_minus_(self, default: int) -> int:
-        """Take Default, or a Dot Verb as Y High Minus 4, or Negative PosArg"""
+    def _take_dot_or_posargs_as_y_high_minus_(self, default: int, minus: int) -> int:
+        """Take Default, or a Dot Verb as Y High minus enough, or Negative PosArg"""
 
         sg = self.shell_gopher
         y_high = sg.y_high
@@ -1316,7 +1376,7 @@ class ShellBrick:
         posargs = self.posargs
 
         if not posargs:
-            n = (y_high - 2) if verb.startswith(".") else default
+            n = (y_high - minus) if verb.startswith(".") else default
         else:
             assert not verb.startswith("."), (verb,)
             option_int = self._take_posargs_as_one_int_()
@@ -1324,18 +1384,10 @@ class ShellBrick:
             assert option_int < 0, (option_int,)
             n = -option_int
 
+            # takes Negative PosArg in the way of classic Shell '|head -9'
+
         assert n >= 1, (n, y_high)
         return n
-
-    def _take_posargs_as_one_int_(self) -> int:
-        """Take the one Pos Arg as an Int, else raise an Exception"""
-
-        posargs = self.posargs
-        assert len(posargs) == 1, (posargs,)
-        posarg = posargs[-1]
-        assert isinstance(posarg, int), (posarg,)
-
-        return posarg
 
     def from_lines_int_base_zero_max(self) -> None:
         """max(list(sys.i), key=lambda _: int..., _)"""
@@ -1486,7 +1538,7 @@ class ShellBrick:
     def from_lines_tail(self) -> None:
         """list(sys.i)[-9:]"""  # todo1: help .tail correctly
 
-        n = self._take_dot_or_posargs_as_y_high_minus_(default=9)
+        n = self._take_dot_or_posargs_as_y_high_minus_(default=9, minus=2)
 
         ilines = self.fetch_ilines()
         olines = ilines[-n:]
@@ -2453,6 +2505,85 @@ def pathlib_path_read_version(pathname: str) -> str:
 
 
 #
+# Amp up Import Tty
+#
+
+
+def tty_len(text: str) -> int:
+    """Count the Screen Columns of the Printable Characters of a Text"""
+
+    width = 0
+    for t in text:
+        if not t.isprintable():  # '\n', or '\t', etc
+            continue
+
+        width += 1
+
+        eaw = unicodedata.east_asian_width(t)
+        if eaw in ("Fullwidth"[0], "Wide"[0]):
+            if not _os_environ_get_cloud_shell_:
+                width += 1
+
+    return width
+
+    # guesses that Google Cloud Shell counts each Character as 1 Column
+
+
+def tty_split_after(text: str, width: int) -> tuple[str, str]:
+    """Split a Text after a Width of Columns, after counting each Csi Sequence as 0 Columns wide"""
+
+    csi = "\033["
+
+    # Visit each Character
+
+    chop = ""
+
+    i = 0
+    column_x = 1
+    while i < len(text):
+
+        # Take what fits
+
+        if column_x >= width:
+            suffix = text[i:]
+            return (chop, suffix)
+
+        if not text[i:].startswith(csi):
+            t = text[i]
+
+            chop += text[i]
+            i += len(t)  # takes 1 Character
+
+            column_x += tty_len(t)
+
+            continue
+
+        # Count each Csi Sequence as 0 Screen Columns wide
+
+        chop += csi
+        i += len(csi)
+
+        while i < len(text):
+            t = text[i]
+            code = ord(t)
+
+            if code < 0x20:
+                break
+
+            chop += t
+            i += len(t)  # takes 1 Character
+
+            if 0x20 <= code < 0x40:
+                continue
+
+            break
+
+    suffix = ""
+
+    return (chop, suffix)
+
+
+#
 # Run from the Shell Command Line, if not imported
 #
 
@@ -2465,41 +2596,13 @@ if __name__ == "__main__":
 
 #
 
-# todo0: 'pb' vs 'pb -' @ pb split sort |fmt -n |sed 's,^,  ,' |pb -; pb
-
-# todo0: revive |pb a -F/ -1 etc etc
-# todo0: write out what 'pbcopy; pbpaste' does to the single-byte UnicodeDecodeError's
-# todo0: dream up some great way to pass Bytes through |pbcopy
-
-#
-
-# todo0: sh/which.py, finish up how we've begun offline
-
-# todo0: |pb cut for like 'git log --oneline --decorate --color-moved -1 --color=always'
-
-# todo0: confusion in having 'pb --sep=-' work while 'pb split /-/' quietly doesn't
-
-#
-
-# todo0: .jq to give full path find of each object ["top"]["branch"]["leaf"] = 'repr'
-# todo0: .jq to create each dict explicitly
 # todo0: .make copies in my ~/bin/Makefile to run it, if no ./Makefile
 
-#
-
-# todo0: write pipe-bricks.md in terms of what's too fiddly without them
-# todo0: suppose you don't like how your the 'foo' in your shell goes wrong, and you fix it
-# todo0: how do you remember where you put the fix, when next you need it again, a week from now
-# todo0: well, you can put it nearby
-# todo0: like you can put it into => function .od () { echo od ...; }
-# todo0: like you can put it into 'foo.py --'
-# todo0: and you can mention it at 'foo.py'
-
-# todo0: repro and explain '@' marks on 'ls -l' permissions of tracked Files in local Git Clone
-
-#
-
 # todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
+
+# todo0: |pb for the grep -H thing of visually group the Hits by File
+
+# todo0: |eng '* 512' '1/_' to alter before reformatting
 
 #
 
@@ -2512,20 +2615,23 @@ if __name__ == "__main__":
 # todo1: default --start=0 for |pb nl because -v1 is nonnegotiable at |cat -n, can't cat -n0
 # todo1: trace |pb nl as '|nl -pba -v0', and accept the '-pba -v1' as input shline
 
+# todo1: sh/which.py, finish up how we've begun offline
+
 #
-
-# todo2: |pb cut ... to |cut -c to fit width on screen but with "... " marks
-# todo2: take -c at |cut, but don't require it, but do reject -c misplaced
-
-# todo2: |pb for the grep -H thing of visually group the Hits by File
-
-# todo2: |pb expandtabs 2
 
 # todo2: default output into a 1-page pager of 9 lines - wc counts - chars set sort
 
+# todo2: 'pb' vs 'pb -' @ pb split sort |fmt -n |sed 's,^,  ,' |pb -; pb
+
+# todo2: dream up some great way to pass Bytes through |pbcopy
+# todo2: confusion in having 'pb --sep=-' work while 'pb split /-/' quietly doesn't
+# todo2: repro and explain '@' marks on 'ls -l' permissions of tracked Files in local Git Clone
+
+# todo2: |pb expandtabs 2
+
 #
 
-# todo3: finish porting pelavarre/xshverb/ of bin/ a j k and of bin/ dt ht pq
+# todo3: finish porting pelavarre/xshverb/ of bin/ k and of bin/ dt ht pq
 # todo3: dt as date && date -u && time
 
 #
@@ -2586,6 +2692,7 @@ if __name__ == "__main__":
 # todo8: |pb textwrap.wrap textwrap.fill or some such
 # todo8: |pb fmt ... just to do |fmt, or more a la |fold -sw $W
 # todo8: reject -t without |column
+# todo2: take -c at |cut, but don't require it, but do reject -c misplaced
 
 # todo8: |wc -L into |pb .len .max, |pb split .len .max
 
@@ -2619,6 +2726,8 @@ if __name__ == "__main__":
 # todo9: drop the int.max int.min int.sort because float. accepts those inputs?
 # todo9: drop all the unhelped verbs?
 
+
+# 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/litshell.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

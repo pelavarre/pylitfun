@@ -31,30 +31,31 @@
 - [6 Line by Line](#6-line-by-line)
   - [6.1 Append](#61-append)
   - [6.2 Counter](#62-counter)
-  - [6.3 Dent](#63-dent)
-  - [6.4 Enumerate](#64-enumerate)
-  - [6.5 Frame](#65-frame)
-  - [6.6 Head](#66-head)
-  - [6.7 If](#67-if)
-  - [6.8 Insert](#68-insert)
-  - [6.9 Join](#69-join)
-  - [6.10 LStrip](#610-lstrip)
-  - [6.11 Max](#611-max)
-  - [6.12 Min](#612-min)
-  - [6.13 Printable](#613-printable)
-  - [6.14 RemovePrefix](#614-removeprefix)
-  - [6.15 RemoveSuffix](#615-removesuffix)
-  - [6.16 Reverse](#616-reverse)
-  - [6.17 RStrip](#617-rstrip)
-  - [6.18 Set](#618-set)
-  - [6.19 Shuffle](#619-shuffle)
-  - [6.20 Slice](#620-slice)
-  - [6.21 Sort](#621-sort)
-  - [6.22 Strip](#622-strip)
-  - [6.23 Sum](#623-sum)
-  - [6.24 Tail](#624-tail)
-  - [6.25 Translate](#625-translate)
-  - [6.26 Unframe](#626-unframe)
+  - [6.3 Cut](#63-cut)
+  - [6.4 Dent](#64-dent)
+  - [6.5 Enumerate](#65-enumerate)
+  - [6.6 Frame](#66-frame)
+  - [6.7 Head](#67-head)
+  - [6.8 If](#68-if)
+  - [6.9 Insert](#69-insert)
+  - [6.10 Join](#610-join)
+  - [6.11 LStrip](#611-lstrip)
+  - [6.12 Max](#612-max)
+  - [6.13 Min](#613-min)
+  - [6.14 Printable](#614-printable)
+  - [6.15 RemovePrefix](#615-removeprefix)
+  - [6.16 RemoveSuffix](#616-removesuffix)
+  - [6.17 Reverse](#617-reverse)
+  - [6.18 RStrip](#618-rstrip)
+  - [6.19 Set](#619-set)
+  - [6.20 Shuffle](#620-shuffle)
+  - [6.21 Slice](#621-slice)
+  - [6.22 Sort](#622-sort)
+  - [6.23 Strip](#623-strip)
+  - [6.24 Sum](#624-sum)
+  - [6.25 Tail](#625-tail)
+  - [6.26 Translate](#626-translate)
+  - [6.27 Unframe](#627-unframe)
 - [7 File by File](#7-file-by-file)
 - [7.1 Json Files](#71-json-files)
 - [8 Shell Aliases for Pipe Bricks](#8-shell-aliases-for-pipe-bricks)
@@ -598,7 +599,7 @@ But truncate, never round up. Like don't talk of the next millisecond till after
 
     % echo -- 2.718 3.14159 6.283 42. -inf -0e0 0e0 +inf nan |pb eng split join
     --  2.71  3.14  6.28  42  -Inf  -0e0  0  Inf  NaN
-    % 
+    %
 
 
 ### 5.3 ExpandTabs
@@ -713,7 +714,46 @@ Adding '|pb counter |expand' to a Shell Pipe comes out looking a lot like '|uniq
 See also Pb Set
 
 
-## 6.3 Dent
+## 6.3 Cut
+
+End each Line with " ..." or "..." before it wraps.
+
+    % seq 99 |pb join cut
+    1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19  ...
+    %
+
+You can spell out the Line Width in Screen Columns if you like
+
+    % seq 99 |pb join cut -72
+    1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19  ...
+    % seq 99 |pb join cut -71
+    1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19 ...
+    % seq 99 |pb join cut -70
+    1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  1...
+    % 
+
+We define '|pb .cut' to mean fill your Terminal Screen with as much of each Line as fits, don't chop it exactly just past the classic 72 Columns
+
+Like to fit into 101-Column Terminal
+
+    % seq 99 |bin/pb join .cut
+    1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19  20  21  22  23  24  25  26  ...
+    %
+
+    % stty size
+    40 101
+    % 
+
+Our Counting of Columns comes out far more accurately than classic Shell '|cut -c' when you've got Ansi Color in your Output, or Ansi Bold, and some such
+
+    git log --oneline --decorate --color-moved -1 --color=always |cut -c1-72
+
+    git log --oneline --decorate --color-moved -1 --color=always |pb .cut |cat -
+
+    git log --oneline --decorate --color-moved --color=always |pb .head .cut | cat -
+
+
+## 6.4 Dent
 
 "Dent" in the sense of inserting 4 Blank Columns at the Left of each Line, as Python textwrap.dedent will undo
 
@@ -732,7 +772,7 @@ See also Pb Set
 See also Pb Unframe and Pb RemovePrefix
 
 
-## 6.4 Enumerate
+## 6.5 Enumerate
 
 Python list[str].enumerate
 
@@ -747,7 +787,7 @@ Often we'll just say '|pb n' or '|pb nl' to mean '|pb enumerate'
 We define '|pb enumerate' and '|pb nl' to default to ' --start=0'. We define '|pb .enumerate' and '|pb .nl' and '|pb n' to default to ' --start=1'. We don't define a '|pb .n'
 
 
-## 6.5 Frame
+## 6.6 Frame
 
 "Frame" in the sense of inserting 2 Blank Rows above and below, as well as 4 Blank Columns at left and at right
 
@@ -778,7 +818,7 @@ Often we'll just say '|pb O' to mean Pb Frame in its four dimensions, and '|pb o
 See also Pb Dent and Pb Unframe
 
 
-## 6.6 Head
+## 6.7 Head
 
 Python list[str][slice(stop)]
 
@@ -801,7 +841,7 @@ We also ship '|sh/.head' to fill your Terminal Screen with the many First Lines
 See also Pb Tail
 
 
-## 6.7 If
+## 6.8 If
 
 "If" in the sense of drop the Precisely Empty Lines, like you can say in Python
 
@@ -827,7 +867,7 @@ which is then neatly undone by Pb If
     %
 
 
-## 6.8 Insert
+## 6.9 Insert
 
 Python str.insert
 
@@ -853,7 +893,7 @@ Often we'll just say '|pb ^' to mean '|pb insert'
 See also Pb Append, Pb Dent, and Pb RemovePrefix to undo Insert
 
 
-## 6.9 Join
+## 6.10 Join
 
 Python str.join(list[str])
 
@@ -874,7 +914,7 @@ Python str.join(list[str])
     %
 
 
-## 6.10 LStrip
+## 6.11 LStrip
 
 Python str.lstrip
 
@@ -889,7 +929,7 @@ Python str.lstrip
     %
 
 
-## 6.11 Max
+## 6.12 Max
 
 Python list[str].max, or Python list[float].max, or Python list[int].max
 
@@ -913,7 +953,7 @@ We give you list[str].max by default, but you can say '|pb .max' to mean '|pb fl
 See also Pb Min, Pb Sort, and Pb Sum
 
 
-## 6.12 Min
+## 6.13 Min
 
 Python list[str].max, or Python list[float].max, or Python list[int].max
 
@@ -930,7 +970,7 @@ We give you list[str].min by default, but you can say '|pb .min' to mean '|pb fl
 See also Pb Max, Pb Sort, and Pb Sum
 
 
-## 6.13 Printable
+## 6.14 Printable
 
 Python str.isprintable
 
@@ -948,7 +988,7 @@ Our '|pb -' inside of a Pipe faithfully stores a copy of Stdin and forwards thos
 Technically speaking, Python defines both a Python string.printable and also a similar but different Python str.isprintable. Fun fun name collision! We regret their error. We go with the Python str.printable
 
 
-## 6.14 RemovePrefix
+## 6.15 RemovePrefix
 
 Python str.removeprefix
 
@@ -967,7 +1007,7 @@ See also Pb Insert of prefix, and Pb RemoveSuffix
     %
 
 
-## 6.15 RemoveSuffix
+## 6.16 RemoveSuffix
 
 Python str.removesuffix
 
@@ -986,7 +1026,7 @@ Python str.removesuffix
 See also Pb Append of suffix, and Pb RemoveSuffix
 
 
-## 6.16 Reverse
+## 6.17 Reverse
 
 Python list[str].reverse, or Python str.reverse
 
@@ -1025,7 +1065,7 @@ And we do let you say past-tense '|pb reversed' in place of imperative-tense 'pb
 See also Pb Shuffle, and Pb Sort
 
 
-## 6.17 RStrip
+## 6.18 RStrip
 
 Python str.rstrip
 
@@ -1040,7 +1080,7 @@ Python str.rstrip
     %
 
 
-## 6.18 Set
+## 6.19 Set
 
 Python set(list[str])
 
@@ -1063,7 +1103,7 @@ Adding '|pb set' to a Shell Pipe comes out looking a lot like '|uniq', but witho
 See also Pb Counter
 
 
-## 6.19 Shuffle
+## 6.20 Shuffle
 
 Python random.shuffle(list[str])
 
@@ -1074,7 +1114,7 @@ Try it, you'll like it. It's the pseudo-random roll of one 6-face die
 See also Pb Sort
 
 
-## 6.20 Slice
+## 6.21 Slice
 
 Not yet Spec'd out and implemented
 
@@ -1112,7 +1152,7 @@ Often we'll just say '|pb a' to mean '|pb .slice -1'
 Comparable to the most basic deployments of Shell '|awk'
 
 
-## 6.21 Sort
+## 6.22 Sort
 
 Python list[str].sort, or Python list[float].sort, or Python list[int].sort
 
@@ -1144,7 +1184,7 @@ And we do let you say past-tense '|pb sorted' in place of imperative-tense 'pb s
 See also Pb Max, Pn Reverse, Pb Shuffle, and Pb Sum
 
 
-## 6.22 Strip
+## 6.23 Strip
 
 Python str.strip
 
@@ -1159,7 +1199,7 @@ Python str.strip
     %
 
 
-## 6.23 Sum
+## 6.24 Sum
 
 list[float].sum or list[int].sum
 
@@ -1174,7 +1214,7 @@ list[float].sum or list[int].sum
 See also Pb Max, Pb Min, and Pb Sort
 
 
-## 6.24 Tail
+## 6.25 Tail
 
 Python list[str][slice(len(_) - stop, len(_))]
 
@@ -1199,7 +1239,7 @@ We also ship '|sh/.tail' to fill your Terminal Screen with the many Last Lines
 See also Pb Head
 
 
-## 6.25 Translate
+## 6.26 Translate
 
 Not yet Spec'd out and implemented
 
@@ -1208,7 +1248,7 @@ Calls Python str.maketrans once and then Python str.translate on the Characters
 Comparable to the most basic deployments of Shell '|tr' and '|tr -c' and '|tr -d'
 
 
-## 6.26 Unframe
+## 6.27 Unframe
 
 Let's say you do frame some Lines. Well, after you frame them and copy them out somewhere, often enough you'll want to unframe them again
 
