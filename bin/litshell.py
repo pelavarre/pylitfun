@@ -2589,6 +2589,8 @@ if __name__ == "__main__":
 # todo0: move '|pb sort' into Char-by-Char of pipe-bricks.md
 # todo0: split and cross-ref '|pb .max' '|pb .min' '|pb reverse' into Char-by-Char & Line-by-Line
 
+# todo0: into litpython.py, doc which Python Version we scraped Importable Names from
+
 # todo0: add an .md Markdown vs the flooring |pb eng and what about ceil
 
 # todo0: |pb replace .stale. .fresh.

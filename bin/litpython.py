@@ -12,9 +12,7 @@ options:
   -h, --help  show this help message and exit
 
 quirks:
-  calls pbpaste & pbcopy for you, when you read from the sys.ibytes or write into the sys.obytes
-  reacts to mentions of sys .ibytes .itext .ilines .iline .iwords .iword
-  reacts to writes of is-not-none into sys .obytes .otext .olines .oline .owords .oword
+  trusts Git to tell it when new Names becomes Importable
 
 examples:
   p 'print("".join(chr(_) for _ in range(0x20, 0x7E + 1)))'
@@ -183,7 +181,7 @@ class LazyImport:
         return module.__repr__()
 
 
-_PYTHON_IMPORTS_TEXT = """
+_PYTHON_IMPORTS_TEXT_ = """
 
 
     # hard-to-discover basics
@@ -243,12 +241,14 @@ _PYTHON_IMPORTS_TEXT = """
 
 """
 
-PYTHON_IMPORTS = _PYTHON_IMPORTS_TEXT.splitlines()
+PYTHON_IMPORTS = _PYTHON_IMPORTS_TEXT_.splitlines()
 PYTHON_IMPORTS = list(_.partition("#")[0] for _ in PYTHON_IMPORTS)
 PYTHON_IMPORTS = list(_.strip() for _ in PYTHON_IMPORTS)
 PYTHON_IMPORTS = " ".join(PYTHON_IMPORTS).split()
 
 assert len(PYTHON_IMPORTS) == 201, (len(PYTHON_IMPORTS), 201)
+
+# todo: doc which Python Version we scraped these Importable Names from
 
 
 #
