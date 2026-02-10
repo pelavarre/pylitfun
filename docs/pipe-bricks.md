@@ -998,6 +998,7 @@ And also try
 
     git grep -n terminal.size |pb partition
 
+
 ## 6.15 Printable
 
 Python str.isprintable

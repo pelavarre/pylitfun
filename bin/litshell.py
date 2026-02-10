@@ -64,9 +64,11 @@ examples:
 #   data text  # vs bytes str
 #   splitlines  # taken as default
 #
-#   for.len for.reverse for.reversed for.slice  # vs .min .max .slice .sort
-#   int.max int.min int.sort int.sorted float.max float.min float.sort
-#   .reversed .sorted reversed sorted int.sorted float.sorted
+#   # vs .min .max .slice .sort
+#   .reversed .sorted
+#   float.max float.min float.sort float.sorted
+#   for.len for.reverse for.reversed for.slice
+#   reversed sorted
 #
 #   counter vs set
 #   tac vs rev
@@ -237,14 +239,15 @@ class ShellGopher:
             verbose_because.append(True)
 
         for arg in sys.argv[1:]:
-            number = parse_number_else(arg)
-            if number is None:
-                text = str_removeflanks_else(arg, marks=",./")
-                if text is None:
-                    if arg.startswith("-") and (arg != "-"):
-                        continue
+            if " " not in arg:
+                number = parse_number_else(arg)
+                if number is None:
+                    text = str_removeflanks_else(arg, marks=",./")
+                    if text is None:
+                        if arg.startswith("-") and (arg != "-"):
+                            continue
 
-            verbs.append(arg)
+            verbs.append(arg)  # todo0: might be Verb or Pos Arg, but isn't Option
 
             # todo8: tighter discards of Dash and Dash-Dash Options
 
@@ -401,7 +404,12 @@ class ShellGopher:
                     newborn.posargs += (number,)
                     continue
 
-                text = str_removeflanks_else(verb, marks=",./")  # takes str
+                text: str | None = None
+                if " " in verb:
+                    text = verb  # takes str
+                else:
+                    text = str_removeflanks_else(verb, marks=",./")  # takes str
+
                 if text is not None:
                     if index == 2:
                         newborn = self._compile_brick_if_("append")
@@ -574,6 +582,8 @@ class ShellBrick:
             "jq": self.from_text_jq,  # |j
             "lower": self.from_text_lower,  # |L
             "ord": self.from_text_ord,
+            "replace": self.from_text_replace,
+            # "sub": self.for_line_sub,  # todo0:
             "split": self.from_text_split,  # aka words
             "title": self.from_text_title,  # |T
             "upper": self.from_text_upper,  # |U
@@ -581,8 +591,6 @@ class ShellBrick:
             "counter": self.from_lines_counter,  # |u
             "join": self.from_lines_join,  # |x
             "len": self.from_lines_len,  # |w
-            "max": self.from_lines_max,
-            "min": self.from_lines_min,
             "partition": self.from_lines_partition,
             "reverse": self.from_lines_reverse,  # |r
             "reversed": self.from_lines_reverse,  # our ["reversed"] aliases our ["reverse"]
@@ -599,6 +607,8 @@ class ShellBrick:
             "if": self.for_line_if,
             "insert": self.for_line_insert,
             "lstrip": self.for_line_lstrip,
+            "max": self.for_line_max,
+            "min": self.for_line_min,
             "removeprefix": self.for_line_removeprefix,
             "removesuffix": self.for_line_removesuffix,
             "rstrip": self.for_line_rstrip,
@@ -609,10 +619,6 @@ class ShellBrick:
             "for.len": self.for_line_len,
             "for.reverse": self.for_line_reverse,
             "for.reversed": self.for_line_reverse,
-            "int.max": self.from_lines_int_base_zero_max,
-            "int.min": self.from_lines_int_base_zero_min,
-            "int.sort": self.from_lines_int_base_zero_sort,
-            "int.sorted": self.from_lines_int_base_zero_sort,
             "float.max": self.from_lines_number_max,
             "float.min": self.from_lines_number_min,
             "float.sort": self.from_lines_number_sort,
@@ -1211,6 +1217,25 @@ class ShellBrick:
         olines = list(str(_) for _ in oints)
         self.store_olines(olines)
 
+    def from_text_replace(self) -> None:
+        """str(sys.i).replace(old, new)"""
+
+        posargs = self.posargs
+
+        pair = posargs[:2]  # todo8: reject extra args
+        if not pair:
+            pair = (" ", "  ")  # defaults to double U+0020 Space's
+        elif not pair[1:]:
+            pair = (pair[0], "")  # defaults to delete 1 Str
+
+        stale, fresh = pair
+        assert isinstance(stale, str), (stale,)
+        assert isinstance(fresh, str), (fresh,)
+
+        itext = self.fetch_itext()
+        otext = itext.replace(stale, fresh)
+        self.store_otext(otext)
+
     def from_text_split(self) -> None:
         """str(sys.i).split(sep)"""  # .sep may be None
 
@@ -1441,42 +1466,6 @@ class ShellBrick:
         assert n >= 1, (n, y_high)
         return n
 
-    def from_lines_int_base_zero_max(self) -> None:
-        """max(list(sys.i), key=lambda _: int..., _)"""
-
-        ilines = self.fetch_ilines()
-
-        icolumns = self._take_number_columns_(ilines, func=parse_int, strict=False)
-        m = max(zip(*icolumns, ilines))
-        oline = m[-1]
-
-        olines = [oline]
-        self.store_olines(olines)
-
-    def from_lines_int_base_zero_min(self) -> None:
-        """min(list(sys.i), key=lambda _: int..., _)"""
-
-        ilines = self.fetch_ilines()
-
-        icolumns = self._take_number_columns_(ilines, func=parse_int, strict=False)
-        m = min(zip(*icolumns, ilines))
-        oline = m[-1]
-
-        olines = [oline]
-        self.store_olines(olines)
-
-    def from_lines_int_base_zero_sort(self) -> None:
-        """list(sys.i).sort(key=lambda _: int..., _)"""
-
-        ilines = self.fetch_ilines()
-
-        icolumns = self._take_number_columns_(ilines, func=parse_int, strict=False)
-        sortables = list(zip(*icolumns, ilines))
-        sortables.sort()
-        olines: list[str] = list(oline for (_, oline) in sortables)
-
-        self.store_olines(olines)
-
     def from_lines_join(self) -> None:
         """sep.join(list(sys.i))"""  # .sep may be None, then works like " " single Space
 
@@ -1497,28 +1486,12 @@ class ShellBrick:
         olines = [oline]
         self.store_olines(olines)
 
-    def from_lines_max(self) -> None:
-        """max(list(sys.i))"""
-
-        ilines = self.fetch_ilines()
-        oline = max(ilines)
-        olines = [oline]
-        self.store_olines(olines)
-
-    def from_lines_min(self) -> None:
-        """min(list(sys.i))"""
-
-        ilines = self.fetch_ilines()
-        oline = min(ilines)
-        olines = [oline]
-        self.store_olines(olines)
-
     def from_lines_number_max(self) -> None:
         """max(list(sys.i), key=lambda _: float..., _)"""
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=parse_number, strict=False)
+        icolumns = self._take_number_columns_(ilines, needy=True, strict=False)
         m = max(zip(*icolumns, ilines))
         oline = m[-1]
 
@@ -1530,19 +1503,67 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=parse_number, strict=False)
+        icolumns = self._take_number_columns_(ilines, needy=True, strict=False)
         m = min(zip(*icolumns, ilines))
         oline = m[-1]
 
         olines = [oline]
         self.store_olines(olines)
 
+    def from_lines_partition(self) -> None:  # classic Awk App
+        """_.partition(sep) for _ in list(sys.i)"""  # todo8: help .partition meaningfully
+
+        sep = ":"
+        dent4 = 4 * " "
+
+        ilines = self.fetch_ilines()
+
+        # Tell each Tag to give its Lines exactly one Dent
+
+        olines = list()
+        iolines: list[str] = list()
+
+        def iolines_rollover_into_olines() -> None:
+
+            olines.append(iolines[0])
+
+            iotext = "\n".join(iolines[1:])
+            iotext = textwrap.dedent(iotext)  # no .strip()
+            olines.extend((dent4 + _) for _ in iotext.splitlines())
+
+            iolines.clear()
+
+        # Pick the leftmost Tag out of each Line
+
+        printed = None
+        for iline in ilines:
+            prefix, sep, suffix = iline.partition(sep)
+
+            if prefix != printed:
+                printed = prefix
+                if iolines:
+                    iolines_rollover_into_olines()
+                iolines.append(prefix + sep)
+
+            iolines.append(dent4 + suffix)
+
+        if iolines:
+            iolines_rollover_into_olines()
+
+        # Succeed
+
+        self.store_olines(olines)
+
+        # todo8: alt isep for '|pb partition'
+        # todo8: alt osep for '|pb partition'
+        # todo8: '|pb rpartition'
+
     def from_lines_number_sort(self) -> None:
         """list(sys.i).sort(key=lambda _: float..., _)"""
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=parse_number, strict=False)
+        icolumns = self._take_number_columns_(ilines, needy=False, strict=False)
         sortables = list(zip(*icolumns, ilines))
         sortables.sort()
         olines: list[str] = list(oline for (_, oline) in sortables)
@@ -1561,49 +1582,6 @@ class ShellBrick:
         olines = list(collections.Counter(ilines).keys())
         self.store_olines(olines)
 
-    def from_lines_partition(self) -> None:  # classic Awk App
-        """_.partition(sep) for _ in list(sys.i)"""  # todo8: help .partition meaningfully
-
-        sep = ":"
-        dent4 = 4 * " "
-
-        ilines = self.fetch_ilines()
-
-        olines = list()
-
-        iolines: list[str] = list()
-
-        def iolines_rollover_into_olines() -> None:
-
-            olines.append(iolines[0])
-
-            iotext = "\n".join(iolines[1:])
-            iotext = textwrap.dedent(iotext)  # no .strip()
-            olines.extend((dent4 + _) for _ in iotext.splitlines())
-
-            iolines.clear()
-
-        printed = None
-        for iline in ilines:
-            prefix, sep, suffix = iline.partition(sep)
-
-            if prefix != printed:
-                printed = prefix
-                if iolines:
-                    iolines_rollover_into_olines()
-                iolines.append(prefix + sep)
-
-            iolines.append(dent4 + suffix)
-
-        if iolines:
-            iolines_rollover_into_olines()
-
-        self.store_olines(olines)
-
-        # todo8: alt isep for '|pb partition'
-        # todo8: alt osep for '|pb partition'
-        # todo8: '|pb rpartition'
-
     def from_lines_reverse(self) -> None:
         """list(sys.i).reverse()"""
 
@@ -1618,12 +1596,19 @@ class ShellBrick:
         random.shuffle(iolines)
         self.store_olines(olines=iolines)
 
+    def from_lines_sort(self) -> None:
+        """list(sys.i).sort()"""
+
+        iolines = self.fetch_ilines()
+        iolines.sort()
+        self.store_olines(olines=iolines)
+
     def from_lines_sum(self) -> None:
         """sum(list(sys.i)) for each column"""  # todo: help 'for each column' as Code
 
         ilines = self.fetch_ilines()
 
-        icolumns = self._take_number_columns_(ilines, func=parse_number, strict=True)
+        icolumns = self._take_number_columns_(ilines, needy=True, strict=True)
         ocolumns = list(sum(_) for _ in icolumns)
         oline = " ".join(str(_) for _ in ocolumns)
 
@@ -1644,27 +1629,21 @@ class ShellBrick:
     #
 
     def _take_number_columns_(
-        self,
-        lines: list[str],
-        func: collections.abc.Callable[[str], float | int | bool],
-        strict: bool,
+        self, lines: list[str], needy: bool, strict: bool
     ) -> list[list[float | int | bool]]:
         """Convert Left Columns of each Str to Floats and Ints and Bools, else raise LitSystemExit"""
 
         ilines = lines
-
-        if func.__name__ == "parse_int":
-            functype = "int"  # |pb int.max, int.min, int.sort
-        else:
-            assert func.__name__ == "parse_number", (func.__name__,)
-            functype = "float nor int nor bool"  # |pb .max, .min, .sort, sum
+        assert needy or (not strict), (needy, strict)
 
         # Require Input Lines when Strict
 
         if not ilines:
-            if strict:
-                occasion = "ValueError: No Lines of Columns"
-                raise LitSystemExit(code=1, occasion=occasion)  # .sum of no rows
+            if not needy:  # for .sort but not .max .min .sum
+                return list()
+
+            occasion = "ValueError: No Lines of Columns"
+            raise LitSystemExit(code=1, occasion=occasion)  # .sum of no rows
 
         # Visit each Input Line
 
@@ -1681,33 +1660,36 @@ class ShellBrick:
             inumbers: list[float | int | bool] = list()
             for index, isplit in enumerate(isplits):
                 try:
-                    inumber = func(isplit)
+                    inumber = parse_number(isplit)
                 except ValueError:
                     break
-                inumbers.append(inumber)
+                inumbers.append(inumber)  # "at left of {iline!r}"
 
             # Require one or more Number Columns,
             # and require the same Number of Columns per Line when Strict
 
             width = len(inumbers)
             if not width:
-                occasion = f"ValueError: Line {lineno} has no {functype} Columns"
+                functypes = "float nor int nor bool"
+                occasion = f"ValueError: Line {lineno} has no {functypes} Columns"
                 raise LitSystemExit(code=1, occasion=occasion)  # .max, .min, .sort, sum of no cols
 
             elif i == 0:
                 min_width = width
 
-            elif not strict:
+            elif not strict:  # for .max .min .sort but not .sum
                 min_width = min(min_width, width)
 
-            elif width != min_width:
-                occasion = f"ValueError: Line {lineno} has {width} Columns"
-                occasion += f", not the {min_width} Columns of Line 1"
+            elif width != min_width:  # for strict .sum
+                occasion = f"ValueError: Line {lineno}"
+                occasion += f" has {width} Number Columns"
+                occasion += f", not the Number {min_width} Columns of Line 1"
                 raise LitSystemExit(code=1, occasion=occasion)  # .sum of ragged edge
 
             irows.append(inumbers)
 
-        assert min_width >= 1, (min_width,)  # because >= 1 Lines visited
+        widths = list(len(_) for _ in irows)
+        assert min_width >= 1, (min_width, widths, ilines)  # because >= 1 Lines visited
 
         # Pick out the Whole Columns filled by every Line
 
@@ -1863,6 +1845,22 @@ class ShellBrick:
 
         # todo: compare our .for_line_insert vs Python textwrap.indent
 
+    def for_line_max(self) -> None:
+        """max(list(sys.i))"""
+
+        ilines = self.fetch_ilines()
+        oline = max(ilines)
+        olines = [oline]
+        self.store_olines(olines)
+
+    def for_line_min(self) -> None:
+        """min(list(sys.i))"""
+
+        ilines = self.fetch_ilines()
+        oline = min(ilines)
+        olines = [oline]
+        self.store_olines(olines)
+
     def for_line_len(self) -> None:
         """len(_) for _ in list(sys.i)"""
 
@@ -1910,13 +1908,6 @@ class ShellBrick:
         ilines = self.fetch_ilines()
         olines = list("".join(reversed(_)) for _ in ilines)
         self.store_olines(olines)
-
-    def from_lines_sort(self) -> None:
-        """list(sys.i).sort()"""
-
-        iolines = self.fetch_ilines()
-        iolines.sort()
-        self.store_olines(olines=iolines)
 
     def for_line_strip(self) -> None:
         """_.strip() for _ in list(sys.i)"""
@@ -2315,8 +2306,8 @@ def str_removeflanks_else(lit: str, marks: str) -> str | None:
     """Remove the same Mark once from both ends, else return None"""
 
     if lit[1:]:
-        a = lit[0]
-        z = lit[-1]
+        a = lit[0]  # first Mark, no matter if is Letter or Digit not Punc
+        z = lit[-1]  # last Mark
         if a == z:
             if a in marks:
                 return lit[1:-1]
@@ -2593,6 +2584,20 @@ if __name__ == "__main__":
 
 # todo's
 
+# todo0: add '|pb replace' into Char-by-Char of pipe-bricks.md
+# todo0: move '|pb partition' into Char-by-Char of pipe-bricks.md
+# todo0: move '|pb sort' into Char-by-Char of pipe-bricks.md
+# todo0: split and cross-ref '|pb .max' '|pb .min' '|pb reverse' into Char-by-Char & Line-by-Line
+
+# todo0: add an .md Markdown vs the flooring |pb eng and what about ceil
+
+# todo0: |pb replace .stale. .fresh.
+# todo0: |pb sub .pattern. .repl.
+# todo0: |pb remove .from.
+
+# todo0: drop the int.max int.min int.sort because float. accepts those inputs?
+# todo0: don't add an int.sum?
+
 # todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
 
 #
@@ -2611,11 +2616,7 @@ if __name__ == "__main__":
 # todo2: finish porting pelavarre/xshverb/ of bin/ k and of bin/ dt ht pq
 # todo2: dt as date && date -u && time
 
-# todo2: |pb replace .stale. .fresh.
-# todo2: |pb sub .pattern. .repl.
-
 # todo2: |pb translate .from. .to.
-# todo2: |pb remove .from.
 
 # todo2: |eng '* 512' '1/_' to alter before reformatting
 
@@ -2707,7 +2708,6 @@ if __name__ == "__main__":
 # todo9: + mv 0 ... && pbpaste |pb upper |tee >(pbcopy) >./0
 # todo9: more than one of ("0", "1", "2", "3"), such as Shell ? while 'ls -C ?' is '0 1 2 3'
 
-# todo9: drop the int.max int.min int.sort because float. accepts those inputs?
 # todo9: drop all the unhelped verbs?
 
 
