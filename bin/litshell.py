@@ -573,6 +573,7 @@ class ShellBrick:
             # Python Single Words working with all the Bytes / Text / Lines, or with each Line
             #
             "decode": self.from_bytes_decode,
+            "finditer": self.from_bytes_finditer,  # todo3: compare |grep -o
             "md5": self.from_bytes_md5,
             "sha256": self.from_bytes_sha256,
             "printable": self.from_bytes_printable,
@@ -589,15 +590,15 @@ class ShellBrick:
             "upper": self.from_text_upper,  # |U
             #
             "counter": self.from_lines_counter,  # |u
-            "join": self.from_lines_join,  # |x
+            "join": self.for_line_join,  # |x
             "len": self.from_lines_len,  # |w
             "partition": self.from_lines_partition,
-            "reverse": self.from_lines_reverse,  # |r
-            "reversed": self.from_lines_reverse,  # our ["reversed"] aliases our ["reverse"]
+            "reverse": self.from_lines_reversed,  # |r
+            "reversed": self.from_lines_reversed,  # our ["reversed"] aliases our ["reverse"]
             "shuffle": self.from_lines_shuffle,
-            "set": self.from_lines_set,  # |set as the ordered last half of |counter
-            "sort": self.from_lines_sort,  # |s
-            "sorted": self.from_lines_sort,  # our ["sorted"] aliases our ["sort"]
+            "set": self.for_line_set,  # |set as the ordered last half of |counter
+            "sort": self.from_lines_sorted,  # |s
+            "sorted": self.from_lines_sorted,  # our ["sorted"] aliases our ["sort"]
             "sum": self.from_lines_sum,
             # "list":  # nope
             # "tuple":  # nope
@@ -625,9 +626,9 @@ class ShellBrick:
             "float.sorted": self.from_lines_number_sort,
             #
             ".enumerate": self.for_line_enumerate,  # like |n or |cat -n and with --start=1
-            ".cut": self.from_lines_cut,  # as wide as the Screen
+            ".cut": self.for_line_cut,  # as wide as the Screen
             ".frame": self.for_line_do_frame,  # with .rstrip
-            ".head": self.from_lines_head,  # as tall as the Screen
+            ".head": self.for_line_head,  # as tall as the Screen
             ".jq": self.from_text_jq,  # converts to Python
             ".len": self.for_line_len,  # width of Lines, not length of Lines
             ".max": self.from_lines_number_max,  # by Number not by Str
@@ -637,7 +638,7 @@ class ShellBrick:
             ".reverse": self.for_line_reverse,  # reverse Characters in each Line, not all the Lines
             ".sha256": self.from_bytes_sha256,  # Byte Length too, not just Hash
             ".sort": self.from_lines_number_sort,  # by Number not by Str
-            ".tail": self.from_lines_tail,  # as tall as the Screen
+            ".tail": self.for_line_tail,  # as tall as the Screen
             #
             ".md5sum": self.from_bytes_md5,  # not ".md5":
             ".sha256sum": self.from_bytes_sha256,  # not ".sha256":
@@ -648,31 +649,31 @@ class ShellBrick:
             # tipping the hat to variable names, Shell 'wc' data types, Python result datatypes
             #
             "data": self.from_bytes_as_ints,  # aka bytes
-            "text": self.from_text_as_texts,  # aka str
+            "text": self.from_text_as_characters,  # aka str
             #
             "bytes": self.from_bytes_as_ints,  # aka data  # 'bytes' is a Python Single Word
-            "chars": self.from_text_as_texts,  # aka str
+            "chars": self.from_text_as_characters,  # aka str
             "lines": self.from_lines_as_lines,  # aka splitlines
             "words": self.from_text_split,  # aka split
             #
             # "split": self.from_text_split,  # already said far above
             "splitlines": self.from_lines_as_lines,  # aka lines
-            "str": self.from_text_as_texts,  # aka chars
+            "str": self.from_text_as_characters,  # aka chars
             #
             # Shell Single Words working with all the Bytes / Lines, or with each Line
             #
             "expand": self.from_text_expandtabs,  # |pb expandtabs
             "column": self.from_lines_do_columns,
             "columns": self.from_lines_do_columns,
-            "cut": self.from_lines_cut,
-            "head": self.from_lines_head,  # |h
-            "less": self.from_text_less,  # |k
+            "cut": self.for_line_cut,
+            "head": self.for_line_head,  # |h
+            "less": self.from_text_do_lots_less,  # |k
             "md5sum": self.from_bytes_md5,
             "sha256sum": self.from_bytes_sha256,
             "shuf": self.from_lines_shuffle,  # |pb shuffle
-            "strings": self.from_bytes_textruns,  # |LC_ALL=C strings -n 4
-            "tail": self.from_lines_tail,  # |t
-            "tac": self.from_lines_reverse,  # |r  # |pb reverse
+            "strings": self.from_bytes_finditer,  # |LC_ALL=C strings -n 4
+            "tail": self.for_line_tail,  # |t
+            "tac": self.from_lines_reversed,  # |r  # |pb reverse
             # "uniq": self.from_lines_uniq,  # differs from our |u  # |LC_ALL=C uniq  # todo8:
             #
             "awk": self.for_line_awk_nth_slice,  # |a
@@ -698,18 +699,18 @@ class ShellBrick:
             "U": self.from_text_upper,
             #
             "a": self.for_line_awk_nth_slice,
-            "h": self.from_lines_head,
+            "h": self.for_line_head,
             "i": self.from_text_split,
             "j": self.from_text_jq,
-            "k": self.from_text_less,
+            "k": self.from_text_do_lots_less,
             "n": self.for_line_enumerate,  # but defaulting to --start=1
             "o": self.from_text_do_unframe,  # |o because it rounds off ← ↑ → ↓
-            "r": self.from_lines_reverse,
-            "s": self.from_lines_sort,
-            "t": self.from_lines_tail,
+            "r": self.from_lines_reversed,
+            "s": self.from_lines_sorted,
+            "t": self.for_line_tail,
             "u": self.from_lines_counter,  # 'u' for '|uniq' but in the way of |awk '!d[$0]++'
             "w": self.from_lines_len,  # in the way of '|wc -l'
-            "x": self.from_lines_join,  # in the way of '|xargs'
+            "x": self.for_line_join,  # in the way of '|xargs'
             #
             # Names for newer Shell Pipe Filter Bricks
             #
@@ -918,7 +919,7 @@ class ShellBrick:
     #
 
     def _assert_false_(self) -> None:
-        """Raise NotImplementedError for the Brick"""
+        """Raise NotImplementedError"""
 
         verb = self.verb
         assert False, (verb,)  # could be raise NotImplementedError(verb)
@@ -936,17 +937,17 @@ class ShellBrick:
 
         return data
 
+    def from_bytes_as_bytes(self) -> None:
+        """bytes(sys.i)"""
+
+        self.fetch_idata()  # todo: unneeded
+
     def from_bytes_as_ints(self) -> None:
         """list(bytes(sys.i))"""
 
         idata = self.fetch_idata()
         olines = list(str(_) for _ in idata)  # ['65', '66', '67']
         self.store_olines(olines)
-
-    def from_bytes_as_bytes(self) -> None:
-        """bytes(sys.i)"""
-
-        self.fetch_idata()  # todo: unneeded
 
     def from_bytes_decode(self) -> None:
         """bytes(sys.i).decode(errors="replace").replace("\ufffd", "¤")"""
@@ -987,8 +988,8 @@ class ShellBrick:
 
         # d41d8cd98f00b204e9800998ecf8427e  0  -
 
-    def from_bytes_printable(self) -> None:  # todo: .__doc__ doesn't mention '\n' as printable
-        """Replace with ¤ till decodable, and then till str.isprintable"""  # todo: help as Code
+    def from_bytes_printable(self) -> None:  # todo8: .__doc__ doesn't mention '\n' as printable
+        """(_ if (_.isprintable() or (_ in "\n")) else "¤") for bytes(sys.i).decode(repl="¤")"""
 
         ReplacementCharacter = "\ufffd"  # PyPi Black rejects \uFFFD
         repl = "¤"  # U+00A4 'Currency Sign'
@@ -1036,8 +1037,8 @@ class ShellBrick:
 
         # e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 0 stdin
 
-    def from_bytes_textruns(self) -> None:
-        """textruns(decode(bytes(sys.i), repl="¤"), floor=4, of="ascii")"""
+    def from_bytes_finditer(self) -> None:
+        """re.finditer(r"[ -~]{4,}", string=decode(bytes(sys.i), repl="¤"))"""
 
         idata = self.fetch_idata()
 
@@ -1079,12 +1080,70 @@ class ShellBrick:
         oencode = otext.encode()  # may raise UnicodeEncodeError
         sg.data = oencode
 
+    def from_text_as_characters(self) -> None:
+        """list(str(sys.i))"""
+
+        itext = self.fetch_itext()
+        olines = list(itext)
+        self.store_olines(olines)
+
     def from_text_casefold(self) -> None:
         """str(sys.i).casefold()"""
 
         itext = self.fetch_itext()
         otext = itext.casefold()
         self.store_otext(otext)
+
+    def from_text_do_lots_less(self) -> None:
+        """_less_(list(sys.i)))"""  # todo8: better help of '|pb less'
+
+        idata = self.fetch_idata()
+        itext = self.fetch_itext()
+        iwords = itext.split()
+        ilines = itext.splitlines()
+
+        n = len(ilines)
+        m = (n // 2) + (n % 2)
+
+        b = clip_int(len(idata))
+        _n_ = clip_int(len(ilines))
+        w = clip_int(len(iwords))
+        c = clip_int(len(itext))
+
+        repl = "¤"  # U+00A4 'Currency Sign'
+        cc = "".join((_ if _.isprintable() else repl) for _ in collections.Counter(itext).keys())
+        ccn = len(cc)
+
+        _eq_cc = f" = {cc}" if ilines else ""
+
+        iolines = list()
+        iolines.append(f"1:{ilines[0]}" if n else "")
+        iolines.append(f"2:{ilines[1]}" if (1 < n) else "")
+        iolines.append("")
+        iolines.append(f"{m}:{ilines[m - 1]}" if (n >= 5) else "")
+        iolines.append("")
+        iolines.append(f"{1 + n - 2}:{ilines[-2]}" if (n >= 4) else "")
+        iolines.append(f"{1 + n - 1}:{ilines[-1]}" if (n >= 3) else "")
+        iolines.append("")
+        iolines.append(
+            f"{b} Bytes of {_n_} Lines of {w} Words of {c} Copies of {ccn} Characters{_eq_cc}"
+        )
+
+        olines = list()
+        if iolines:
+            for i, ioline in enumerate(iolines):
+                if ioline or (i and (iolines[i - 1])):
+                    olines.append(ioline)
+
+        self.store_olines(olines)
+
+    def from_text_do_unframe(self) -> None:
+        """_.rstrip() for _ in textwrap.dedent(str(sys.i)).strip().splitlines()"""
+
+        itext = self.fetch_itext()
+        otext = textwrap.dedent(itext).strip()
+        olines = list(_.rstrip() for _ in otext.splitlines())
+        self.store_olines(olines)
 
     def from_text_eng(self) -> None:
         """replace with clip_float(_).rjust for _: float in str(sys.i)"""
@@ -1127,14 +1186,6 @@ class ShellBrick:
 
         # string.printable endswith '\n\r\x0b\x0c' which all do str.splitlines
 
-    def from_text_do_unframe(self) -> None:
-        """_.rstrip() for _ in textwrap.dedent(str(sys.i)).strip().splitlines()"""
-
-        itext = self.fetch_itext()
-        otext = textwrap.dedent(itext).strip()
-        olines = list(_.rstrip() for _ in otext.splitlines())
-        self.store_olines(olines)
-
     def from_text_expandtabs(self) -> None:
         """str(sys.i).expandtabs()"""
 
@@ -1159,49 +1210,6 @@ class ShellBrick:
 
         self.store_otext(otext)
 
-    def from_text_less(self) -> None:
-        """less(list(sys.i)))"""  # todo8: help less correctly`
-
-        idata = self.fetch_idata()
-        itext = self.fetch_itext()
-        iwords = itext.split()
-        ilines = itext.splitlines()
-
-        n = len(ilines)
-        m = (n // 2) + (n % 2)
-
-        b = clip_int(len(idata))
-        _n_ = clip_int(len(ilines))
-        w = clip_int(len(iwords))
-        c = clip_int(len(itext))
-
-        repl = "¤"  # U+00A4 'Currency Sign'
-        cc = "".join((_ if _.isprintable() else repl) for _ in collections.Counter(itext).keys())
-        ccn = len(cc)
-
-        _eq_cc = f" = {cc}" if ilines else ""
-
-        iolines = list()
-        iolines.append(f"1:{ilines[0]}" if n else "")
-        iolines.append(f"2:{ilines[1]}" if (1 < n) else "")
-        iolines.append("")
-        iolines.append(f"{m}:{ilines[m - 1]}" if (n >= 5) else "")
-        iolines.append("")
-        iolines.append(f"{1 + n - 2}:{ilines[-2]}" if (n >= 4) else "")
-        iolines.append(f"{1 + n - 1}:{ilines[-1]}" if (n >= 3) else "")
-        iolines.append("")
-        iolines.append(
-            f"{b} Bytes of {_n_} Lines of {w} Words of {c} Copies of {ccn} Characters{_eq_cc}"
-        )
-
-        olines = list()
-        if iolines:
-            for i, ioline in enumerate(iolines):
-                if ioline or (i and (iolines[i - 1])):
-                    olines.append(ioline)
-
-        self.store_olines(olines)
-
     def from_text_lower(self) -> None:
         """str(sys.i).lower()"""
 
@@ -1210,7 +1218,7 @@ class ShellBrick:
         self.store_otext(otext)
 
     def from_text_ord(self) -> None:
-        """(ord(_) for _ in str(sys.i))"""
+        """ord(_) for _ in str(sys.i)"""
 
         itext = self.fetch_itext()
         oints = list(ord(_) for _ in itext)
@@ -1236,6 +1244,8 @@ class ShellBrick:
         otext = itext.replace(stale, fresh)
         self.store_otext(otext)
 
+        # todo2: '|pb replace' of >= 2 pos args and --sep, a la '|pb append' and '|pb insert'
+
     def from_text_split(self) -> None:
         """str(sys.i).split(sep)"""  # .sep may be None
 
@@ -1253,13 +1263,6 @@ class ShellBrick:
         itext = self.fetch_itext()
         otext = itext.title()
         self.store_otext(otext)
-
-    def from_text_as_texts(self) -> None:
-        """list(str(sys.i))"""
-
-        itext = self.fetch_itext()
-        olines = list(itext)
-        self.store_olines(olines)
 
     def from_text_upper(self) -> None:
         """str(sys.i).upper()"""
@@ -1292,7 +1295,12 @@ class ShellBrick:
 
         sg.data = oencode
 
-    def from_lines_counter(self) -> None:  # diff vs 'def from_lines_set'
+    def from_lines_as_lines(self) -> None:
+        """list(sys.i)"""
+
+        self.fetch_ilines()  # todo: could be .fetch_itext()  # may raise UnicodeDecodeError
+
+    def from_lines_counter(self) -> None:  # diff vs 'def for_line_set'
         """collections.Counter(list(sys.i)).keys()"""
 
         ilines = self.fetch_ilines()
@@ -1303,70 +1311,14 @@ class ShellBrick:
 
         self.store_olines(olines)
 
-    def from_lines_cut(self) -> None:
-        """list(sys.i)[:72] + ' ...'"""  # todo8: help .cut correctly
-
-        x_wide = self._take_dot_or_posargs_as_x_wide_minus_(default=72, minus=0)
-        n = 5 if (x_wide < (5 + 1)) else x_wide - 5  # todo: '|pb cut' for extremely thin Screens
-
-        ilines = self.fetch_ilines()
-
-        olines = list()
-        for iline in ilines:
-            if len(iline) <= n:
-                olines.append(iline)
-                continue
-
-            ichop, isuffix = tty_split_after(iline, width=n)
-            assert (ichop + isuffix) == iline, (ichop + isuffix, iline)
-
-            osuffix = " ..." if isuffix.startswith(" ") else "..."
-            oline = ichop + osuffix
-
-            olines.append(oline)
-
-            # takes Negative PosArg in the way of classic Shell '|tail -9'
-
-        self.store_olines(olines)
-
-    def _take_dot_or_posargs_as_x_wide_minus_(self, default: int, minus: int) -> int:
-        """Take Default, or a Dot Verb as X Wide minus enough, or Negative PosArg"""
-
-        sg = self.shell_gopher
-        x_wide = sg.x_wide
-        verb = self.verb
-        posargs = self.posargs
-
-        if not posargs:
-            n = (x_wide - minus) if verb.startswith(".") else default
-        else:
-            assert not verb.startswith("."), (verb,)
-            option_int = self._take_posargs_as_one_int_()
-
-            assert option_int < 0, (option_int,)
-            n = -option_int
-
-        assert n >= 1, (n, x_wide)
-        return n
-
-    def _take_posargs_as_one_int_(self) -> int:
-        """Take the one Pos Arg as an Int, else raise an Exception"""
-
-        posargs = self.posargs
-        assert len(posargs) == 1, (posargs,)
-        posarg = posargs[-1]
-        assert isinstance(posarg, int), (posarg,)
-
-        return posarg
-
     def from_lines_do_columns(self) -> None:
-        """Justify Text Columns split by Two Spaces or Tabs, and Numeric Columns too"""
+        """Justify Text or Numeric Columns split by Two Spaces or Tabs"""
 
         itext = self.fetch_itext()
 
         # Take in Text Columns split by Two Spaces or Tabs
 
-        iotext = itext.replace("\t", "  ")
+        iotext = itext.replace("\t", "  ")  # accepts Tabs in place of Two Spaces
         iolines = iotext.splitlines()
 
         # Split each Line into Columns independently
@@ -1380,7 +1332,7 @@ class ShellBrick:
 
             iorow: list[str] = list()
 
-            iosplits = ioline.split("  ")
+            iosplits = ioline.split("  ")  # splits at each Two Spaces
             for iosplit in iosplits:
                 iowords = iosplit.split()
 
@@ -1435,48 +1387,7 @@ class ShellBrick:
 
         self.store_olines(olines)
 
-    def from_lines_head(self) -> None:
-        """list(sys.i)[:9]"""  # todo8: help .head correctly
-
-        n = self._take_dot_or_posargs_as_y_high_minus_(default=9, minus=2)
-
-        ilines = self.fetch_ilines()
-        olines = ilines[:n]
-        self.store_olines(olines)
-
-    def _take_dot_or_posargs_as_y_high_minus_(self, default: int, minus: int) -> int:
-        """Take Default, or a Dot Verb as Y High minus enough, or Negative PosArg"""
-
-        sg = self.shell_gopher
-        y_high = sg.y_high
-        verb = self.verb
-        posargs = self.posargs
-
-        if not posargs:
-            n = (y_high - minus) if verb.startswith(".") else default
-        else:
-            assert not verb.startswith("."), (verb,)
-            option_int = self._take_posargs_as_one_int_()
-
-            assert option_int < 0, (option_int,)
-            n = -option_int
-
-            # takes Negative PosArg in the way of classic Shell '|head -9'
-
-        assert n >= 1, (n, y_high)
-        return n
-
-    def from_lines_join(self) -> None:
-        """sep.join(list(sys.i))"""  # .sep may be None, then works like " " single Space
-
-        sg = self.shell_gopher
-        sep = sg.sep
-        _sep_ = "  " if (sep is None) else sep
-
-        ilines = self.fetch_ilines()
-        oline = _sep_.join(ilines)
-        olines = [oline]
-        self.store_olines(olines)
+        # todo0: do the l/r/just in '|pb columns' fail to grow more than 2 Columns leftward?
 
     def from_lines_len(self) -> None:
         """len(list(sys.i))"""
@@ -1570,24 +1481,14 @@ class ShellBrick:
 
         self.store_olines(olines)
 
-    def from_lines_as_lines(self) -> None:
-        """list(sys.i)"""
-
-        self.fetch_ilines()  # todo: could be .fetch_itext()  # may raise UnicodeDecodeError
-
-    def from_lines_set(self) -> None:  # diff vs 'def from_lines_counter'
-        """collections.Counter(list(sys.i)).keys()"""
-
-        ilines = self.fetch_ilines()
-        olines = list(collections.Counter(ilines).keys())
-        self.store_olines(olines)
-
-    def from_lines_reverse(self) -> None:
-        """list(sys.i).reverse()"""
+    def from_lines_reversed(self) -> None:
+        """reversed(list(sys.i))"""
 
         iolines = self.fetch_ilines()
         iolines.reverse()
         self.store_olines(olines=iolines)
+
+        # quite different from 'def for_line_reverse'
 
     def from_lines_shuffle(self) -> None:
         """random.shuffle(list(sys.i))"""
@@ -1596,15 +1497,15 @@ class ShellBrick:
         random.shuffle(iolines)
         self.store_olines(olines=iolines)
 
-    def from_lines_sort(self) -> None:
-        """list(sys.i).sort()"""
+    def from_lines_sorted(self) -> None:
+        """sorted(list(sys.i))"""
 
         iolines = self.fetch_ilines()
         iolines.sort()
         self.store_olines(olines=iolines)
 
     def from_lines_sum(self) -> None:
-        """sum(list(sys.i)) for each column"""  # todo: help 'for each column' as Code
+        """sum(list(sys.i)) of every column"""  # todo: help 'for every column' as Code
 
         ilines = self.fetch_ilines()
 
@@ -1615,18 +1516,61 @@ class ShellBrick:
         olines = [oline]
         self.store_olines(olines)
 
-    def from_lines_tail(self) -> None:
-        """list(sys.i)[-9:]"""  # todo8: help .tail correctly
-
-        n = self._take_dot_or_posargs_as_y_high_minus_(default=9, minus=2)
-
-        ilines = self.fetch_ilines()
-        olines = ilines[-n:]
-        self.store_olines(olines)
-
     #
-    # Work from the File taken as Columns at Left and then a Text Remainder
+    # Factor out some common parts of Shell Pipe Bricks
     #
+
+    def _take_dot_or_posargs_as_y_high_minus_(self, default: int, minus: int) -> int:
+        """Take Default, or a Dot Verb as Y High minus enough, or Negative PosArg"""
+
+        sg = self.shell_gopher
+        y_high = sg.y_high
+        verb = self.verb
+        posargs = self.posargs
+
+        if not posargs:
+            n = (y_high - minus) if verb.startswith(".") else default
+        else:
+            assert not verb.startswith("."), (verb,)
+            option_int = self._take_posargs_as_one_int_()
+
+            assert option_int < 0, (option_int,)
+            n = -option_int
+
+            # takes Negative PosArg in the way of classic Shell '|head -9'
+
+        assert n >= 1, (n, y_high)
+        return n
+
+    def _take_dot_or_posargs_as_x_wide_minus_(self, default: int, minus: int) -> int:
+        """Take Default, or a Dot Verb as X Wide minus enough, or Negative PosArg"""
+
+        sg = self.shell_gopher
+        x_wide = sg.x_wide
+        verb = self.verb
+        posargs = self.posargs
+
+        if not posargs:
+            n = (x_wide - minus) if verb.startswith(".") else default
+        else:
+            assert not verb.startswith("."), (verb,)
+            option_int = self._take_posargs_as_one_int_()
+
+            assert option_int < 0, (option_int,)
+            n = -option_int
+
+        assert n >= 1, (n, x_wide)
+        return n
+
+    def _take_posargs_as_one_int_(self) -> int:
+        """Take the one Pos Arg as an Int, else raise an Exception"""
+
+        posargs = self.posargs
+        assert len(posargs) == 1, (posargs,)
+        posarg = posargs[-1]
+        assert isinstance(posarg, int), (posarg,)
+
+        return posarg
 
     def _take_number_columns_(
         self, lines: list[str], needy: bool, strict: bool
@@ -1713,7 +1657,7 @@ class ShellBrick:
     #
 
     def for_line_awk_nth_slice(self) -> None:
-        """_.split(sep)[-1]) for _ in list(sys.i) if _.split(sep)"""
+        """_.split(sep)[-1] for _ in list(sys.i) if _.split(sep)"""
 
         sg = self.shell_gopher
         sep = sg.sep  # .sep may be None
@@ -1761,7 +1705,7 @@ class ShellBrick:
         # as if |awk 'NF{print $NF}'
 
     def for_line_append(self) -> None:
-        """(_ + sep.join(sys.argv[1:])) for _ in list(sys.i)"""  # not _ + sep + sep...
+        """(_ + suffix) for _ in list(sys.i)"""
 
         posargs = self.posargs
         sg = self.shell_gopher
@@ -1775,30 +1719,37 @@ class ShellBrick:
         olines = list((_ + join) for _ in ilines)
         self.store_olines(olines)
 
+    def for_line_cut(self) -> None:
+        """(_[:72] + ' ...') for _ in list(sys.i)"""
+
+        x_wide = self._take_dot_or_posargs_as_x_wide_minus_(default=72, minus=0)
+        n = 5 if (x_wide < (5 + 1)) else x_wide - 5  # todo: '|pb cut' for extremely thin Screens
+
+        ilines = self.fetch_ilines()
+
+        olines = list()
+        for iline in ilines:
+            if len(iline) <= n:
+                olines.append(iline)
+                continue
+
+            ichop, isuffix = tty_split_after(iline, width=n)
+            assert (ichop + isuffix) == iline, (ichop + isuffix, iline)
+
+            osuffix = " ..." if isuffix.startswith(" ") else "..."
+            oline = ichop + osuffix
+
+            olines.append(oline)
+
+            # takes Negative PosArg in the way of classic Shell '|tail -9'
+
+        self.store_olines(olines)
+
     def for_line_do_dent(self) -> None:
         """list((4*" " + _) for _ in list(sys.i))"""
 
         ilines = self.fetch_ilines()
         olines = list((4 * " " + _) for _ in ilines)
-        self.store_olines(olines)
-
-    def for_line_do_frame(self) -> None:
-        """[""2*""] + list((4*" " + _ + 4*" ") for _ in list(sys.i)) + [2*""]"""
-
-        verb = self.verb
-
-        ilines = self.fetch_ilines()
-        width = max(len(_) for _ in ilines) if ilines else 0
-
-        above = 2 * [""]
-        ljust = width + 4
-        rjust = ljust + 4
-        below = 2 * [""]
-
-        olines = above + list(_.ljust(ljust).rjust(rjust) for _ in ilines) + below
-        if verb.startswith("."):
-            olines = list(_.rstrip() for _ in olines)
-
         self.store_olines(olines)
 
     def for_line_enumerate(self) -> None:
@@ -1821,6 +1772,25 @@ class ShellBrick:
 
         self.store_olines(olines)
 
+    def for_line_do_frame(self) -> None:
+        """[""2*""] + list((4*" " + _ + 4*" ") for _ in list(sys.i)) + [2*""]"""
+
+        verb = self.verb
+
+        ilines = self.fetch_ilines()
+        width = max(len(_) for _ in ilines) if ilines else 0
+
+        above = 2 * [""]
+        ljust = width + 4
+        rjust = ljust + 4
+        below = 2 * [""]
+
+        olines = above + list(_.ljust(ljust).rjust(rjust) for _ in ilines) + below
+        if verb.startswith("."):
+            olines = list(_.rstrip() for _ in olines)
+
+        self.store_olines(olines)
+
     def for_line_if(self) -> None:
         """_ for _ in list(sys.i) if _"""
 
@@ -1828,8 +1798,19 @@ class ShellBrick:
         olines = list(_ for _ in ilines if _)
         self.store_olines(olines)
 
+        # todo0: add '|pb .if' to .rstrip before if
+
+    def for_line_head(self) -> None:
+        """list(sys.i)[:9]"""  # todo8: better help for '|pb .head' and '|pb head -n'
+
+        n = self._take_dot_or_posargs_as_y_high_minus_(default=9, minus=2)
+
+        ilines = self.fetch_ilines()
+        olines = ilines[:n]
+        self.store_olines(olines)
+
     def for_line_insert(self) -> None:
-        """(sep.join(sys.argv[1:]) + _) for _ in list(sys.i)"""  # not _ + sep... + sep
+        """(prefix + _) for _ in list(sys.i)"""
 
         posargs = self.posargs
         sg = self.shell_gopher
@@ -1844,6 +1825,18 @@ class ShellBrick:
         self.store_olines(olines)
 
         # todo: compare our .for_line_insert vs Python textwrap.indent
+
+    def for_line_join(self) -> None:
+        """sep.join(list(sys.i))"""  # .sep may be None, then works like " " single Space
+
+        sg = self.shell_gopher
+        sep = sg.sep
+        _sep_ = "  " if (sep is None) else sep
+
+        ilines = self.fetch_ilines()
+        oline = _sep_.join(ilines)
+        olines = [oline]
+        self.store_olines(olines)
 
     def for_line_max(self) -> None:
         """max(list(sys.i))"""
@@ -1909,11 +1902,29 @@ class ShellBrick:
         olines = list("".join(reversed(_)) for _ in ilines)
         self.store_olines(olines)
 
+        # quite different from 'def from_lines_reversed'
+
+    def for_line_set(self) -> None:  # diff vs 'def from_lines_counter'
+        """collections.Counter(list(sys.i)).keys()"""
+
+        ilines = self.fetch_ilines()
+        olines = list(collections.Counter(ilines).keys())
+        self.store_olines(olines)
+
     def for_line_strip(self) -> None:
         """_.strip() for _ in list(sys.i)"""
 
         ilines = self.fetch_ilines()
         olines = list(_.strip() for _ in ilines)
+        self.store_olines(olines)
+
+    def for_line_tail(self) -> None:
+        """list(sys.i)[-9:]"""  # todo8: better help for '|pb .tail' and '|pb tail -n'
+
+        n = self._take_dot_or_posargs_as_y_high_minus_(default=9, minus=2)
+
+        ilines = self.fetch_ilines()
+        olines = ilines[-n:]
         self.store_olines(olines)
 
 
@@ -2584,12 +2595,12 @@ if __name__ == "__main__":
 
 # todo's
 
-# todo0: add '|pb replace' into Char-by-Char of pipe-bricks.md
-# todo0: move '|pb partition' into Char-by-Char of pipe-bricks.md
-# todo0: move '|pb sort' into Char-by-Char of pipe-bricks.md
+# todo: refresh the pipe-bricks.md sorts to look more like the def's here
+
 # todo0: split and cross-ref '|pb .max' '|pb .min' '|pb reverse' into Char-by-Char & Line-by-Line
 
 # todo0: into litpython.py, doc which Python Version we scraped Importable Names from
+# todo0: like rescrape from latest and mention that
 
 # todo0: add an .md Markdown vs the flooring |pb eng and what about ceil
 
