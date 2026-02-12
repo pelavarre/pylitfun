@@ -57,6 +57,7 @@ ShlinePlusByShverb = {  # sorted by key
     "gcam": "git commit --all -m wip",  # inverts : grh1 && git reset HEAD~1
     "gcf": "git commit --fixup [...]",
     "gcl": "... && git clean -dffxq",
+    "gco": "git checkout ...",  # as if [...] becauses 'gco' is 'git checkout -'
     "gcp": "git cherry-pick ...",
     "gd": "git diff --color-moved [...]",
     "gda": "git describe --always --dirty",
@@ -69,8 +70,8 @@ ShlinePlusByShverb = {  # sorted by key
     # 15
     "ggl": "git grep -l -ai -e ... -e ...",
     "gl": "git log --pretty=fuller --no-decorate --color-moved [...]",
-    "gla": "git log --pretty=fuller --no-decorate --color-moved --numstat --author=...",
-    "glf": "git ls-files |grep -ai -e ... -e ...",
+    "gla": "git log --pretty=fuller --no-decorate --color-moved --numstat --author=...",  # [...]
+    "glf": "git ls-files |grep -ai -e ... -e ...",  # as if [...] because 'glf' is 'git ls-files'
     "glq": "git log --oneline --no-decorate --color-moved [...]",
     "gls": "git log --pretty=fuller --no-decorate --color-moved --numstat [...]",
     # 20
@@ -248,6 +249,7 @@ class GitGopher:
         """
 
         before_shline_by_shverb = {
+            "gco": "# : gco && git checkout -",
             "glf": "# : glf && git ls-files",
         }
 
@@ -297,15 +299,17 @@ class GitGopher:
             if shverb in after_shline_by_shverb:
                 lines[-1:-1] = [after_shline_by_shverb[shverb]]
 
-            text_plus = "\n".join(lines) + "\n"
+            write_text = "\n".join(lines) + "\n"
 
             path = pathlib.Path(pathname)
-            _ = path.read_text()  # requires readable
+            read_text = path.read_text()  # requires readable
+
+            if write_text != read_text:
+                print(f"{pathname}", file=sys.stderr)
+                path.write_text(write_text)
 
             x_ok = os.access(pathname, mode=os.X_OK)
             assert x_ok, (pathname, x_ok)  # requires executable
-
-            path.write_text(text_plus)
 
         sys.exit()
 
@@ -391,20 +395,22 @@ class GitGopher:
 
         gwho = self.find_git_who()
 
-        # Tweak away from Doc when supposedly required Args absent
+        # Tweak 'gco' away from Doc when supposedly required Args absent
 
-        if shverb_shline_plus == "git ls-files |grep -ai -e ... -e ...":
-            assert shverb == "glf", (shverb, shverb_shline_plus)
+        if shverb_shline_plus == "git checkout ...":
+            assert shverb == "gco", (shverb, shverb_shline_plus)
+            shline = shverb_shline_plus.removesuffix(" ...")
 
-            if shargv[1:]:
-                shline = "git ls-files |grep"  # without -ai -e ... -e ...
-                shsuffix = " ..."  # shouts out Args
-            else:
-                shline = "git ls-files"
-                shsuffix = ""  # shouts out (and forgives) No Pos Args (indeed No Args)
+            shsuffix = " ..."  # shouts out Args
+            if not posargv:
+                shline += " -"
+                if not shargv[1:]:
+                    shsuffix = ""  # shouts out (and forgives) No Pos Args
 
             assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
             return (shline, shsuffix)
+
+        # Tweak 'gla' away from Doc when supposedly required Args absent
 
         if shverb_shline_plus.endswith(" --author=..."):
             assert shverb == "gla", (shverb, shverb_shline_plus)
@@ -414,10 +420,27 @@ class GitGopher:
             if not posargv:
                 shline += " " + shlex.quote(f"--author={gwho}")
                 if not shargv[1:]:
-                    shsuffix = ""  # shouts out (and forgives) No Args
+                    shsuffix = ""  # shouts out (and forgives) No Pos Args
 
             assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
             return (shline, shsuffix)
+
+        # Tweak 'glf' away from Doc when supposedly required Args absent
+
+        if shverb_shline_plus == "git ls-files |grep -ai -e ... -e ...":
+            assert shverb == "glf", (shverb, shverb_shline_plus)
+
+            if shargv[1:]:
+                shline = "git ls-files |grep"  # without -ai -e ... -e ...
+                shsuffix = " ..."  # shouts out Args
+            else:
+                shline = "git ls-files"
+                shsuffix = ""  # shouts out (and forgives) No Pos Args
+
+            assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
+            return (shline, shsuffix)
+
+            # todo: should 'glf' take Options as well as Pos Args?
 
         # Tweak away from Doc while heavily editing required Args
 

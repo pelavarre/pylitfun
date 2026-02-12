@@ -1,0 +1,4 @@
+#!/bin/sh
+# : gco && git checkout -
+# : gco && git checkout ...
+g.py "$0" "$@"
