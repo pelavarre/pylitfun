@@ -1829,13 +1829,17 @@ class ShellBrick:
     def for_line_join(self) -> None:
         """sep.join(list(sys.i))"""  # .sep may be None, then works like " " single Space
 
+        verb = self.verb
         sg = self.shell_gopher
         sep = sg.sep
-        _sep_ = "  " if (sep is None) else sep
+
+        default_sep = " " if (verb == "x") else "  "
+        _sep_ = default_sep if (sep is None) else sep
 
         ilines = self.fetch_ilines()
         oline = _sep_.join(ilines)
         olines = [oline]
+
         self.store_olines(olines)
 
     def for_line_max(self) -> None:

@@ -6478,6 +6478,9 @@ if __name__ == "__main__":
 # todo's
 
 
+# todo0: Serve well as the 'export EDITOR=' of Shell ⌃X⌃E
+
+
 # todo1: Debug ⇧F3 of iTerm2 because ⎋[ ⇧R i/o k/s collision
 # todo1: Solve iTerm2 Key Jams with ⎋[5N sent down, not written outside
 # todo2: Revive passing test of buffer key input jam in sleep before launch
