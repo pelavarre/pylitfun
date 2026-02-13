@@ -1,0 +1,4 @@
+# sh/.curl = Call Curl but shrug off Security and follow Redirects and don't meter progress
+
+set -xe
+curl -k -LSs "$@"
