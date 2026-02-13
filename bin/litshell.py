@@ -1314,6 +1314,10 @@ class ShellBrick:
     def from_lines_do_columns(self) -> None:
         """Justify Text or Numeric Columns split by Two Spaces or Tabs"""
 
+        sg = self.shell_gopher
+        sep = sg.sep
+        osep = "  " if (sep is None) else sep
+
         itext = self.fetch_itext()
 
         # Take in Text Columns split by Two Spaces or Tabs
@@ -1381,7 +1385,7 @@ class ShellBrick:
         # Stitch the Columns back together, separated by Two Spaces (never yet by Tabs)
 
         orows = zip(*ocolumns)
-        olines = list("  ".join(_) for _ in orows)
+        olines = list(osep.join(_) for _ in orows)
 
         # Succeed
 
