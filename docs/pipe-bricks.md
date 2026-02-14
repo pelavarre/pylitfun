@@ -1,6 +1,8 @@
 <!-- omit in toc -->
 # pipe-bricks.md
 
+Contents
+
 - [1 Welcome](#1-welcome)
   - [1.1 Please help yourself](#11-please-help-yourself)
   - [1.2 Download \& run](#12-download--run)
