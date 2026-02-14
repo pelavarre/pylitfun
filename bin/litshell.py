@@ -764,6 +764,7 @@ class ShellBrick:
 
         sg = self.shell_gopher
         writing_file = sg.writing_file
+        writing_pbcopy = sg.writing_pbcopy
         sys_stdin_isatty = sg.sys_stdin_isatty
 
         # Actually don't implicitly enter, when explicitly entering
@@ -776,16 +777,16 @@ class ShellBrick:
         assert sg.data is None, (len(sg.data),)
         assert not sg.writing_file, (sg.writing_file,)
 
-        if sys_stdin_isatty:  # pb, pb |
-
+        if sys_stdin_isatty:  # pb, pb |, pb -
             data = self.pbpaste()  # yep
             sg.data = data
 
-        if not sys_stdin_isatty:  # |pb or |pb|
-
+        if not sys_stdin_isatty:  # |pb or |pb|  # but not |pb -
             data = sys.stdin.buffer.read()
-            self.pbcopy(data)
             sg.data = data
+
+            if writing_pbcopy:
+                self.pbcopy(data)
 
     def run_pipe_exit(self) -> None:
         """Implicitly exit the Shell Pipe"""
@@ -2603,7 +2604,15 @@ if __name__ == "__main__":
 
 # todo's
 
-# todo: refresh the pipe-bricks.md sorts to look more like the def's here
+# todo0: refresh the pipe-bricks.md sorts to look more like the def's here
+
+# todo0: debug
+# % pb awk 5 join --sep=' '
+#      plavarre plavarre
+# % pb awk 5 |pb join --sep=' '
+# 1415 1378 818 716 1568 288 3652 10747 282 1632
+# %
+
 
 # todo0: split and cross-ref '|pb .max' '|pb .min' '|pb reverse' into Char-by-Char & Line-by-Line
 
