@@ -9,18 +9,20 @@ Contents
   - [Second Tell](#second-tell)
   - [What is a Well Clipped Number?](#what-is-a-well-clipped-number)
   - [How much Space do I need?](#how-much-space-do-i-need)
-- [Fixed for Int's](#fixed-for-ints)
-  - [Int's of Python](#ints-of-python)
-  - [Int's of Google Sheets](#ints-of-google-sheets)
-  - [Int's of Microsoft Excel](#ints-of-microsoft-excel)
-- [Fixed for Float's](#fixed-for-floats)
-  - [Float's of Python](#floats-of-python)
-  - [Float's of Google Sheets](#floats-of-google-sheets)
-  - [Float's of Microsoft Excel](#floats-of-microsoft-excel)
+- [Fixed for Ints](#fixed-for-ints)
+  - [Ints of Python](#ints-of-python)
+  - [Ints of Google Sheets](#ints-of-google-sheets)
+  - [Ints of Microsoft Excel](#ints-of-microsoft-excel)
+- [Fixed for Floats](#fixed-for-floats)
+  - [Floats of Python](#floats-of-python)
+  - [Floats of Google Sheets](#floats-of-google-sheets)
+  - [Floats of Microsoft Excel](#floats-of-microsoft-excel)
 - [Links](#links)
 
 
 # Show & tell
+
+Beware, this is a technical rant: strong opinions & working code
 
 
 ## Show
@@ -113,9 +115,9 @@ And then also the Rows of the Big Numbers
 
 ## Second Tell
 
-Senior people will tell you that Linux & macOS do work to help you in just this way
+Senior people will tell you that Linux & macOS do try to help you in just this way
 
-That's true, but they get it significantly wrong. It looks like they stopped thinking, got stuck in the past, since 1998
+That's true. They mean well. But Linux & macOS get it significantly wrong. It looks like they stopped thinking, got stuck in the past, since 1998
 
     % ls -lh
     total 72
@@ -133,46 +135,46 @@ That's true, but they get it significantly wrong. It looks like they stopped thi
 
 Egregiously wrong in four ways
 
-1 ) How old are your eyes? Do your eyes reliably pick out "888" from "88B"? Mine don't. Oh how I do dislike this waste of ink. I don't need a "B" on screen to tell me zero more digits are there. And half the time it comes into my brain as a lie, saying "2888" where it meant "288". Please make it stop
+1 ) How old are your eyes? Do your eyes reliably pick out "888" from "88B"? Mine don't. I greatly dislike this waste of ink. I don't need a "B" on screen to tell me zero more digits are there. And half the time this "B" comes into my brain as a lie, as when saying "2888" where it meant "288". Please make it stop
 
 2 ) I do appreciate the metric units:  k, M, G, etc to mean e3, e6, e8, etc. But I feel annoyed as often as I notice they put an unconventional 'K' in place of the standard 'k'
 
-3 ) I wish they would calculate standard units. Late last century we did spell out that Ki is 1025 and k is 1000. So our example of 3652 is more than 3.65k and more than 3.56Ki. But they distort this, they fabricate imaginary Bytes, they claim '3.6K'. They mislead me, which I dislike
+3 ) I do so wish they would calculate standard units. We solved this late last century. We spelled out that Ki is 1025 and k is 1000. So our example of 3652 is more than 3.65k and more than 3.56Ki. But they distort this. They claim '3.6K' to talk of the 3.56Ki Floor by adding in 34.4 Bytes. What in the world is 0.4 of a Byte, and why are we spending my time on it?? Their lies mislead me, and so I dislike their lies
 
-4 ) Their abbreviation is 50% excessive, besides being slightly wrong. I practically always need to see three digits to feel I know the size of the thing. Two digits is not enough, and four digits is too many, but they give me two and stop. I know 3652 as 3.65e3, so I need its name spoken that way
+4 ) Their abbreviation is 50% excessive, besides being slightly wrong. I practically always need to see three digits to feel I know the size of the thing. Two digits is not enough, and four digits is too many, but they give me two and stop. The 3652 who I know is the 3.65e3. I need its name spoken in that familiar way
 
-If you don't yet feel these wrongs are egregious, beware. I can only teach you to start seeing, I can't teach you to stop. It'll be like me teaching you to notice bad keming. Learning to see will poison your life. It's only worth it if you're building with numbers, or getting paid in some other way to work with numbers. Then you do need to learn to reject lying numbers quickly, simply, and accurately. As we do here
+If you don't yet feel these wrongs are egregious, beware
+
+I can only teach you to start seeing, I can't teach you to stop. It'll be like me teaching you to notice bad keming. Learning to see more wrong will poison your life. It's only worth it if you're building with numbers, or getting paid in some other way to work with numbers. Only then do you need to learn to reject lying numbers quickly, simply, and accurately. As we do here
 
 
 ## What is a Well Clipped Number?
 
-When you speak the name I know best of a number that works as a count of things, then you have spoken a well-clipped number
+When you speak the name I know best of a number that works as a count of things, then I say you have spoken a well-clipped number
 
 You say 0 only to mean 0
 
 You don't say 0 to mean 1
 
-You don't waste ink on mentioning 'e+' or 'e0' or a trailing '.' or '.0' or '.00'. Instead, you show your respect for the time I spend reading every character of what you wrote
+You don't waste ink on mentioning 'e+' or 'e0' or a trailing '.' or '.0' or '.00'. Instead, you show your respect for the time I spend reading every character of what you wrote, exactly by holding back from giving me the kinds of extra characters that I never need
 
-You don't round up to some fabricated ideal of a rounder number. Sure, you still do give me three digits and done, but you do it by backing off from demanding I give you credit for the last few things you counted. You don't round up and send me wrong by giving me the lie of you having counted things that you actually never saw
+You don't round up to some fabricated ideal of a rounder number. Aye, you do give me three digits and done, but you do it by backing off from demanding I give you credit for the last few things you counted. You don't round up and send me wrong by giving me the lie of you having counted things that you never actually saw
 
 
 ## How much Space do I need?
 
-In maths, they talk of a "Floor" when you slam a Float down to the next smaller Int, and a "Ceil" when you slam the Float up to the next larger Int. Aye, sure, I do know and I do agree, there is a place in Engineering and Science for Ceil's, not only for Floors
+People who study Maths talk of a "Floor" when you slam a Float down to the next smaller Int, and a "Ceil" when you slam the Float up to the next larger Int. Yes, yes, there is a place in Engineering and Science for Ceil's, not only for Floors
 
-But in the Engineering place for Ceil, there I also need Margin
+But in the Engineering place for Ceil, there I also need Margin. When I'm involving myself in the careful allocation of Space, then I have to add Margin. I must round Counts plus Margin up to whole Allocations
 
-When I'm involving myself in the careful allocation of space, then I have to add margin
+Ok. Now look back at our Software Traditions for clipping numbers. There's practically never any real need for speaking of 9999 as 10000, because that margin is tiny. You can't just fix up a Count for me, not while you commit to only showing up to help me and never to hurt me. You need me to tell you how much Margin I need us to add. And you need me to tell you if my Allocations are 4Ki or 1Ki or 0.5Ki or whatever. Only then can you know how to round up our Counts well
 
-I must round counts plus margin to whole allocations. But there's practically no need for speaking of 9999 as 10000, because that margin is tiny. You can't just fix it for me, not while you commit to only showing up to help me and never to hurt me. You need me to tell you how much margin I need. And you need me to tell you if my allocations are 4Ki or 1Ki or 0.5Ki or whatever. Only then can you know how to round up well
-
-And besides, it's already 2026 now. We don't involve me personally in the careful allocation of space anything like as often as we did in 1972. Let's wake up and meet our moment, why not
+And besides, it's 2026 now. We don't involve me personally in the careful allocation of Space anything like as often as we did in 1972. Let's wake up and meet our moment, why not
 
 
-# Fixed for Int's
+# Fixed for Ints
 
-To make `ls -lh` say what it should mean in 2026
+How I make 'ls -lh' say what it should mean in 2026 is
 
     ls -l |pb eng replace columns
 
@@ -180,12 +182,12 @@ It's the '|pb eng' part that fixes up the counts
 
     ls -l |pb eng
 
-You can download & run our Code, or you can write your own
+You can download & run our Code, or you can write your own. Below we show you our Code for this
 
 
-## Int's of Python
+## Ints of Python
 
-Yes you can call on Python to clip a count back to three digits. You don't have to let it whisper lies into your eyes
+You can call on Python to clip a count back to three digits. You don't have to let it whisper lies into your eyes
 
     def clip_int(i: int) -> str:
         """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
@@ -228,9 +230,11 @@ Correct Answers
 We're looking at correct answers here. Correct and nothing but correct. No "B" vs "8" visual confusions. Always unsigned metric exponents like "e3", never a scientific exponent like "e+2" or "e1" or "e-0". Powers of 10 as the Base of "e", not powers of the 10th power of 2 (1024). Three digits when you've got three digits, never chopped down so far as to show just two digits or one. And no empty busy ".00"s. Ink spent only when ink delivers value
 
 
-## Int's of Google Sheets
+## Ints of Google Sheets
 
-Google Sheets can clip numbers as well as Python. Their convention is to code up this idea as a Simd Formula
+Google Sheets can clip numbers as well as Python
+
+As you know, their oldest convention is to code up every new idea as a Simd Formula
 
     =IF(A1=0, "0",
       IF(LEN(TEXT(ABS(A1),"0"))<=3, TEXT(A1,"0"),
@@ -247,7 +251,7 @@ Google Sheets can clip numbers as well as Python. Their convention is to code up
       )
     )
 
-Again we can run the contrast with defaults. The g Sheets default is to speak these counts with a reckless excess of precision
+Next we contrast your results with their defaults. The g Sheets default is to speak these counts with a reckless excess of precision
 
     0 9 999  9000 9800 9870 9876
 
@@ -255,38 +259,44 @@ Our code tells to it to speak with more consideration for your true needs and fa
 
     '0 '9 '999  '9e3 '9.8e3 '9.87e3 '9.87e3
 
-If you work so closely with g Sheets as to name this Formula, you can give it the name 'int.clip' and then call it far more simply
+If you work so closely with g Sheets as to name this Formula, you can give the name 'int.clip' to this Formula and then call it far more directly and clearly
 
     =int.clip(9876)  # '9.87e3
 
-I don't understand why Google doesn't give out '=int.clip' as a standard part to build with. Do you know someone who knows someone who can get 'int.clip' added as a standard part out there?
+I don't understand why Google doesn't give out '=int.clip' as a standard part to build with
+
+Do you know someone who knows someone who can get 'int.clip' added as a standard part out there?
 
 
-## Int's of Microsoft Excel
+## Ints of Microsoft Excel
 
-Same deal as in Google Sheets
+Same deal in Microsoft Excel, as in Google Sheets
 
-The =Let and =Lambda Simd Formula Functions first reached me by way of a Microsoft Excel
+You can see our Excel Simd Formula above, presented as our Simd Formula for g Sheets
+
+Indeed, I first wrote this kind of thing for Excel, before I wrote it for g Sheets. The =Let and =Lambda Simd Formula Functions first reached me in a Microsoft Excel
 
 My Feb/2026 pitch for how best to introduce =Let and =Lambda Formulae to new people is
 > https://social.vivaldi.net/@pelavarre/116066365378672153
 
-Back in Jun/2021, I posted a similar welcome to work with =Let and =Lambda Formulae at
+But back in Jun/2021, I posted a similar welcome to work with =Let and =Lambda Formulae at
 > https://github.com/pelavarre/like-py-xlsx/blob/main/README.md
 
-I don't understand why Microsoft doesn't give out '=int.clip' as a standard part to build with. Do you know someone who knows someone who can get 'int.clip' added as a standard part out there? If Google & Microsoft insist on staying so clueless, can we wake up Amazon & Apple?
+I don't understand why Microsoft doesn't give out '=int.clip' as a standard part to build with
+
+Do you know someone who knows someone who can get 'int.clip' added as a standard part out there? If Google & Microsoft insist on staying clueless, can we wake up Amazon & Apple?
 
 
-# Fixed for Float's
+# Fixed for Floats
 
 
-## Float's of Python
+## Floats of Python
 
 
-## Float's of Google Sheets
+## Floats of Google Sheets
 
 
-## Float's of Microsoft Excel
+## Floats of Microsoft Excel
 
 
 # Links

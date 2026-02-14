@@ -420,7 +420,10 @@ class GitGopher:
             if not posargv:
                 shline += " " + shlex.quote(f"--author={gwho}")
                 if not shargv[1:]:
+                    shline = shline.replace(" --color-moved", "")
                     shsuffix = ""  # shouts out (and forgives) No Pos Args
+
+                    # todo: drop --color-moved when "gla" with Arg has no "-p" Arg
 
             assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
             return (shline, shsuffix)
@@ -498,6 +501,10 @@ class GitGopher:
         shsuffix = " ..."  # shouts out Args
         if not shargv[1:]:
             shsuffix = ""  # shouts out No Pos Args (indeed No Args)
+
+            if shverb_shline_plus.startswith("git log "):
+                assert shverb in ("gl", "glq", "gls", "glv"), (shverb, shline)
+                shline = shline.replace(" --color-moved", "")
 
             if shverb_shline_plus == "git commit --all --fixup [...]":
                 assert shverb in ("gcaf",), (shverb, shline)
