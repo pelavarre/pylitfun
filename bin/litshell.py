@@ -1139,10 +1139,12 @@ class ShellBrick:
         self.store_olines(olines)
 
     def from_text_do_unframe(self) -> None:
-        """_.rstrip() for _ in textwrap.dedent(str(sys.i)).strip().splitlines()"""
+        """_.rstrip() for _ in textwrap.dedent(str(sys.i)).rstrip().lstrip("\n").splitlines()"""
 
         itext = self.fetch_itext()
-        otext = textwrap.dedent(itext).strip()
+
+        otext = textwrap.dedent(itext).rstrip().lstrip("\n")
+
         olines = list(_.rstrip() for _ in otext.splitlines())
         self.store_olines(olines)
 
@@ -2605,17 +2607,6 @@ if __name__ == "__main__":
 # todo's
 
 # todo0: refresh the pipe-bricks.md sorts to look more like the def's here
-
-
-# todo0: debug
-# % echo '  ab\ncd' |pb
-# % pbpaste
-#   ab
-# cd
-# % pb
-# ab
-# cd
-# %
 
 
 # todo0: debug
