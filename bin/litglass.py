@@ -1997,17 +1997,9 @@ class RubikGame:
 
         by_f_by_y_by_x = list()
         for f in range(RubikGame.FACES_6):
-            # Create a test pattern: each cell gets a unique value 0-8
-            # This makes rotations visible for debugging
-            face = []
-            cell_value = 0
-            for y in range(rows):
-                row = []
-                for x in range(columns):
-                    # Use modulo to cycle through available colors
-                    row.append(cell_value % RubikGame.FACES_6)
-                    cell_value += 1
-                face.append(row)
+            # Start with a solved cube: each face has its own color
+            color = f
+            face = [[color for _ in range(columns)] for _ in range(rows)]
             by_f_by_y_by_x.append(face)
 
         self.by_f_by_y_by_x = by_f_by_y_by_x
@@ -2106,7 +2098,9 @@ class RubikGame:
             sw.write_some_controls(["\r", "\n"])
 
         sw.print()
-        sw.print("Arrow keys: rotate center face")
+        sw.print("↑/↓: rotate Center face (0)")
+        sw.print("←: rotate West face (2)")
+        sw.print("→: rotate East face (3)")
         sw.print("Spacebar: scramble cube")
         sw.print("Press ⌃C to quit")
         sw.print()
@@ -2182,28 +2176,35 @@ class RubikGame:
             self.rk_scramble()
             return
 
-        # Arrow keys rotate the center face (face 0)
+        # Arrow keys rotate faces:
+        # ↑/↓ = Center face (0)
+        # ←/→ = Center face (0)
         if echo == "↑":
-            logger_print("  -> rotate face 0 clockwise (↑)")
+            logger_print("  -> rotate Center face (0) clockwise")
             self.rk_rotate_face_clockwise(0)
         elif echo == "↓":
-            logger_print("  -> rotate face 0 counterclockwise (↓)")
+            logger_print("  -> rotate Center face (0) counterclockwise")
             self.rk_rotate_face_counterclockwise(0)
         elif echo == "→":
-            logger_print("  -> rotate face 0 clockwise (→)")
-            self.rk_rotate_face_clockwise(0)
+            logger_print("  -> rotate East face (3) clockwise")
+            self.rk_rotate_face_clockwise(3)
         elif echo == "←":
-            logger_print("  -> rotate face 0 counterclockwise (←)")
-            self.rk_rotate_face_counterclockwise(0)
+            logger_print("  -> rotate West face (2) clockwise")
+            self.rk_rotate_face_clockwise(2)
 
     def rk_rotate_face_clockwise(self, face_idx: int) -> None:
-        """Rotate a face 90 degrees clockwise"""
+        """Rotate a face 90 degrees clockwise with full Rubik's Cube mechanics"""
+
+        # Face layout:
+        #      1 (North)
+        #   2  0  3 (West, Center, East)
+        #      4 (South)
+        #      5 (FarSouth)
 
         face = self.by_f_by_y_by_x[face_idx]
-
         logger_print(f"  Before rotate CW face {face_idx}: {face}")
 
-        # Rotate 3x3 matrix 90 degrees clockwise
+        # Rotate the face itself 90 degrees clockwise
         # New[row][col] = Old[2-col][row]
         new_face = [[0 for _ in range(3)] for _ in range(3)]
         for row in range(3):
@@ -2211,16 +2212,19 @@ class RubikGame:
                 new_face[row][col] = face[2 - col][row]
 
         self.by_f_by_y_by_x[face_idx] = new_face
+
+        # Rotate adjacent edges based on which face is being rotated
+        self.rk_rotate_edges_clockwise(face_idx)
+
         logger_print(f"  After rotate CW face {face_idx}: {self.by_f_by_y_by_x[face_idx]}")
 
     def rk_rotate_face_counterclockwise(self, face_idx: int) -> None:
-        """Rotate a face 90 degrees counterclockwise"""
+        """Rotate a face 90 degrees counterclockwise with full Rubik's Cube mechanics"""
 
         face = self.by_f_by_y_by_x[face_idx]
-
         logger_print(f"  Before rotate CCW face {face_idx}: {face}")
 
-        # Rotate 3x3 matrix 90 degrees counterclockwise
+        # Rotate the face itself 90 degrees counterclockwise
         # New[row][col] = Old[col][2-row]
         new_face = [[0 for _ in range(3)] for _ in range(3)]
         for row in range(3):
@@ -2228,7 +2232,141 @@ class RubikGame:
                 new_face[row][col] = face[col][2 - row]
 
         self.by_f_by_y_by_x[face_idx] = new_face
+
+        # Rotate adjacent edges (3 clockwise = 1 counterclockwise)
+        self.rk_rotate_edges_clockwise(face_idx)
+        self.rk_rotate_edges_clockwise(face_idx)
+        self.rk_rotate_edges_clockwise(face_idx)
+
         logger_print(f"  After rotate CCW face {face_idx}: {self.by_f_by_y_by_x[face_idx]}")
+
+    def rk_rotate_edges_clockwise(self, face_idx: int) -> None:
+        """Rotate the edges of adjacent faces when rotating a face clockwise"""
+
+        # Face indices:
+        # 0=Center, 1=North, 2=West, 3=East, 4=South, 5=FarSouth
+
+        cube = self.by_f_by_y_by_x
+
+        if face_idx == 0:  # Center face
+            # Save North bottom row
+            temp = [cube[1][2][0], cube[1][2][1], cube[1][2][2]]
+            # North bottom <- West right column (reversed)
+            cube[1][2][0] = cube[2][2][2]
+            cube[1][2][1] = cube[2][1][2]
+            cube[1][2][2] = cube[2][0][2]
+            # West right column <- South top row
+            cube[2][0][2] = cube[4][0][0]
+            cube[2][1][2] = cube[4][0][1]
+            cube[2][2][2] = cube[4][0][2]
+            # South top row <- East left column (reversed)
+            cube[4][0][0] = cube[3][2][0]
+            cube[4][0][1] = cube[3][1][0]
+            cube[4][0][2] = cube[3][0][0]
+            # East left column <- temp (North bottom)
+            cube[3][0][0] = temp[0]
+            cube[3][1][0] = temp[1]
+            cube[3][2][0] = temp[2]
+
+        elif face_idx == 1:  # North face
+            # Save Center top row
+            temp = [cube[0][0][0], cube[0][0][1], cube[0][0][2]]
+            # Center top <- West top row
+            cube[0][0][0] = cube[2][0][0]
+            cube[0][0][1] = cube[2][0][1]
+            cube[0][0][2] = cube[2][0][2]
+            # West top <- FarSouth top row (reversed)
+            cube[2][0][0] = cube[5][0][2]
+            cube[2][0][1] = cube[5][0][1]
+            cube[2][0][2] = cube[5][0][0]
+            # FarSouth top <- East top row
+            cube[5][0][0] = cube[3][0][0]
+            cube[5][0][1] = cube[3][0][1]
+            cube[5][0][2] = cube[3][0][2]
+            # East top <- temp (Center top)
+            cube[3][0][0] = temp[0]
+            cube[3][0][1] = temp[1]
+            cube[3][0][2] = temp[2]
+
+        elif face_idx == 2:  # West face
+            # Save North left column
+            temp = [cube[1][0][0], cube[1][1][0], cube[1][2][0]]
+            # North left <- FarSouth left column
+            cube[1][0][0] = cube[5][0][0]
+            cube[1][1][0] = cube[5][1][0]
+            cube[1][2][0] = cube[5][2][0]
+            # FarSouth left <- South left column
+            cube[5][0][0] = cube[4][0][0]
+            cube[5][1][0] = cube[4][1][0]
+            cube[5][2][0] = cube[4][2][0]
+            # South left <- Center left column
+            cube[4][0][0] = cube[0][0][0]
+            cube[4][1][0] = cube[0][1][0]
+            cube[4][2][0] = cube[0][2][0]
+            # Center left <- temp (North left)
+            cube[0][0][0] = temp[0]
+            cube[0][1][0] = temp[1]
+            cube[0][2][0] = temp[2]
+
+        elif face_idx == 3:  # East face
+            # Save North right column
+            temp = [cube[1][0][2], cube[1][1][2], cube[1][2][2]]
+            # North right <- Center right column
+            cube[1][0][2] = cube[0][0][2]
+            cube[1][1][2] = cube[0][1][2]
+            cube[1][2][2] = cube[0][2][2]
+            # Center right <- South right column
+            cube[0][0][2] = cube[4][0][2]
+            cube[0][1][2] = cube[4][1][2]
+            cube[0][2][2] = cube[4][2][2]
+            # South right <- FarSouth right column
+            cube[4][0][2] = cube[5][0][2]
+            cube[4][1][2] = cube[5][1][2]
+            cube[4][2][2] = cube[5][2][2]
+            # FarSouth right <- temp (North right)
+            cube[5][0][2] = temp[0]
+            cube[5][1][2] = temp[1]
+            cube[5][2][2] = temp[2]
+
+        elif face_idx == 4:  # South face
+            # Save Center bottom row
+            temp = [cube[0][2][0], cube[0][2][1], cube[0][2][2]]
+            # Center bottom <- East bottom row
+            cube[0][2][0] = cube[3][2][0]
+            cube[0][2][1] = cube[3][2][1]
+            cube[0][2][2] = cube[3][2][2]
+            # East bottom <- FarSouth bottom row (reversed)
+            cube[3][2][0] = cube[5][2][2]
+            cube[3][2][1] = cube[5][2][1]
+            cube[3][2][2] = cube[5][2][0]
+            # FarSouth bottom <- West bottom row
+            cube[5][2][0] = cube[2][2][0]
+            cube[5][2][1] = cube[2][2][1]
+            cube[5][2][2] = cube[2][2][2]
+            # West bottom <- temp (Center bottom)
+            cube[2][2][0] = temp[0]
+            cube[2][2][1] = temp[1]
+            cube[2][2][2] = temp[2]
+
+        elif face_idx == 5:  # FarSouth face
+            # Save West middle row
+            temp = [cube[2][1][0], cube[2][1][1], cube[2][1][2]]
+            # West middle <- South bottom row (reversed)
+            cube[2][1][0] = cube[4][2][2]
+            cube[2][1][1] = cube[4][2][1]
+            cube[2][1][2] = cube[4][2][0]
+            # South bottom <- East middle row
+            cube[4][2][0] = cube[3][1][0]
+            cube[4][2][1] = cube[3][1][1]
+            cube[4][2][2] = cube[3][1][2]
+            # East middle <- North bottom row (reversed)
+            cube[3][1][0] = cube[1][2][2]
+            cube[3][1][1] = cube[1][2][1]
+            cube[3][1][2] = cube[1][2][0]
+            # North bottom <- temp (West middle)
+            cube[1][2][0] = temp[0]
+            cube[1][2][1] = temp[1]
+            cube[1][2][2] = temp[2]
 
     def rk_scramble(self) -> None:
         """Scramble the cube with random rotations"""
