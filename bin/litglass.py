@@ -36,6 +36,7 @@ examples:
 # ./litglass.py --egg=echoes  # to echo the Control Sequences as they run
 # ./litglass.py --egg=keycaps  # to launch our keyboard-viewer of keycaps
 # ./litglass.py --egg=repr  # to loop the Repr, not the Str
+# ./litglass.py --egg=rubik  # to launch our Rubik's Cube Game
 # ./litglass.py --egg=squares  # to launch our Squares Game
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -156,7 +157,7 @@ class Flags:
     # Chosen by game --egg, or not
     #
     #   flags._assert_, flags.byteloop, flags.color_picker, flags.echoes, flags.keycaps,
-    #   flags._repr_, flags.squares
+    #   flags._repr_, flags.rubik, flags.squares
     #
 
     _assert_: bool = False  # assert False before doing much
@@ -165,6 +166,7 @@ class Flags:
     echoes: bool = False  # echo the Control Sequences as they loopback
     keycaps: bool = False  # launch our Keyboard-Viewer of Leycaps
     _repr_: bool = False  # loop the Repr, not the Str
+    rubik: bool = False  # launch our Rubik's Cube Game
     squares: bool = False  # launch our Squares Game
 
     @property
@@ -179,12 +181,13 @@ class Flags:
         games += self.echoes
         games += self.keycaps
         games += self._repr_
+        games += self.rubik
         games += self.squares
 
         if games > 1:
             print(
                 "Choose at most one of:"
-                "  assert, byteloop, color-picker, echoes, keycaps, repr, squares",
+                "  assert, byteloop, color-picker, echoes, keycaps, repr, rubik, squares",
                 file=sys.stderr,
             )
             sys.exit(2)  # exits 2 for bad args
@@ -244,6 +247,7 @@ class LitGlass:
 
             cpg = ColorPickerGame(tb)
             kcg = KeycapsGame(tb)
+            rkg = RubikGame(tb)
             sqg = SquaresGame(tb)
 
             now = dt.datetime.now().astimezone()
@@ -257,6 +261,8 @@ class LitGlass:
                 cpg.cp_run_awhile()
             elif flags.keycaps:
                 kcg.kc_run_awhile()
+            elif flags.rubik:
+                rkg.rk_run_awhile()
             elif flags.squares:
                 sqg.sq_run_awhile()
             else:
@@ -1952,6 +1958,162 @@ class SquaresGame:
     # todo: more Squares, less Squares, colorable
     # todo: colorable single-wide █ ██ Full-Block U+2588
     # todo: colorable double-wide ⬤ Black-Large-Circle U+2B24
+
+
+#
+# Play for --egg=rubik
+#
+
+
+class RubikGame:
+    """Play for --egg=rubik"""
+
+    terminal_boss: TerminalBoss
+
+    # Six faces of the cube, each 3x3
+    # faces[face_index][row][col] = color_index (0-5)
+    faces: list[list[list[int]]]
+
+    game_yx: tuple[int, ...]
+
+    # ANSI 216-color palette indices for Rubik's Cube colors
+    # These are chosen to work in both light and dark mode
+    # Format: 16 + 36*R + 6*G + B where R,G,B are 0-5
+    COLORS = [
+        16 + 36 * 5 + 6 * 0 + 0,  # Red: R=5, G=0, B=0 -> 196
+        16 + 36 * 5 + 6 * 3 + 0,  # Orange: R=5, G=3, B=0 -> 214
+        16 + 36 * 5 + 6 * 5 + 5,  # White: R=5, G=5, B=5 -> 231
+        16 + 36 * 0 + 6 * 3 + 0,  # Green: R=0, G=3, B=0 -> 34
+        16 + 36 * 0 + 6 * 0 + 4,  # Blue: R=0, G=0, B=4 -> 20
+        16 + 36 * 5 + 6 * 5 + 0,  # Yellow: R=5, G=5, B=0 -> 226
+    ]
+
+    # Face indices in tee cross layout:
+    #    1
+    #  2 0 3
+    #    4
+    #    5
+    # 0=Center, 1=North, 2=West, 3=East, 4=South, 5=Bottom
+    FACE_NAMES = ["Center", "North", "West", "East", "South", "Bottom"]
+
+    def __init__(self, terminal_boss: TerminalBoss) -> None:
+
+        self.terminal_boss = terminal_boss
+        self.game_yx = tuple()
+
+        # Initialize each face with its own color (solved state)
+        self.faces = []
+        for face_idx in range(6):
+            face = [[face_idx for _ in range(3)] for _ in range(3)]
+            self.faces.append(face)
+
+    def rk_run_awhile(self) -> None:
+        """Run till Quit"""
+
+        tb = self.terminal_boss
+
+        sw = tb.screen_writer
+        kr = tb.keyboard_reader
+
+        # Draw the Gameboard
+
+        h, w, y, x = kr.sample_hwyx()
+        self.game_yx = (y, x)
+
+        self.rk_game_draw()
+
+        # Run till Quit
+
+        while not tb.quitting:
+
+            # Read Input
+
+            kr.kbhit(timeout=None)
+            frames = tb.tb_read_byte_frames()
+
+            # Eval Input and print Output
+
+            self.rk_step_once(frames)
+
+        sw.print()
+
+    def rk_game_draw(self) -> None:
+        """Draw the Rubik's Cube as a 2D unfolding in tee cross shape"""
+
+        tb = self.terminal_boss
+        sw = tb.screen_writer
+        game_yx = self.game_yx
+
+        dent4 = 4 * " "
+
+        # Place the Gameboard
+
+        y, x = game_yx
+        sw.write_control(f"\033[{y};{x}H")
+
+        sw.print()
+        sw.print()
+
+        # Draw the cube in tee cross layout:
+        #    1
+        #  2 0 3
+        #    4
+        #    5
+
+        # Draw North face (1) - centered
+        for row in range(3):
+            line = dent4 + "      " + self.rk_render_face_row(1, row) + dent4
+            sw.write_text(line)
+            sw.write_some_controls(["\r", "\n"])
+
+        # Draw middle row: West (2), Center (0), East (3)
+        for row in range(3):
+            line = dent4
+            for face_idx in [2, 0, 3]:
+                line += self.rk_render_face_row(face_idx, row)
+            line += dent4
+            sw.write_text(line)
+            sw.write_some_controls(["\r", "\n"])
+
+        # Draw South face (4) - centered
+        for row in range(3):
+            line = dent4 + "      " + self.rk_render_face_row(4, row) + dent4
+            sw.write_text(line)
+            sw.write_some_controls(["\r", "\n"])
+
+        # Draw Bottom face (5) - centered
+        for row in range(3):
+            line = dent4 + "      " + self.rk_render_face_row(5, row) + dent4
+            sw.write_text(line)
+            sw.write_some_controls(["\r", "\n"])
+
+        sw.print()
+        sw.print("Press ⌃C to quit")
+        sw.print()
+
+    def rk_render_face_row(self, face_idx: int, row: int) -> str:
+        """Render one row of a face with ANSI colors"""
+
+        face = self.faces[face_idx]
+        result = ""
+
+        for col in range(3):
+            color_idx = face[row][col]
+            ansi_color = self.COLORS[color_idx]
+            # Use █ (full block) character with background color
+            result += f"\033[48;5;{ansi_color}m  \033[m"
+
+        return result
+
+    def rk_step_once(self, frames: tuple[bytes, ...]) -> None:
+        """Eval Input and print Output"""
+
+        tb = self.terminal_boss
+
+        # For now, just pass through to terminal boss
+        # TODO: Add cube rotation controls
+
+        tb.tb_step_once(frames)
 
 
 #
