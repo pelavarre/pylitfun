@@ -1969,43 +1969,39 @@ class RubikGame:
     """Play for --egg=rubik"""
 
     terminal_boss: TerminalBoss
-
-    # Six faces of the cube, each 3x3
-    # faces[face_index][row][col] = color_index (0-5)
-    faces: list[list[list[int]]]
-
     game_yx: tuple[int, ...]
 
-    # ANSI 216-color palette indices for Rubik's Cube colors
-    # These are chosen to work in both light and dark mode
-    # Format: 16 + 36*R + 6*G + B where R,G,B are 0-5
-    COLORS = [
-        16 + 36 * 5 + 6 * 0 + 0,  # Red: R=5, G=0, B=0 -> 196
-        16 + 36 * 5 + 6 * 3 + 0,  # Orange: R=5, G=3, B=0 -> 214
-        16 + 36 * 5 + 6 * 5 + 5,  # White: R=5, G=5, B=5 -> 231
-        16 + 36 * 0 + 6 * 3 + 0,  # Green: R=0, G=3, B=0 -> 34
-        16 + 36 * 0 + 6 * 0 + 4,  # Blue: R=0, G=0, B=4 -> 20
-        16 + 36 * 5 + 6 * 5 + 0,  # Yellow: R=5, G=5, B=0 -> 226
-    ]
+    FACES_6 = 6
 
-    # Face indices in tee cross layout:
-    #    1
-    #  2 0 3
-    #    4
-    #    5
-    # 0=Center, 1=North, 2=West, 3=East, 4=South, 5=Bottom
-    FACE_NAMES = ["Center", "North", "West", "East", "South", "Bottom"]
+    Y_HIGH_PER_FACE_3 = 3
+    X_WIDE_PER_FACE_3 = 3
+
+    by_f_by_y_by_x: list[list[list[int]]]  # [face][row][column] = color
+
+    ANSI_PS_BY_COLOR = [
+        0o20 + 4 * 36 + 4 * 6 + 4,  # '#444' Off-White = 188  # Center
+        0o20 + 0 * 36 + 3 * 6 + 0,  # '#030' Green = 34  # North
+        0o20 + 5 * 36 + 0 * 6 + 0,  # '#500' Red = 196  # West
+        0o20 + 0 * 36 + 0 * 6 + 4,  # '#004' Blue = 20  # East
+        0o20 + 5 * 36 + 5 * 6 + 0,  # '#550' Yellow = 226  # South
+        0o20 + 5 * 36 + 3 * 6 + 0,  # '#530' Orange = 214  # Far South
+    ]
 
     def __init__(self, terminal_boss: TerminalBoss) -> None:
 
         self.terminal_boss = terminal_boss
         self.game_yx = tuple()
 
-        # Initialize each face with its own color (solved state)
-        self.faces = []
-        for face_idx in range(6):
-            face = [[face_idx for _ in range(3)] for _ in range(3)]
-            self.faces.append(face)
+        rows = RubikGame.Y_HIGH_PER_FACE_3
+        columns = RubikGame.X_WIDE_PER_FACE_3
+
+        by_f_by_y_by_x = list()
+        for f in range(RubikGame.FACES_6):
+            color = f
+            face = rows * [columns * [color]]
+            by_f_by_y_by_x.append(face)
+
+        self.by_f_by_y_by_x = by_f_by_y_by_x
 
     def rk_run_awhile(self) -> None:
         """Run till Quit"""
@@ -2044,7 +2040,10 @@ class RubikGame:
         sw = tb.screen_writer
         game_yx = self.game_yx
 
+        y_high_per_face_3 = RubikGame.Y_HIGH_PER_FACE_3
+
         dent4 = 4 * " "
+        dent6 = 6 * " "
 
         # Place the Gameboard
 
@@ -2054,36 +2053,42 @@ class RubikGame:
         sw.print()
         sw.print()
 
-        # Draw the cube in tee cross layout:
-        #    1
-        #  2 0 3
-        #    4
-        #    5
+        # Number the Faces
 
-        # Draw North face (1) - centered
-        for row in range(3):
-            line = dent4 + "      " + self.rk_render_face_row(1, row) + dent4
+        North = 1
+        WestCenterEast = (2, 0, 3)
+        South = 4
+        FarSouth = 5
+
+        # Draw the North Face, centered
+
+        for face_y in range(y_high_per_face_3):
+            f = North
+            line = dent4 + dent6 + self.rk_render_face(f, face_y=face_y) + dent4
             sw.write_text(line)
             sw.write_some_controls(["\r", "\n"])
 
-        # Draw middle row: West (2), Center (0), East (3)
-        for row in range(3):
+        # Draw the Wide Row
+
+        for face_y in range(y_high_per_face_3):
             line = dent4
-            for face_idx in [2, 0, 3]:
-                line += self.rk_render_face_row(face_idx, row)
+            for f in WestCenterEast:
+                line += self.rk_render_face(f, face_y=face_y)
             line += dent4
             sw.write_text(line)
             sw.write_some_controls(["\r", "\n"])
 
-        # Draw South face (4) - centered
-        for row in range(3):
-            line = dent4 + "      " + self.rk_render_face_row(4, row) + dent4
+        # Draw the South and FarSouth Faces, centered
+
+        for face_y in range(y_high_per_face_3):
+            f = South
+            line = dent4 + dent6 + self.rk_render_face(4, face_y=face_y) + dent4
             sw.write_text(line)
             sw.write_some_controls(["\r", "\n"])
 
-        # Draw Bottom face (5) - centered
-        for row in range(3):
-            line = dent4 + "      " + self.rk_render_face_row(5, row) + dent4
+        for face_y in range(y_high_per_face_3):
+            f = FarSouth
+            line = dent4 + dent6 + self.rk_render_face(5, face_y=face_y) + dent4
             sw.write_text(line)
             sw.write_some_controls(["\r", "\n"])
 
@@ -2091,17 +2096,31 @@ class RubikGame:
         sw.print("Press ⌃C to quit")
         sw.print()
 
-    def rk_render_face_row(self, face_idx: int, row: int) -> str:
-        """Render one row of a face with ANSI colors"""
+        #
+        #    1      # North
+        #  2 0 3    # West Center East
+        #    4      # South
+        #    5      # Far South
+        #
 
-        face = self.faces[face_idx]
+    def rk_render_face(self, face_idx: int, face_y: int) -> str:
+        """Render one Row of a Rubik Face with Ansi #555 Colors"""
+
+        by_f_by_y_by_x = self.by_f_by_y_by_x
+
+        ansi_ps_by_color = RubikGame.ANSI_PS_BY_COLOR
+        x_wide_per_face_3 = RubikGame.X_WIDE_PER_FACE_3
+
+        face = by_f_by_y_by_x[face_idx]
+
+        z = "█"
+
         result = ""
+        for face_x in range(x_wide_per_face_3):
+            color = face[face_y][face_x]
+            ansi_ps = ansi_ps_by_color[color]
 
-        for col in range(3):
-            color_idx = face[row][col]
-            ansi_color = self.COLORS[color_idx]
-            # Use █ (full block) character with background color
-            result += f"\033[48;5;{ansi_color}m  \033[m"
+            result += f"\033[38;5;{ansi_ps}m" + z + z + "\033[m"
 
         return result
 
@@ -2109,9 +2128,6 @@ class RubikGame:
         """Eval Input and print Output"""
 
         tb = self.terminal_boss
-
-        # For now, just pass through to terminal boss
-        # TODO: Add cube rotation controls
 
         tb.tb_step_once(frames)
 

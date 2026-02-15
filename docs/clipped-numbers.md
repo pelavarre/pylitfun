@@ -477,6 +477,8 @@ When you can get your Number to be their =NA() form of not-a-number, then our Fo
 
 <!--
 
+Posted in Feb/2026 with Type Hints on the Monospaced Examples, because GitHub Md renders the Python & Excel & Sh Type Hints well, even while VsCode renders them horribly, especially in Lightmode
+
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/docs/clipped-numbers.md
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git
 

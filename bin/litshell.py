@@ -2606,7 +2606,17 @@ if __name__ == "__main__":
 
 # todo0: refresh the pipe-bricks.md sorts to look more like the def's here
 
-# todo0: drop the '--color-moved' out of 'glv' 'glq' without args
+
+# todo0: debug
+# % echo '  ab\ncd' |pb
+# % pbpaste
+#   ab
+# cd
+# % pb
+# ab
+# cd
+# %
+
 
 # todo0: debug
 # % pb awk 5 join --sep=' '
