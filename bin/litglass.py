@@ -1997,8 +1997,17 @@ class RubikGame:
 
         by_f_by_y_by_x = list()
         for f in range(RubikGame.FACES_6):
-            color = f
-            face = [[color for _ in range(columns)] for _ in range(rows)]
+            # Create a test pattern: each cell gets a unique value 0-8
+            # This makes rotations visible for debugging
+            face = []
+            cell_value = 0
+            for y in range(rows):
+                row = []
+                for x in range(columns):
+                    # Use modulo to cycle through available colors
+                    row.append(cell_value % RubikGame.FACES_6)
+                    cell_value += 1
+                face.append(row)
             by_f_by_y_by_x.append(face)
 
         self.by_f_by_y_by_x = by_f_by_y_by_x
@@ -2065,6 +2074,7 @@ class RubikGame:
         for face_y in range(y_high_per_face_3):
             f = North
             line = dent4 + dent6 + self.rk_render_face(f, face_y=face_y) + dent4
+            logger_print(f"North face_y={face_y}: {line!r}")
             sw.write_text(line)
             sw.write_some_controls(["\r", "\n"])
 
@@ -2075,6 +2085,7 @@ class RubikGame:
             for f in WestCenterEast:
                 line += self.rk_render_face(f, face_y=face_y)
             line += dent4
+            logger_print(f"WestCenterEast face_y={face_y}: {line!r}")
             sw.write_text(line)
             sw.write_some_controls(["\r", "\n"])
 
@@ -2083,12 +2094,14 @@ class RubikGame:
         for face_y in range(y_high_per_face_3):
             f = South
             line = dent4 + dent6 + self.rk_render_face(4, face_y=face_y) + dent4
+            logger_print(f"South face_y={face_y}: {line!r}")
             sw.write_text(line)
             sw.write_some_controls(["\r", "\n"])
 
         for face_y in range(y_high_per_face_3):
             f = FarSouth
             line = dent4 + dent6 + self.rk_render_face(5, face_y=face_y) + dent4
+            logger_print(f"FarSouth face_y={face_y}: {line!r}")
             sw.write_text(line)
             sw.write_some_controls(["\r", "\n"])
 
@@ -2161,26 +2174,34 @@ class RubikGame:
 
         assert echo in ("←", "↑", "→", "↓", "␢"), (echo,)
 
+        logger_print(f"rk_step_one_key_once: echo={echo!r}")
+
         # Space = scramble
         if echo == "␢":
+            logger_print("  -> scrambling")
             self.rk_scramble()
             return
 
         # Arrow keys rotate the center face (face 0)
         if echo == "↑":
+            logger_print("  -> rotate face 0 clockwise (↑)")
             self.rk_rotate_face_clockwise(0)
         elif echo == "↓":
+            logger_print("  -> rotate face 0 counterclockwise (↓)")
             self.rk_rotate_face_counterclockwise(0)
         elif echo == "→":
+            logger_print("  -> rotate face 0 clockwise (→)")
             self.rk_rotate_face_clockwise(0)
         elif echo == "←":
+            logger_print("  -> rotate face 0 counterclockwise (←)")
             self.rk_rotate_face_counterclockwise(0)
 
     def rk_rotate_face_clockwise(self, face_idx: int) -> None:
         """Rotate a face 90 degrees clockwise"""
 
-        by_f_by_y_by_x = self.by_f_by_y_by_x
-        face = by_f_by_y_by_x[face_idx]
+        face = self.by_f_by_y_by_x[face_idx]
+
+        logger_print(f"  Before rotate CW face {face_idx}: {face}")
 
         # Rotate 3x3 matrix 90 degrees clockwise
         # New[row][col] = Old[2-col][row]
@@ -2189,13 +2210,15 @@ class RubikGame:
             for col in range(3):
                 new_face[row][col] = face[2 - col][row]
 
-        by_f_by_y_by_x[face_idx] = new_face
+        self.by_f_by_y_by_x[face_idx] = new_face
+        logger_print(f"  After rotate CW face {face_idx}: {self.by_f_by_y_by_x[face_idx]}")
 
     def rk_rotate_face_counterclockwise(self, face_idx: int) -> None:
         """Rotate a face 90 degrees counterclockwise"""
 
-        by_f_by_y_by_x = self.by_f_by_y_by_x
-        face = by_f_by_y_by_x[face_idx]
+        face = self.by_f_by_y_by_x[face_idx]
+
+        logger_print(f"  Before rotate CCW face {face_idx}: {face}")
 
         # Rotate 3x3 matrix 90 degrees counterclockwise
         # New[row][col] = Old[col][2-row]
@@ -2204,7 +2227,8 @@ class RubikGame:
             for col in range(3):
                 new_face[row][col] = face[col][2 - row]
 
-        by_f_by_y_by_x[face_idx] = new_face
+        self.by_f_by_y_by_x[face_idx] = new_face
+        logger_print(f"  After rotate CCW face {face_idx}: {self.by_f_by_y_by_x[face_idx]}")
 
     def rk_scramble(self) -> None:
         """Scramble the cube with random rotations"""
