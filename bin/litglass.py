@@ -1998,7 +1998,7 @@ class RubikGame:
         by_f_by_y_by_x = list()
         for f in range(RubikGame.FACES_6):
             color = f
-            face = rows * [columns * [color]]
+            face = [[color for _ in range(columns)] for _ in range(rows)]
             by_f_by_y_by_x.append(face)
 
         self.by_f_by_y_by_x = by_f_by_y_by_x
