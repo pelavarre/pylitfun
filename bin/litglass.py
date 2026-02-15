@@ -2093,6 +2093,8 @@ class RubikGame:
             sw.write_some_controls(["\r", "\n"])
 
         sw.print()
+        sw.print("Arrow keys: rotate center face")
+        sw.print("Spacebar: scramble cube")
         sw.print("Press ⌃C to quit")
         sw.print()
 
@@ -2128,8 +2130,95 @@ class RubikGame:
         """Eval Input and print Output"""
 
         tb = self.terminal_boss
+        kd = tb.keyboard_decoder
+
+        # Check if all frames are arrows or space
+        note_to_self = True
+        for frame in frames:
+            echoes = kd.bytes_to_echoes_if(frame)
+            echo = echoes[0] if echoes else ""
+            if echo not in ("←", "↑", "→", "↓", "␢"):
+                note_to_self = False
+                break
+
+        if note_to_self:
+            for frame in frames:
+                self.rk_step_one_key_once(frame)
+            self.rk_game_draw()
+            return
+
+        # Else fall back onto the enclosing TerminalBoss
 
         tb.tb_step_once(frames)
+
+    def rk_step_one_key_once(self, frame: bytes) -> None:
+        """Eval one Arrow or Space in the Frame"""
+
+        tb = self.terminal_boss
+        kd = tb.keyboard_decoder
+        echoes = kd.bytes_to_echoes_if(frame)
+        echo = echoes[0] if echoes else ""
+
+        assert echo in ("←", "↑", "→", "↓", "␢"), (echo,)
+
+        # Space = scramble
+        if echo == "␢":
+            self.rk_scramble()
+            return
+
+        # Arrow keys rotate the center face (face 0)
+        if echo == "↑":
+            self.rk_rotate_face_clockwise(0)
+        elif echo == "↓":
+            self.rk_rotate_face_counterclockwise(0)
+        elif echo == "→":
+            self.rk_rotate_face_clockwise(0)
+        elif echo == "←":
+            self.rk_rotate_face_counterclockwise(0)
+
+    def rk_rotate_face_clockwise(self, face_idx: int) -> None:
+        """Rotate a face 90 degrees clockwise"""
+
+        by_f_by_y_by_x = self.by_f_by_y_by_x
+        face = by_f_by_y_by_x[face_idx]
+
+        # Rotate 3x3 matrix 90 degrees clockwise
+        # New[row][col] = Old[2-col][row]
+        new_face = [[0 for _ in range(3)] for _ in range(3)]
+        for row in range(3):
+            for col in range(3):
+                new_face[row][col] = face[2 - col][row]
+
+        by_f_by_y_by_x[face_idx] = new_face
+
+    def rk_rotate_face_counterclockwise(self, face_idx: int) -> None:
+        """Rotate a face 90 degrees counterclockwise"""
+
+        by_f_by_y_by_x = self.by_f_by_y_by_x
+        face = by_f_by_y_by_x[face_idx]
+
+        # Rotate 3x3 matrix 90 degrees counterclockwise
+        # New[row][col] = Old[col][2-row]
+        new_face = [[0 for _ in range(3)] for _ in range(3)]
+        for row in range(3):
+            for col in range(3):
+                new_face[row][col] = face[col][2 - row]
+
+        by_f_by_y_by_x[face_idx] = new_face
+
+    def rk_scramble(self) -> None:
+        """Scramble the cube with random rotations"""
+
+        tb = self.terminal_boss
+        r = tb.random_random
+
+        # Do 20 random rotations
+        for _ in range(20):
+            face_idx = r.randint(0, 5)
+            if r.choice([True, False]):
+                self.rk_rotate_face_clockwise(face_idx)
+            else:
+                self.rk_rotate_face_counterclockwise(face_idx)
 
 
 #
