@@ -21,6 +21,9 @@ examples:
   : gla && git log --pretty=fuller --no-decorate --color-moved --numstat --author=jqdoe -p
 """
 
+# Note: Git itself looks for 'git-...' aliases coded as Scripts of the $PATH
+# Note: We could redistribute these like that, to help people adopt one at a time
+
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
 
 
@@ -1006,6 +1009,8 @@ if __name__ == "__main__":
 
 
 _ = """  # todo's
+
+# todo: redistribute as 'git-...' aliases coded as Scripts of the $PATH
 
 # todo: measure latency added by calling these aliases in place of an explicit whole shline
 
