@@ -31,7 +31,7 @@ Beware, this is a technical rant: strong opinions & working code
 ## Show
 
 
-A familiar Terminal Shell Experience is
+A familiar Terminal Shell Experience at a laptop's landscape display is
 
 ```sh
 || Permissions || Hardlinks || Owner || Group || Bytes || Date/ Time || Pathname ||
@@ -156,15 +156,25 @@ drwxr-xr-x  51 jqdoe  staff   1.6K Feb 13 16:24 sh
 %
 ```
 
-Egregiously wrong in four ways
+The Column of Byte Counts they give you is
 
-1 ) How old are your eyes? Do your eyes reliably pick out "888" from "88B"? Mine don't. I greatly dislike this waste of ink. I don't need a "B" on screen to tell me zero more digits are there. And half the time this "B" comes into my brain as a lie, as when saying "2888" where it meant "288". Please make it stop
+```sh
+% ls -lh |pb eng awk 5 split |pb join
+976B  1.4K  1.3K  818B  1.5K  288B  3.6K  10K  282B  1.6K
+%
+```
 
-2 ) I do appreciate the metric units:  k, M, G, etc to mean e3, e6, e8, etc. But I feel annoyed as often as I notice they put an unconventional 'K' in place of the standard 'k'
+Egregiously bad
 
-3 ) I do so wish they would calculate standard units. We solved this late last century. We spelled out that Ki is 1025 and k is 1000. So our example of 3652 is more than 3.65k and more than 3.56Ki. But they distort this. They claim '3.6K' to talk of the 3.56Ki Floor by adding in 34.4 Bytes. What in the world is 0.4 of a Byte, and why are we spending my time on it?? Their lies mislead me, and so I dislike their lies
+Four wrong
 
-4 ) Their abbreviation is 50% excessive, besides being slightly wrong. I practically always need to see three digits to feel I know the size of the thing. Two digits is not enough, and four digits is too many, but they give me two and stop. The 3652 who I know is the 3.65e3. I need its name spoken in that familiar way
+1 ) How old are your eyes? Do your eyes reliably pick out "888" from "88B"? Mine don't. I greatly dislike this waste of ink. I don't need a "B" on screen to tell me zero more digits are there. And half the time this "B" comes into my brain as a lie, as when saying "2888" where it pretends to say "288". Please make it stop
+
+2 ) And aye for sure I do appreciate the metric units:  k, M, G, etc to mean e3, e6, e8, etc. But then I feel annoyed as often as I notice they put an unconventional 'K' in place of the standard 'k'
+
+3 ) And why can't they keep their metric units standard? We solved this late last century. We spelled out that Ki is 1024 and k is 1000. So our example of 3652 is more than 3.65k and more than 3.56Ki. But they distort this count. They count out what doesn't exist, by rounding this 3.56Ki up to 3.6Ki, and then they intentionally misspeak of it as '3.6K', weirdly far from our actual 3.65k
+
+4 ) And they recklessly chop off too many Digits, besides being slightly wrong. I practically always need to see 3 Digits to feel I know the size of the thing. 2 Digits is not enough, and 4 Digits is too many, but they give me 2 Digits and stop. The 3652 known to me is the 3.65e3. I need its name spoken in that familiar way
 
 If you don't yet feel these wrongs are egregious, beware
 
@@ -179,9 +189,9 @@ You say 0 only to mean 0
 
 You don't say 0 to mean 1
 
-You don't waste ink on mentioning 'e+' or 'e0' or a trailing '.' or '.0' or '.00'. Instead, you show your respect for the time I spend reading every character of what you wrote, exactly by holding back from giving me the kinds of extra characters that I never need
+You don't waste ink on mentioning 'e+' or 'e0' or a trailing '.' or '.0' or '.00'. Instead, you show your respect for the time I spend reading every character of what you wrote. You hold back from giving me the kinds of extra characters that I never need
 
-You don't round up to some fabricated ideal of a rounder number. Aye, you do give me three digits and done, but you do it by backing off from demanding I give you credit for the last few things you counted. You don't round up and send me wrong by giving me the lie of you having counted things that you never actually saw
+You stop yourself from sending me wrong. You don't round up to some irrelevant ideal of a rounder number. You do give me three digits and done, but you do it by backing off from demanding I give you credit for the last few things you counted. You never give me the lie of you having counted things that you never actually saw
 
 
 ## How much Space do I need?
@@ -265,7 +275,7 @@ We're looking at correct answers here. Correct and nothing but correct. No "B" v
 
 Google Sheets can clip numbers as well as Python
 
-As you know, their oldest convention is to code up every new idea as a Simd Formula
+As you know, their oldest convention is to code up every new idea as a Simd Formula. Here is our idea, so coded
 
 ```excel
 =IF(A1=0, "0",
@@ -284,19 +294,19 @@ As you know, their oldest convention is to code up every new idea as a Simd Form
 )
 ```
 
-Next we contrast your results with their defaults. The g Sheets default is to speak these counts with a reckless excess of precision
+Put that code into a g Sheet, and we can contrast your results with their defaults. Their default is to speak these counts with a reckless excess of precision
 
 ```
 0 9 999  9000 9800 9870 9876
 ```
 
-Our code tells to it to speak with more consideration for your true needs and fading eyesight
+Our code tells the g Sheet to speak with more consideration for your true needs and fading eyesight
 
 ```
 '0 '9 '999  '9e3 '9.8e3 '9.87e3 '9.87e3
 ```
 
-If you work so closely with g Sheets as to name this Formula, you can give the name 'int.clip' to this Formula and then call it far more directly and clearly
+And you can tell g Sheets to give the name 'int.clip' to this Formula so as to call your code far more directly and clearly
 
 ```excel
 =int.clip(9876)  # '9.87e3
