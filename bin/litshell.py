@@ -2336,8 +2336,6 @@ def str_removeflanks_else(lit: str, marks: str) -> str | None:
 
     return None
 
-    # todo0: take a quoted Str with Spaces in it as Str  # |pb replace ' ' '  '
-
 
 #
 # Amp up Import Json
@@ -2604,10 +2602,20 @@ if __name__ == "__main__":
     main()
 
 
-# todo's
+# big todo's
 
-# todo0: refresh the pipe-bricks.md sorts to look more like the def's here
+# refresh the pipe-bricks.md sorts to look more like the def's here
 
+# rewrite the git.py to distribute via ~/bin/git-*
+# todo0: demo 'glv' of can rewrite the git.py to distribute via ~/bin/git-*
+
+
+# lil todo's
+
+# todo0: the |pb .eng should give us metric units in place of 'e' and 'e-'
+
+# todo0: add a litprofile.py to run from ~/.zprofile
+# todo0: first up, tell me when Settings Json Backup has gone stale
 
 # todo0: debug
 # % pb awk 5 join --sep=' '
@@ -2616,20 +2624,13 @@ if __name__ == "__main__":
 # 1415 1378 818 716 1568 288 3652 10747 282 1632
 # %
 
-
 # todo0: split and cross-ref '|pb .max' '|pb .min' '|pb reverse' into Char-by-Char & Line-by-Line
 
 # todo0: into litpython.py, doc which Python Version we scraped Importable Names from
 # todo0: like rescrape from latest and mention that
 
-# todo0: add an .md Markdown vs the flooring |pb eng and what about ceil
-
-# todo0: |pb replace .stale. .fresh.
 # todo0: |pb sub .pattern. .repl.
 # todo0: |pb remove .from.
-
-# todo0: drop the int.max int.min int.sort because float. accepts those inputs?
-# todo0: don't add an int.sum?
 
 # todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
 

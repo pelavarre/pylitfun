@@ -1,0 +1,10 @@
+# sh/.code = Pretend VsCode is in my Shell $Path, and default to edit my Settings·Json
+
+if [ $# -eq 0 ]; then
+    D=$HOME/Library/'Application Support'/Code/User/
+    set -xe
+    /Applications/'Visual Studio Code.app'/Contents/Resources/app/bin/code "$D/settings.json"
+else
+    set -xe
+    /Applications/'Visual Studio Code.app'/Contents/Resources/app/bin/code "$@"
+fi
