@@ -95,6 +95,8 @@ But have your eyes learned to prefer
 
 The big difference here is in the Byte Counts, classically spoken as precise decimal int literals
 
+Watch what happens to your visual perception when we lay out a copy of just this one column of numbers
+
 ```sh
 % ls -l |pb awk 5 join
 1415  1378  818  716  1568  288  3652  10747  282  1632
@@ -103,7 +105,7 @@ The big difference here is in the Byte Counts, classically spoken as precise dec
 
 These numbers do naturally show us more structure, when made more meaningful. They split themselves apart, into two piles
 
-First the small numbers
+Most simply, the small numbers
 
 ```sh
 % ls -l |pb eng awk 5 split |grep -v e3 |pb join
@@ -111,7 +113,7 @@ First the small numbers
 %
 ```
 
-And then, separately, the big numbers
+But also separately, the big numbers
 
 ```sh
 % ls -l |pb eng awk 5 split |grep e3 |pb join
@@ -119,9 +121,9 @@ And then, separately, the big numbers
 %
 ```
 
-Leave these numbers in their rows, and then they naturally split their rows across this same dividing line
+Hold this difference in mind, between small numbers written with little ink, vs big numbers written with more ink. Watch what happens to your visual perception when we just correct the format of these numbers, while leaving them in place in their rows. You see that? They come and naturally split their rows across this same dividing line
 
-First the rows of the big numbers
+The extra ink visually brings forward the rows of the big numbers
 
 ```sh
 % ls -l |pb eng replace columns |grep e3
@@ -134,7 +136,7 @@ First the rows of the big numbers
 %
 ```
 
-And then, separately, the rows of the small numbers
+The careful lack of extra ink visually pushes back the rows of the small numbers
 
 ```sh
 % ls -l |pb eng replace columns |grep -v e3
