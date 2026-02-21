@@ -19,7 +19,9 @@ Beware, this is a technical rant: strong opinions & working code
   - [Fix for Ints](#fix-for-ints)
     - [Ints of Python](#ints-of-python)
     - [Ints of Google Sheets](#ints-of-google-sheets)
+      - [Do they know you need this?](#do-they-know-you-need-this)
     - [Ints of Microsoft Excel](#ints-of-microsoft-excel)
+      - [Provenance](#provenance)
   - [Fix for Floats](#fix-for-floats)
     - [Floats of Python](#floats-of-python)
     - [Floats of Google Sheets](#floats-of-google-sheets)
@@ -268,9 +270,9 @@ I can only teach you to start seeing, I can't teach you to stop. I can't even st
 # Fix known, and not yet well known
 
 
-To get your numbers well-clipped, you can download & run our Code, or you can write your own Code. To help you write your own, or to help you trust ours, we show our Code below
+To get your numbers well-clipped, you can download & run our code, or you can write your own code. We show our code below, to help you write your own code in its place, or to help you trust ours
 
-The run-time costs of adopting this Code are near zero. This Code runs in scratch time, and requires nearly zero memory
+The run-time costs of adopting this code are near zero. This code runs in scratch time, and requires nearly zero memory
 
 
 ## Fix for Ints
@@ -296,6 +298,9 @@ The 'replace columns' part turns the text into a conventional table of left-alig
 
 You can call on Python to clip a count back to three digits. You don't have to let it whisper lies into your eyes
 
+You can download and run this. It picks out a leading negative sign, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits.
+
+It never says 'e0'. It never ends with "." or ".0" or ".00". It never adds on a confusion of "8" vs "B". It always chooses unsigned metric exponents like "e3", never a scientific exponent like "e+2" or "e1" or "e-0". It always calculates powers of 10 as the Base of "e", not powers of the 10th power of 2 (1024)
 
 ```python
 def clip_int(i: int) -> str:
@@ -326,7 +331,7 @@ def clip_int(i: int) -> str:
     # -120789 --> -120e3, etc
 ```
 
-Correct Answers
+Our code produces correct answers
 
 ```python
 (0, "0"),
@@ -339,14 +344,13 @@ Correct Answers
 (9876, "9.87e3"),  # not rounded up to '9.88e3'
 ```
 
-We're looking at correct answers here. Correct and nothing but correct. No "B" vs "8" visual confusions. Always unsigned metric exponents like "e3", never a scientific exponent like "e+2" or "e1" or "e-0". Powers of 10 as the Base of "e", not powers of the 10th power of 2 (1024). Three digits when you've got three digits, never chopped down so far as to show just two digits or one. And no empty busy ".00"s. Ink spent only when ink delivers value
-
 
 ### Ints of Google Sheets
 
 Google Sheets can clip numbers as accurately as Python
 
-As you know, their oldest convention is to code up every new idea as a Simd Formula. Here is our idea, so coded
+As you know, their oldest convention is to code up every new idea as a Simd Formula. Here is our idea, so coded. You can download and run this. This code picks out a leading negative sign, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits.
+
 
 ```excel
 =IF(A1=0, "0",
@@ -365,7 +369,7 @@ As you know, their oldest convention is to code up every new idea as a Simd Form
 )
 ```
 
-Put that code into a g Sheet, and we can contrast your results with their defaults. Their default is to speak these counts with a reckless excess of precision
+Put this code into a g Sheet, and we can contrast your results with their defaults. Their default is to speak these counts with a reckless excess of precision
 
 ```
 0 9 999  9000 9800 9870 9876
@@ -383,6 +387,8 @@ And you can tell g Sheets to give the name 'int.clip' to this Formula so as to c
 =int.clip(9876)  # '9.87e3
 ```
 
+#### Do they know you need this?
+
 I don't understand why Google doesn't give out '=int.clip' as a standard part to build with
 
 Do you know someone who knows someone who can get 'int.clip' added as a standard part out there?
@@ -392,7 +398,9 @@ Do you know someone who knows someone who can get 'int.clip' added as a standard
 
 Same deal on offer from Microsoft Excel, as with Google Sheets
 
-You can see our Simd Formula for g Sheets above, this same Simd Formula works in Excel too
+As with Python and Google Sheets, so now Microsoft Excel. You can download and run this. Our Simd Formula works the same in Microsoft Excel as in Google Sheets. It picks out a leading negative sign, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits.
+
+#### Provenance
 
 Myself, I first wrote this kind of thing for Excel, years before I tried it inside g Sheets. The =Let and =Lambda Simd Formula Functions first reached me in a Microsoft Excel
 
