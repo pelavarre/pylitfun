@@ -1,35 +1,42 @@
 #!/usr/bin/env python3
 
 """
-usage: litshell.py [-h] [-V] [-r] [-v] [--sep SEP] [--start START] [BRICK ...]
+usage: litshell.py [-h] [-V] [-v] [-r] [--sep SEP] [--start START] [WORD ...]
 
 read/ write the os copy/ paste clipboard buffer, write tty, and write files
 
 positional arguments:
-  BRICK                 a brick of the shell pipe
+  WORD                  a brick or string or number, to build a sponge pipe with
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show version numbers and exit
-  -r, --raw-control-ch  write Control Chars to Tty, don't replace with '¤' Currency-Symbol
   -v, --verbose         say more
-  --sep SEP             a separator, such as ' ' or ',' or ', '
+  -r, --raw-control-ch  write Control Chars to Tty, don't replace with '¤' Currency-Symbol
+  --sep SEP             an input or output separator, such as ' ' or ',' or ', '
   --start START         a starting index, such as 0 or 1
 
 quirks:
-  separates output same as input, as if you wrote |awk -F$sep -vOFS=$sep
+  defaults to --start 0 for |enumerate, but --start 1 for |n or |nl
+  defaults to pythonic isep=None for |awk and |split, but isep=: for |partition a la |grep -H
+  defaults to wide osep='  ' for |awk and |columns and |join
+  takes both isep and osep from --sep=SEP when given --sep=SEP, unlike |awk -F$sep -vOFS=$sep
+  lets you mark the stop and stop of a string literal with any of , . /
 
-small bricks:
-  -  0 1 2 3  F L O T U  a h i j k n o r s t u w x  nl pb
+pythonic bricks:
+  append bytes casefold counter decode enumerate expandtabs if insert
+  join len lower lstrip max md5 min ord printable removeprefix
+  removesuffix reverse rstrip set sha256 shuffle slice sort split str
+  strings strip sum title upper
 
-memorable bricks:
-  append bytes casefold counter cut decode dent eng enumerate expandtabs
-  frame head if insert join len lower lstrip max md5 min ord printable
-  removeprefix removesuffix reverse rstrip set sha256 shuffle slice
-  sort split str strings strip sum tail title unframe upper
+classic bricks & fun bricks:
+  cut head tail, dent eng frame unframe
 
 alt bricks:
-  .enumerate .frame .head .len .max .md5 .min .reverse .sha256 .sort .tail
+  .frame .head .len .max .md5 .min .reverse .sha256 .sort .tail
+
+cryptic bricks:
+  -  0 1 2 3  F L O T U  a h i j k n o r s t u w x  nl pb
 
 examples:
   cat README.md |pb
@@ -153,23 +160,32 @@ def main() -> None:
 class ShellGopher:
     """Init and run, once"""
 
-    data: bytes | None  # 1 Sponge of 1 File of Bytes
+    # Take in the Shell Environment
 
-    verbs: list[str]  # the brick names from the command line
+    sys_stdin_isatty: bool  # Dev Tty at Stdin means get Input Bytes from PasteBuffer
+    sys_stdout_isatty: bool  # Dev Tty at Stdout means write Output Bytes back to PasteBuffer
+    x_wide: int  # count of Terminal Screen Columns, else 25
+    y_high: int  # count of Terminal Screen Rows, else 80
+
+    # Take in the Shell Args
+
+    words: list[str]  # the Shell Args that aren't Double-Dash Options and aren't Dash Options
     sep: str | None  # a separator, such as ' ' or ', '
     start: int | None  # a starting index, such as 0 or 1
 
-    bricks: list[ShellBrick]  # Code that works over the Sponge
-    sys_stdin_isatty: bool  # Dev Tty at Stdin means get Input Bytes from PasteBuffer
-    sys_stdout_isatty: bool  # Dev Tty at Stdout means write Output Bytes back to PasteBuffer
-    raw_control_chars: bool | None  # False means translate Control Chars to ? when writing to Tty
+    # Choose how to write
 
     writing_pbcopy: bool | None  # Writing to PbCopy
     writing_file: bool | None  # Writing to ./0 after writing into |pbcopy
     writing_stdout: bool | None  # Writing to Stdout
+    raw_control_chars: int | None  # False means translate Control Chars to ¤ when writing to Tty
 
-    x_wide: int  # count of Terminal Screen Columns, else 25
-    y_high: int  # count of Terminal Screen Rows, else 80
+    # Read, modify, and write the Bytes
+
+    data: bytes | None  # 1 Sponge of 1 File of Bytes
+    bricks: list[ShellBrick]  # Code that works over the Sponge
+
+    #
 
     def __init__(self) -> None:
 
@@ -185,30 +201,27 @@ class ShellGopher:
         except OSError:
             pass  # todo: log how .get_terminal_size failed
 
-        # Fill out Self
+        # Fill out a nearly blank Self
 
-        self.data = None
-
-        self.verbs = list()
-        self.sep = None
-        self.start = None
-
-        self.bricks = list()
         self.sys_stdin_isatty = sys_stdin_isatty
         self.sys_stdout_isatty = sys_stdout_isatty
-        self.raw_control_chars = None
+        self.x_wide = x_wide
+        self.y_high = y_high
+
+        self.words = list()
+        self.sep = None
+        self.start = None
 
         self.writing_pbcopy = None
         self.writing_file = None
         self.writing_stdout = None
+        self.raw_control_chars = None
 
-        self.x_wide = x_wide
-        self.y_high = y_high
+        self.data = None
+        self.bricks = list()
 
     def run_main_argv_minus(self, argv_minus: list[str]) -> None:  # noqa C901 too complex  # todo2:
         """Compile & run each Option or Positional Argument"""
-
-        verbs = self.verbs
 
         # Take Options & Pos Args in from the Shell Command Line
 
@@ -230,26 +243,16 @@ class ShellGopher:
             title = "Lit" + path.name.removeprefix("lit").title().replace(".", "·")
             version = pathlib_path_read_version(pathname)
 
-            print(mmmyyyy, title, version)
+            print(mmmyyyy, title, version)  # such as:  Feb/2026 LitShell·Py 0.8.185
             sys.exit(0)  # exits 0 after printing Version
 
         # Run differently because Options & Pos Args
 
+        words = self.words
+        words.extend(ns.words)
+
         if ns.verbose:
             verbose_because.append(True)
-
-        for arg in sys.argv[1:]:
-            if " " not in arg:
-                number = parse_number_else(arg)
-                if number is None:
-                    text = str_removeflanks_else(arg, marks=",./")
-                    if text is None:
-                        if arg.startswith("-") and (arg != "-"):
-                            continue
-
-            verbs.append(arg)  # todo0: might be Verb or Pos Arg, but isn't Option
-
-            # todo8: tighter discards of Dash and Dash-Dash Options
 
         if ns.F is not None:  # -F mostly for |pb awk
             if self.sep is None:
@@ -271,11 +274,10 @@ class ShellGopher:
         if ns.start is not None:
             self.start = int(ns.start, base=0)
 
-        if ns.raw_control_ch:
-            if not ns.raw_control_chars:
-                ns.raw_control_chars = 1
-            else:
-                ns.raw_control_chars += 1
+        r = ns.raw_control_ch or 0
+        r += ns.raw_control_chars or 0
+        if r:
+            self.raw_control_chars = r
 
         # todo8: reject conflicts between --sep -F -vOFS
 
@@ -290,20 +292,20 @@ class ShellGopher:
 
         parser = ArgDocParser(doc, add_help=False)
 
-        brick_help = "a brick of the shell pipe"
-        parser.add_argument("bricks", metavar="BRICK", nargs="*", help=brick_help)
+        word_help = "a brick or string or number, to build a sponge pipe with"
+        parser.add_argument("words", metavar="WORD", nargs="*", help=word_help)
 
         help_help = "show this help message and exit"
-        raw_control_chars_help = "write Control Chars to Tty, don't replace with '¤' Currency-Symbol"
+        raw_control_ch_help = "write Control Chars to Tty, don't replace with '¤' Currency-Symbol"
         version_help = "show version numbers and exit"
         verbose_help = "say more"
 
         parser.add_argument("-h", "--help", action="count", help=help_help)
         parser.add_argument("-V", "--version", action="count", help=version_help)
-        parser.add_argument("-r", "--raw-control-ch", action="count", help=raw_control_chars_help)
         parser.add_argument("-v", "--verbose", action="count", help=verbose_help)
+        parser.add_argument("-r", "--raw-control-ch", action="count", help=raw_control_ch_help)
 
-        sep_help = "a separator, such as ' ' or ',' or ', '"
+        sep_help = "an input or output separator, such as ' ' or ',' or ', '"
         start_help = "a starting index, such as 0 or 1"
         parser.add_argument("--sep", metavar="SEP", help=sep_help)
         parser.add_argument("--start", metavar="START", help=start_help)
@@ -354,8 +356,8 @@ class ShellGopher:
     def compile_pipe_if(self) -> None:
         """Compile each Brick"""
 
-        verbs = self.verbs
         sys_stdin_isatty = self.sys_stdin_isatty
+        words = self.words
         bricks = self.bricks
 
         # Choose what to write at exit
@@ -370,45 +372,45 @@ class ShellGopher:
 
         # Add implied Bricks
 
-        pipe_verbs = list()
-        pipe_verbs.append("__enter__")
-        pipe_verbs.extend(verbs)
+        lotsa_words: list[str] = list()
+        lotsa_words.append("__enter__")
+        lotsa_words.extend(words)
 
-        if not verbs[1:]:
+        if not words[1:]:
             if sys_stdin_isatty:
-                pipe_verbs.append("unframe")
+                lotsa_words.append("unframe")
 
-        pipe_verbs.append("__exit__")
+        lotsa_words.append("__exit__")
 
         # Compile the plan
 
-        for index, verb in enumerate(pipe_verbs):
+        for index, word in enumerate(lotsa_words):
 
             if index == 0:
-                assert verb == "__enter__", (verb,)
+                assert word == "__enter__", (word,)
 
             if index == 1:  # todo3: say this more simply - pb could mean __enter__
-                if verb in ("cv", "pb"):
+                if word in ("cv", "pb"):
                     continue
 
             if index > 1:
                 newborn = bricks[-1]
 
-                dot = verb
-                if verb == ".":
+                dot = word
+                if word == ".":
                     newborn.posargs += (dot,)
                     continue
 
-                number = parse_number_else(verb)  # takes float | int | bool
+                number = parse_number_else(word)  # takes float | int | bool
                 if number is not None:
                     newborn.posargs += (number,)
                     continue
 
                 text: str | None = None
-                if " " in verb:
-                    text = verb  # takes str
+                if " " in word:
+                    text = word  # takes str
                 else:
-                    text = str_removeflanks_else(verb, marks=",./")  # takes str
+                    text = str_removeflanks_else(word, marks=",./")  # takes str
 
                 if text is not None:
                     if index == 2:
@@ -421,13 +423,13 @@ class ShellGopher:
                 # todo8: accept 'None' as a Pos Arg of a Shell Brick ?
                 # todo8: declare which Bricks take which Args, compile-time reject TypeError
 
-            brick = self._compile_brick_if_(verb)
+            brick = self._compile_brick_if_(word)
             bricks.append(brick)
 
     def _compile_writing_pbcopy_(self) -> bool:
         """Choose to write into PbCopy at exit, or not"""
 
-        verbs = self.verbs
+        words = self.words
         sys_stdin_isatty = self.sys_stdin_isatty
 
         writing_file = self._compile_writing_file_()  # todo2: calculate once, not twice
@@ -435,7 +437,7 @@ class ShellGopher:
         writing_pbcopy = False
         if writing_file:
             writing_pbcopy = True
-        elif (not sys_stdin_isatty) and (not verbs[1:]):  # |pb  # without Args
+        elif (not sys_stdin_isatty) and (not words[1:]):  # |pb  # without Args
             writing_pbcopy = True
 
         return writing_pbcopy
@@ -443,12 +445,12 @@ class ShellGopher:
     def _compile_writing_file_(self) -> bool:
         """Choose to write into ./0 at exit, or not"""
 
-        verbs = self.verbs
+        words = self.words
 
         writing_file = False
-        if verbs:
-            verb0 = verbs[0]
-            if verb0 in ("0", "1", "2", "3"):
+        if words:
+            word0 = words[0]
+            if word0 in ("0", "1", "2", "3"):
                 writing_file = True
 
         return writing_file
@@ -456,7 +458,7 @@ class ShellGopher:
     def _compile_writing_stdout_(self) -> bool:
         """Choose to write into Stdout at exit, or not"""
 
-        verbs = self.verbs
+        words = self.words
         sys_stdin_isatty = self.sys_stdin_isatty
         sys_stdout_isatty = self.sys_stdout_isatty
 
@@ -466,7 +468,7 @@ class ShellGopher:
             writing_stdout = True  # not |pb  # pb, pb |, or |pb|
 
         if sys_stdout_isatty:
-            if verbs[1:]:
+            if words[1:]:
                 writing_stdout = True  # |pb ...
 
         return writing_stdout
@@ -486,13 +488,13 @@ class ShellGopher:
         """Sketch the Pipe as + |pb '...' |pb '...' ..."""
 
         bricks = self.bricks
-        verbs = self.verbs
+        words = self.words
 
         first = "pb"
-        if verbs:
-            verb0 = verbs[0]
-            if verb0 in ("0", "1", "2", "3"):
-                first = verb0
+        if words:
+            word0 = words[0]
+            if word0 in ("0", "1", "2", "3"):
+                first = word0
 
         s = "+ |" + first
 
@@ -625,7 +627,6 @@ class ShellBrick:
             "float.sort": self.from_lines_number_sort,
             "float.sorted": self.from_lines_number_sort,
             #
-            ".enumerate": self.for_line_enumerate,  # like |n or |cat -n and with --start=1
             ".cut": self.for_line_cut,  # as wide as the Screen
             ".frame": self.for_line_do_frame,  # with .rstrip
             ".head": self.for_line_head,  # as tall as the Screen
@@ -634,7 +635,6 @@ class ShellBrick:
             ".max": self.from_lines_number_max,  # by Number not by Str
             ".md5": self.from_bytes_md5,  # Byte Length too, not just Hash
             ".min": self.from_lines_number_min,  # by Number not by Str
-            ".nl": self.for_line_enumerate,  # like |nl but --start=1
             ".reverse": self.for_line_reverse,  # reverse Characters in each Line, not all the Lines
             ".sha256": self.from_bytes_sha256,  # Byte Length too, not just Hash
             ".sort": self.from_lines_number_sort,  # by Number not by Str
@@ -1670,7 +1670,8 @@ class ShellBrick:
         sep = sg.sep  # .sep may be None
         posargs = self.posargs
 
-        joinable = "  " if (sep is None) else sep  # defaults to Two Spaces
+        isep = sep  # .isep may be None
+        osep = "  " if (sep is None) else sep  # defaults to Two Spaces
 
         ilines = self.fetch_ilines()
 
@@ -1680,7 +1681,7 @@ class ShellBrick:
 
         olines = list()
         for iline in ilines:
-            splits = iline.split(sep)  # .sep may be None
+            splits = iline.split(isep)  # .sep may be None
             n = len(splits)
 
             found = False
@@ -1704,7 +1705,7 @@ class ShellBrick:
                     owords.append("")
 
             if found:
-                oline = joinable.join(owords)
+                oline = osep.join(owords)
                 olines.append(oline)
 
         self.store_olines(olines)
@@ -1715,12 +1716,9 @@ class ShellBrick:
         """(_ + suffix) for _ in list(sys.i)"""
 
         posargs = self.posargs
-        sg = self.shell_gopher
-        sep = sg.sep
 
-        _sep_ = "  " if (sep is None) else sep
         splits = [str(_) for _ in posargs] if posargs else ["$"]
-        join = _sep_.join(splits)
+        join = " ".join(splits)
 
         ilines = self.fetch_ilines()
         olines = list((_ + join) for _ in ilines)
@@ -1768,7 +1766,7 @@ class ShellBrick:
         verb = self.verb
 
         _start_ = 0 if (start is None) else start
-        if verb in (".enumerate", "n", ".nl"):
+        if verb in ("n", "nl"):
             _start_ = 1 if (start is None) else start
 
         ilines = self.fetch_ilines()
@@ -1820,12 +1818,9 @@ class ShellBrick:
         """(prefix + _) for _ in list(sys.i)"""
 
         posargs = self.posargs
-        sg = self.shell_gopher
-        sep = sg.sep
 
-        _sep_ = "  " if (sep is None) else sep
         splits = [str(_) for _ in posargs] if posargs else [4 * " "]
-        join = _sep_.join(splits)
+        join = " ".join(splits)
 
         ilines = self.fetch_ilines()
         olines = list((join + _) for _ in ilines)
@@ -1841,10 +1836,10 @@ class ShellBrick:
         sep = sg.sep
 
         default_sep = " " if (verb == "x") else "  "
-        _sep_ = default_sep if (sep is None) else sep
+        osep = default_sep if (sep is None) else sep
 
         ilines = self.fetch_ilines()
-        oline = _sep_.join(ilines)
+        oline = osep.join(ilines)
         olines = [oline]
 
         self.store_olines(olines)
@@ -2611,6 +2606,8 @@ if __name__ == "__main__":
 
 
 # lil todo's
+
+# todo0: '|pb sort' and '|pb .sort' but with -f, --ignore-case
 
 # todo0: the |pb .eng should give us metric units in place of 'e' and 'e-'
 
