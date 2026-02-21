@@ -3,16 +3,19 @@
 
 Beware, this is a technical rant: strong opinions & working code
 
-Contents
+### Contents
 
-- [The Problem and Our Solution](#the-problem-and-our-solution)
-  - [Show the Problem](#show-the-problem)
-  - [Show our Solution](#show-our-solution)
-  - [Show this Problem left broken by 'ls -lh'](#show-this-problem-left-broken-by-ls--lh)
-  - [Say How Good a Well-Clipped Number Looks](#say-how-good-a-well-clipped-number-looks)
-  - [Say When to Choose Ceils over Floors](#say-when-to-choose-ceils-over-floors)
-- [Why fear the bad keming](#why-fear-the-bad-keming)
-- [Fix Known, and Not Yet Well Known](#fix-known-and-not-yet-well-known)
+- [Why we care](#why-we-care)
+- [The problem and our solution](#the-problem-and-our-solution)
+  - [Show the problem](#show-the-problem)
+  - [Show our solution](#show-our-solution)
+  - [Show this problem left broken by 'ls -lh'](#show-this-problem-left-broken-by-ls--lh)
+  - [Spell out the four fixes](#spell-out-the-four-fixes)
+  - [Say when to choose Ceils over Floors](#say-when-to-choose-ceils-over-floors)
+- [One main takeway](#one-main-takeway)
+  - [What you can have now, for the asking](#what-you-can-have-now-for-the-asking)
+  - [Why fear the bad keming tomorrow](#why-fear-the-bad-keming-tomorrow)
+- [Fix known, and not yet well known](#fix-known-and-not-yet-well-known)
   - [Fix for Ints](#fix-for-ints)
     - [Ints of Python](#ints-of-python)
     - [Ints of Google Sheets](#ints-of-google-sheets)
@@ -22,15 +25,28 @@ Contents
     - [Floats of Google Sheets](#floats-of-google-sheets)
     - [Floats of Microsoft Excel](#floats-of-microsoft-excel)
     - [Traps laid for you by Google Sheets \& Microsoft Excel](#traps-laid-for-you-by-google-sheets--microsoft-excel)
-      - [Numbers Too Close to Zero for Them](#numbers-too-close-to-zero-for-them)
+      - [Numbers too close to zero for them](#numbers-too-close-to-zero-for-them)
       - [Not-a-Number](#not-a-number)
 - [Future Work](#future-work)
 
 
-# The Problem and Our Solution
+# Why we care
+
+Last century's conventions for formatting numbers suit analog engineering plenty well. But for the digital age, we need new conventions
+
+What's changed is that we now commonly count more than 1000 digital things at a time
+
+Like you might have 2 billion (2e9), while she has 3 billion (3e9), and he has just 74. Well, in that corner, it's an unhelpful lie for you to say he has 0. We practically always need you to say he has more than zero
+
+That's the first tiny distinction that often matters. But we've gone and looked for more. We've found four distinctions we need your formatting to make, lest you lead us astray, into miscounting digital things
+
+Your digital numbers have grown big. You making time to format them well matters now
 
 
-## Show the Problem
+# The problem and our solution
+
+
+## Show the problem
 
 
 A familiar Terminal Shell Experience is
@@ -75,7 +91,7 @@ But have your eyes learned to prefer
 
 ?
 
-## Show our Solution
+## Show our solution
 
 The big difference here is in the Byte Counts, classically spoken as precise decimal int literals
 
@@ -133,7 +149,7 @@ total        72
 You don't have to make time to read through the meaningless detail. You can decline to struggle. You can make it a job for the Bots to clip away the meaningless detail for you
 
 
-## Show this Problem left broken by 'ls -lh'
+## Show this problem left broken by 'ls -lh'
 
 Linux & macOS do try to help you in just this way, by offering 'ls -lh' alongside 'ls -l'. But they get it significantly wrong
 
@@ -186,7 +202,7 @@ They come out talking bizarrely far away from the actual 3.65k we're actually lo
 Tools like last century's 'ls -h' do me wrong, by giving me 2 digits and stopping there. All the while the only 3652 known to me is the 3.65e3. I need its name spoken in that familiar way. Aye fair enough, in real life I autocorrect their wrongs on the fly, but I'm posting this rant because I do wish they'd stop shoving their wrongs at me. Take out their own trash, why can't they. Keep it away from me
 
 
-## Say How Good a Well-Clipped Number Looks
+## Spell out the four fixes
 
 You have spoken a well-clipped number when you speak the name I know best of a number that counts things
 
@@ -203,7 +219,7 @@ You stop yourself from sending me wrong. You don't round up to some irrelevant i
 You make it easy for me to read what you say correctly, and you make it hard for me to read it wrong
 
 
-## Say When to Choose Ceils over Floors
+## Say when to choose Ceils over Floors
 
 People who study Maths talk of a "Floor" when you slam a Float down to the next smaller Int, and a "Ceil" when you slam the Float up to the next larger Int. They speak their word Ceil as shorthand for the word picture of a ceiling above you
 
@@ -222,7 +238,21 @@ Can we wake up and meet our moment? We all know we actually don't involve you or
 Do you get it? You see how our first century of Software Traditions for clipping numbers lead us astray?
 
 
-# Why fear the bad keming
+# One main takeway
+
+
+## What you can have now, for the asking
+
+You can have "correct at a glance" precision. Ask for it persistently, and they will eventually come and give it to you
+
+| Format    | 3652   | 104999 | 288   | Precision  | Acuity |
+|-----------|--------|--------|-------|----------- |--------|
+| ls -l     | 3652   | 104999 | 288   | Too Much   | Weak   |
+| ls -lh    | 3.6K   | 103K   | 288B  | Too Litle  | Weak   |
+| pb eng    | 3.65e3 | 10.4e3 | 288   | Helpful    | Strong |
+
+
+## Why fear the bad keming tomorrow
 
 Beware
 
@@ -231,7 +261,7 @@ If you don't yet feel their bugs are bugs, please stop. Give yourself a moment t
 I can only teach you to start seeing, I can't teach you to stop. I can't even stop myself seeing. It'll be as if I were teaching you to notice bad [keming](https://en.wikipedia.org/wiki/Kerning) on street signs. Learning to see more wrong will poison your life. It's only worth it if you're building with numbers, or getting rewarded in some other way to work well with numbers. Only then do you need to learn to reject lying numbers quickly, simply, and accurately. As we do here
 
 
-# Fix Known, and Not Yet Well Known
+# Fix known, and not yet well known
 
 
 To get your numbers well-clipped, you can download & run our Code, or you can write your own Code. To help you write your own, or to help you trust ours, we show our Code below
@@ -391,7 +421,7 @@ Like Python says the 'time.time()' difference between two moments is a float
 0.0001989060512
 >>> print(type(t1t0).__name__.title())
 Float
->>> 
+>>>
 ```
 
 When you count a thing as Float, then I still need our only "0" to be the true actual positive and negative zeroes, not the other numbers near to them. Happily, yes we can tell Python to be this careful in how it speaks to us
@@ -466,10 +496,10 @@ def _clip_positive_float_(f: float) -> str:
 
     # "{:.3g}".format(9876) and "{:.3g}".format(1006) talk like this but say 'e+0' & round up
 
-    # math.trunc leaps too far, all the way down to the int ceil/ floor
+    # math.trunc leaps too far, all the way down to the int ceil/ fl∏oor
 ```
 
-You could claim copyright on the arbitrary 0.000123 fudge factor in here. The answers come out the same for most choices of what to add. You very nearly only need to add something nonzero and smaller than one. Like you could add in your birthday, if you feel like it. Like you could add Tank Man's 1989-06-05 12th Hour, spoke of as 0.1989060512
+You could claim copyright on the arbitrary 0.000123 fudge factor in here. The answers come out the same for most choices of what to add. You very nearly only need to add something nonzero and smaller than one. Like you could add in a significant date-time, if you want. Like you could add Tank Man's 1989-06-05 12th Hour, spoke of as 0.1989060512
 
 ### Floats of Google Sheets
 
@@ -509,7 +539,7 @@ You can see our Excel Simd Formula above, presented as our Simd Formula for g Sh
 Pitfalls, with spikes in them
 
 
-#### Numbers Too Close to Zero for Them
+#### Numbers too close to zero for them
 
 g Sheets will corrupt very small input of '1e-999' or '-1e-999', silently substituting an actual zero. By contrast, it does at least poison very large input of '1e999' or '-1e999'
 
