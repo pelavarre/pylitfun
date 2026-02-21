@@ -11,7 +11,7 @@ Beware, this is a technical rant: strong opinions & working code
   - [Show our solution](#show-our-solution)
   - [Show this problem left broken by 'ls -lh'](#show-this-problem-left-broken-by-ls--lh)
   - [Say what fix solves the four bugs](#say-what-fix-solves-the-four-bugs)
-  - [Say when to choose Ceils over Floors](#say-when-to-choose-ceils-over-floors)
+    - [And still give me Ceils for Sums of Measure plus Margin](#and-still-give-me-ceils-for-sums-of-measure-plus-margin)
 - [One main takeway](#one-main-takeway)
   - [What you can have now, for the asking](#what-you-can-have-now-for-the-asking)
   - [Why fear the bad keming tomorrow](#why-fear-the-bad-keming-tomorrow)
@@ -223,17 +223,15 @@ I'm saying you have spoken **a well-clipped number** when you speak the name I k
 You make it easy for me to read what you say correctly, and you make it hard for me to read it wrong
 
 
-## Say when to choose Ceils over Floors
+### And still give me Ceils for Sums of Measure plus Margin
 
-People who study Maths talk of a "Floor" when you slam a Float down to the next smaller Int, and a "Ceil" when you slam the Float up to the next larger Int. They speak their word Ceil as shorthand for the word picture of a ceiling above you
+And doesn't rounding UP matter too, in the digital age? Yes it does. But here's how
 
-Above we talk through how Floors help you build
+To speak clearly, we'll start by borrowing two words from Maths. Digital Maths people talk of a "Floor" when you slam a Float down to the next smaller Int, and a "Ceil" when you slam the Float up to the next larger Int. They speak their word Ceil as shorthand for the word picture of a ceiling above you
 
-Is there a place for Ceils to help you build? Yes there is. But these Ceils are the Ceils of Sums, never the Ceils of Measures. Each helpful Ceil is the Ceil of the Sum of a Measure plus Margin
+Ceils matter, yes they matter. But they work differently. Ceils are for sums of measure plus margin
 
-Like to make a space for a Count of Things, then I have to add Margin to the Count. and then I round this Sum up to the next whole Allocation
-
-Like there's practically never any real need for speaking of 9999 as 10000, because that Margin is tiny
+Like when I make a space for a Count of Things, then I have to add Margin to the Count. and then I round this Sum up to the next whole Allocation. Like there's practically never any real need for speaking of 9999 as 10000, because that Margin is tiny 
 
 You can't just tweak around a Count for me, not while you commit fully to only showing up to help me and never to hurt me. You need me to tell you how much Margin I need us to add. And you need me to tell you if my Allocations are 4Ki or 1Ki or 0.5Ki or whatever. Only then can you know how to round up our Counts well, to a Ceil of a good choice of Sum
 
