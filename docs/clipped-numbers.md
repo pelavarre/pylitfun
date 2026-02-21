@@ -1,162 +1,159 @@
 <!-- omit in toc -->
 # clipped-numbers.md
 
-Contents
-
-- [Show \& tell](#show--tell)
-  - [Show](#show)
-  - [First Tell](#first-tell)
-  - [Second Tell](#second-tell)
-  - [What is a Well Clipped Number?](#what-is-a-well-clipped-number)
-  - [How much Space do I need?](#how-much-space-do-i-need)
-- [Fixed for Ints](#fixed-for-ints)
-  - [Ints of Python](#ints-of-python)
-  - [Ints of Google Sheets](#ints-of-google-sheets)
-  - [Ints of Microsoft Excel](#ints-of-microsoft-excel)
-- [Fixed for Floats](#fixed-for-floats)
-  - [Floats of Python](#floats-of-python)
-  - [Floats of Google Sheets](#floats-of-google-sheets)
-  - [Floats of Microsoft Excel](#floats-of-microsoft-excel)
-  - [Traps laid for you by Google Sheets \& Microsoft Excel](#traps-laid-for-you-by-google-sheets--microsoft-excel)
-    - [Near Infinities](#near-infinities)
-    - [Not-a-Number](#not-a-number)
-- [Links](#links)
-
-
-# Show & tell
-
 Beware, this is a technical rant: strong opinions & working code
 
+Contents
 
-## Show
+- [The Problem and Our Solution](#the-problem-and-our-solution)
+  - [Show the Problem](#show-the-problem)
+  - [Show our Solution](#show-our-solution)
+  - [Show this Problem left broken by 'ls -lh'](#show-this-problem-left-broken-by-ls--lh)
+  - [Say How Good a Well-Clipped Number Looks](#say-how-good-a-well-clipped-number-looks)
+  - [Say When to Choose Ceils over Floors](#say-when-to-choose-ceils-over-floors)
+- [Why fear the bad keming](#why-fear-the-bad-keming)
+- [Fix Known, and Not Yet Well Known](#fix-known-and-not-yet-well-known)
+  - [Fix for Ints](#fix-for-ints)
+    - [Ints of Python](#ints-of-python)
+    - [Ints of Google Sheets](#ints-of-google-sheets)
+    - [Ints of Microsoft Excel](#ints-of-microsoft-excel)
+  - [Fix for Floats](#fix-for-floats)
+    - [Floats of Python](#floats-of-python)
+    - [Floats of Google Sheets](#floats-of-google-sheets)
+    - [Floats of Microsoft Excel](#floats-of-microsoft-excel)
+    - [Traps laid for you by Google Sheets \& Microsoft Excel](#traps-laid-for-you-by-google-sheets--microsoft-excel)
+      - [Numbers Too Close to Zero for Them](#numbers-too-close-to-zero-for-them)
+      - [Not-a-Number](#not-a-number)
+- [Future Work](#future-work)
 
 
-A familiar Terminal Shell Experience at a laptop's landscape display is
+# The Problem and Our Solution
+
+
+## Show the Problem
+
+
+A familiar Terminal Shell Experience is
 
 ```sh
-|| Permissions || Hardlinks || Owner || Group || Bytes || Date/ Time || Pathname ||
+|| ... || Bytes || Date/ Time || Pathname ||
 ```
 
 ```sh
 % ls -l
-total 64
--rw-r--r--@  1 jqdoe  staff   1378 Feb 14 09:10 0
--rw-r--r--@  1 jqdoe  staff    818 Feb 13 17:22 1
--rw-r--r--@  1 jqdoe  staff    716 Feb 13 17:22 2
-drwxr-xr-x  49 jqdoe  staff   1568 Feb 13 16:24 bin
-drwxr-xr-x   9 jqdoe  staff    288 Feb 14 09:05 docs
--rw-r--r--   1 jqdoe  staff   3652 Feb  7 18:46 Makefile
--rw-r--r--@  1 jqdoe  staff  10747 Feb  3 09:40 README.md
--rw-r--r--@  1 jqdoe  staff    282 Feb  1 12:32 requirements.txt
-drwxr-xr-x  51 jqdoe  staff   1632 Feb 13 16:24 sh
+...   1378 Feb 14 09:10 0
+...    818 Feb 13 17:22 1
+...    716 Feb 13 17:22 2
+...   1568 Feb 13 16:24 bin
+...    288 Feb 14 09:05 docs
+...   3652 Feb  7 18:46 Makefile
+...  10747 Feb  3 09:40 README.md
+...    282 Feb  1 12:32 requirements.txt
+...   1632 Feb 13 16:24 sh
 %
 ```
 
 But have your eyes learned to prefer
 
 ```sh
-|| Permissions || Hardlinks || Owner || Group || Bytes || Date/ Time || Pathname ||
+|| ... || Bytes || Date/ Time || Pathname ||
 ```
 
 ```sh
 % ls -l |pb eng replace columns
-total        64
--rw-r--r--@   1  jqdoe  staff  1.37e3  Feb  14  09:10  0
--rw-r--r--@   1  jqdoe  staff     818  Feb  13  17:22  1
--rw-r--r--@   1  jqdoe  staff     716  Feb  13  17:22  2
-drwxr-xr-x   49  jqdoe  staff  1.56e3  Feb  13  16:24  bin
-drwxr-xr-x    9  jqdoe  staff     288  Feb  14  09:05  docs
--rw-r--r--    1  jqdoe  staff  3.65e3  Feb   7  18:46  Makefile
--rw-r--r--@   1  jqdoe  staff  10.7e3  Feb   3  09:40  README.md
--rw-r--r--@   1  jqdoe  staff     282  Feb   1  12:32  requirements.txt
-drwxr-xr-x   51  jqdoe  staff  1.63e3  Feb  13  16:24  sh
+...  1.37e3  Feb  14  09:10  0
+...     818  Feb  13  17:22  1
+...     716  Feb  13  17:22  2
+...  1.56e3  Feb  13  16:24  bin
+...     288  Feb  14  09:05  docs
+...  3.65e3  Feb   7  18:46  Makefile
+...  10.7e3  Feb   3  09:40  README.md
+...     282  Feb   1  12:32  requirements.txt
+...  1.63e3  Feb  13  16:24  sh
 %
 ```
 
 ?
 
-## First Tell
+## Show our Solution
 
-The big difference here is in the Byte Counts, spoken as precise decimal int literals. Like so long as you do keep the Byte Counts detailed out to the last digit, then they are
+The big difference here is in the Byte Counts, classically spoken as precise decimal int literals
 
 ```sh
-% ls -l |pb && pb awk 5 |pb join --sep=' '
-1415 1378 818 716 1568 288 3652 10747 282 1632
+% ls -l |pb awk 5 join
+1415  1378  818  716  1568  288  3652  10747  282  1632
 %
 ```
 
-But who has time for that? When made more meaningful, these Numbers catch up some structure. They naturally split into two piles
+These numbers do naturally show us more structure, when made more meaningful. They split themselves apart, into two piles
 
-First the Small Numbers
+First the small numbers
 
 ```sh
-% ls -l |pb
-%
-
-% pb eng awk 5 split |grep -v e3 |pb join
+% ls -l |pb eng awk 5 split |grep -v e3 |pb join
 818  716  288  282
 %
 ```
 
-And also, separately, the Big Numbers
+And then, separately, the big numbers
 
 ```sh
-% pb eng awk 5 split |grep e3 |pb join
+% ls -l |pb eng awk 5 split |grep e3 |pb join
 1.41e3  1.37e3  1.56e3  3.65e3  10.7e3  1.63e3
 %
 ```
 
-Keep these Numbers inside their Rows, and then they easily split the Rows exactly across this same boundary
+Leave these numbers in their rows, and then they naturally split their rows across this same dividing line
 
-First the Rows of the Small Numbers
+First the rows of the big numbers
 
 ```sh
 % ls -l |pb eng replace columns |grep e3
--rw-r--r--@   1  jqdoe  staff  1.41e3  Feb  14  09:11  0
--rw-r--r--@   1  jqdoe  staff  1.37e3  Feb  14  09:10  1
-drwxr-xr-x   49  jqdoe  staff  1.56e3  Feb  13  16:24  bin
--rw-r--r--    1  jqdoe  staff  3.65e3  Feb   7  18:46  Makefile
--rw-r--r--@   1  jqdoe  staff  10.7e3  Feb   3  09:40  README.md
-drwxr-xr-x   51  jqdoe  staff  1.63e3  Feb  13  16:24  sh
+...  1.41e3  Feb  14  09:11  0
+...  1.37e3  Feb  14  09:10  1
+...  1.56e3  Feb  13  16:24  bin
+...  3.65e3  Feb   7  18:46  Makefile
+...  10.7e3  Feb   3  09:40  README.md
+...  1.63e3  Feb  13  16:24  sh
 %
 ```
 
-And then also the Rows of the Big Numbers
+And then, separately, the rows of the small numbers
 
 ```sh
 % ls -l |pb eng replace columns |grep -v e3
 total        72
--rw-r--r--@   1  jqdoe  staff     818  Feb  13  17:22  2
--rw-r--r--@   1  jqdoe  staff     716  Feb  13  17:22  3
-drwxr-xr-x    9  jqdoe  staff     288  Feb  14  09:05  docs
--rw-r--r--@   1  jqdoe  staff     282  Feb   1  12:32  requirements.txt
+...     818  Feb  13  17:22  2
+...     716  Feb  13  17:22  3
+...     288  Feb  14  09:05  docs
+...     282  Feb   1  12:32  requirements.txt
 %
 ```
 
+You don't have to make time to read through the meaningless detail. You can decline to struggle. You can make it a job for the Bots to clip away the meaningless detail for you
 
-## Second Tell
 
-Senior people will tell you that Linux & macOS do try to help you in just this way
+## Show this Problem left broken by 'ls -lh'
 
-That's true. Linux & macOS do mean well. But they get it significantly wrong. It looks to me like they stopped thinking, got stuck in the past, since 1998
+Linux & macOS do try to help you in just this way, by offering 'ls -lh' alongside 'ls -l'. But they get it significantly wrong
 
 ```sh
 % ls -lh
 total 72
--rw-r--r--@  1 jqdoe  staff   976B Feb 14 09:46 0
--rw-r--r--@  1 jqdoe  staff   1.4K Feb 14 09:11 1
--rw-r--r--@  1 jqdoe  staff   1.3K Feb 14 09:10 2
--rw-r--r--@  1 jqdoe  staff   818B Feb 13 17:22 3
-drwxr-xr-x  49 jqdoe  staff   1.5K Feb 13 16:24 bin
-drwxr-xr-x   9 jqdoe  staff   288B Feb 14 09:05 docs
--rw-r--r--   1 jqdoe  staff   3.6K Feb  7 18:46 Makefile
--rw-r--r--@  1 jqdoe  staff    10K Feb  3 09:40 README.md
--rw-r--r--@  1 jqdoe  staff   282B Feb  1 12:32 requirements.txt
-drwxr-xr-x  51 jqdoe  staff   1.6K Feb 13 16:24 sh
+...   976B Feb 14 09:46 0
+...   1.4K Feb 14 09:11 1
+...   1.3K Feb 14 09:10 2
+...   818B Feb 13 17:22 3
+...   1.5K Feb 13 16:24 bin
+...   288B Feb 14 09:05 docs
+...   3.6K Feb  7 18:46 Makefile
+...    10K Feb  3 09:40 README.md
+...   282B Feb  1 12:32 requirements.txt
+...   1.6K Feb 13 16:24 sh
 %
 ```
 
-The Column of Byte Counts they give you is
+You see? They give you a Column of malformed Byte Counts
 
 ```sh
 % ls -lh |pb eng awk 5 split |pb join
@@ -164,50 +161,89 @@ The Column of Byte Counts they give you is
 %
 ```
 
-Egregiously bad
+Four bugs
 
-Four wrong
+1 ) Do your eyes reliably pick "888" apart from "88B"?
 
-1 ) How old are your eyes? Do your eyes reliably pick out "888" from "88B"? Mine don't. I greatly dislike this waste of ink. I don't need a "B" on screen to tell me zero more digits are there. And half the time this "B" comes into my brain as a lie, as when saying "2888" where it pretends to say "288". Please make it stop
+Mine don't. And I don't need a "B" Suffix on screen to tell me there are no more digits there. This "B" Suffix is a waste of ink. And their "B" Suffix too often becomes a lie, like by almost saying "2888" when meaning to say "288" and a "B". Please make it stop
 
-2 ) And aye for sure I do appreciate the metric units:  k, M, G, etc to mean e3, e6, e8, etc. But then I feel annoyed as often as I notice they put an unconventional 'K' in place of the standard 'k'
+2 ) Have you already memorized the k, M, G, etc metric prefixes that mean e3, e6, e9, etc?
 
-3 ) And why can't they keep their metric units standard? We solved this late last century. We spelled out that Ki is 1024 and k is 1000. So our example of 3652 is more than 3.65k and more than 3.56Ki. But they distort this count. They count out what doesn't exist, by rounding this 3.56Ki up to 3.6Ki, and then they intentionally misspeak of it as '3.6K', weirdly far from our actual 3.65k
+Well and good, but if your memory is precise then you'll feel annoyed when you notice they put an unconventional upper 'K' in place of the standard lower 'k'
 
-4 ) And they recklessly chop off too many Digits, besides being slightly wrong. I practically always need to see 3 Digits to feel I know the size of the thing. 2 Digits is not enough, and 4 Digits is too many, but they give me 2 Digits and stop. The 3652 known to me is the 3.65e3. I need its name spoken in that familiar way
+3 ) Have you memorized the exact values of the metric prefixes?
 
-If you don't yet feel these wrongs are egregious, beware
+Yea well, they get these wrong too. I feel they stopped thinking. I'd say they got stuck in 1998, because it was 1999 when we solved this. We stood up then to spell out that Ki is 1024 and k is 1000
 
-I can only teach you to start seeing, I can't teach you to stop. It'll be like me teaching you to notice bad keming. Learning to see more wrong will poison your life. It's only worth it if you're building with numbers, or getting paid in some other way to work with numbers. Only then do you need to learn to reject lying numbers quickly, simply, and accurately. As we do here
+Like our particular example of 3652 is more than 3.65k and more than 3.56Ki. But they distort it. They go and count out what doesn't exist, by thinking of it as 3.56Ki rounded up to 3.6Ki, then intentionally misspeaking it as '3.6K'
+
+They come out talking bizarrely far away from the actual 3.65k we're actually looking at. They're unthinkingly, arbitrarily and misleadingly, rounded up to wrongly speak of the 3.6 that is 0.05 less than 3.65. Rounding UP to speak of LESS than. Grr
+
+4 ) How many digits do you need to see?
+
+2 digits is not enough, and 4 digits is too many, I am saying. Here I stand. How about for your eyes?
+
+Tools like last century's 'ls -h' do me wrong, by giving me 2 digits and stopping there. All the while the only 3652 known to me is the 3.65e3. I need its name spoken in that familiar way. Aye fair enough, in real life I autocorrect their wrongs on the fly, but I'm posting this rant because I do wish they'd stop shoving their wrongs at me. Take out their own trash, why can't they. Keep it away from me
 
 
-## What is a Well Clipped Number?
+## Say How Good a Well-Clipped Number Looks
 
-When you speak the name I know best of a number that works as a count of things, then I say you have spoken a well-clipped number
+You have spoken a well-clipped number when you speak the name I know best of a number that counts things
 
-You say 0 only to mean 0
+Sure, it's on me to learn the best names. But it's on you to speak the best names, and only the best names
 
-You don't say 0 to mean 1
+You say 0, but only to mean 0
 
-You don't waste ink on mentioning 'e+' or 'e0' or a trailing '.' or '.0' or '.00'. Instead, you show your respect for the time I spend reading every character of what you wrote. You hold back from giving me the kinds of extra characters that I never need
+You don't say 0 to mean 1, and you don't say 0 to mean a 1e-999 nonzero epsilon
+
+You don't waste ink on mentioning 'e+' or 'e0' or a trailing '.' or '.0' or '.00'. Instead, you show your proper respect for the time I'll be spending reading every character of what you wrote. You hold back from giving me the kinds of extra characters that I never need to read
 
 You stop yourself from sending me wrong. You don't round up to some irrelevant ideal of a rounder number. You do give me three digits and done, but you do it by backing off from demanding I give you credit for the last few things you counted. You never give me the lie of you having counted things that you never actually saw
 
-
-## How much Space do I need?
-
-People who study Maths talk of a "Floor" when you slam a Float down to the next smaller Int, and a "Ceil" when you slam the Float up to the next larger Int. Yes, yes, there is a place in Engineering and Science for Ceil's, not only for Floors
-
-But in the Engineering place for Ceil, there I also need Margin. When I'm involving myself in the careful allocation of Space, then I have to add Margin. I must round Counts plus Margin up to whole Allocations
-
-Ok. Now look back at our Software Traditions for clipping numbers. There's practically never any real need for speaking of 9999 as 10000, because that margin is tiny. You can't just fix up a Count for me, not while you commit to only showing up to help me and never to hurt me. You need me to tell you how much Margin I need us to add. And you need me to tell you if my Allocations are 4Ki or 1Ki or 0.5Ki or whatever. Only then can you know how to round up our Counts well
-
-And besides, it's 2026 now. We don't involve me personally in the careful allocation of Space anything like as often as we did in 1972. Let's wake up and meet our moment, why not
+You make it easy for me to read what you say correctly, and you make it hard for me to read it wrong
 
 
-# Fixed for Ints
+## Say When to Choose Ceils over Floors
 
-How I make 'ls -lh' say what it should mean in 2026 is
+People who study Maths talk of a "Floor" when you slam a Float down to the next smaller Int, and a "Ceil" when you slam the Float up to the next larger Int. They speak their word Ceil as shorthand for the word picture of a ceiling above you
+
+Above we talk through how Floors help you build
+
+Is there a place for Ceils to help you build? Yes there is. But these Ceils are the Ceils of Sums, never the Ceils of Measures. Each helpful Ceil is the Ceil of the Sum of a Measure plus Margin
+
+Like to make a space for a Count of Things, then I have to add Margin to the Count. and then I round this Sum up to the next whole Allocation
+
+Like there's practically never any real need for speaking of 9999 as 10000, because that Margin is tiny
+
+You can't just tweak around a Count for me, not while you commit fully to only showing up to help me and never to hurt me. You need me to tell you how much Margin I need us to add. And you need me to tell you if my Allocations are 4Ki or 1Ki or 0.5Ki or whatever. Only then can you know how to round up our Counts well, to a Ceil of a good choice of Sum
+
+Can we wake up and meet our moment? We all know we actually don't involve you or me personally in the careful allocation of Space anything like as often as we did in 1972. Now that's commonly a job for the Bots, not the work of living People
+
+Do you get it? You see how our first century of Software Traditions for clipping numbers lead us astray?
+
+
+# Why fear the bad keming
+
+Beware
+
+If you don't yet feel their bugs are bugs, please stop. Give yourself a moment to feel a fitting degree of fear
+
+I can only teach you to start seeing, I can't teach you to stop. I can't even stop myself seeing. It'll be as if I were teaching you to notice bad [keming](https://en.wikipedia.org/wiki/Kerning) on street signs. Learning to see more wrong will poison your life. It's only worth it if you're building with numbers, or getting rewarded in some other way to work well with numbers. Only then do you need to learn to reject lying numbers quickly, simply, and accurately. As we do here
+
+
+# Fix Known, and Not Yet Well Known
+
+
+To get your numbers well-clipped, you can download & run our Code, or you can write your own Code. To help you write your own, or to help you trust ours, we show our Code below
+
+The run-time costs of adopting this Code are near zero. This Code runs in scratch time, and requires nearly zero memory
+
+
+## Fix for Ints
+
+The fixes for Floats work for Ints too, but less simply. So you might prefer to first learn to trust the fixes for Ints. Like you can push them faster through Code Review
+
+How do I make 'ls -lh' say what it should mean in 2026? I drop out the old & misconceived -h, and push my counts through our '|pb eng' instead
 
 ```sh
 ls -l |pb eng replace columns
@@ -219,12 +255,13 @@ It's the '|pb eng' part that fixes up the counts
 ls -l |pb eng
 ```
 
-You can download & run our Code, or you can write your own. Below we show you our Code for this
+The 'replace columns' part turns the text into a conventional table of left-aligned texts and right-aligned numbers
 
 
-## Ints of Python
+### Ints of Python
 
 You can call on Python to clip a count back to three digits. You don't have to let it whisper lies into your eyes
+
 
 ```python
 def clip_int(i: int) -> str:
@@ -271,9 +308,9 @@ Correct Answers
 We're looking at correct answers here. Correct and nothing but correct. No "B" vs "8" visual confusions. Always unsigned metric exponents like "e3", never a scientific exponent like "e+2" or "e1" or "e-0". Powers of 10 as the Base of "e", not powers of the 10th power of 2 (1024). Three digits when you've got three digits, never chopped down so far as to show just two digits or one. And no empty busy ".00"s. Ink spent only when ink delivers value
 
 
-## Ints of Google Sheets
+### Ints of Google Sheets
 
-Google Sheets can clip numbers as well as Python
+Google Sheets can clip numbers as accurately as Python
 
 As you know, their oldest convention is to code up every new idea as a Simd Formula. Here is our idea, so coded
 
@@ -317,15 +354,15 @@ I don't understand why Google doesn't give out '=int.clip' as a standard part to
 Do you know someone who knows someone who can get 'int.clip' added as a standard part out there?
 
 
-## Ints of Microsoft Excel
+### Ints of Microsoft Excel
 
-Same deal in Microsoft Excel, as in Google Sheets
+Same deal on offer from Microsoft Excel, as with Google Sheets
 
-You can see our Excel Simd Formula above, presented as our Simd Formula for g Sheets
+You can see our Simd Formula for g Sheets above, this same Simd Formula works in Excel too
 
-Indeed, I first wrote this kind of thing for Excel, before I wrote it for g Sheets. The =Let and =Lambda Simd Formula Functions first reached me in a Microsoft Excel
+Myself, I first wrote this kind of thing for Excel, years before I tried it inside g Sheets. The =Let and =Lambda Simd Formula Functions first reached me in a Microsoft Excel
 
-My Feb/2026 pitch for how best to introduce =Let and =Lambda Formulae to new people is
+My Feb/2026 pitch for how best to introduce the =Let and =Lambda Simd Formulae to new people is
 > https://social.vivaldi.net/@pelavarre/116066365378672153
 
 But back in Jun/2021, I posted a similar welcome to work with =Let and =Lambda Formulae at
@@ -333,27 +370,31 @@ But back in Jun/2021, I posted a similar welcome to work with =Let and =Lambda F
 
 I don't understand why Microsoft doesn't give out '=int.clip' as a standard part to build with
 
-Do you know someone who knows someone who can get 'int.clip' added as a standard part out there? If Google & Microsoft insist on staying clueless, can we wake up Amazon & Apple?
+Do you know someone who knows someone who can get 'int.clip' added as a standard part out there? If Google & Microsoft resist, can we wake up Amazon & Apple?
 
 
-# Fixed for Floats
+## Fix for Floats
 
 
-## Floats of Python
+### Floats of Python
 
 Python counts many things as Ints, but some things as Floats
 
 Like Python says the 'time.time()' difference between two moments is a float
 
 ```python
->>> print(type(time.time() - time.time()).__name__.title())
+>>> import time
+>>> t0 = time.time()
+>>> t1 = time.time()
+>>> t1t0 = t1 - t0
+>>> print(t1t0)
+0.0001989060512
+>>> print(type(t1t0).__name__.title())
 Float
->>>
+>>> 
 ```
 
-When you count a thing as Floats, then I still want our only "0" to be the true actual positive and negative zeroes, not the other numbers near to them
-
-For sure, we can tell Python to be this careful in how it speaks to us
+When you count a thing as Float, then I still need our only "0" to be the true actual positive and negative zeroes, not the other numbers near to them. Happily, yes we can tell Python to be this careful in how it speaks to us
 
 ```python
 def clip_float(f: float) -> str:
@@ -428,7 +469,9 @@ def _clip_positive_float_(f: float) -> str:
     # math.trunc leaps too far, all the way down to the int ceil/ floor
 ```
 
-## Floats of Google Sheets
+You could claim copyright on the arbitrary 0.000123 fudge factor in here. The answers come out the same for most choices of what to add. You very nearly only need to add something nonzero and smaller than one. Like you could add in your birthday, if you feel like it. Like you could add Tank Man's 1989-06-05 12th Hour, spoke of as 0.1989060512
+
+### Floats of Google Sheets
 
 We solve g Sheets for Floats like so
 
@@ -454,31 +497,42 @@ Here you're watching us spend 14 Lines of Simd Formula to solve Floats and Ints.
 We did do some more homework here. We've shown ourselves that our two Formulae do agree across the Ints from -1000 to 1000, and across a few thousand Random Ints. As for Ints below -1000 and above 1000, we give ourselves inductive algebraic arguments as reasons to believe our Float and Int Formulae always do produce the same correct answers
 
 
-## Floats of Microsoft Excel
+### Floats of Microsoft Excel
 
 Same deal in Microsoft Excel, as in Google Sheets
 
 You can see our Excel Simd Formula above, presented as our Simd Formula for g Sheets
 
 
-## Traps laid for you by Google Sheets & Microsoft Excel
+### Traps laid for you by Google Sheets & Microsoft Excel
 
 Pitfalls, with spikes in them
 
 
-### Near Infinities
+#### Numbers Too Close to Zero for Them
 
 g Sheets will corrupt very small input of '1e-999' or '-1e-999', silently substituting an actual zero. By contrast, it does at least poison very large input of '1e999' or '-1e999'
 
 They say bounds checking vs small numbers is on you, not on them. They say it's on you to stay perfectly inside a range of like 1e-300 to 1e300 to keep answers reasonable
 
 
-### Not-a-Number
+#### Not-a-Number
 
-When you can get your Number to be their =NA() form of not-a-number, then our Formulae produce =NA() as their Results, not the String '#N/A, which would be more like our design choice for Python
+When you can get your Number to be their =NA() form of not-a-number, then our Formulae produce a conventional =NA() as our Result
+
+That's not the String '#N/A that would be more of a transliteration of the Python convention of looking always to narrow a Result Datatype to Str from Str | Float | None
 
 
+# Future Work
 
+Help people speak e3, e-3, e6, e-6, etc as metric prefixes of k, m, M, Greek μ, etc
+
+Help people find the Ceil of a Measure plus Margin, rounding up to their Unit of Choice
+
+Help people separate when to clip a number sharply, vs when to forward all the precision they've got. APIs for data interchange send out lots of precision for good reasons through standard file formats: .csv, .json, etc
+
+
+<!-- omit in toc -->
 # Links
 
 - [GitHub Repository](https://github.com/pelavarre/pylitfun)
@@ -488,6 +542,8 @@ When you can get your Number to be their =NA() form of not-a-number, then our Fo
 <!--
 
 Posted in Feb/2026 with Type Hints on the Monospaced Examples, because GitHub Md renders the Python & Excel & Sh Type Hints well, even while VsCode renders them horribly, especially in Lightmode
+
+GitHub Md also gives Horizontal Scrolling to Portrait Displays of our ```python Examples, vs VsCode renders them wrapped
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/docs/clipped-numbers.md
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git
