@@ -65,7 +65,9 @@ examples:
 #
 #   --raw-control-chars exactly like Shell 'less' in place of --raw-control-ch
 #
-#   expand md5sum nl rev sha256sum shuf tac  # and --start=1 default for |pb nl
+#   our ArgParse.Suppress work of |sort -f, |awk -F/, -vOFS=+ |nl -pba -v0
+#
+#   expand md5sum nl rev sha256sum shuf tac  # and --start=1 default for |nl
 #
 #   chars lines words  # vs str splitlines split
 #   data text  # vs bytes str
@@ -79,10 +81,6 @@ examples:
 #
 #   counter vs set
 #   tac vs rev
-#
-#   -F$sep  # --sep mainly for |pb awk, but also:  .slice join slice split
-#   -vOFS=$sep  # likewise
-#   -pba -v$start  # --start mainly for |pb nl, but also:  enumerate
 #
 #   our Small Bricks don't collide with our sh/ b d e f m v z
 #
@@ -172,15 +170,16 @@ class ShellGopher:
     words: list[str]  # the Shell Args that aren't Double-Dash Options and aren't Dash Options
     sep: str | None  # a separator, such as ' ' or ', '
     start: int | None  # a starting index, such as 0 or 1
+    ignorecase: int | None  # nonzero to ignore case
 
-    # Choose how to write
+    # Choose how to write the Bytes
 
     writing_pbcopy: bool | None  # Writing to PbCopy
     writing_file: bool | None  # Writing to ./0 after writing into |pbcopy
     writing_stdout: bool | None  # Writing to Stdout
     raw_control_chars: int | None  # False means translate Control Chars to ¤ when writing to Tty
 
-    # Read, modify, and write the Bytes
+    # Buffer the Bytes while editing, after reading, until writing
 
     data: bytes | None  # 1 Sponge of 1 File of Bytes
     bricks: list[ShellBrick]  # Code that works over the Sponge
@@ -211,6 +210,7 @@ class ShellGopher:
         self.words = list()
         self.sep = None
         self.start = None
+        self.ignorecase = None
 
         self.writing_pbcopy = None
         self.writing_file = None
@@ -254,18 +254,22 @@ class ShellGopher:
         if ns.verbose:
             verbose_because.append(True)
 
-        if ns.F is not None:  # -F mostly for |pb awk
+        #
+        if ns.ignore_case is not None:  # -f, --ignore-case, mostly for |sort
+            self.ignorecase = ns.ignore_case
+
+        if ns.F is not None:  # -F mostly for |awk
             if self.sep is None:
                 self.sep = str(ns.F)
 
-        if ns.pba is not None:  # -pba mostly for |pb nl
+        if ns.pba is not None:  # -pba mostly for |nl
             pass
 
-        if ns.vOFS is not None:  # -vOFS=OFS mostly for |pb awk
+        if ns.vOFS is not None:  # -vOFS=OFS mostly for |awk
             if self.sep is None:
                 self.sep = str(ns.vOFS)
 
-        # if ns.v is not None:  # -v=START mostly for |pb nl  # todo7:
+        # if ns.v is not None:  # -v=START mostly for |nl  # todo7:
         #     if self.start is None:
         #         self.start = int(ns.v, base=0)
 
@@ -310,13 +314,14 @@ class ShellGopher:
         parser.add_argument("--sep", metavar="SEP", help=sep_help)
         parser.add_argument("--start", metavar="START", help=start_help)
 
-        # Spell out what --help doesn't say
+        # Spell out what --help doesn't say  # like for |sort -f, etc
 
-        parser.add_argument("-F", help=argparse.SUPPRESS)  # |pb awk -F/
-        parser.add_argument("-pba", action="count", help=argparse.SUPPRESS)  # |pb nl -pba -v0
-        parser.add_argument("-vOFS", help=argparse.SUPPRESS)  # |pb awk vOFS=x
-        # parser.add_argument("-t", help=argparse.SUPPRESS)  # |pb column -t
-        # parser.add_argument("-v", help=argparse.SUPPRESS)  # |pb nl -pba -v0
+        parser.add_argument("-f", "--ignore-case", action="count", help=argparse.SUPPRESS)
+        parser.add_argument("-F", help=argparse.SUPPRESS)  # |awk -F/
+        parser.add_argument("-pba", action="count", help=argparse.SUPPRESS)  # |nl -pba -v0
+        parser.add_argument("-vOFS", help=argparse.SUPPRESS)  # |awk vOFS=x
+        # parser.add_argument("-t", help=argparse.SUPPRESS)  # |column -t
+        # parser.add_argument("-v", help=argparse.SUPPRESS)  # |nl -pba -v0
         parser.add_argument("--raw-control-chars", action="count", help=argparse.SUPPRESS)
 
         # Succeed
@@ -327,7 +332,7 @@ class ShellGopher:
         # alongside ns.raw_control_chars goes to ShellGopher.raw_control_chars
 
     def shell_args_take_in(self, argv_minus: list[str], parser: ArgDocParser) -> argparse.Namespace:
-        """Take in the Shell Args: first the Dash Options and then the Positional Args"""
+        """Take in the Shell Args: first the Double-Dash or Dash Options, then Positional Args"""
 
         options = list()
         posargs = list()
@@ -401,13 +406,8 @@ class ShellGopher:
                     newborn.posargs += (dot,)
                     continue
 
-                number = parse_number_else(word)  # takes float | int | bool
-                if number is not None:
-                    newborn.posargs += (number,)
-                    continue
-
                 text: str | None = None
-                if " " in word:
+                if " " in word:  # such as ' ' in '0 '
                     text = word  # takes str
                 else:
                     text = str_removeflanks_else(word, marks=",./")  # takes str
@@ -418,6 +418,11 @@ class ShellGopher:
                         bricks.append(newborn)
 
                     newborn.posargs += (text,)
+                    continue
+
+                number = parse_number_else(word)  # takes float | int | bool
+                if number is not None:
+                    newborn.posargs += (number,)
                     continue
 
                 # todo8: accept 'None' as a Pos Arg of a Shell Brick ?
@@ -662,7 +667,7 @@ class ShellBrick:
             #
             # Shell Single Words working with all the Bytes / Lines, or with each Line
             #
-            "expand": self.from_text_expandtabs,  # |pb expandtabs
+            "expand": self.from_text_expandtabs,  # |expandtabs
             "column": self.from_lines_do_columns,
             "columns": self.from_lines_do_columns,
             "cut": self.for_line_cut,
@@ -670,10 +675,10 @@ class ShellBrick:
             "less": self.from_text_do_lots_less,  # |k
             "md5sum": self.from_bytes_md5,
             "sha256sum": self.from_bytes_sha256,
-            "shuf": self.from_lines_shuffle,  # |pb shuffle
+            "shuf": self.from_lines_shuffle,  # |shuffle
             "strings": self.from_bytes_finditer,  # |LC_ALL=C strings -n 4
             "tail": self.for_line_tail,  # |t
-            "tac": self.from_lines_reversed,  # |r  # |pb reverse
+            "tac": self.from_lines_reversed,  # |r  # |reverse
             # "uniq": self.from_lines_uniq,  # differs from our |u  # |LC_ALL=C uniq  # todo8:
             #
             "awk": self.for_line_awk_nth_slice,  # |a
@@ -964,9 +969,9 @@ class ShellBrick:
 
         self.store_otext(otext)
 
-        # todo8: |pb decode --sep='?'
-        # todo8: |pb decode --sep=''
-        # todo8: option of |pb printable /?/ and --repl='?' and ='💥' for decode/ printable/ textruns
+        # todo8: |decode --sep='?'
+        # todo8: |decode --sep=''
+        # todo8: option of |printable /?/ and --repl='?' and ='💥' for decode/ printable/ textruns
 
     def from_bytes_md5(self) -> None:
         """hashlib.md5(bytes(sys.i)).hexdigest()"""
@@ -1049,8 +1054,8 @@ class ShellBrick:
         repl = "¤"  # U+00A4 'Currency Sign'
         iotext = iotext.replace(ReplacementCharacter, repl)
 
-        n = 4  # todo8: |pb strings -n 4
-        regex = (n * r"[ -~]") + r"[ -~]*"  # todo8: |pb strings --of=isprintable
+        n = 4  # todo8: |strings -n 4
+        regex = (n * r"[ -~]") + r"[ -~]*"  # todo8: |strings --of=isprintable
 
         olines = list()
         for m in re.finditer(regex, string=iotext):
@@ -1096,7 +1101,7 @@ class ShellBrick:
         self.store_otext(otext)
 
     def from_text_do_lots_less(self) -> None:
-        """_less_(list(sys.i)))"""  # todo8: better help of '|pb less'
+        """_less_(list(sys.i)))"""  # todo8: better help of '|less'
 
         idata = self.fetch_idata()
         itext = self.fetch_itext()
@@ -1247,7 +1252,7 @@ class ShellBrick:
         otext = itext.replace(stale, fresh)
         self.store_otext(otext)
 
-        # todo2: '|pb replace' of >= 2 pos args and --sep, a la '|pb append' and '|pb insert'
+        # todo2: '|replace' of >= 2 pos args and --sep, a la '|append' and '|insert'
 
     def from_text_split(self) -> None:
         """str(sys.i).split(sep)"""  # .sep may be None
@@ -1394,7 +1399,7 @@ class ShellBrick:
 
         self.store_olines(olines)
 
-        # todo0: do the l/r/just in '|pb columns' fail to grow more than 2 Columns leftward?
+        # todo0: do the l/r/just in '|columns' fail to grow more than 2 Columns leftward?
 
     def from_lines_len(self) -> None:
         """len(list(sys.i))"""
@@ -1407,24 +1412,36 @@ class ShellBrick:
     def from_lines_number_max(self) -> None:
         """max(list(sys.i), key=lambda _: float..., _)"""
 
+        sg = self.shell_gopher
+        ignorecase = sg.ignorecase
+
         ilines = self.fetch_ilines()
-
         icolumns = self._take_number_columns_(ilines, needy=True, strict=False)
-        m = max(zip(*icolumns, ilines))
-        oline = m[-1]
 
+        if not ignorecase:
+            m = max(zip(*icolumns, ilines))
+        else:
+            m = max(zip(*icolumns, ilines), key=lambda _: _[:-1] + (_[-1].casefold(), _[-1]))
+
+        oline = m[-1]
         olines = [oline]
         self.store_olines(olines)
 
     def from_lines_number_min(self) -> None:
         """min(list(sys.i), key=lambda _: float..., _)"""
 
+        sg = self.shell_gopher
+        ignorecase = sg.ignorecase
+
         ilines = self.fetch_ilines()
-
         icolumns = self._take_number_columns_(ilines, needy=True, strict=False)
-        m = min(zip(*icolumns, ilines))
-        oline = m[-1]
 
+        if not ignorecase:
+            m = min(zip(*icolumns, ilines))
+        else:
+            m = min(zip(*icolumns, ilines), key=lambda _: _[:-1] + (_[-1].casefold(), _[-1]))
+
+        oline = m[-1]
         olines = [oline]
         self.store_olines(olines)
 
@@ -1472,19 +1489,27 @@ class ShellBrick:
 
         self.store_olines(olines)
 
-        # todo8: alt isep for '|pb partition'
-        # todo8: alt osep for '|pb partition'
-        # todo8: '|pb rpartition'
+        # todo8: alt isep for '|partition'
+        # todo8: alt osep for '|partition'
+        # todo8: '|rpartition'
 
     def from_lines_number_sort(self) -> None:
         """list(sys.i).sort(key=lambda _: float..., _)"""
+
+        sg = self.shell_gopher
+        ignorecase = sg.ignorecase
 
         ilines = self.fetch_ilines()
 
         icolumns = self._take_number_columns_(ilines, needy=False, strict=False)
         sortables = list(zip(*icolumns, ilines))
-        sortables.sort()
-        olines: list[str] = list(oline for (_, oline) in sortables)
+
+        if not ignorecase:
+            sortables.sort()
+        else:
+            sortables.sort(key=lambda _: _[:-1] + (_[-1].casefold(), _[-1]))
+
+        olines: list[str] = list(_[-1] for _ in sortables)
 
         self.store_olines(olines)
 
@@ -1507,8 +1532,14 @@ class ShellBrick:
     def from_lines_sorted(self) -> None:
         """sorted(list(sys.i))"""
 
+        sg = self.shell_gopher
+        ignorecase = sg.ignorecase
+
         iolines = self.fetch_ilines()
-        iolines.sort()
+        if not ignorecase:
+            iolines.sort()
+        else:
+            iolines.sort(key=lambda _: _.casefold())
         self.store_olines(olines=iolines)
 
     def from_lines_sum(self) -> None:
@@ -1728,7 +1759,7 @@ class ShellBrick:
         """(_[:72] + ' ...') for _ in list(sys.i)"""
 
         x_wide = self._take_dot_or_posargs_as_x_wide_minus_(default=72, minus=0)
-        n = 5 if (x_wide < (5 + 1)) else x_wide - 5  # todo: '|pb cut' for extremely thin Screens
+        n = 5 if (x_wide < (5 + 1)) else x_wide - 5  # todo: '|cut' for extremely thin Screens
 
         ilines = self.fetch_ilines()
 
@@ -1803,10 +1834,10 @@ class ShellBrick:
         olines = list(_ for _ in ilines if _)
         self.store_olines(olines)
 
-        # todo0: add '|pb .if' to .rstrip before if
+        # todo0: add '|.if' to .rstrip before if
 
     def for_line_head(self) -> None:
-        """list(sys.i)[:9]"""  # todo8: better help for '|pb .head' and '|pb head -n'
+        """list(sys.i)[:9]"""  # todo8: better help for '|.head' and '|head -n'
 
         n = self._take_dot_or_posargs_as_y_high_minus_(default=9, minus=2)
 
@@ -1847,16 +1878,32 @@ class ShellBrick:
     def for_line_max(self) -> None:
         """max(list(sys.i))"""
 
+        sg = self.shell_gopher
+        ignorecase = sg.ignorecase
+
         ilines = self.fetch_ilines()
-        oline = max(ilines)
+
+        if not ignorecase:
+            oline = max(ilines)
+        else:
+            oline = max(ilines, key=lambda _: _.casefold())
+
         olines = [oline]
         self.store_olines(olines)
 
     def for_line_min(self) -> None:
         """min(list(sys.i))"""
 
+        sg = self.shell_gopher
+        ignorecase = sg.ignorecase
+
         ilines = self.fetch_ilines()
-        oline = min(ilines)
+
+        if not ignorecase:
+            oline = min(ilines)
+        else:
+            oline = min(ilines, key=lambda _: _.casefold())
+
         olines = [oline]
         self.store_olines(olines)
 
@@ -1925,7 +1972,7 @@ class ShellBrick:
         self.store_olines(olines)
 
     def for_line_tail(self) -> None:
-        """list(sys.i)[-9:]"""  # todo8: better help for '|pb .tail' and '|pb tail -n'
+        """list(sys.i)[-9:]"""  # todo8: better help for '|.tail' and '|tail -n'
 
         n = self._take_dot_or_posargs_as_y_high_minus_(default=9, minus=2)
 
@@ -2360,7 +2407,7 @@ def json_dumps_as_py(j: object) -> str:
     pylines.extend(object_pylines)
 
     pylines.append("")
-    pylines.append("print(json.dumps(j))  # from |pb .jq")
+    pylines.append("print(json.dumps(j))  # from |.jq")
 
     py = "\n".join(pylines) + "\n"
     return py
@@ -2607,9 +2654,7 @@ if __name__ == "__main__":
 
 # lil todo's
 
-# todo0: '|pb sort' and '|pb .sort' but with -f, --ignore-case
-
-# todo0: the |pb .eng should give us metric units in place of 'e' and 'e-'
+# todo0: the |.eng should give us metric units in place of 'e' and 'e-'
 
 # todo0: add a litprofile.py to run from ~/.zprofile
 # todo0: first up, tell me when Settings Json Backup has gone stale
@@ -2617,17 +2662,17 @@ if __name__ == "__main__":
 # todo0: debug
 # % pb awk 5 join --sep=' '
 #      plavarre plavarre
-# % pb awk 5 |pb join --sep=' '
+# % pb awk 5 |join --sep=' '
 # 1415 1378 818 716 1568 288 3652 10747 282 1632
 # %
 
-# todo0: split and cross-ref '|pb .max' '|pb .min' '|pb reverse' into Char-by-Char & Line-by-Line
+# todo0: split and cross-ref '|.max' '|.min' '|reverse' into Char-by-Char & Line-by-Line
 
 # todo0: into litpython.py, doc which Python Version we scraped Importable Names from
 # todo0: like rescrape from latest and mention that
 
-# todo0: |pb sub .pattern. .repl.
-# todo0: |pb remove .from.
+# todo0: |sub .pattern. .repl.
+# todo0: |remove .from.
 
 # todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
 
@@ -2647,7 +2692,7 @@ if __name__ == "__main__":
 # todo2: finish porting pelavarre/xshverb/ of bin/ k and of bin/ dt ht pq
 # todo2: dt as date && date -u && time
 
-# todo2: |pb translate .from. .to.
+# todo2: |translate .from. .to.
 
 # todo2: |eng '* 512' '1/_' to alter before reformatting
 
@@ -2677,14 +2722,14 @@ if __name__ == "__main__":
 
 # todo7: add Hp Calculator Words:  fix, sci, ...
 
-# todo7: |pb slice for --sep=None --start=0, still defaulting to NF{$NF}
-# todo7: |pb a raises IndexError for slice out of range, such as 4 rather than 4,5 or 4..4
-# todo7: |pb a --sep=None --start=1 implied
-# todo7: |pb a 2,4,1 is the 2..3  # |pb a 0 --start=1 takes 0 as 1..
-# todo7: |pb a 3.. 1..3 -4 2 3 4 0 0..  # |pb a 0 1..  # the 0.. is intact, not a join
-# todo7: |pb nl -pba -v1 implied
+# todo7: |slice for --sep=None --start=0, still defaulting to NF{$NF}
+# todo7: |a raises IndexError for slice out of range, such as 4 rather than 4,5 or 4..4
+# todo7: |a --sep=None --start=1 implied
+# todo7: |a 2,4,1 is the 2..3  # |a 0 --start=1 takes 0 as 1..
+# todo7: |a 3.. 1..3 -4 2 3 4 0 0..  # |a 0 1..  # the 0.. is intact, not a join
+# todo7: |nl -pba -v1 implied
 
-# todo7: block 0 1 2 3 as verbs after first verbs, take as ints, for |pb awk, for |pb expandtabs
+# todo7: block 0 1 2 3 as verbs after first verbs, take as ints, for |awk, for |expandtabs
 # todo7: but block ints/floats as first verbs
 # todo7: signed/ unsigned floats before ints before verbs
 # todo7: int ranges 1..4
@@ -2698,19 +2743,19 @@ if __name__ == "__main__":
 
 # todo8: brick helps
 
-# todo8: |pb expandtabs 2
+# todo8: |expandtabs 2
 # todo8: confusion in having 'pb --sep=-' work while 'pb split /-/' quietly doesn't
-# todo8: |pb textwrap.wrap textwrap.fill or some such
-# todo8: |pb fmt ... just to do |fmt, or more a la |fold -sw $W
+# todo8: |textwrap.wrap textwrap.fill or some such
+# todo8: |fmt ... just to do |fmt, or more a la |fold -sw $W
 # todo8: reject -t without |column
 # todo8: take -c at |cut, but don't require it, but do reject -c misplaced
-# todo8: trace |pb nl as '|nl -pba -v0', and accept the '-pba -v1' as input shline
-# todo8: |pb clean up -F$sep vs -F=$sep especially for |pb awk
+# todo8: trace |nl as '|nl -pba -v0', and accept the '-pba -v1' as input shline
+# todo8: |clean up -F$sep vs -F=$sep especially for |awk
 # todo8: reject -F misplaced
 # todo8: reject -v misplaced
 # todo8: reject -vOFS= misplaced
 
-# todo8: |wc -L into |pb .len .max, |pb split .len .max
+# todo8: |wc -L into |.len .max, |split .len .max
 
 # todo8: dir(str)
 
@@ -2722,21 +2767,21 @@ if __name__ == "__main__":
 # todo8: mess around with double/ single line spacing of \n or \n\n
 
 # todo8: add |uniq and |uniq -c because it's classic
-# todo8: |pb unexpand
+# todo8: |unexpand
 # todo8: str.ljust str.rjust str.center
-# todo8: |pb choice, vs |pb shuffle head -$N
+# todo8: |choice, vs |shuffle head -$N
 # todo8: more with 'comm' and 'paste' and ... ?
 
-# todo8: |pb sha256 -  # todo8: who gets the '-' as a pos arg?
+# todo8: |sha256 -  # todo8: who gets the '-' as a pos arg?
 # todo8: brief alias for stack peek/ dump at:  grep . ?
 
 # todo8: |1 or |1| and same across 0, 1, 2, 3
-# todo8: |pb _ like same _ as we have outside
+# todo8: |_ like same _ as we have outside
 
 #
 
 # todo9: adopt the complex -R, --RAW-CONTROL-CHARS from |less, not only the simple -r from |less
-# todo9: + mv 0 ... && pbpaste |pb upper |tee >(pbcopy) >./0
+# todo9: + mv 0 ... && pbpaste |upper |tee >(pbcopy) >./0
 # todo9: more than one of ("0", "1", "2", "3"), such as Shell ? while 'ls -C ?' is '0 1 2 3'
 
 # todo9: drop all the unhelped verbs?
