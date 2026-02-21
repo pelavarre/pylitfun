@@ -6322,7 +6322,7 @@ def clip_float(f: float) -> str:
     # never says '0' except to mean exactly precisely Float +0e0 or Int 0
     # never ends with '.' nor '.0' nor '.00' nor 'e+0'
 
-    # could return .clip_int for floats equal to ints, but doesn't
+    # could return .clip_int for Floats equal to Ints, but doesn't
 
 
 def _clip_positive_float_(f: float) -> str:
