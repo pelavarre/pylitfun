@@ -159,9 +159,9 @@ def scrape_frame(lines: list[str]) -> None:
     # Scrape the Tail Line
 
     line_n = lines[-1]
-    m0 = re.match(r"^[0-9]+ Sockets? in /var/folders/.*/T/[.]screen[.]$", string=line_n)
+    m0 = re.fullmatch(r"[0-9]+ Sockets? in /var/folders/.*/T/[.]screen[.]", string=line_n)
     if not m0:
-        m1 = re.match(r"^[0-9]+ Sockets? in /run/screen/S-.*[.]$", string=line_n)
+        m1 = re.fullmatch(r"[0-9]+ Sockets? in /run/screen/S-.*[.]", string=line_n)
         assert m1, repr(line_n)  # Linux
 
     # No Sockets found in /var/folders/6j/yj_0gg5d7dg02zhp0vwfx0580000gp/T/.screen.\n

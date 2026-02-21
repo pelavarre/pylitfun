@@ -343,9 +343,13 @@ class ShellGopher:
                 break
 
             if arg.startswith("-") and (arg != "-"):
-                options.append(arg)
-            else:
-                posargs.append(arg)
+                try:
+                    _ = int(arg, base=0)
+                except ValueError:
+                    options.append(arg)
+                    continue
+
+            posargs.append(arg)
 
         args = options + posargs
         ns = parser.parse_args_if(args)  # often prints help & exits zero
@@ -1758,7 +1762,7 @@ class ShellBrick:
     def for_line_cut(self) -> None:
         """(_[:72] + ' ...') for _ in list(sys.i)"""
 
-        x_wide = self._take_dot_or_posargs_as_x_wide_minus_(default=72, minus=0)
+        x_wide = self._take_dot_or_posargs_as_x_wide_minus_(default=249, minus=0)
         n = 5 if (x_wide < (5 + 1)) else x_wide - 5  # todo: '|cut' for extremely thin Screens
 
         ilines = self.fetch_ilines()
@@ -2653,6 +2657,9 @@ if __name__ == "__main__":
 
 
 # lil todo's
+
+# todo0: |pb g /SESS/ for the Python RegEx effect of |grep -ai -e /SESS/
+# todo0: |pb find /SESS/ for str.find of literal text
 
 # todo0: the |.eng should give us metric units in place of 'e' and 'e-'
 
