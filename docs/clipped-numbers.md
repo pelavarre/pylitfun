@@ -10,7 +10,7 @@ Beware, this is a technical rant: strong opinions & working code
   - [Show the problem](#show-the-problem)
   - [Show our solution](#show-our-solution)
   - [Show this problem left broken by 'ls -lh'](#show-this-problem-left-broken-by-ls--lh)
-  - [Spell out the four fixes](#spell-out-the-four-fixes)
+  - [Say what fix solves the four bugs](#say-what-fix-solves-the-four-bugs)
   - [Say when to choose Ceils over Floors](#say-when-to-choose-ceils-over-floors)
 - [One main takeway](#one-main-takeway)
   - [What you can have now, for the asking](#what-you-can-have-now-for-the-asking)
@@ -202,19 +202,23 @@ They come out talking bizarrely far away from the actual 3.65k we're actually lo
 Tools like last century's 'ls -h' do me wrong, by giving me 2 digits and stopping there. All the while the only 3652 known to me is the 3.65e3. I need its name spoken in that familiar way. Aye fair enough, in real life I autocorrect their wrongs on the fly, but I'm posting this rant because I do wish they'd stop shoving their wrongs at me. Take out their own trash, why can't they. Keep it away from me
 
 
-## Spell out the four fixes
+## Say what fix solves the four bugs
 
-You have spoken a well-clipped number when you speak the name I know best of a number that counts things
+Bug reports harm us while they talk only of what we got wrong
 
-Sure, it's on me to learn the best names. But it's on you to speak the best names, and only the best names
+What we need from a bug report is a fresh new vision of what we can do better, because we care about how I receive the numbers you format. We voluntell you to work harder on tuning up what you send me, until I do receive your numbers well
 
-You say 0, but only to mean 0
+Above I say only what we get wrong. Here I say what we can do better
 
-You don't say 0 to mean 1, and you don't say 0 to mean a 1e-999 nonzero epsilon
+I'm saying you have spoken **a well-clipped number** when you speak the name I know best of a number that counts things. It's on me to learn the best names, but it's on you to speak the best names, and only the best names. Specifically =>
 
-You don't waste ink on mentioning 'e+' or 'e0' or a trailing '.' or '.0' or '.00'. Instead, you show your proper respect for the time I'll be spending reading every character of what you wrote. You hold back from giving me the kinds of extra characters that I never need to read
+1 ) **Zero means Zero =>** You say 0, but only to mean 0
 
-You stop yourself from sending me wrong. You don't round up to some irrelevant ideal of a rounder number. You do give me three digits and done, but you do it by backing off from demanding I give you credit for the last few things you counted. You never give me the lie of you having counted things that you never actually saw
+2 ) **Zero doesn't mean Epsilon =>** You don't say 0 to mean 1, and you don't say 0 to mean a 1e-999 nonzero epsilon
+
+3 ) **Empty details fade away =>** You don't waste ink on mentioning 'e+' or 'e0' or a trailing '.' or '.0' or '.00'. Instead, you show your proper respect for the time I'll be spending reading every character of what you wrote. You hold back from giving me the kinds of extra characters that I never need to read
+
+4 ) **You give me my first three digits =>** You stop yourself from sending me wrong. You don't round up to some irrelevant ideal of a rounder number. You do give me three digits and done, but you do it by backing off from demanding I give you credit for the last few things you counted. You never give me the lie of you having counted things that you never actually saw
 
 You make it easy for me to read what you say correctly, and you make it hard for me to read it wrong
 
