@@ -18,17 +18,15 @@ Beware, this is a technical rant: strong opinions & working code
 - [Fix known, and not yet well known](#fix-known-and-not-yet-well-known)
   - [Fix for Ints](#fix-for-ints)
     - [Ints of Python](#ints-of-python)
-    - [Ints of Google Sheets](#ints-of-google-sheets)
-    - [Ints of Microsoft Excel](#ints-of-microsoft-excel)
+    - [Ints of Google Sheets or Microsoft Excel](#ints-of-google-sheets-or-microsoft-excel)
   - [Fix for Floats](#fix-for-floats)
     - [Floats of Python](#floats-of-python)
-    - [Floats of Google Sheets](#floats-of-google-sheets)
+    - [Floats of Google Sheets or Microsoft Excel](#floats-of-google-sheets-or-microsoft-excel)
       - [Do they know you need this?](#do-they-know-you-need-this)
-    - [Floats of Microsoft Excel](#floats-of-microsoft-excel)
       - [Provenance](#provenance)
-    - [Traps laid for you by Google Sheets \& Microsoft Excel](#traps-laid-for-you-by-google-sheets--microsoft-excel)
-      - [Numbers too close to zero for them](#numbers-too-close-to-zero-for-them)
-      - [Not-a-Number](#not-a-number)
+    - [Traps laid for you](#traps-laid-for-you)
+      - [Numbers too close to zero](#numbers-too-close-to-zero)
+      - [Not-a-Number in Google Sheets and Microsoft Excel](#not-a-number-in-google-sheets-and-microsoft-excel)
 - [Future Work](#future-work)
 
 
@@ -235,7 +233,7 @@ To speak clearly, we'll start by borrowing two words from Maths. Digital Maths p
 
 Ceils matter, yes they matter. But they work differently. Ceils are for sums of measure plus margin
 
-Like when I make a space for a Count of Things, then I have to add Margin to the Count. and then I round this Sum up to the next whole Allocation. Like there's practically never any real need for speaking of 9999 as 10000, because that Margin is tiny 
+Like when I make a space for a Count of Things, then I have to add Margin to the Count. and then I round this Sum up to the next whole Allocation. Like there's practically never any real need for speaking of 9999 as 10000, because that Margin is tiny
 
 You can't just tweak around a Count for me, not while you commit fully to only showing up to help me and never to hurt me. You need me to tell you how much Margin I need us to add. And you need me to tell you if my Allocations are 4Ki or 1Ki or 0.5Ki or whatever. Only then can you know how to round up our Counts well, to a Ceil of a good choice of Sum
 
@@ -331,7 +329,7 @@ def clip_int(i: int) -> str:
     # -120789 --> -120e3, etc
 ```
 
-Our code produces correct Int answers. Our code here formats Int Counts to speak only truths
+Our code produces correct Int answers. Our code here formats Int Counts humanely, to speak only truths into my eyes
 
 ```python
 (0, "0"),
@@ -345,12 +343,13 @@ Our code produces correct Int answers. Our code here formats Int Counts to speak
 ```
 
 
-### Ints of Google Sheets
+### Ints of Google Sheets or Microsoft Excel
 
-Google Sheets can clip Ints as accurately as Python
+Google Sheets and Microsoft Excel can clip Ints as accurately as Python
 
 As you know, their oldest convention is to code up every new idea as a Simd Formula. Here is our idea, so coded. You can download and run this. This code picks out a leading negative sign, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits.
 
+This same code works just as well in both Microsoft Excel and in Google Sheets
 
 ```excel
 =IF(A1=0, "0",
@@ -369,30 +368,23 @@ As you know, their oldest convention is to code up every new idea as a Simd Form
 )
 ```
 
-Put this code into a g Sheet, and we can contrast your results with their defaults. Their default is to speak the larger Ints with a reckless excess of precision
+Put this code into a Google Sheet or Excel Sheet, and we can contrast your results with their defaults. Their default is to speak the larger Ints with a reckless excess of precision
 
 ```
 '0 '9 '999  '9000 '9800 '9870 '9876
 ```
 
-Our code tells the g Sheet to speak with more consideration for your true needs and fading eyesight
+Our code tells the Sheet to speak with more consideration for your true needs and fading eyesight
 
 ```
 '0 '9 '999  '9e3 '9.8e3 '9.87e3 '9.87e3
 ```
 
-And you can tell g Sheets to give the name 'int.clip' to this Formula so as to call your code far more directly and clearly
+And you can tell Sheet to give the name 'int.clip' to this Formula so as to call your code far more directly and clearly
 
 ```excel
 =int.clip(9876)  # '9.87e3
 ```
-
-
-### Ints of Microsoft Excel
-
-Same deal on offer from Microsoft Excel, as with Google Sheets
-
-As with Python and Google Sheets, so now Microsoft Excel. You can download and run this. Our Simd Formula works the same in Microsoft Excel as in Google Sheets. It picks out a leading negative sign, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits.
 
 
 ## Fix for Floats
@@ -416,9 +408,9 @@ Float
 >>>
 ```
 
-When you count a thing as Float, then I still need you to format your Float Count carefully to speak only truths, just like I need you to format your Int Counts carefully to speak only truths
+When you count a thing as Float, then I still need you to format your Float Count carefully to speak only truths into my eyes, just like I need you to format your Int Counts carefully to speak only truths into my eyes
 
-I need your formatting of Floats to meet specs like speak "0" to only mean actual positive and negative zeroes, not epsilons. I need your format to not waste ink on speaking of "e0" and of "." and ".0" and ".00". The code here meets all the same specs as the Python we wrote for formatting Int Counts, but solves both Int Counts and Float Counts
+Our code here meets all the same specs for humane truth-speaking formats as does the Python we wrote for formatting Int Counts, but our code here solves both Int Counts and Float Counts
 
 ```python
 def clip_float(f: float) -> str:
@@ -495,7 +487,7 @@ def _clip_positive_float_(f: float) -> str:
 
 You could claim copyright on your revision of our arbitrary 0.000123 fudge factor in here. The answers come out the same for most choices of what to add. You very nearly only need to add something nonzero and smaller than one. Like you could add in a significant date-time, if you want. Like you could add Tank Man's 1989-06-05 12th Hour, spoke of as 0.1989060512
 
-Our code produces correct Float answers. Our code here formats Float Counts and Int Counts to speak only truths
+Our code here produces correct Float answers. Our code here formats Float Counts and Int Counts humanely, to speak only truths into my eyes
 
 ```python
 (1e-4, "100e-6"),  # not '0.0001'  # not '0.000'
@@ -524,11 +516,14 @@ Our code produces correct Float answers. Our code here formats Float Counts and 
 (float("nan"), "NaN"),  # not 'nan'
 ```
 
-### Floats of Google Sheets
 
-Google Sheets can clip Floats as accurately as Python
+### Floats of Google Sheets or Microsoft Excel
 
-Our Simd Formula here does the same kind of work as the Simd Formula we wrote to format Ints, and again in just 14 Lines of Code. But this Formula works for both Ints and Floats.
+Google Sheets and Microsoft Excel can clip Floats about as accurately as Python
+
+Our Simd Formula here does the same kind of work as the Simd Formula we wrote above to format Ints, and does this work in 14 Lines of Code, about as simply as in the 14 Lines of Code we wrote for Ints. But this Formula works for both Ints and Floats.
+
+This same code works just as well in both Microsoft Excel and in Google Sheets
 
 ```excel
 =IF(A1 = 0, "0",
@@ -547,7 +542,7 @@ LET(
 )
 ```
 
-Put this code into a g Sheet, and we can contrast your results with their defaults. Their default is to speak the larger and smaller Floats with a reckless excess of precision
+Put this code into a Google Sheet or Excel Sheet, and we can contrast your results with their defaults. Their default is to speak the larger and smaller Floats with a reckless excess of precision
 
 ```
 '0.001 '0.0001 '0.00001  '9000 '9870
@@ -567,44 +562,49 @@ And you can tell g Sheets to give the name 'float.clip' to this Formula so as to
 
 #### Do they know you need this?
 
-I don't understand why Google doesn't give out '=float.clip' as a standard part to build with. Do you know someone who knows someone who can get 'float.clip' added as a standard part of g Sheets? If Google & Microsoft resist, can we wake up Amazon & Apple?
-
-
-### Floats of Microsoft Excel
-
-Same deal in Microsoft Excel, as in Google Sheets
-
-As with Python and Google Sheets, so now Microsoft Excel. You can download and run this. Our Simd Formula works the same in Microsoft Excel as in Google Sheets. It picks out a leading negative sign, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits.
-
-Same as with g Sheets, you can tell Excel to give the name 'float.clip' to this Formula so as to call your code far more directly and clearly
+I don't understand why Google & Microsoft don't give out '=float.clip' as a standard part to build with. Do you know someone who knows someone who can get 'float.clip' added as a standard part of g Sheets? If Microsoft & Google resist, can we wake up Amazon & Apple?
 
 
 #### Provenance
 
-Myself, I first wrote this kind of thing for Excel, years before I tried it inside g Sheets. The =Let and =Lambda Simd Formula Functions first reached me in a Microsoft Excel
+Myself, I first wrote =Let and =Lambda Simd Formulae for Microsoft Excel, years before I tried them inside of Google Sheets. The =Let and =Lambda Simd Formula Functions first reached me in a Microsoft Excel
 
 My Feb/2026 pitch for how best to introduce the =Let and =Lambda Simd Formulae to new people is
 > https://social.vivaldi.net/@pelavarre/116066365378672153
 
-But back in Jun/2021, I posted a similar welcome to work with =Let and =Lambda Formulae at
+I think that's the best I've got. I rewrote it from a copy of the onboarding welcome I posted in Jun/2021 as
 > https://github.com/pelavarre/like-py-xlsx/blob/main/README.md
 
-I don't understand why Microsoft doesn't give out '=float.clip' as a standard part to build with. Do you know someone who knows someone who can get 'float.clip' added as a standard part out there? If Microsoft & Google resist, can we wake up Amazon & Apple?
 
-
-### Traps laid for you by Google Sheets & Microsoft Excel
+### Traps laid for you
 
 Pitfalls, with spikes in them
 
 
-#### Numbers too close to zero for them
+#### Numbers too close to zero
 
-g Sheets will corrupt very small input of '1e-999' or '-1e-999', silently substituting an actual zero. By contrast, it does at least poison very large input of '1e999' or '-1e999'
+Python and Google Sheets and Microsoft Excel will corrupt a very small input of '1e-999' or '-1e-999', by silently substituting an actual zero. By contrast, they do at least poison very large inputs of positive '1e999' or negative '-1e999'
 
-They say bounds checking vs small numbers is on you, not on them. They say it's on you to stay perfectly inside a range of like 1e-300 to 1e300 to keep answers reasonable
+That is, they say the bounds checking of the very smallest numbers is on you, not on them
+
+They say it's on you to stay perfectly inside a range of like 1e-300 to 1e300 to keep answers reasonable
+
+A Python example of unreasonable is
+
+    >>> repr(7e-324)[0]
+    '5'
+    >>> 7e-324
+    5e-324
+    >>> 3e-324
+    5e-324
+    >>> 2e-324
+    0.0
+    >>>
+
+The Oct/1985 IEEE 645 Standard for Floating-Point Arithmetic shoves on them to work this way. I sure can argue it's due for an update
 
 
-#### Not-a-Number
+#### Not-a-Number in Google Sheets and Microsoft Excel
 
 When you can get your Number to be their =NA() form of not-a-number, then our Formulae produce a conventional =NA() as our Result
 
