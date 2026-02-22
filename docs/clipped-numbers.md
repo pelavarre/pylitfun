@@ -11,7 +11,7 @@ Beware, this is a technical rant: strong opinions & working code
   - [Show our solution](#show-our-solution)
   - [Show this problem left broken by 'ls -lh'](#show-this-problem-left-broken-by-ls--lh)
   - [Say what fix solves the four bugs](#say-what-fix-solves-the-four-bugs)
-  - [You might find more peace, if you don't accept these bugs](#you-might-find-more-peace-if-you-dont-accept-these-bugs)
+  - [You might find more peace if you don't accept these bugs](#you-might-find-more-peace-if-you-dont-accept-these-bugs)
 - [One main takeaway](#one-main-takeaway)
 - [Fixes known, and not yet well known](#fixes-known-and-not-yet-well-known)
   - [Fix for Ints](#fix-for-ints)
@@ -27,7 +27,7 @@ Beware, this is a technical rant: strong opinions & working code
   - [Not-a-Number in Google Sheets and Microsoft Excel](#not-a-number-in-google-sheets-and-microsoft-excel)
   - [You've got a friend](#youve-got-a-friend)
 - [Future Work](#future-work)
-  - [Detail on why trust our Simd Formula for Floats](#detail-on-why-trust-our-simd-formula-for-floats)
+  - [Detail on why trust our Simd Formula for floats](#detail-on-why-trust-our-simd-formula-for-floats)
   - [Detail on when to round up, not clip](#detail-on-when-to-round-up-not-clip)
     - [Detail on why rounding up well for us is hard](#detail-on-why-rounding-up-well-for-us-is-hard)
 
@@ -38,9 +38,9 @@ Last century's conventions for formatting numbers suit analog engineering plenty
 
 What's changed is that we now commonly count more than 1000 digital things at a time
 
-Like you might have 2 billion (2e9), while she has 3 billion (3e9), and he has just 74. Well, in that corner, it's an unhelpful lie for you to say he has 0. We practically always need you to say he has more than zero
+Like suppose you have 2 billion (2e9), while she has 3 billion (3e9), and he has just 74. It's then an unhelpful lie for you to say he has 0. We practically always need you to say he has more than zero. We need you to mention the wide range of counts made, when the range is wide
 
-That's the first tiny distinction that often matters. But we've gone and looked for more. We've found four distinctions we need your formatting to make, lest you lead us astray, into miscounting digital things
+That's the first tiny distinction that often matters. But we've gone and looked for more. We've found four distinctions we need your formatting to make, lest you lead us astray into miscounting digital things
 
 Your digital numbers have grown big. You making time to format them well matters now
 
@@ -51,7 +51,7 @@ Your digital numbers have grown big. You making time to format them well matters
 ## Show the problem
 
 
-A familiar Terminal Shell Experience is
+A familiar terminal shell experience is
 
 ```sh
 || ... || Bytes || Date/ Time || Pathname ||
@@ -95,7 +95,7 @@ But have your eyes learned to prefer
 
 ## Show our solution
 
-The big difference here is in the Byte Counts, classically spoken as precise decimal int literals
+The big difference here is in the byte counts, classically spoken as precise decimal int literals
 
 Watch what happens to your visual perception when we lay out a copy of just this one column of numbers
 
@@ -105,7 +105,7 @@ Watch what happens to your visual perception when we lay out a copy of just this
 %
 ```
 
-When you invite us to clip these numbers back to three digits each, then they split themselves apart naturally, into two piles
+When you tell us to clip these numbers back to three digits each, then they split themselves apart naturally into two piles
 
 ```sh
 % ls -l |pb eng awk 5 join
@@ -131,7 +131,7 @@ The big numbers more naturally stand out and step forward, because they have "e3
 %
 ```
 
-Next now, watch what happens to your visual perception when we just correct the format of these numbers, but leave them in place in their rows. You see? They quite naturally come and split their rows across this same dividing line
+Next, watch what happens to your visual perception when we just correct the format of these numbers, but leave them in place in their rows. You see? They quite naturally split their rows across this same dividing line
 
 The extra ink of the "e3" mark visually brings forward the rows of the big numbers
 
@@ -158,9 +158,9 @@ total        72
 %
 ```
 
-You don't have to make time to read through the meaningless detail of particular digits spoken in place of the summary "e3" mark. You can decline to struggle. You can make it a job for the Bots to clip away the meaningless detail for you
+You don't have to make time to read through the meaningless detail of particular digits. You can decline to struggle. You can ask for the summary "e3" marks. You can make it a job for the bots to clip away the meaningless detail for you
 
-Clipping your numbers down to three digits marks the rows to sort themselves by the size of their engineering exponent. Significantly helpful. These clipped numbers speak into your eyes more quickly, more easily, and more accurately
+Clipping your numbers down to three digits marks each row with the engineering exponent of its number. Visually speaking, the rows then sort themselves. Significantly helpful! These clipped numbers speak into your eyes more quickly, more easily, and more accurately
 
 
 ## Show this problem left broken by 'ls -lh'
@@ -183,7 +183,7 @@ total 72
 %
 ```
 
-You see? They give you a Column of malformed Byte Counts
+You see? They give you a column of malformed byte counts
 
 ```sh
 % ls -lh |pb eng awk 5 split |pb join
@@ -195,7 +195,7 @@ Four bugs
 
 1 ) **Do your eyes reliably pick "888" apart from "88B"?**
 
-Mine don't. And I don't need a "B" Suffix on screen to tell me there are no more digits there. This "B" Suffix is a waste of ink. And their "B" Suffix too often becomes a lie, like by almost saying "2888" when meaning to say "288" and a "B". Please make it stop
+Mine don't. And I don't need a "B" suffix on screen to tell me there are no more digits there. This "B" suffix is a waste of ink. And their "B" suffix too often becomes a lie. Like it will come across wrongly, as having said "2888", when it was trying to say "288" and a "B". Please make it stop
 
 2 ) **Have you already memorized the k, M, G, etc metric prefixes that mean e3, e6, e9, etc?**
 
@@ -203,19 +203,19 @@ Well and good, but if your memory is precise then you'll feel annoyed when you n
 
 3 ) **Have you memorized the exact values of the metric prefixes?**
 
-They get these wrong. Since 1999, our standard has been clear: Ki is 1024 and k is 1000, and they get it wrong, We can show how wrong they go with just one testcase. Let's just try counting out 3652 bytes
+They get these wrong. Since 1999, our standard has been clear: Ki is 1024 and k is 1000, and they get it wrong. We can show how wrong they go with just one test case. Let's just try counting out 3652 bytes
 
 - Correct = 3.65k (decimal, base 10)
 - Also correct = 3.56Ki (binary, base 1024)
 - What `ls -lh` says = 3.6K (wrong on multiple counts)
 
-Why so wrong? Well, they rounded 3.56Ki up to 3.6Ki, then mislabeled it as '3.6K'. This comes out upside-down. They rounded UP but reported a number that's LESS than the actual value (3.6 < 3.65). This is confusing. This is wrong
+Why so wrong? Well, they rounded 3.56Ki up to 3.6Ki, then mislabeled it as '3.6K'. This comes out backwards. They rounded UP but reported a number that's LESS than the actual value (3.6 < 3.65). This is confusing. This is wrong
 
 4 ) **How many digits do you need to see?**
 
 2 digits is not enough, and 4 digits is too many, I am saying. Here I stand. True for your eyes too?
 
-Last century's 'ls -h' does me wrong. It gives me 2 digits and stopping there. All the while the only 3652 known to me is the 3.65e3. I need its name spoken in that familiar way. Aye fair enough, in real life I do quickly autocorrect their wrongs on the fly, but I'm posting this rant because I do wish they'd stop shoving their wrongs at me. Take out their own trash, why can't they. Keep it away from me
+Last century's 'ls -h' does me wrong. It gives me 2 digits and stops. All the while the only 3652 that I know is the 3.65e3. I need its name spoken in that familiar way. Aye fair enough, in real life I do quickly autocorrect their wrongs on the fly, but I'm posting this rant because I do wish they'd stop shoving their wrongs at me. Take out their own trash, why can't they. Keep it away from me
 
 
 ## Say what fix solves the four bugs
@@ -239,13 +239,13 @@ A **well-clipped number** obeys four rules:
 These four rules make it easier to read numbers correctly and harder to read them wrong
 
 
-## You might find more peace, if you don't accept these bugs
+## You might find more peace if you don't accept these bugs
 
 "A bug becomes a bug when it bothers someone who matters"
 
 Please beware
 
-If you don't yet feel these 4 bugs are bugs, please stop, and give yourself a moment to feel a fitting degree of fear. I can only teach you to start seeing, I can't teach you to stop. I can't even stop myself seeing
+If you don't yet feel these 4 bugs are bugs, please stop. Give yourself a moment to feel a fitting degree of fear. I can only teach you to start seeing, I can't teach you to stop. I can't even stop myself from seeing
 
 **Is it worth it?**
 
@@ -256,33 +256,33 @@ It's only worth it if you're building with numbers, or finding some other reward
 
 # One main takeaway
 
-You can have "correct at a glance" precision. Ask for it persistently, and they will eventually come and give it to you
+You can have "correct at a glance" precision. Ask for it persistently, and they will come. They will give it to you
 
-| Format    | 3652   | 104999 | 288   | Precision  | Acuity |
-|-----------|--------|--------|-------|----------- |--------|
-| ls -l     | 3652   | 104999 | 288   | Too Much   | Weak   |
-| ls -lh    | 3.6K   | 103K   | 288B  | Too Litle  | Weak   |
-| pb eng    | 3.65e3 | 10.4e3 | 288   | Helpful    | Strong |
+| Format    |   3652 | 104999 |  288  | Precision   | Acuity |
+|-----------|--------|--------|-------|------------ |--------|
+| ls -l     |   3652 | 104999 |  288  | Too much    | Weak   |
+| ls -lh    |   3.6K |   103K | 288B  | Too little  | Weak   |
+| pb eng    | 3.65e3 |  104e3 |  288  | Helpful     | Strong |
 
-Do you feel you get it? Do you see how our first century of Software Traditions for clipping numbers do lead us astray, when we're counting digital things?
+Do you feel you get it? Do you see how our first century of software traditions for clipping numbers has led us astray, when we're counting digital things?
 
 
 # Fixes known, and not yet well known
 
-To get your numbers well-clipped, you can download & run our code, or you can write your own code. We show our code below, to help you write your own code in its place, or to help you trust ours
+To get your numbers well-clipped, you can download & run our code, or you can write your own code. We show our code below, to help you write your own code, or to help you trust ours
 
-The run-time costs of adopting this code are near zero. This code runs in scratch time, and requires nearly zero memory
+The runtime costs of adopting this code are near zero. This code runs in scratch time, and requires nearly zero memory
 
 
 ## Fix for Ints
 
-How do I make 'ls -lh' say what it should mean in 2026? I drop out the old & misconceived -h, and push my counts through our '|pb eng' instead
+How do I make 'ls -lh' say what it should mean in 2026? I drop the old and misconceived '-h'. I push my counts through our '|pb eng' instead
 
 ```sh
 ls -l |pb eng replace columns
 ```
 
-It's the '|pb eng' part that fixes up the counts
+It's the '|pb eng' part that reformats the counts
 
 ```sh
 ls -l |pb eng
@@ -297,7 +297,7 @@ You can call on Python to clip a count back to three digits. You don't have to l
 
 You can download and run this. It picks out a leading negative dash, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits
 
-It never says 'e0'. It never ends with "." or ".0" or ".00". It never adds on a confusion of "8" vs "B". It always chooses unsigned metric exponents like "e3", never a scientific exponent like "e+2" or "e1" or "e-0". It always calculates powers of 10 as the Base of "e", not powers of the 10th power of 2 (1024)
+It never says "e0". It never ends with "." or ".0" or ".00". It never adds on a confusion of "8" vs "B". It always chooses unsigned metric exponents like "e3", never a scientific exponent like "e+2" or "e1" or "e-0". It always does mean powers of 1000 when it doesn't say what "e" means. It never silently swaps in a power of 1024
 
 ```python
 def clip_int(i: int) -> str:
@@ -328,7 +328,7 @@ def clip_int(i: int) -> str:
     # -120789 --> -120e3, etc
 ```
 
-Our code produces correct Int answers. Our code here formats Int Counts humanely, to speak only truths into my eyes
+our code produces correct int answers. Our code here formats int counts humanely, to speak only truths into my eyes
 
 ```python
 (0, "0"),
@@ -346,11 +346,11 @@ Looks good? You feel you know where to put your copy of this Python code, and wh
 
 ### Ints of Google Sheets or Microsoft Excel
 
-Google Sheets and Microsoft Excel can clip Ints as accurately as Python
+Google Sheets and Microsoft Excel can clip ints as accurately as Python
 
-As you know, their oldest convention is to code up every new idea as a Simd Formula. Here is our idea, so coded. You can download and run this. This code picks out a leading negative sign, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits
+As you know, their oldest convention is to code every new idea as a Simd Formula. Here is our idea of clipped ints, so coded. You can download and run this. This code picks out a leading negative sign, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits
 
-This same code works just as well in both Microsoft Excel and in Google Sheets
+This same code works just as well in both Microsoft Excel and Google Sheets
 
 ```excel
 =IF(A1=0, "0",
@@ -369,7 +369,7 @@ This same code works just as well in both Microsoft Excel and in Google Sheets
 )
 ```
 
-Put this code into a Google Sheet or Excel Sheet, and we can contrast your results with their defaults. Their default is to speak the larger Ints with a reckless excess of precision
+Put this code into a Google Sheet or Excel Sheet, and we can contrast your results with their defaults. Their default is to speak the larger ints with a reckless excess of precision
 
 ```
 '0 '9 '999  '9000 '9800 '9870 '9876
@@ -381,24 +381,24 @@ Our code tells the Sheet to speak with more consideration for your true needs an
 '0 '9 '999  '9e3 '9.8e3 '9.87e3 '9.87e3
 ```
 
-And you can tell Sheet to give the name 'int.clip' to this Formula so as to call your code far more directly and clearly
+And you can tell Sheet to give the name 'int.clip' to this formula so as to call your code far more directly and clearly
 
 ```excel
 =int.clip(9876)  # '9.87e3
 ```
 
-Looks good? You feel you know where to put your copy of this Simd Formula, and when to call it?
+Looks good? You feel you know where to put your copy of this formula, and when to call it?
 
 
 ## Fix for Floats
 
-We showed you our fix for Ints first, because it's simpler than our fix for Floats. You can learn to trust it more quickly yourself, and you can push it through Code Review faster
+We showed you our fix for ints first, because it's simpler than our fix for floats. You can learn to trust it more quickly yourself, and you can push it through Code Review faster
 
-But we have also solved Floats. We've actually found a solution that does solve both Ints and Floats. Floats add the edges cases of -Inf, -0e0, Inf, & NaN. But the same four rules of well-clipped numbers apply: Zero means Zero, Zero doesn't mean Epsilon, don't waste ink, and give me my three digits
+But we have also solved floats. We've actually found a solution that does solve both ints and floats. Floats add the edge cases of -Inf, -0e0, Inf, & NaN. But the same four rules of well-clipped numbers apply: Zero means Zero, Zero doesn't mean Epsilon, don't waste ink, and give me my three digits
 
 ### Floats of Python
 
-Python does count some things as Floats. Python doesn't count all things as Ints
+Python does count some things as floats. Python doesn't count all things as ints
 
 Like Python says the 'time.time()' difference between two moments is a float
 
@@ -414,9 +414,9 @@ Float
 >>>
 ```
 
-But when you count a thing as Float, then I still need you to format your Float Counts carefully to speak only truths into my eyes, just like I need you to format your Int Counts carefully to speak only truths into my eyes
+But when you count a thing as a float, then I still need you to format your float count carefully to speak only truths into my eyes, just as I do when you count a thing as an int
 
-Our code here meets all the same specs for humane truth-speaking formats as does the Python we wrote for formatting Int Counts, but our code here solves both Int Counts and Float Counts
+Our code here for floats meets all our same specs for humane truth-speaking formats as does our code for ints, but our code here solves both ints and floats
 
 ```python
 def clip_float(f: float) -> str:
@@ -493,7 +493,7 @@ def _clip_positive_float_(f: float) -> str:
 
 You could claim copyright on your revision of our arbitrary 0.000123 fudge factor in here. The answers come out the same for most choices of what to add. You very nearly only need to add something nonzero and smaller than one. Like you could add in a significant date-time, if you want. Like you could add Tank Man's 1989-06-05 12th Hour, spoke of as 0.1989060512
 
-Our code here produces correct Float answers. Our code here formats Float Counts and Int Counts humanely, to speak only truths into my eyes
+Our code here produces correct float answers. Our code here formats float counts and int counts humanely, to speak only truths into my eyes
 
 ```python
 (1e-4, "100e-6"),  # not '0.0001'  # not '0.000'
@@ -527,11 +527,11 @@ Looks good? You feel you know where to put your copy of this Python code, and wh
 
 ### Floats of Google Sheets or Microsoft Excel
 
-Google Sheets and Microsoft Excel can clip Floats about as accurately as Python
+Google Sheets and Microsoft Excel can clip floats about as accurately as Python
 
-Our Simd Formula here does the same kind of work as the Simd Formula we wrote above to format Ints, and does this work in 14 Lines of Code, about as simply as in the 14 Lines of Code we wrote for Ints. But this Formula works for both Ints and Floats
+Our Simd Formula here does the same kind of work as the Simd Formula we wrote above to format ints, and does this work in 14 lines of code, about as simply as in the 14 lines of code we wrote for ints. But this formula works for both ints and floats
 
-This same code works just as well in both Microsoft Excel and in Google Sheets
+This same code works just as well in both Microsoft Excel and Google Sheets
 
 ```excel
 =IF(A1 = 0, "0",
@@ -550,7 +550,7 @@ LET(
 )
 ```
 
-Put this code into a Google Sheet or Excel Sheet, and we can contrast your results with their defaults. Their default is to speak the larger and smaller Floats with a reckless excess of precision
+Put this code into a Google Sheet or Excel Sheet, and we can contrast your results with their defaults. Their default is to speak the larger and smaller floats with a reckless excess of precision
 
 ```
 '0.001 '0.0001 '0.00001  '9000 '9870
@@ -562,13 +562,13 @@ Our code tells the g Sheet to speak with more consideration for your true needs 
 '1e-3 '100e-6 '10e-6  '9e3 '9.87e3
 ```
 
-And you can tell g Sheets to give the name 'float.clip' to this Formula so as to call your code far more directly and clearly
+And you can tell g Sheets to give the name 'float.clip' to this formula so as to call your code far more directly and clearly
 
 ```excel
 =float.clip(9876.0)  # '9.87e3
 ```
 
-Looks good? You feel you know where to put your copy of this Simd Formula, and when to call it?
+Looks good? You feel you know where to put your copy of this formula, and when to call it?
 
 
 #### Do they know you need this?
@@ -578,9 +578,9 @@ I don't understand why Google & Microsoft don't give out '=float.clip' as a stan
 
 #### Provenance
 
-Myself, I first wrote =Let and =Lambda Simd Formulae for Microsoft Excel, years before I tried them inside of Google Sheets. The =Let and =Lambda Simd Formula Functions first reached me in a Microsoft Excel
+Myself, I first wrote =Let and =Lambda Simd Formulas for a Microsoft Excel, years before I tried them in a Google Sheet
 
-My Feb/2026 pitch for how best to introduce the =Let and =Lambda Simd Formulae to new people is
+My Feb/2026 pitch for how best to introduce the =Let and =Lambda Simd Formulas to new people is
 > https://social.vivaldi.net/@pelavarre/116066365378672153
 
 I think that's the best I've got. I rewrote it from a copy of the onboarding welcome I posted in Jun/2021 as
@@ -594,9 +594,9 @@ Pitfalls, with spikes in them
 
 ## Floats too close to zero
 
-Trouble waits to catch you out, when next you try working with numbers too close for zero
+Trouble waits to catch you out, when next you try working with numbers too close to zero
 
-Python and Google Sheets and Microsoft Excel will corrupt a very small input of '1e-999' or '-1e-999', by silently substituting an actual positive or negative zero. By contrast, they do at least poison very large inputs of positive '1e999' or negative '-1e999'
+Python and Google Sheets and Microsoft Excel will corrupt a very small input of '1e-999' or '-1e-999'. They silently substitute an actual positive or negative zero. By contrast, they do at least poison very large inputs of positive '1e999' or negative '-1e999'
 
 That is, they say the bounds checking of the very smallest numbers is on you, not on them
 
@@ -637,11 +637,11 @@ The Oct/1985 IEEE 754 Standard for Floating-Point Arithmetic shoves on them to w
 
 Trouble waits to catch you out, when next you try working with the Not-a-Number idea of Google Sheets and Microsoft Excel
 
-When you ask our code to format their =NA() form of not-a-number, then our Formulae produce their conventional =NA() as our Result. That's what they expect, and that's what we do
+When you ask our code to format their =NA() form of not-a-number, then our formulas produce their conventional =NA() as our Result. That's what they expect, and that's what we do
 
-But that's not the String '#N/A that would be more of a transliteration of the Python convention of looking always to narrow a Result Datatype to Str from Str | Float | None
+But that's not the String '#N/A that would be more of a transliteration of the Python convention of looking always to narrow a result datatype to Str from Str | Float | None
 
-As you move back and forth between Google Sheets and Microsoft Excel and Python, you'll have to bring this slippery bit of difference back into mind, often enough
+As you move back and forth between Google Sheets and Microsoft Excel and Python, you'll have to bring this slippery bit of difference back into mind, exactly often enough
 
 
 ## You've got a friend
@@ -657,31 +657,31 @@ Five hopes
 
 2 ) Help people separate when to clip a number sharply, vs when to forward all the precision they've got. APIs for data interchange copy out lots of precision for good reasons through standard file formats: .csv, .json, etc
 
-3 ) Figure out why solving Floats or Ints in g Sheets and Excel takes just 14 Lines. Why can't we solve Ints even more simply?
+3 ) Figure out why solving floats or ints in g Sheets and Excel takes just 14 lines of code. Why can't we solve ints even more simply?
 
-4 ) Do more homework to show who should trust our Simd Formula for Floats
+4 ) Do more homework to show who should trust our Simd Formula for floats
 
 5 ) Help people appreciate when to round up, not clip
 
-## Detail on why trust our Simd Formula for Floats
+## Detail on why trust our Simd Formula for floats
 
-Outside of this paper, we have shown ourselves that our two Formulae do agree across the Ints from -1000 to 1000, and across a few thousand Random Ints
+Outside of this paper, we have shown ourselves that our two formulas do agree across the ints from -1000 to 1000, and across a few thousand random ints
 
-As for Ints below -1000 and above 1000, we give ourselves inductive algebraic arguments as reasons to believe our Float and Int Formulae always do produce the same correct answers
+As for ints below -1000 and above 1000, we give ourselves inductive algebraic arguments as reasons to believe our float and int formulas always do produce the same correct answers
 
-But what about all the other Floats? Who has a complete argument and a definitive proof?
+But what about all the other floats? Who has a complete argument and a definitive proof?
 
 ## Detail on when to round up, not clip
 
 You need to round up when you need to make room, when you're allocating space or resources
 
-Like you do need to round up to 10 KiB, if you need to store 9999 Bytes and your allocation unit is 1 KiB (1024 Bytes). The margin here - the extra 24 Bytes per 1000 Bytes - it matters. You can't get by on allocating even 1 less than your 9999 Bytes
+Like you do need to round up to 10 KiB, when you need to store 9999 Bytes and your allocation unit is 1 KiB (1024 Bytes). The margin here - the extra 24 Bytes per 1000 Bytes - it matters. You can't get by on allocating even 1 less than your 9999 Bytes
 
-But when you're just reporting a measure, you don't need to round up. You're left free to choose to carefully never report more than you measured
+But when you're just reporting a measure, you don't need to round up. You can carefully never report more than you measured
 
 ### Detail on why rounding up well for us is hard
 
-You can't round up well by yourself, on your own, independently. You can't decide the margin for me. You need to know:
+You can't round up well while working independently, in isolation. You can't decide the margin for me. You need to know:
 
 - How much margin we add (5 Bytes? 1 MiB?)
 - What unit we round up to (1 KiB? 4 KiB? 0.5 KiB?)
