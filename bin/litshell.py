@@ -375,9 +375,11 @@ class ShellGopher:
         assert self.writing_file is None, (self.writing_file,)
         assert self.writing_stdout is None, (self.writing_stdout,)
 
-        self.writing_pbcopy = self._compile_writing_pbcopy_()
-        self.writing_file = self._compile_writing_file_()
-        self.writing_stdout = self._compile_writing_stdout_()
+        writing_file = self._compile_writing_file_()
+
+        self.writing_file = writing_file
+        self.writing_pbcopy = self._compile_writing_pbcopy_(writing_file)
+        self.writing_stdout = self._compile_writing_stdout_(writing_file)
 
         # Add implied Bricks
 
@@ -435,13 +437,11 @@ class ShellGopher:
             brick = self._compile_brick_if_(word)
             bricks.append(brick)
 
-    def _compile_writing_pbcopy_(self) -> bool:
+    def _compile_writing_pbcopy_(self, writing_file: bool) -> bool:
         """Choose to write into PbCopy at exit, or not"""
 
         words = self.words
         sys_stdin_isatty = self.sys_stdin_isatty
-
-        writing_file = self._compile_writing_file_()  # todo2: calculate once, not twice
 
         writing_pbcopy = False
         if writing_file:
@@ -464,7 +464,7 @@ class ShellGopher:
 
         return writing_file
 
-    def _compile_writing_stdout_(self) -> bool:
+    def _compile_writing_stdout_(self, writing_file: bool) -> bool:
         """Choose to write into Stdout at exit, or not"""
 
         words = self.words
@@ -472,13 +472,14 @@ class ShellGopher:
         sys_stdout_isatty = self.sys_stdout_isatty
 
         writing_stdout = False
+        if not writing_file:
 
-        if sys_stdin_isatty or (not sys_stdout_isatty):
-            writing_stdout = True  # not |pb  # pb, pb |, or |pb|
+            if sys_stdin_isatty or (not sys_stdout_isatty):
+                writing_stdout = True  # not |pb  # pb, pb |, or |pb|
 
-        if sys_stdout_isatty:
-            if words[1:]:
-                writing_stdout = True  # |pb ...
+            if sys_stdout_isatty:
+                if words[1:]:
+                    writing_stdout = True  # |pb ...
 
         return writing_stdout
 
