@@ -76,6 +76,7 @@ ShlinePlusByShverb = {  # sorted by key
     "gla": "git log --pretty=fuller --no-decorate --color-moved --numstat --author=...",  # [...]
     "glf": "git ls-files |grep -ai -e ... -e ...",  # as if [...] because 'glf' is 'git ls-files'
     "glq": "git log --oneline --no-decorate --color-moved [...]",
+    "glqn": """git log --oneline --no-decorate |awk '{print "HEAD~"(NR-1), $0}'""",
     "gls": "git log --pretty=fuller --no-decorate --color-moved --numstat [...]",
     # 20
     "glv": "git log --oneline --decorate --color-moved [...]",
@@ -122,6 +123,8 @@ class GitGopher:
         self.stdout_isatty = sys.stdout.isatty()  # sampled only once
 
     def go_for_it(self) -> None:
+
+        stdout_isatty = self.stdout_isatty
 
         # Fail if no Shell Args
 
@@ -186,7 +189,7 @@ class GitGopher:
 
         if diff_shverb == "gl":
             if not shfile_shargv[1:]:
-                if self.stdout_isatty:
+                if stdout_isatty:
                     print("# you got 'gl -1'  # did you mean:  gl --", file=sys.stderr)
 
         # Loudly promise to call the Shell now
@@ -497,8 +500,9 @@ class GitGopher:
     ) -> tuple[str, str]:
         """Handle case where >= 0 Shell Args are accepted, and sometimes add 1 Shell Arg"""
 
-        assert shverb_shline_plus.endswith(" [...]"), (shverb_shline_plus,)
+        stdout_isatty = self.stdout_isatty
 
+        assert shverb_shline_plus.endswith(" [...]"), (shverb_shline_plus,)
         shline = shverb_shline_plus.removesuffix(" [...]")
 
         shsuffix = " ..."  # shouts out Args
@@ -519,13 +523,13 @@ class GitGopher:
 
             elif shverb_shline_plus == "git log --pretty=fuller --no-decorate --color-moved [...]":
                 assert shverb == "gl", (shverb, shline)
-                if self.stdout_isatty:
+                if stdout_isatty:
                     shline += " -1"  # tilts into:  gl -1
 
             elif shverb_shline_plus.startswith("git log "):
                 assert shverb in ("glq", "gls", "glv"), (shverb, shline)
                 if shverb not in ("gls",):  # tilts into:  gls --
-                    if self.stdout_isatty:
+                    if stdout_isatty:
                         shline += " -9"  # tilts into:  glq -9, glv -9
 
         assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
@@ -539,9 +543,10 @@ class GitGopher:
         """Handle case where no Shell Args are accepted, or first Shell Arg must not be a Positional Arg"""
 
         no_arg_usage = f"usage: {shverb}"
-
         assert not shverb_shline_plus.endswith("..."), (shverb_shline_plus,)
         assert not shverb_shline_plus.endswith(" [...]"), (shverb_shline_plus,)
+
+        stdout_isatty = self.stdout_isatty
 
         # Fill out some default Options, when given no Shell Args
 
@@ -553,6 +558,12 @@ class GitGopher:
             if shverb == "gf":
                 assert shverb_shline_plus.endswith("git fetch --prune --prune-tags --force"), o
                 shline += " --quiet"  # tilts into:  gf --quiet
+
+            elif shverb == "glqn":
+                assert shverb_shline_plus.startswith("git log --oneline --no-decorate |")
+                if stdout_isatty:
+                    count_eq_1 = 1
+                    shline = shverb_shline_plus.replace(" |", " -9 |", count_eq_1)
 
             elif shverb == "grl":
                 assert shverb_shline_plus == "git reflog --date=relative --numstat", o
@@ -567,7 +578,7 @@ class GitGopher:
             leading_pos_arg = (shargv1 == "-") or (not shargv1.startswith("-"))
 
             too_many_args = leading_pos_arg
-            if shverb in ("grhu", "grv"):
+            if shverb in ("glqn", "grhu", "grv"):
                 too_many_args = True
 
             if too_many_args:
@@ -579,7 +590,7 @@ class GitGopher:
         assert shsuffix == "", (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
-        # gb, gcaa, gcam, gda, gdh, gf, gno, grh1, grhu, grl, grv, gsis
+        # gb, gcaa, gcam, gda, gdh, gf, glqn, gno, grh1, grhu, grl, grv, gsis
 
     def find_git_who(self) -> str:
         """Go fetch the 'git config user.email'"""
@@ -634,7 +645,7 @@ class GitGopher:
             shell = True
             return (shell, shline)
 
-        if shverb == "grv":
+        if shverb in ("glqn", "grv"):
             assert " |" in shline, (shline, shverb)
 
             shell = True
@@ -645,7 +656,7 @@ class GitGopher:
         shell = False
         return (shell, shline)
 
-        # todo: operate 'glf ...' and 'grv' without 'shell=True'
+        # todo: operate 'glf ...' and 'glqn' and 'grv' without 'shell=True'
 
     def find_git_top(self, default: str | None) -> str:
         """Find RealPath of the enclosing Git Clone, else complain & exit nonzero"""

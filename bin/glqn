@@ -1,0 +1,3 @@
+#!/bin/sh
+# : glqn && git log --oneline --no-decorate |awk '{print "HEAD~"(NR-1), $0}'
+g.py "$0" "$@"
