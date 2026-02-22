@@ -2671,11 +2671,13 @@ if __name__ == "__main__":
     main()
 
 
-# big todo's
+# big todo0's
 
-# refresh the pipe-bricks.md sorts to look more like the def's here
+# todo0: teach '|pb columns' to cope with Markdown Tables as input
 
-# rewrite the git.py to distribute via ~/bin/git-*
+# todo0: refresh the pipe-bricks.md sorts to look more like the def's here
+
+# todo0: rewrite the git.py to distribute via ~/bin/git-*
 # todo0: demo 'glv' of can rewrite the git.py to distribute via ~/bin/git-*
 
 

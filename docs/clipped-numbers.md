@@ -259,7 +259,7 @@ It's only worth it if you're building with numbers, or finding some other reward
 You can have "correct at a glance" precision. Ask for it persistently, and they will come. They will give it to you
 
 | Format    |   3652 | 104999 |  288  | Precision   | Acuity |
-|-----------|--------|--------|-------|------------ |--------|
+|-----------|-------:|-------:|------:|-------------|--------|
 | ls -l     |   3652 | 104999 |  288  | Too much    | Weak   |
 | ls -lh    |   3.6K |   103K | 288B  | Too little  | Weak   |
 | pb eng    | 3.65e3 |  104e3 |  288  | Helpful     | Strong |
