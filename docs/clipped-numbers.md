@@ -11,7 +11,6 @@ Beware, this is a technical rant: strong opinions & working code
   - [Show our solution](#show-our-solution)
   - [Show this problem left broken by 'ls -lh'](#show-this-problem-left-broken-by-ls--lh)
   - [Say what fix solves the four bugs](#say-what-fix-solves-the-four-bugs)
-    - [And still give me Ceils for Sums of Measure plus Margin](#and-still-give-me-ceils-for-sums-of-measure-plus-margin)
 - [One main takeway](#one-main-takeway)
   - [What you can have now, for the asking](#what-you-can-have-now-for-the-asking)
   - [Why fear the bad keming tomorrow](#why-fear-the-bad-keming-tomorrow)
@@ -28,6 +27,8 @@ Beware, this is a technical rant: strong opinions & working code
       - [Numbers too close to zero](#numbers-too-close-to-zero)
       - [Not-a-Number in Google Sheets and Microsoft Excel](#not-a-number-in-google-sheets-and-microsoft-excel)
 - [Future Work](#future-work)
+  - [Detail on why believe our Simd Formula for Floats](#detail-on-why-believe-our-simd-formula-for-floats)
+  - [Detail on when to speak the Ceil of a Measure plus Margin](#detail-on-when-to-speak-the-ceil-of-a-measure-plus-margin)
 
 
 # Why we care
@@ -225,23 +226,6 @@ I'm saying you have spoken **a well-clipped number** when you speak the name I k
 You make it easy for me to read what you say correctly, and you make it hard for me to read it wrong
 
 
-### And still give me Ceils for Sums of Measure plus Margin
-
-And doesn't rounding UP matter too, in the digital age? Yes it does. But here's how
-
-To speak clearly, we'll start by borrowing two words from Maths. Digital Maths people talk of a "Floor" when you slam a Float down to the next smaller Int, and a "Ceil" when you slam the Float up to the next larger Int. They speak their word Ceil as shorthand for the word picture of a ceiling above you
-
-Ceils matter, yes they matter. But they work differently. Ceils are for sums of measure plus margin
-
-Like when I make a space for a Count of Things, then I have to add Margin to the Count. and then I round this Sum up to the next whole Allocation. Like there's practically never any real need for speaking of 9999 as 10000, because that Margin is tiny
-
-You can't just tweak around a Count for me, not while you commit fully to only showing up to help me and never to hurt me. You need me to tell you how much Margin I need us to add. And you need me to tell you if my Allocations are 4Ki or 1Ki or 0.5Ki or whatever. Only then can you know how to round up our Counts well, to a Ceil of a good choice of Sum
-
-Can we wake up and meet our moment? We all know we actually don't involve you or me personally in the careful allocation of Space anything like as often as we did in 1972. Now that's commonly a job for the Bots, not the work of living People
-
-Do you get it? You see how our first century of Software Traditions for clipping numbers lead us astray?
-
-
 # One main takeway
 
 
@@ -254,6 +238,8 @@ You can have "correct at a glance" precision. Ask for it persistently, and they 
 | ls -l     | 3652   | 104999 | 288   | Too Much   | Weak   |
 | ls -lh    | 3.6K   | 103K   | 288B  | Too Litle  | Weak   |
 | pb eng    | 3.65e3 | 10.4e3 | 288   | Helpful    | Strong |
+
+Do you feel you get it? Do you see how our first century of Software Traditions for clipping numbers do lead us astray?
 
 
 ## Why fear the bad keming tomorrow
@@ -583,6 +569,8 @@ Pitfalls, with spikes in them
 
 #### Numbers too close to zero
 
+Trouble waits to catch you out, when next you try working with numbers too close for zero
+
 Python and Google Sheets and Microsoft Excel will corrupt a very small input of '1e-999' or '-1e-999', by silently substituting an actual zero. By contrast, they do at least poison very large inputs of positive '1e999' or negative '-1e999'
 
 That is, they say the bounds checking of the very smallest numbers is on you, not on them
@@ -601,27 +589,55 @@ A Python example of unreasonable is
     0.0
     >>>
 
-The Oct/1985 IEEE 645 Standard for Floating-Point Arithmetic shoves on them to work this way. I sure can argue it's due for an update
+The Oct/1985 IEEE 754 Standard for Floating-Point Arithmetic shoves on them to work this way. I sure can argue it's due for an update
 
 
 #### Not-a-Number in Google Sheets and Microsoft Excel
 
-When you can get your Number to be their =NA() form of not-a-number, then our Formulae produce a conventional =NA() as our Result
+Trouble waits to catch you out, when next you try working with the Not-a-Number idea of Google Sheets and Microsoft Excel
 
-That's not the String '#N/A that would be more of a transliteration of the Python convention of looking always to narrow a Result Datatype to Str from Str | Float | None
+When you ask our code to format their =NA() form of not-a-number, then our Formulae produce their conventional =NA() as our Result. That's what they expect, and that's what we do
+
+But that's not the String '#N/A that would be more of a transliteration of the Python convention of looking always to narrow a Result Datatype to Str from Str | Float | None
+
+As you move back and forth between Google Sheets and Microsoft Excel and Python, you'll have to bring this slippery bit of difference back into mind, often enough
 
 
 # Future Work
 
-Help people speak e3, e-3, e6, e-6, etc as metric prefixes of k, m, M, Greek μ, etc
+Five hopes
 
-Help people find the Ceil of a Measure plus Margin, rounding up to their Unit of Choice
+1 ) Help people speak e3, e-3, e6, e-6, etc as metric prefixes of k, m, M, Greek μ, etc
 
-Help people separate when to clip a number sharply, vs when to forward all the precision they've got. APIs for data interchange send out lots of precision for good reasons through standard file formats: .csv, .json, etc
+2 ) Do more homework to show why we should believe our Simd Formula for Floats solves them correctly in Google Sheets and Microsoft Excel
 
-Figure out why solving Floats or Ints in g Sheets and Excel takes just 14 Lines. Why can't we solve Ints even more simply?
+3 ) Help people find the Ceil of a Measure plus Margin, rounding up to their Unit of Choice
 
-Do more homework to show why we should believe our code for Floats solves Floats correctly in g Sheets and Excel. Outside of this paper, we have shown ourselves that our two Formulae do agree across the Ints from -1000 to 1000, and across a few thousand Random Ints. As for Ints below -1000 and above 1000, we give ourselves inductive algebraic arguments as reasons to believe our Float and Int Formulae always do produce the same correct answers. But what about all the other Floats? Who has a complete argument and a definitive proof?
+3 ) Help people separate when to clip a number sharply, vs when to forward all the precision they've got. APIs for data interchange send out lots of precision for good reasons through standard file formats: .csv, .json, etc
+
+4 ) Figure out why solving Floats or Ints in g Sheets and Excel takes just 14 Lines. Why can't we solve Ints even more simply?
+
+## Detail on why believe our Simd Formula for Floats
+
+Outside of this paper, we have shown ourselves that our two Formulae do agree across the Ints from -1000 to 1000, and across a few thousand Random Ints
+
+As for Ints below -1000 and above 1000, we give ourselves inductive algebraic arguments as reasons to believe our Float and Int Formulae always do produce the same correct answers
+
+But what about all the other Floats? Who has a complete argument and a definitive proof?
+
+## Detail on when to speak the Ceil of a Measure plus Margin
+
+As you read this, maybe you asked yourself, doesn't rounding UP matter too, in the digital age? Yes indeed, sometimes we do need to round up a count of digital things. But to work out how, we need to pull in some Maths
+
+Digital Maths people talk of a "Floor" when you slam a Float down to the next smaller Int, and a "Ceil" when you slam the Float up to the next larger Int. They speak their word Ceil as shorthand for the word picture of a ceiling above you
+
+Ceils matter, and they work differently. Ceils are for sums of measure plus margin
+
+Like when I make a space for a Count of Things, then I have to add Margin to the Count. and then I round this Sum up to the next whole Allocation. Like there's practically never any real need for speaking of 9999 as 10000, because that Margin is tiny
+
+You can't just tweak around a Count for me, not while you commit fully to only showing up to help me and never to hurt me. You need me to tell you how much Margin I need us to add. And you need me to tell you if my Allocations are 4Ki or 1Ki or 0.5Ki or whatever. Only then can you know how to round up our Counts well, to a Ceil of a good choice of Sum
+
+Can we wake up and meet our moment? We all know we actually don't involve you or me personally in the careful allocation of Space anything like as often as we did in 1972. Now that's commonly a job for the Bots, not the work of living People
 
 
 <!-- omit in toc -->
