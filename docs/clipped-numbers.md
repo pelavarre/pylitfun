@@ -596,7 +596,7 @@ Pitfalls, with spikes in them
 
 Trouble waits to catch you out, when next you try working with numbers too close for zero
 
-Python and Google Sheets and Microsoft Excel will corrupt a very small input of '1e-999' or '-1e-999', by silently substituting an actual zero. By contrast, they do at least poison very large inputs of positive '1e999' or negative '-1e999'
+Python and Google Sheets and Microsoft Excel will corrupt a very small input of '1e-999' or '-1e-999', by silently substituting an actual positive or negative zero. By contrast, they do at least poison very large inputs of positive '1e999' or negative '-1e999'
 
 That is, they say the bounds checking of the very smallest numbers is on you, not on them
 
@@ -613,6 +613,22 @@ A Python example of unreasonable is
     >>> 2e-324
     0.0
     >>>
+
+Python's division by a large number is still detectably not zero only if it's negative
+
+    >>> (1e-999 == 0), math.copysign(0, 1e-999)
+    (True, 0.0)
+    >>> (1e-999 == 0), math.copysign(0, -1e-999)
+    (True, -0.0)
+    >>>
+
+And consequently
+
+    >>> clip_float(0), clip_float(0e0), clip_float(1e-999), clip_float(-1e-999)
+    ('0', '0', '0', '-0e0')
+    >>>
+
+They didn't make their positive zero and negative zero fully symmetric. Oops
 
 The Oct/1985 IEEE 754 Standard for Floating-Point Arithmetic shoves on them to work this way. I sure can argue it's due for an update
 
