@@ -2228,6 +2228,14 @@ class ArgDocParser:
 def clip_int(i: int) -> str:
     """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
 
+    clip = _clip_int_(i)
+    assert _clip_int_(int(float(clip))) == clip, (_clip_int_(int(float(clip))), clip, i)
+
+    return clip
+
+
+def _clip_int_(i: int) -> str:
+
     s = str(int(i))  # '-120789'
 
     _, sign, digits = s.rpartition("-")  # ('', '-', '120789')
@@ -2237,7 +2245,8 @@ def clip_int(i: int) -> str:
     assert eng in (sci, sci - 1, sci - 2), (eng, sci, digits, i)
 
     if not eng:
-        return s  # drops 'e0'
+        clip = s
+        return clip  # drops 'e0'
 
     assert len(digits) >= 4, (len(digits), eng, sci, digits, i)
     assert 1 <= (len(digits) - eng) <= 3, (len(digits), eng, sci, digits, i)
@@ -2248,13 +2257,23 @@ def clip_int(i: int) -> str:
 
     assert "." in nearby, (nearby, precise, eng, sci, digits, i)
 
-    return sign + worthy + "e" + str(eng)  # '-120e3'
+    clip = sign + worthy + "e" + str(eng)  # '-120e3'
+
+    return clip
 
     # -120789 --> -120e3, etc
 
 
 def clip_float(f: float) -> str:
     """Find the nearest Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
+
+    clip = _clip_float_(f)
+    assert _clip_float_(float(clip)) == clip, (_clip_float_(float(clip)), clip, f)
+
+    return clip
+
+
+def _clip_float_(f: float) -> str:
 
     if math.isnan(f):
         return "NaN"  # unsigned as neither positive nor negative
@@ -2270,6 +2289,9 @@ def clip_float(f: float) -> str:
 
     absclip = _clip_positive_float_(abs(f))
     clip = ("-" + absclip) if (f < 0) else absclip
+
+    if f == int(f):
+        assert clip_int(int(f)) == clip, (f, clip_int(int(f)), clip)
 
     return clip
 

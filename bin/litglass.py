@@ -6248,6 +6248,14 @@ NaN = float("nan")  # actually implies NaN != NaN
 def clip_int(i: int) -> str:
     """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
 
+    clip = _clip_int_(i)
+    assert _clip_int_(int(float(clip))) == clip, (_clip_int_(int(float(clip))), clip, i)
+
+    return clip
+
+
+def _clip_int_(i: int) -> str:
+
     s = str(int(i))  # '-120789'
 
     _, sign, digits = s.rpartition("-")  # ('', '-', '120789')
@@ -6257,7 +6265,8 @@ def clip_int(i: int) -> str:
     assert eng in (sci, sci - 1, sci - 2), (eng, sci, digits, i)
 
     if not eng:
-        return s  # drops 'e0'
+        clip = s
+        return clip  # drops 'e0'
 
     assert len(digits) >= 4, (len(digits), eng, sci, digits, i)
     assert 1 <= (len(digits) - eng) <= 3, (len(digits), eng, sci, digits, i)
@@ -6268,7 +6277,9 @@ def clip_int(i: int) -> str:
 
     assert "." in nearby, (nearby, precise, eng, sci, digits, i)
 
-    return sign + worthy + "e" + str(eng)  # '-120e3'
+    clip = sign + worthy + "e" + str(eng)  # '-120e3'
+
+    return clip
 
     # -120789 --> -120e3, etc
 
@@ -6289,7 +6300,10 @@ _int_clips_ = [
 
 def _try_clip_int_() -> None:
     for i, lit in _int_clips_:
+
         assert clip_int(i) == lit, (clip_int(i), lit, i)
+
+        assert clip_int(int(float(lit))) == lit, (clip_int(int(float(lit))), lit, i)
 
         # print(i, lit, f"{i:.3g}")
 
@@ -6298,6 +6312,14 @@ def _try_clip_int_() -> None:
 
 def clip_float(f: float) -> str:
     """Find the nearest Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
+
+    clip = _clip_float_(f)
+    assert _clip_float_(float(clip)) == clip, (_clip_float_(float(clip)), clip, f)
+
+    return clip
+
+
+def _clip_float_(f: float) -> str:
 
     if math.isnan(f):
         return "NaN"  # unsigned as neither positive nor negative
@@ -6373,6 +6395,10 @@ def _clip_positive_float_(f: float) -> str:
 
 _float_clips_ = [  # not str(f)  # not f"{f:.3g}"  # not f"{f:.3f}"
     #
+    (-1e-999, "-0e0"),
+    (2e-324, "0"),  # sorry, can't fix, viva Oct/1985 IEEE 754
+    (-2e-324, "-0e0"),
+    #
     (1e-4, "100e-6"),  # not '0.0001'  # not '0.000'
     (1e-3, "1e-3"),  # not '0.001'
     (1.2e-3, "1.2e-3"),  # not '0.0012'  # not '0.001'
@@ -6414,7 +6440,10 @@ def _try_clip_float_() -> None:
     float_clips.extend(_float_clips_)
 
     for f, lit in _float_clips_:
+
         assert clip_float(f) == lit, (clip_float(f), lit, f)
+
+        assert clip_float(float(lit)) == lit, (clip_float(float(lit)), lit, f)
 
         if f > 0:
             clip_minus_f = clip_float(-f)
