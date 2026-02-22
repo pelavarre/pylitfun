@@ -271,8 +271,6 @@ The run-time costs of adopting this code are near zero. This code runs in scratc
 
 ## Fix for Ints
 
-The fixes for Floats work for Ints too, but less simply. So you might prefer to first learn to trust the fixes for Ints. Like you can push them faster through Code Review
-
 How do I make 'ls -lh' say what it should mean in 2026? I drop out the old & misconceived -h, and push my counts through our '|pb eng' instead
 
 ```sh
@@ -389,10 +387,13 @@ Looks good? You feel you know where to put your copy of this Simd Formula, and w
 
 ## Fix for Floats
 
+We showed you our fix for Ints first, because it's simpler than our fix for Floats. You can learn to trust it more quickly yourself, and you can push it through Code Review faster
+
+But we have also solved Floats. We've actually found a solution that does solve both Ints and Floats. Floats add the edges cases of -Inf, -0e0, Inf, & NaN. But the same four rules of well-clipped numbers apply: Zero means Zero, Zero doesn't mean Epsilon, don't waste ink, and give me my three digits
 
 ### Floats of Python
 
-Python counts many things as Ints, but some things as Floats
+Python does count some things as Floats. Python doesn't count all things as Ints
 
 Like Python says the 'time.time()' difference between two moments is a float
 
@@ -408,7 +409,7 @@ Float
 >>>
 ```
 
-When you count a thing as Float, then I still need you to format your Float Count carefully to speak only truths into my eyes, just like I need you to format your Int Counts carefully to speak only truths into my eyes
+But when you count a thing as Float, then I still need you to format your Float Counts carefully to speak only truths into my eyes, just like I need you to format your Int Counts carefully to speak only truths into my eyes
 
 Our code here meets all the same specs for humane truth-speaking formats as does the Python we wrote for formatting Int Counts, but our code here solves both Int Counts and Float Counts
 
