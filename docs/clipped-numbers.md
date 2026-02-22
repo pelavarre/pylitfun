@@ -13,7 +13,7 @@ Beware, this is a technical rant: strong opinions & working code
   - [Say what fix solves the four bugs](#say-what-fix-solves-the-four-bugs)
   - [You might find more peace, if you don't accept these bugs](#you-might-find-more-peace-if-you-dont-accept-these-bugs)
 - [One main takeaway](#one-main-takeaway)
-- [Fix known, and not yet well known](#fix-known-and-not-yet-well-known)
+- [Fixes known, and not yet well known](#fixes-known-and-not-yet-well-known)
   - [Fix for Ints](#fix-for-ints)
     - [Ints of Python](#ints-of-python)
     - [Ints of Google Sheets or Microsoft Excel](#ints-of-google-sheets-or-microsoft-excel)
@@ -22,12 +22,14 @@ Beware, this is a technical rant: strong opinions & working code
     - [Floats of Google Sheets or Microsoft Excel](#floats-of-google-sheets-or-microsoft-excel)
       - [Do they know you need this?](#do-they-know-you-need-this)
       - [Provenance](#provenance)
-    - [Traps laid for you](#traps-laid-for-you)
-      - [Numbers too close to zero](#numbers-too-close-to-zero)
-      - [Not-a-Number in Google Sheets and Microsoft Excel](#not-a-number-in-google-sheets-and-microsoft-excel)
+- [Traps laid to catch you, and your friends](#traps-laid-to-catch-you-and-your-friends)
+  - [Floats too close to zero](#floats-too-close-to-zero)
+  - [Not-a-Number in Google Sheets and Microsoft Excel](#not-a-number-in-google-sheets-and-microsoft-excel)
+  - [You've got a friend](#youve-got-a-friend)
 - [Future Work](#future-work)
-  - [Detail on why believe our Simd Formula for Floats](#detail-on-why-believe-our-simd-formula-for-floats)
-  - [Detail on when to speak the Ceil of a Measure plus Margin](#detail-on-when-to-speak-the-ceil-of-a-measure-plus-margin)
+  - [Detail on why trust our Simd Formula for Floats](#detail-on-why-trust-our-simd-formula-for-floats)
+  - [Detail on when to round up, not clip](#detail-on-when-to-round-up-not-clip)
+    - [Detail on why rounding up well for us is hard](#detail-on-why-rounding-up-well-for-us-is-hard)
 
 
 # Why we care
@@ -201,38 +203,40 @@ Well and good, but if your memory is precise then you'll feel annoyed when you n
 
 3 ) Have you memorized the exact values of the metric prefixes?
 
-Yea well, they get these wrong too. I feel they stopped thinking. I'd say they got stuck in 1998, because it was 1999 when we solved this. We stood up then to spell out that Ki is 1024 and k is 1000
+They get these wrong. Since 1999, our standard has been clear: Ki is 1024 and k is 1000, and they get it wrong, We can show how wrong they go with just one testcase. Let's just try counting out 3652 bytes
 
-Like our particular example of 3652 is more than 3.65k and more than 3.56Ki. But they distort it. They go and count out what doesn't exist, by thinking of it as 3.56Ki rounded up to 3.6Ki, then intentionally misspeaking it as '3.6K'
+- Correct = 3.65k (decimal, base 10)
+- Also correct = 3.56Ki (binary, base 1024)
+- What `ls -lh` says = 3.6K (wrong on multiple counts)
 
-They come out talking bizarrely far away from the actual 3.65k we're actually looking at. They're unthinkingly, arbitrarily and misleadingly, rounded up to wrongly speak of the 3.6 that is 0.05 less than 3.65. Rounding UP to speak of LESS than. Grr
+Why so wrong? Well, they rounded 3.56Ki up to 3.6Ki, then mislabeled it as '3.6K'. This comes out upside-down. They rounded UP but reported a number that's LESS than the actual value (3.6 < 3.65). This is confusing. This is wrong
 
 4 ) How many digits do you need to see?
 
-2 digits is not enough, and 4 digits is too many, I am saying. Here I stand. How about for your eyes?
+2 digits is not enough, and 4 digits is too many, I am saying. Here I stand. True for your eyes too?
 
-Tools like last century's 'ls -h' do me wrong, by giving me 2 digits and stopping there. All the while the only 3652 known to me is the 3.65e3. I need its name spoken in that familiar way. Aye fair enough, in real life I autocorrect their wrongs on the fly, but I'm posting this rant because I do wish they'd stop shoving their wrongs at me. Take out their own trash, why can't they. Keep it away from me
+Last century's 'ls -h' does me wrong. It gives me 2 digits and stopping there. All the while the only 3652 known to me is the 3.65e3. I need its name spoken in that familiar way. Aye fair enough, in real life I do quickly autocorrect their wrongs on the fly, but I'm posting this rant because I do wish they'd stop shoving their wrongs at me. Take out their own trash, why can't they. Keep it away from me
 
 
 ## Say what fix solves the four bugs
 
-Bug reports harm us while they talk only of what we got wrong
+A **well-clipped number** obeys four rules:
 
-What we need from a bug report is a fresh new vision of what we can do better, because we care about how I receive the numbers you format. We voluntell you to work harder on tuning up what you send me, until I do receive your numbers well
+1 ) **Zero means Zero**
+   - Says 0 only to mean precisely 0
 
-Above I say only what we get wrong. Here I say what we can do better
+2 ) **Zero doesn't mean Epsilon**
+   - Doesn't say 0 to mean a tiny nonzero value like 1e-123
 
-I'm saying you have spoken **a well-clipped number** when you speak the name I know best of a number that counts things. It's on me to learn the best names, but it's on you to speak the best names, and only the best names. Specifically =>
+3 ) **Empty details fade away**
+   - Doesn't end with '.', '.0', '.00', or 'e0', and doesn't start with '+', and doesn't mention 'e+'
 
-1 ) **Zero means Zero =>** You say 0, but only to mean 0
+4 ) **Gives me my first three digits**
+   - Show three significant digits when three or more exist, no less and no more
+   - Never sacrifices accuracy to round up to a rounder number
+   - Never claims to have counted things that don't exist
 
-2 ) **Zero doesn't mean Epsilon =>** You don't say 0 to mean 1, and you don't say 0 to mean a 1e-999 nonzero epsilon
-
-3 ) **Empty details fade away =>** You don't waste ink on mentioning 'e+' or 'e0' or a trailing '.' or '.0' or '.00'. Instead, you show your proper respect for the time I'll be spending reading every character of what you wrote. You hold back from giving me the kinds of extra characters that I never need to read
-
-4 ) **You give me my first three digits =>** You stop yourself from sending me wrong. You don't round up to some irrelevant ideal of a rounder number. You do give me three digits and done, but you do it by backing off from demanding I give you credit for the last few things you counted. You never give me the lie of you having counted things that you never actually saw
-
-You make it easy for me to read what you say correctly, and you make it hard for me to read it wrong
+These four rules make it easier to read numbers correctly and harder to read them wrong
 
 
 ## You might find more peace, if you don't accept these bugs
@@ -241,13 +245,13 @@ You make it easy for me to read what you say correctly, and you make it hard for
 
 Please beware
 
-If you don't yet feel these 4 bugs are bugs, please stop, and give yourself a moment to feel a fitting degree of fear
+If you don't yet feel these 4 bugs are bugs, please stop, and give yourself a moment to feel a fitting degree of fear. I can only teach you to start seeing, I can't teach you to stop. I can't even stop myself seeing
 
-I can only teach you to start seeing, I can't teach you to stop. I can't even stop myself seeing
+**Is it worth it?**
 
-You learning to see these bugs will injure your peace. It'll be as if I were teaching you to notice bad [keming](https://en.wikipedia.org/wiki/Kerning) on street signs
+Learning to see the more common wrongs can cost you peace every day of your life
 
-Learning to see more wrong will poison your life. It's only worth it if you're building with numbers, or getting rewarded in some other way to work well with numbers. Only then do you need to learn to reject lying numbers quickly, simply, and accurately. As we do here
+It's only worth it if you're building with numbers, or finding some other reward by working well with numbers. Only then do you need to learn to reject lying numbers quickly, simply, and accurately. As we do here
 
 
 # One main takeaway
@@ -263,8 +267,7 @@ You can have "correct at a glance" precision. Ask for it persistently, and they 
 Do you feel you get it? Do you see how our first century of Software Traditions for clipping numbers do lead us astray?
 
 
-# Fix known, and not yet well known
-
+# Fixes known, and not yet well known
 
 To get your numbers well-clipped, you can download & run our code, or you can write your own code. We show our code below, to help you write your own code in its place, or to help you trust ours
 
@@ -292,7 +295,7 @@ The 'replace columns' part turns the text into a conventional table of left-alig
 
 You can call on Python to clip a count back to three digits. You don't have to let it whisper lies into your eyes
 
-You can download and run this. It picks out a leading negative sign, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits.
+You can download and run this. It picks out a leading negative sign, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits
 
 It never says 'e0'. It never ends with "." or ".0" or ".00". It never adds on a confusion of "8" vs "B". It always chooses unsigned metric exponents like "e3", never a scientific exponent like "e+2" or "e1" or "e-0". It always calculates powers of 10 as the Base of "e", not powers of the 10th power of 2 (1024)
 
@@ -345,7 +348,7 @@ Looks good? You feel you know where to put your copy of this Python code, and wh
 
 Google Sheets and Microsoft Excel can clip Ints as accurately as Python
 
-As you know, their oldest convention is to code up every new idea as a Simd Formula. Here is our idea, so coded. You can download and run this. This code picks out a leading negative sign, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits.
+As you know, their oldest convention is to code up every new idea as a Simd Formula. Here is our idea, so coded. You can download and run this. This code picks out a leading negative sign, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits
 
 This same code works just as well in both Microsoft Excel and in Google Sheets
 
@@ -526,7 +529,7 @@ Looks good? You feel you know where to put your copy of this Python code, and wh
 
 Google Sheets and Microsoft Excel can clip Floats about as accurately as Python
 
-Our Simd Formula here does the same kind of work as the Simd Formula we wrote above to format Ints, and does this work in 14 Lines of Code, about as simply as in the 14 Lines of Code we wrote for Ints. But this Formula works for both Ints and Floats.
+Our Simd Formula here does the same kind of work as the Simd Formula we wrote above to format Ints, and does this work in 14 Lines of Code, about as simply as in the 14 Lines of Code we wrote for Ints. But this Formula works for both Ints and Floats
 
 This same code works just as well in both Microsoft Excel and in Google Sheets
 
@@ -584,12 +587,12 @@ I think that's the best I've got. I rewrote it from a copy of the onboarding wel
 > https://github.com/pelavarre/like-py-xlsx/blob/main/README.md
 
 
-### Traps laid for you
+# Traps laid to catch you, and your friends
 
 Pitfalls, with spikes in them
 
 
-#### Numbers too close to zero
+## Floats too close to zero
 
 Trouble waits to catch you out, when next you try working with numbers too close for zero
 
@@ -614,7 +617,7 @@ A Python example of unreasonable is
 The Oct/1985 IEEE 754 Standard for Floating-Point Arithmetic shoves on them to work this way. I sure can argue it's due for an update
 
 
-#### Not-a-Number in Google Sheets and Microsoft Excel
+## Not-a-Number in Google Sheets and Microsoft Excel
 
 Trouble waits to catch you out, when next you try working with the Not-a-Number idea of Google Sheets and Microsoft Excel
 
@@ -625,21 +628,26 @@ But that's not the String '#N/A that would be more of a transliteration of the P
 As you move back and forth between Google Sheets and Microsoft Excel and Python, you'll have to bring this slippery bit of difference back into mind, often enough
 
 
+## You've got a friend
+
+Who needs to hear about these fixes? How should we push the word out?
+
+
 # Future Work
 
 Five hopes
 
 1 ) Help people speak e3, e-3, e6, e-6, etc as metric prefixes of k, m, M, Greek μ, etc
 
-2 ) Do more homework to show why we should believe our Simd Formula for Floats solves them correctly in Google Sheets and Microsoft Excel
+2 ) Help people separate when to clip a number sharply, vs when to forward all the precision they've got. APIs for data interchange copy out lots of precision for good reasons through standard file formats: .csv, .json, etc
 
-3 ) Help people find the Ceil of a Measure plus Margin, rounding up to their Unit of Choice
+3 ) Figure out why solving Floats or Ints in g Sheets and Excel takes just 14 Lines. Why can't we solve Ints even more simply?
 
-4 ) Help people separate when to clip a number sharply, vs when to forward all the precision they've got. APIs for data interchange send out lots of precision for good reasons through standard file formats: .csv, .json, etc
+4 ) Do more homework to show who should trust our Simd Formula for Floats
 
-5 ) Figure out why solving Floats or Ints in g Sheets and Excel takes just 14 Lines. Why can't we solve Ints even more simply?
+5 ) Help people appreciate when to round up, not clip
 
-## Detail on why believe our Simd Formula for Floats
+## Detail on why trust our Simd Formula for Floats
 
 Outside of this paper, we have shown ourselves that our two Formulae do agree across the Ints from -1000 to 1000, and across a few thousand Random Ints
 
@@ -647,19 +655,22 @@ As for Ints below -1000 and above 1000, we give ourselves inductive algebraic ar
 
 But what about all the other Floats? Who has a complete argument and a definitive proof?
 
-## Detail on when to speak the Ceil of a Measure plus Margin
+## Detail on when to round up, not clip
 
-As you read this, maybe you asked yourself, doesn't rounding UP matter too, in the digital age? Yes indeed, sometimes we do need to round up a count of digital things. But to work out how, we need to pull in some Maths
+You need to round up when you need to make room, when you're allocating space or resources
 
-Digital Maths people talk of a "Floor" when you slam a Float down to the next smaller Int, and a "Ceil" when you slam the Float up to the next larger Int. They speak their word Ceil as shorthand for the word picture of a ceiling above you
+Like you do need to round up to 10 KiB, if you need to store 9999 Bytes and your allocation unit is 1 KiB (1024 Bytes). The margin here - the extra 24 Bytes per 1000 Bytes - it matters. You can't get by on allocating even 1 less than your 9999 Bytes
 
-Ceils matter, and they work differently. Ceils are for sums of measure plus margin
+But when you're just reporting a measure, you don't need to round up. You're left free to choose to carefully never report more than you measured
 
-Like when I make a space for a Count of Things, then I have to add Margin to the Count. and then I round this Sum up to the next whole Allocation. Like there's practically never any real need for speaking of 9999 as 10000, because that Margin is tiny
+### Detail on why rounding up well for us is hard
 
-You can't just tweak around a Count for me, not while you commit fully to only showing up to help me and never to hurt me. You need me to tell you how much Margin I need us to add. And you need me to tell you if my Allocations are 4Ki or 1Ki or 0.5Ki or whatever. Only then can you know how to round up our Counts well, to a Ceil of a good choice of Sum
+You can't round up well by yourself, on your own, independently. You can't decide the margin for me. You need to know:
 
-Can we wake up and meet our moment? We all know we actually don't involve you or me personally in the careful allocation of Space anything like as often as we did in 1972. Now that's commonly a job for the Bots, not the work of living People
+- How much margin we add (5 Bytes? 1 MiB?)
+- What unit we round up to (1 KiB? 4 KiB? 0.5 KiB?)
+
+Only then can you round up correctly for us
 
 
 <!-- omit in toc -->
