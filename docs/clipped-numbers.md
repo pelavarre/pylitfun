@@ -6,8 +6,8 @@ Beware, this is a technical rant: strong opinions & working code
 ### Contents
 
 - [Why we care](#why-we-care)
-- [The problem and our solution](#the-problem-and-our-solution)
-  - [Show the problem](#show-the-problem)
+- [One example and its solution](#one-example-and-its-solution)
+  - [Show the problem in the example](#show-the-problem-in-the-example)
   - [Show our solution](#show-our-solution)
   - [Show this problem left broken by 'ls -lh'](#show-this-problem-left-broken-by-ls--lh)
   - [Say what fix solves the four bugs](#say-what-fix-solves-the-four-bugs)
@@ -34,28 +34,21 @@ Beware, this is a technical rant: strong opinions & working code
 
 # Why we care
 
-Last century's conventions for formatting numbers suit analog engineering plenty well. But for the digital age, we need new conventions
+**The problem:** When you look at a list of file sizes, network traffic, or database counts, your eyes need to instantly grasp which numbers matter. But today's formatting tools fail you. They either show too much detail (making small and large numbers equally hard to compare) or too little (rounding away information you need). This costs you time and accuracy every single day
 
-What's changed is that we now commonly count more than 1000 digital things at a time
+**Why it matters:** In the digital age, we work with numbers that span enormous ranges. You might see 74 bytes next to 2 billion bytes in the same table. When your tool says "0" for something that's actually 74, you've been lied to. When it rounds 3652 to "3.6K" but actually means 3.65, you've been confused. These aren't edge cases—they're the norm when you're managing digital systems
 
-Like suppose you have 2 billion (2e9), while she has 3 billion (3e9), and he has just 74. It's then an unhelpful lie for you to say he has 0. We practically always need you to say he has more than zero. We need you to mention the wide range of counts made, when the range is wide
+**What changed:** Last century's number formatting was designed for analog engineering, where ranges were narrow and precision was limited. Today, we count digital things that span from single bytes to terabytes, from microseconds to years. We need formatting that works across these wild ranges without lying to us
 
-That's the first tiny distinction that often matters. But we've gone and looked for more. We've found four distinctions we need your formatting to make, lest you lead us astray into miscounting digital things
-
-Your digital numbers have grown big. You making time to format them well matters now
+**What we need:** A quick & simple formatting algorithm that makes it instantly obvious which numbers are big and which are small, that never rounds away information you need, and that always tells you the truth. This document shows you how to build it
 
 
-# The problem and our solution
+# One example and its solution
 
 
-## Show the problem
+## Show the problem in the example
 
-
-A familiar terminal shell experience is
-
-```sh
-|| ... || Bytes || Date/ Time || Pathname ||
-```
+Look at a typical file listing:
 
 ```sh
 % ls -l
@@ -71,11 +64,9 @@ A familiar terminal shell experience is
 %
 ```
 
-But have your eyes learned to prefer
+Your eyes have to work hard. Is 1378 big or small? Is 10747 much bigger than 1378? You have to count digits. You have to compare numbers mentally. It's slow and error-prone
 
-```sh
-|| ... || Bytes || Date/ Time || Pathname ||
-```
+Now look at the same listing formatted humanely:
 
 ```sh
 % ls -l |pb eng replace columns
@@ -91,7 +82,7 @@ But have your eyes learned to prefer
 %
 ```
 
-?
+Notice what happens visually: the numbers with "e3" visually pop forward. The plain numbers fade back. Your eyes instantly see two groups. You don't have to think: you just see
 
 ## Show our solution
 
