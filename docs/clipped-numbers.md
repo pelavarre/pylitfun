@@ -11,7 +11,7 @@ Beware, this is a technical rant: strong opinions & working code
   - [Show our solution](#show-our-solution)
   - [Show this problem left broken by 'ls -lh'](#show-this-problem-left-broken-by-ls--lh)
   - [Say what fix solves the four bugs](#say-what-fix-solves-the-four-bugs)
-- [One main takeway](#one-main-takeway)
+- [One main takeaway](#one-main-takeaway)
   - [What you can have now, for the asking](#what-you-can-have-now-for-the-asking)
   - [Why fear the bad keming tomorrow](#why-fear-the-bad-keming-tomorrow)
 - [Fix known, and not yet well known](#fix-known-and-not-yet-well-known)
@@ -104,9 +104,17 @@ Watch what happens to your visual perception when we lay out a copy of just this
 %
 ```
 
-These numbers do naturally show us more structure, when made more meaningful. They split themselves apart, into two piles
+When you invite us to clip these numbers back to three digits each, then they split themselves apart naturally, into two piles
 
-Most simply, the small numbers
+```sh
+% ls -l |pb eng awk 5 join
+1.41e3  1.37e3  818  716  1.56e3  288  3.65e3  10.7e3  282  1.63e3
+%
+```
+
+You see the visual effect at play here?
+
+The smaller numbers naturally more fade away, because they lack the "e3" marks
 
 ```sh
 % ls -l |pb eng awk 5 split |grep -v e3 |pb join
@@ -114,7 +122,7 @@ Most simply, the small numbers
 %
 ```
 
-But also separately, the big numbers
+The big numbers more naturally stand out and step forward, because they have "e3" marks
 
 ```sh
 % ls -l |pb eng awk 5 split |grep e3 |pb join
@@ -122,9 +130,9 @@ But also separately, the big numbers
 %
 ```
 
-Hold this difference in mind, between small numbers written with little ink, vs big numbers written with more ink. Watch what happens to your visual perception when we just correct the format of these numbers, while leaving them in place in their rows. You see that? They come and naturally split their rows across this same dividing line
+Next now, watch what happens to your visual perception when we just correct the format of these numbers, but leave them in place in their rows. You see? They quite naturally come and split their rows across this same dividing line
 
-The extra ink visually brings forward the rows of the big numbers
+The extra ink of the "e3" mark visually brings forward the rows of the big numbers
 
 ```sh
 % ls -l |pb eng replace columns |grep e3
@@ -137,7 +145,7 @@ The extra ink visually brings forward the rows of the big numbers
 %
 ```
 
-The careful lack of extra ink visually pushes back the rows of the small numbers
+The careful lack of the "e3" ink visually pushes back the rows of the small numbers
 
 ```sh
 % ls -l |pb eng replace columns |grep -v e3
@@ -149,7 +157,9 @@ total        72
 %
 ```
 
-You don't have to make time to read through the meaningless detail. You can decline to struggle. You can make it a job for the Bots to clip away the meaningless detail for you
+You don't have to make time to read through the meaningless detail of particular digits spoken in place of the summary "e3" mark. You can decline to struggle. You can make it a job for the Bots to clip away the meaningless detail for you
+
+Clipping your numbers down to three digits marks the rows to sort themselves by the size of their engineering exponent. Significantly helpful. These clipped numbers speak into your eyes more quickly, more easily, and more accurately
 
 
 ## Show this problem left broken by 'ls -lh'
@@ -226,7 +236,7 @@ I'm saying you have spoken **a well-clipped number** when you speak the name I k
 You make it easy for me to read what you say correctly, and you make it hard for me to read it wrong
 
 
-# One main takeway
+# One main takeaway
 
 
 ## What you can have now, for the asking
@@ -328,6 +338,8 @@ Our code produces correct Int answers. Our code here formats Int Counts humanely
 (9876, "9.87e3"),  # not rounded up to '9.88e3'
 ```
 
+Looks good? You feel you know where to put your copy of this Python code, and when to call it?
+
 
 ### Ints of Google Sheets or Microsoft Excel
 
@@ -371,6 +383,8 @@ And you can tell Sheet to give the name 'int.clip' to this Formula so as to call
 ```excel
 =int.clip(9876)  # '9.87e3
 ```
+
+Looks good? You feel you know where to put your copy of this Simd Formula, and when to call it?
 
 
 ## Fix for Floats
@@ -502,6 +516,8 @@ Our code here produces correct Float answers. Our code here formats Float Counts
 (float("nan"), "NaN"),  # not 'nan'
 ```
 
+Looks good? You feel you know where to put your copy of this Python code, and when to call it?
+
 
 ### Floats of Google Sheets or Microsoft Excel
 
@@ -545,6 +561,9 @@ And you can tell g Sheets to give the name 'float.clip' to this Formula so as to
 ```excel
 =float.clip(9876.0)  # '9.87e3
 ```
+
+Looks good? You feel you know where to put your copy of this Simd Formula, and when to call it?
+
 
 #### Do they know you need this?
 
@@ -613,9 +632,9 @@ Five hopes
 
 3 ) Help people find the Ceil of a Measure plus Margin, rounding up to their Unit of Choice
 
-3 ) Help people separate when to clip a number sharply, vs when to forward all the precision they've got. APIs for data interchange send out lots of precision for good reasons through standard file formats: .csv, .json, etc
+4 ) Help people separate when to clip a number sharply, vs when to forward all the precision they've got. APIs for data interchange send out lots of precision for good reasons through standard file formats: .csv, .json, etc
 
-4 ) Figure out why solving Floats or Ints in g Sheets and Excel takes just 14 Lines. Why can't we solve Ints even more simply?
+5 ) Figure out why solving Floats or Ints in g Sheets and Excel takes just 14 Lines. Why can't we solve Ints even more simply?
 
 ## Detail on why believe our Simd Formula for Floats
 
