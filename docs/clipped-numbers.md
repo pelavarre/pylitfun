@@ -11,9 +11,8 @@ Beware, this is a technical rant: strong opinions & working code
   - [Show our solution](#show-our-solution)
   - [Show this problem left broken by 'ls -lh'](#show-this-problem-left-broken-by-ls--lh)
   - [Say what fix solves the four bugs](#say-what-fix-solves-the-four-bugs)
+  - [You might find more peace, if you don't accept these bugs](#you-might-find-more-peace-if-you-dont-accept-these-bugs)
 - [One main takeaway](#one-main-takeaway)
-  - [What you can have now, for the asking](#what-you-can-have-now-for-the-asking)
-  - [Why fear the bad keming tomorrow](#why-fear-the-bad-keming-tomorrow)
 - [Fix known, and not yet well known](#fix-known-and-not-yet-well-known)
   - [Fix for Ints](#fix-for-ints)
     - [Ints of Python](#ints-of-python)
@@ -236,10 +235,22 @@ I'm saying you have spoken **a well-clipped number** when you speak the name I k
 You make it easy for me to read what you say correctly, and you make it hard for me to read it wrong
 
 
+## You might find more peace, if you don't accept these bugs
+
+"A bug becomes a bug when it bothers someone who matters"
+
+Please beware
+
+If you don't yet feel these 4 bugs are bugs, please stop, and give yourself a moment to feel a fitting degree of fear
+
+I can only teach you to start seeing, I can't teach you to stop. I can't even stop myself seeing
+
+You learning to see these bugs will injure your peace. It'll be as if I were teaching you to notice bad [keming](https://en.wikipedia.org/wiki/Kerning) on street signs
+
+Learning to see more wrong will poison your life. It's only worth it if you're building with numbers, or getting rewarded in some other way to work well with numbers. Only then do you need to learn to reject lying numbers quickly, simply, and accurately. As we do here
+
+
 # One main takeaway
-
-
-## What you can have now, for the asking
 
 You can have "correct at a glance" precision. Ask for it persistently, and they will eventually come and give it to you
 
@@ -250,15 +261,6 @@ You can have "correct at a glance" precision. Ask for it persistently, and they 
 | pb eng    | 3.65e3 | 10.4e3 | 288   | Helpful    | Strong |
 
 Do you feel you get it? Do you see how our first century of Software Traditions for clipping numbers do lead us astray?
-
-
-## Why fear the bad keming tomorrow
-
-Beware
-
-If you don't yet feel their bugs are bugs, please stop. Give yourself a moment to feel a fitting degree of fear
-
-I can only teach you to start seeing, I can't teach you to stop. I can't even stop myself seeing. It'll be as if I were teaching you to notice bad [keming](https://en.wikipedia.org/wiki/Kerning) on street signs. Learning to see more wrong will poison your life. It's only worth it if you're building with numbers, or getting rewarded in some other way to work well with numbers. Only then do you need to learn to reject lying numbers quickly, simply, and accurately. As we do here
 
 
 # Fix known, and not yet well known
