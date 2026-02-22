@@ -193,15 +193,15 @@ You see? They give you a Column of malformed Byte Counts
 
 Four bugs
 
-1 ) Do your eyes reliably pick "888" apart from "88B"?
+1 ) **Do your eyes reliably pick "888" apart from "88B"?**
 
 Mine don't. And I don't need a "B" Suffix on screen to tell me there are no more digits there. This "B" Suffix is a waste of ink. And their "B" Suffix too often becomes a lie, like by almost saying "2888" when meaning to say "288" and a "B". Please make it stop
 
-2 ) Have you already memorized the k, M, G, etc metric prefixes that mean e3, e6, e9, etc?
+2 ) **Have you already memorized the k, M, G, etc metric prefixes that mean e3, e6, e9, etc?**
 
 Well and good, but if your memory is precise then you'll feel annoyed when you notice they put an unconventional upper 'K' in place of the standard lower 'k'
 
-3 ) Have you memorized the exact values of the metric prefixes?
+3 ) **Have you memorized the exact values of the metric prefixes?**
 
 They get these wrong. Since 1999, our standard has been clear: Ki is 1024 and k is 1000, and they get it wrong, We can show how wrong they go with just one testcase. Let's just try counting out 3652 bytes
 
@@ -211,7 +211,7 @@ They get these wrong. Since 1999, our standard has been clear: Ki is 1024 and k 
 
 Why so wrong? Well, they rounded 3.56Ki up to 3.6Ki, then mislabeled it as '3.6K'. This comes out upside-down. They rounded UP but reported a number that's LESS than the actual value (3.6 < 3.65). This is confusing. This is wrong
 
-4 ) How many digits do you need to see?
+4 ) **How many digits do you need to see?**
 
 2 digits is not enough, and 4 digits is too many, I am saying. Here I stand. True for your eyes too?
 
@@ -264,7 +264,7 @@ You can have "correct at a glance" precision. Ask for it persistently, and they 
 | ls -lh    | 3.6K   | 103K   | 288B  | Too Litle  | Weak   |
 | pb eng    | 3.65e3 | 10.4e3 | 288   | Helpful    | Strong |
 
-Do you feel you get it? Do you see how our first century of Software Traditions for clipping numbers do lead us astray?
+Do you feel you get it? Do you see how our first century of Software Traditions for clipping numbers do lead us astray, when we're counting digital things?
 
 
 # Fixes known, and not yet well known
@@ -295,7 +295,7 @@ The 'replace columns' part turns the text into a conventional table of left-alig
 
 You can call on Python to clip a count back to three digits. You don't have to let it whisper lies into your eyes
 
-You can download and run this. It picks out a leading negative sign, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits
+You can download and run this. It picks out a leading negative dash, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits
 
 It never says 'e0'. It never ends with "." or ".0" or ".00". It never adds on a confusion of "8" vs "B". It always chooses unsigned metric exponents like "e3", never a scientific exponent like "e+2" or "e1" or "e-0". It always calculates powers of 10 as the Base of "e", not powers of the 10th power of 2 (1024)
 
@@ -305,7 +305,7 @@ def clip_int(i: int) -> str:
 
     s = str(int(i))  # '-120789'
 
-    _, sign, digits = s.rpartition("-")  # ('', '-', '120789')
+    _, dash, digits = s.rpartition("-")  # ('', '-', '120789')
     sci = len(digits) - 1  # 5  # scientific power of ten
     eng = 3 * (sci // 3)  # 3  # engineering power of ten
 
@@ -323,7 +323,7 @@ def clip_int(i: int) -> str:
 
     assert "." in nearby, (nearby, precise, eng, sci, digits, i)
 
-    return sign + worthy + "e" + str(eng)  # '-120e3'
+    return dash + worthy + "e" + str(eng)  # '-120e3'
 
     # -120789 --> -120e3, etc
 ```
@@ -356,14 +356,14 @@ This same code works just as well in both Microsoft Excel and in Google Sheets
 =IF(A1=0, "0",
   IF(LEN(TEXT(ABS(A1),"0"))<=3, TEXT(A1,"0"),
     LET(
-      sign, IF(A1<0, "-", ""),
+      dash, IF(A1<0, "-", ""),
       digits, TEXT(ABS(A1),"0"),
       sci, LEN(digits)-1,
       eng, 3*INT(sci/3),
       precise, LEFT(digits, LEN(digits)-eng) & "." & RIGHT(digits, eng),
       nearby, LEFT(precise, 4),
       worthy, REGEXREPLACE(REGEXREPLACE(nearby, "0+$", ""), "\.$", ""),
-      sign & worthy & "e" & TEXT(eng,"0")
+      dash & worthy & "e" & TEXT(eng,"0")
     )
   )
 )
@@ -536,7 +536,7 @@ This same code works just as well in both Microsoft Excel and in Google Sheets
 ```excel
 =IF(A1 = 0, "0",
 LET(
-    sign, IF(A1 < 0, "-", ""),
+    dash, IF(A1 < 0, "-", ""),
     f, ABS(A1),
     sci, INT(FLOOR(LOG10(f))),
     precise, f / (10^sci),
@@ -546,7 +546,7 @@ LET(
     nearby, LEFT(triple, span) & "." & MID(triple, span + 1, 100),
     worthy, REGEXREPLACE(REGEXREPLACE(nearby, "0+$", ""), "\.$", ""),
     clip, REGEXREPLACE(worthy & "e" & eng, "e0$", ""),
-    sign & clip
+    dash & clip
 )
 ```
 

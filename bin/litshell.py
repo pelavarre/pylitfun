@@ -2239,7 +2239,7 @@ def _clip_int_(i: int) -> str:
 
     s = str(int(i))  # '-120789'
 
-    _, sign, digits = s.rpartition("-")  # ('', '-', '120789')
+    _, dash, digits = s.rpartition("-")  # ('', '-', '120789')
     sci = len(digits) - 1  # 5  # scientific power of ten
     eng = 3 * (sci // 3)  # 3  # engineering power of ten
 
@@ -2258,7 +2258,7 @@ def _clip_int_(i: int) -> str:
 
     assert "." in nearby, (nearby, precise, eng, sci, digits, i)
 
-    clip = sign + worthy + "e" + str(eng)  # '-120e3'
+    clip = dash + worthy + "e" + str(eng)  # '-120e3'
 
     return clip
 
