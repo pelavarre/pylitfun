@@ -40,7 +40,7 @@ Beware, this is a technical rant: strong opinions & working code
 
 **What changed:** Last century's number formatting was designed for analog engineering, where ranges were narrow and precision was limited. Today, we count digital things that span from single bytes to terabytes, from microseconds to years. We need formatting that works across these wild ranges without lying to us
 
-**What we need:** A quick & simple formatting algorithm that makes it instantly obvious which numbers are big and which are small, that never rounds away information you need, and that always tells you the truth. This document shows you how to build it
+**What we need:** A quick & simple formatting algorithm that makes it instantly obvious which numbers are big and which are small, that never rounds away information you need, and that always tells you the truth. This paper shows you how to build it
 
 
 # One example and its solution

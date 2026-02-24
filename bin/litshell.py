@@ -395,6 +395,8 @@ class ShellGopher:
 
         # Compile the plan
 
+        assert not bricks, (bricks,)
+
         for index, word in enumerate(lotsa_words):
 
             if index == 0:
@@ -419,7 +421,7 @@ class ShellGopher:
                     text = str_removeflanks_else(word, marks=",./")  # takes str
 
                 if text is not None:
-                    if index == 2:
+                    if not bricks:
                         newborn = self._compile_brick_if_("append")
                         bricks.append(newborn)
 
@@ -618,6 +620,7 @@ class ShellBrick:
             "append": self.for_line_append,
             "enumerate": self.for_line_enumerate,  # like |n or |cat -n but --start=0
             "if": self.for_line_if,
+            "index": self.for_line_index,
             "insert": self.for_line_insert,
             "lstrip": self.for_line_lstrip,
             "max": self.for_line_max,
@@ -1544,7 +1547,7 @@ class ShellBrick:
         if not ignorecase:
             iolines.sort()
         else:
-            iolines.sort(key=lambda _: _.casefold())
+            iolines.sort(key=lambda _: _.casefold())  # todo0: ignorecase sorts often unstable?
         self.store_olines(olines=iolines)
 
     def from_lines_sum(self) -> None:
@@ -1840,6 +1843,18 @@ class ShellBrick:
         self.store_olines(olines)
 
         # todo0: add '|.if' to .rstrip before if
+
+    def for_line_index(self) -> None:
+        """_ for _ in list(sys.i) try _.index(text)"""
+
+        posargs = self.posargs
+
+        text = posargs[0] if posargs else " "
+        assert isinstance(text, str), (text,)
+
+        ilines = self.fetch_ilines()
+        olines = list(_ for _ in ilines if _.find(text) >= 0)
+        self.store_olines(olines)
 
     def for_line_head(self) -> None:
         """list(sys.i)[:9]"""  # todo8: better help for '|.head' and '|head -n'
