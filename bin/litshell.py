@@ -623,6 +623,7 @@ class ShellBrick:
             "index": self.for_line_index,
             "insert": self.for_line_insert,
             "lstrip": self.for_line_lstrip,
+            "match": self.for_line_match,
             "max": self.for_line_max,
             "min": self.for_line_min,
             "removeprefix": self.for_line_removeprefix,
@@ -1702,6 +1703,18 @@ class ShellBrick:
     # Work from the File taken as each 1 of N Lines
     #
 
+    def for_line_append(self) -> None:
+        """(_ + suffix) for _ in list(sys.i)"""
+
+        posargs = self.posargs
+
+        splits = [str(_) for _ in posargs] if posargs else ["$"]
+        join = " ".join(splits)
+
+        ilines = self.fetch_ilines()
+        olines = list((_ + join) for _ in ilines)
+        self.store_olines(olines)
+
     def for_line_awk_nth_slice(self) -> None:
         """_.split(sep)[-1] for _ in list(sys.i) if _.split(sep)"""
 
@@ -1751,18 +1764,6 @@ class ShellBrick:
 
         # as if |awk 'NF{print $NF}'
 
-    def for_line_append(self) -> None:
-        """(_ + suffix) for _ in list(sys.i)"""
-
-        posargs = self.posargs
-
-        splits = [str(_) for _ in posargs] if posargs else ["$"]
-        join = " ".join(splits)
-
-        ilines = self.fetch_ilines()
-        olines = list((_ + join) for _ in ilines)
-        self.store_olines(olines)
-
     def for_line_cut(self) -> None:
         """(_[:72] + ' ...') for _ in list(sys.i)"""
 
@@ -1796,6 +1797,25 @@ class ShellBrick:
         olines = list((4 * " " + _) for _ in ilines)
         self.store_olines(olines)
 
+    def for_line_do_frame(self) -> None:
+        """[""2*""] + list((4*" " + _ + 4*" ") for _ in list(sys.i)) + [2*""]"""
+
+        verb = self.verb
+
+        ilines = self.fetch_ilines()
+        width = max(len(_) for _ in ilines) if ilines else 0
+
+        above = 2 * [""]
+        ljust = width + 4
+        rjust = ljust + 4
+        below = 2 * [""]
+
+        olines = above + list(_.ljust(ljust).rjust(rjust) for _ in ilines) + below
+        if verb.startswith("."):
+            olines = list(_.rstrip() for _ in olines)
+
+        self.store_olines(olines)
+
     def for_line_enumerate(self) -> None:
         """enumerate(list(sys.i), start=start)"""  # implicitly for _ in list(sys.i)
 
@@ -1816,23 +1836,13 @@ class ShellBrick:
 
         self.store_olines(olines)
 
-    def for_line_do_frame(self) -> None:
-        """[""2*""] + list((4*" " + _ + 4*" ") for _ in list(sys.i)) + [2*""]"""
+    def for_line_head(self) -> None:
+        """list(sys.i)[:9]"""  # todo8: better help for '|.head' and '|head -n'
 
-        verb = self.verb
+        n = self._take_dot_or_posargs_as_y_high_minus_(default=9, minus=2)
 
         ilines = self.fetch_ilines()
-        width = max(len(_) for _ in ilines) if ilines else 0
-
-        above = 2 * [""]
-        ljust = width + 4
-        rjust = ljust + 4
-        below = 2 * [""]
-
-        olines = above + list(_.ljust(ljust).rjust(rjust) for _ in ilines) + below
-        if verb.startswith("."):
-            olines = list(_.rstrip() for _ in olines)
-
+        olines = ilines[:n]
         self.store_olines(olines)
 
     def for_line_if(self) -> None:
@@ -1854,15 +1864,6 @@ class ShellBrick:
 
         ilines = self.fetch_ilines()
         olines = list(_ for _ in ilines if _.find(text) >= 0)
-        self.store_olines(olines)
-
-    def for_line_head(self) -> None:
-        """list(sys.i)[:9]"""  # todo8: better help for '|.head' and '|head -n'
-
-        n = self._take_dot_or_posargs_as_y_high_minus_(default=9, minus=2)
-
-        ilines = self.fetch_ilines()
-        olines = ilines[:n]
         self.store_olines(olines)
 
     def for_line_insert(self) -> None:
@@ -1893,6 +1894,32 @@ class ShellBrick:
         oline = osep.join(ilines)
         olines = [oline]
 
+        self.store_olines(olines)
+
+    def for_line_len(self) -> None:
+        """len(_) for _ in list(sys.i)"""
+
+        ilines = self.fetch_ilines()
+        olines = list(str(len(_)) for _ in ilines)
+        self.store_olines(olines)
+
+    def for_line_lstrip(self) -> None:
+        """_.lstrip() for _ in list(sys.i)"""
+
+        ilines = self.fetch_ilines()
+        olines = list(_.lstrip() for _ in ilines)
+        self.store_olines(olines)
+
+    def for_line_match(self) -> None:
+        """_ for _ in list(sys.i) if re.search(pattern, _)"""
+
+        posargs = self.posargs
+
+        pattern = posargs[0] if posargs else r" "
+        assert isinstance(pattern, str), (pattern,)
+
+        ilines = self.fetch_ilines()
+        olines = list(_ for _ in ilines if re.search(pattern, _))
         self.store_olines(olines)
 
     def for_line_max(self) -> None:
@@ -1927,20 +1954,6 @@ class ShellBrick:
         olines = [oline]
         self.store_olines(olines)
 
-    def for_line_len(self) -> None:
-        """len(_) for _ in list(sys.i)"""
-
-        ilines = self.fetch_ilines()
-        olines = list(str(len(_)) for _ in ilines)
-        self.store_olines(olines)
-
-    def for_line_lstrip(self) -> None:
-        """_.lstrip() for _ in list(sys.i)"""
-
-        ilines = self.fetch_ilines()
-        olines = list(_.lstrip() for _ in ilines)
-        self.store_olines(olines)
-
     def for_line_removeprefix(self) -> None:
         """(_.removeprefix(sys.argv[1]) for _ in list(sys.i)"""
 
@@ -1961,13 +1974,6 @@ class ShellBrick:
         olines = list(_.removesuffix(suffix) for _ in ilines)
         self.store_olines(olines)
 
-    def for_line_rstrip(self) -> None:
-        """list(_.rstrip() for _ in list(sys.i))"""
-
-        ilines = self.fetch_ilines()
-        olines = list(_.rstrip() for _ in ilines)
-        self.store_olines(olines)
-
     def for_line_reverse(self) -> None:
         """list("".join(reversed(_)) for _ in list(sys.i))"""
 
@@ -1976,6 +1982,13 @@ class ShellBrick:
         self.store_olines(olines)
 
         # quite different from 'def from_lines_reversed'
+
+    def for_line_rstrip(self) -> None:
+        """list(_.rstrip() for _ in list(sys.i))"""
+
+        ilines = self.fetch_ilines()
+        olines = list(_.rstrip() for _ in ilines)
+        self.store_olines(olines)
 
     def for_line_set(self) -> None:  # diff vs 'def from_lines_counter'
         """collections.Counter(list(sys.i)).keys()"""
