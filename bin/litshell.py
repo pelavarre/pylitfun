@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-usage: litshell.py [-h] [-V] [-v] [-r] [--sep SEP] [--start START] [WORD ...]
+usage: litshell.py [-h] [-V] [-r] [--sep SEP] [--start START] [WORD ...]
 
 read/ write the os copy/ paste clipboard buffer, write tty, and write files
 
@@ -11,7 +11,6 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   -V, --version         show version numbers and exit
-  -v, --verbose         say more
   -r, --raw-control-ch  write Control Chars to Tty, don't replace with '¤' Currency-Symbol
   --sep SEP             an input or output separator, such as ' ' or ',' or ', '
   --start START         a starting index, such as 0 or 1
@@ -136,9 +135,6 @@ class LitSystemExit(SystemExit):
 #
 
 
-verbose_because = list()
-
-
 def main() -> None:
     """Run from the Shell Command Line"""
 
@@ -251,9 +247,6 @@ class ShellGopher:
         words = self.words
         words.extend(ns.words)
 
-        if ns.verbose:
-            verbose_because.append(True)
-
         #
         if ns.ignore_case is not None:  # -f, --ignore-case, mostly for |sort
             self.ignorecase = ns.ignore_case
@@ -302,11 +295,9 @@ class ShellGopher:
         help_help = "show this help message and exit"
         raw_control_ch_help = "write Control Chars to Tty, don't replace with '¤' Currency-Symbol"
         version_help = "show version numbers and exit"
-        verbose_help = "say more"
 
         parser.add_argument("-h", "--help", action="count", help=help_help)
         parser.add_argument("-V", "--version", action="count", help=version_help)
-        parser.add_argument("-v", "--verbose", action="count", help=verbose_help)
         parser.add_argument("-r", "--raw-control-ch", action="count", help=raw_control_ch_help)
 
         sep_help = "an input or output separator, such as ' ' or ',' or ', '"
@@ -320,8 +311,8 @@ class ShellGopher:
         parser.add_argument("-F", help=argparse.SUPPRESS)  # |awk -F/
         parser.add_argument("-pba", action="count", help=argparse.SUPPRESS)  # |nl -pba -v0
         parser.add_argument("-vOFS", help=argparse.SUPPRESS)  # |awk vOFS=x
-        # parser.add_argument("-t", help=argparse.SUPPRESS)  # |column -t
-        # parser.add_argument("-v", help=argparse.SUPPRESS)  # |nl -pba -v0
+        parser.add_argument("-t", help=argparse.SUPPRESS)  # |columns -t
+        parser.add_argument("-v", help=argparse.SUPPRESS)  # |match -v /pattern/  # |nl -pba -v0
         parser.add_argument("--raw-control-chars", action="count", help=argparse.SUPPRESS)
 
         # Succeed
@@ -520,9 +511,6 @@ class ShellGopher:
                 continue
 
             s += " " + repr(doc)
-
-        if verbose_because:  # todo8: remember --verbose could do good things
-            print(s, file=sys.stderr)  # todo8: delay trace till after first input
 
         # doesn't show when inferring 'tee >(pbcopy)' and/or '|pb printable'
 
