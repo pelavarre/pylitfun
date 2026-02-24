@@ -164,6 +164,7 @@ class ShellGopher:
     # Take in the Shell Args
 
     words: list[str]  # the Shell Args that aren't Double-Dash Options and aren't Dash Options
+    inverse: int | None  # nonzero to invert the meaning of a brick, such as |match -v /pattern/
     sep: str | None  # a separator, such as ' ' or ', '
     start: int | None  # a starting index, such as 0 or 1
     ignorecase: int | None  # nonzero to ignore case
@@ -204,6 +205,7 @@ class ShellGopher:
         self.y_high = y_high
 
         self.words = list()
+        self.inverse = None
         self.sep = None
         self.start = None
         self.ignorecase = None
@@ -248,8 +250,24 @@ class ShellGopher:
         words.extend(ns.words)
 
         #
+
+        assert self.sep is None, (self.sep,)
+
+        if ns.sep is not None:
+            self.sep = str(ns.sep)
+
+        if ns.start is not None:
+            self.start = int(ns.start, base=0)
+
+        if ns.v is not None:  # todo7: -v=START for |nl
+            self.inverse = 1 if (self.inverse is None) else (self.inverse + 1)
+
+        #
+
         if ns.ignore_case is not None:  # -f, --ignore-case, mostly for |sort
             self.ignorecase = ns.ignore_case
+
+            # todo: reject or accept -f at |index /text/, at |match or |fullmatch /pattern/
 
         if ns.F is not None:  # -F mostly for |awk
             if self.sep is None:
@@ -261,15 +279,6 @@ class ShellGopher:
         if ns.vOFS is not None:  # -vOFS=OFS mostly for |awk
             if self.sep is None:
                 self.sep = str(ns.vOFS)
-
-        # if ns.v is not None:  # -v=START mostly for |nl  # todo7:
-        #     if self.start is None:
-        #         self.start = int(ns.v, base=0)
-
-        if ns.sep is not None:
-            self.sep = str(ns.sep)
-        if ns.start is not None:
-            self.start = int(ns.start, base=0)
 
         r = ns.raw_control_ch or 0
         r += ns.raw_control_chars or 0
@@ -312,7 +321,7 @@ class ShellGopher:
         parser.add_argument("-pba", action="count", help=argparse.SUPPRESS)  # |nl -pba -v0
         parser.add_argument("-vOFS", help=argparse.SUPPRESS)  # |awk vOFS=x
         parser.add_argument("-t", help=argparse.SUPPRESS)  # |columns -t
-        parser.add_argument("-v", help=argparse.SUPPRESS)  # |match -v /pattern/  # |nl -pba -v0
+        parser.add_argument("-v", action="count", help=argparse.SUPPRESS)  # |match -v /pattern/
         parser.add_argument("--raw-control-chars", action="count", help=argparse.SUPPRESS)
 
         # Succeed
@@ -1832,7 +1841,10 @@ class ShellBrick:
         """_ for _ in list(sys.i) if re.fullmatch(pattern, _)"""
 
         posargs = self.posargs
+        sg = self.shell_gopher
         verb = self.verb
+
+        inverse = sg.inverse
 
         pattern = posargs[0] if posargs else r".* .*"
         assert isinstance(pattern, str), (pattern,)
@@ -1840,9 +1852,19 @@ class ShellBrick:
         ilines = self.fetch_ilines()
 
         if verb == ".fullmatch":
-            olines = list(_ for _ in ilines if re.fullmatch(pattern, string=_))
+            if inverse:
+                olines = list(_ for _ in ilines if not re.fullmatch(pattern, string=_))
+            else:
+                olines = list(_ for _ in ilines if re.fullmatch(pattern, string=_))
         else:
-            olines = list(_ for _ in ilines if re.fullmatch(pattern, string=_, flags=re.IGNORECASE))
+            if inverse:
+                olines = list(
+                    _ for _ in ilines if not re.fullmatch(pattern, string=_, flags=re.IGNORECASE)
+                )
+            else:
+                olines = list(
+                    _ for _ in ilines if re.fullmatch(pattern, string=_, flags=re.IGNORECASE)
+                )
 
         self.store_olines(olines)
 
@@ -1868,7 +1890,10 @@ class ShellBrick:
         """_ for _ in list(sys.i) try _.index(text)"""
 
         posargs = self.posargs
+        sg = self.shell_gopher
         verb = self.verb
+
+        inverse = sg.inverse
 
         text = posargs[0] if posargs else " "
         assert isinstance(text, str), (text,)
@@ -1877,9 +1902,15 @@ class ShellBrick:
 
         casefold = text.casefold()
         if verb == ".index":
-            olines = list(_ for _ in ilines if _.find(text) >= 0)
+            if inverse:
+                olines = list(_ for _ in ilines if _.find(text) < 0)
+            else:
+                olines = list(_ for _ in ilines if _.find(text) >= 0)
         else:
-            olines = list(_ for _ in ilines if _.casefold().find(casefold) >= 0)
+            if inverse:
+                olines = list(_ for _ in ilines if _.casefold().find(casefold) < 0)
+            else:
+                olines = list(_ for _ in ilines if _.casefold().find(casefold) >= 0)
 
         self.store_olines(olines)
 
@@ -1931,7 +1962,10 @@ class ShellBrick:
         """_ for _ in list(sys.i) if re.search(pattern, _)"""
 
         posargs = self.posargs
+        sg = self.shell_gopher
         verb = self.verb
+
+        inverse = sg.inverse
 
         pattern = posargs[0] if posargs else r" "
         assert isinstance(pattern, str), (pattern,)
@@ -1939,9 +1973,17 @@ class ShellBrick:
         ilines = self.fetch_ilines()
 
         if verb == ".match":
-            olines = list(_ for _ in ilines if re.search(pattern, string=_))
+            if inverse:
+                olines = list(_ for _ in ilines if not re.search(pattern, string=_))
+            else:
+                olines = list(_ for _ in ilines if re.search(pattern, string=_))
         else:
-            olines = list(_ for _ in ilines if re.search(pattern, string=_, flags=re.IGNORECASE))
+            if inverse:
+                olines = list(
+                    _ for _ in ilines if not re.search(pattern, string=_, flags=re.IGNORECASE)
+                )
+            else:
+                olines = list(_ for _ in ilines if re.search(pattern, string=_, flags=re.IGNORECASE))
 
         self.store_olines(olines)
 
@@ -2733,6 +2775,8 @@ if __name__ == "__main__":
 
 
 # lil todo's
+
+# todo: |pb g to work like |pb match, but accept multiple text args as if or'ed by |grep -e
 
 # todo0: |pb g /SESS/ for the Python RegEx effect of |grep -ai -e /SESS/
 # todo0: |pb find /SESS/ for str.find of literal text
