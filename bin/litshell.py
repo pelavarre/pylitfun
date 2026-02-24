@@ -619,6 +619,7 @@ class ShellBrick:
             #
             "append": self.for_line_append,
             "enumerate": self.for_line_enumerate,  # like |n or |cat -n but --start=0
+            "fullmatch": self.for_line_fullmatch,
             "if": self.for_line_if,
             "index": self.for_line_index,
             "insert": self.for_line_insert,
@@ -1834,6 +1835,18 @@ class ShellBrick:
         kvlines = list(f"{k}\t{v}" for (k, v) in opairs)
         olines = kvlines
 
+        self.store_olines(olines)
+
+    def for_line_fullmatch(self) -> None:
+        """_ for _ in list(sys.i) if re.fullmatch(pattern, _)"""
+
+        posargs = self.posargs
+
+        pattern = posargs[0] if posargs else r".* .*"
+        assert isinstance(pattern, str), (pattern,)
+
+        ilines = self.fetch_ilines()
+        olines = list(_ for _ in ilines if re.fullmatch(pattern, _))
         self.store_olines(olines)
 
     def for_line_head(self) -> None:
