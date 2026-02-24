@@ -580,6 +580,8 @@ class ShellBrick:
             # Hp Calculator  Words
             #
             "eng": self.from_text_eng,
+            ".eng": self.from_text_eng,
+            "..eng": self.from_text_eng,
             #
             # Python Single Words working with all the Bytes / Text / Lines, or with each Line
             #
@@ -1166,6 +1168,8 @@ class ShellBrick:
     def from_text_eng(self) -> None:
         """replace with clip_float(_).rjust for _: float in str(sys.i)"""
 
+        verb = self.verb
+
         itext = self.fetch_itext()
         expandtabs = itext.expandtabs()
         ilines = expandtabs.splitlines()
@@ -1181,14 +1185,33 @@ class ShellBrick:
                 ident = len(isplit) - len(isplit.lstrip())
                 ijust = min(ident, 2)  # 0, 1, or 2
 
-                osplit = isplit
                 try:
                     f = float(isplit)
                 except ValueError:
-                    oline += osplit
+                    oline += isplit
                     continue
 
-                iosplit = clip_float(f)
+                #
+
+                unreal = math.isnan(f) or math.isinf(f)
+                if verb.startswith("..") and not unreal:
+
+                    i = int(f)
+                    if i != f:
+                        oline += isplit
+                        continue
+
+                    iosplit = clip_bimetric(i)
+
+                elif verb.startswith("."):
+
+                    iosplit = clip_metric(f)
+
+                else:
+
+                    iosplit = clip_float(f)
+
+                #
 
                 osplit = iosplit
                 if ijust:
@@ -1959,7 +1982,7 @@ class ShellBrick:
         self.store_olines(olines)
 
     def for_line_match(self) -> None:
-        """_ for _ in list(sys.i) if re.search(pattern, _)"""
+        """_ for _ in list(sys.i) if re.search(pattern, _)"""  # re.search isn't re.match
 
         posargs = self.posargs
         sg = self.shell_gopher
@@ -2319,16 +2342,91 @@ class ArgDocParser:
 #
 
 
+def clip_metric(f: float) -> str:
+    """Clip the Float but give it a Metric Prefix Multiplier, not an 'e' decimal exponent"""
+
+    metrics = "qryzafpnμm.kMGTPEZYRQ"  # https://en.wikipedia.org/wiki/Metric_prefix
+
+    fclip = clip_float(f)
+
+    if math.isnan(f):  # todo: raise (f, fclip) in place of (f)?
+        raise ValueError(f)  # can't clip NaN
+    if math.isinf(f):
+        raise ValueError(f)  # can't clip Inf
+
+    fmag, _, fexp = fclip.partition("e")
+    if not fexp:
+        clip = fclip
+        return clip
+
+    exp = int(fexp if fexp else "0")
+
+    index = 10 + (exp // 3)
+    metric = metrics[index]
+
+    clip = f"{fmag}{metric}" if exp else fmag
+    return clip  # -120789 --> '-120k', etc
+
+    # raises ValueError for Floats that 2025 SI Metric Prefixes can't count out
+
+
+def clip_float(f: float) -> str:
+    """Find the nearest Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
+
+    # Clip -Inf and +Inf and NaN as themselves
+
+    if math.isnan(f):
+        return "NaN"  # unsigned, not positive and not negative
+
+    if math.isinf(f):
+        absclip = "Inf"
+        clip = ("-" + absclip) if (f < 0) else absclip
+        return clip
+
+    # Raise ValueError if not countable by a 2022 SI Metric Prefix
+
+    if f:
+        if not (1e-30 <= abs(f) < 1000e30):  # 2022 quecto to quetta  # beyond 1991 yocto to yotta
+            raise ValueError(f)  # can't clip larger than quetta, or smaller than quecto
+
+    # Clip as Int if equal to Int, or if >= 3 Digits at left of the Decimal Point
+
+    i = int(f)
+    if (f == i) or (abs(i) > 100):  # includes -0e0
+        clip = clip_int(i)
+        assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(f), f)
+        return clip
+
+    # Raise ValueError if counting as Int might round down the first 3 Digits
+
+    assert (1000e12 + 1) != 1000e12
+    assert (10e15 + 1) == 10e15
+
+    if abs(f) < 1e-12:  # like to block 4.2e-15 -> '4e-15'
+        raise ValueError(f)  # can't clip smaller than 1e-12
+
+    # Clip as an Int multiplied by Metric Prefix below 1
+
+    fudge = 1e-21  # 1e-12 -> '999e-15' without fudge  # fudge so arbitrary you could c*pyright it
+    i = int((f + fudge) / 1e-15)
+    if not i:
+        clip = "0"
+        return clip
+
+    iclip = clip_int(i)
+    imag, _, iexp = iclip.partition("e")
+    exp = int(iexp if iexp else "0") - 15
+
+    clip = f"{imag}e{exp}" if exp else imag
+
+    assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(f), f)
+    return clip  # -120.789 --> '-120', etc
+
+    # raises ValueError for Floats that 2025 SI Metric Prefixes can't count out
+
+
 def clip_int(i: int) -> str:
     """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
-
-    clip = _clip_int_(i)
-    assert _clip_int_(int(float(clip))) == clip, (_clip_int_(int(float(clip))), clip, i)
-
-    return clip
-
-
-def _clip_int_(i: int) -> str:
 
     s = str(int(i))  # '-120789'
 
@@ -2340,6 +2438,7 @@ def _clip_int_(i: int) -> str:
 
     if not eng:
         clip = s
+        assert abs(int(float(clip))) <= abs(i), (abs(int(float(clip))), abs(i), i)
         return clip  # drops 'e0'
 
     assert len(digits) >= 4, (len(digits), eng, sci, digits, i)
@@ -2353,92 +2452,44 @@ def _clip_int_(i: int) -> str:
 
     clip = dash + worthy + "e" + str(eng)  # '-120e3'
 
-    return clip
-
-    # -120789 --> -120e3, etc
-
-
-def clip_float(f: float) -> str:
-    """Find the nearest Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
-
-    clip = _clip_float_(f)
-    assert _clip_float_(float(clip)) == clip, (_clip_float_(float(clip)), clip, f)
-
-    return clip
+    assert abs(int(float(clip))) <= abs(i), (abs(int(float(clip))), abs(i), i)
+    return clip  # -120789 --> '-120e3', etc
 
 
-def _clip_float_(f: float) -> str:
+def clip_bimetric(i: int) -> str:
+    """Find the nearest binary metric literal, as small or smaller, counting out 0..1023"""
 
-    if math.isnan(f):
-        return "NaN"  # unsigned as neither positive nor negative
+    uncountable = 0x400 * 2**100  # 1024 Qi   # Quebi from the year 2022
+    if i < 0:
+        raise ValueError(i)  # can't count negatively many things
+    if i >= uncountable:
+        raise ValueError(i)  # can't count larger than quebi
 
-    if math.isinf(f):
-        absclip = "Inf"
-        clip = ("-" + absclip) if (f < 0) else absclip
-        return clip
+    metrics = "KMGTPEZYRQ"  # https://physics.nist.gov/cuu/Units/binary.html
+    bimetrics = [""] + list((_ + "i") for _ in metrics)
 
-    if not f:
-        clip = "-0e0" if (math.copysign(1e0, f) < 0e0) else "0"
-        return clip
+    multiplier = 1
+    for bimetric in bimetrics:
+        above = multiplier * 0x400
+        if i >= above:
+            multiplier = above
+            continue
 
-    absclip = _clip_positive_float_(abs(f))
-    clip = ("-" + absclip) if (f < 0) else absclip
+        fmag = i / multiplier
+        assert 0 <= fmag < 0x400, (fmag, multiplier, i)
 
-    if f == int(f):
-        assert clip_int(int(f)) == clip, (f, clip_int(int(f)), clip)
+        if fmag >= 100:
+            mag = str(int(fmag))  # (1024 * 1024 - 1) -> '1023Ki'
+        else:
+            mag = str(fmag)[:4].rstrip("0").rstrip(".")  # 10230 -> '9.99Ki'
 
-    return clip
+        clip = f"{mag}{bimetric}"  # (1024 * 1024) -> '1Mi'
 
-    # never says '0' except to mean exactly precisely Float +0e0 or Int 0
-    # never ends with '.' nor '.0' nor '.00' nor 'e+0'
+        return clip  # 102399 --> '99.9Ki', etc
 
-    # could return .clip_int for Floats equal to Ints, but doesn't
+    assert False, (i,)
 
-
-def _clip_positive_float_(f: float) -> str:
-    """Find the nearest Positive Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
-
-    assert f > 0, (f,)
-
-    # Form the Scientific Notation
-
-    sci = int(math.floor(math.log10(f)))
-    precise = f / (10**sci)
-    assert 1 <= precise < 10, (precise, f)
-
-    # Choose a Floor, in the way of Engineering Notation,
-    # but do round up the distortions introduced by 'mag = f / (10**sci)'
-
-    triple = str(int(100 * precise + 0.000123))  # arbitrary 0.000123
-    assert "100" <= triple <= "999", (triple, precise, sci, f)
-
-    eng = 3 * (sci // 3)  # ..., -6, -3, 0, 3, 6, ...
-
-    span = 1 + sci - eng  # 1, 2, or 3
-    assert 1 <= span <= 3, (span, triple, precise, eng, sci, f)
-
-    # Stand on the chosen Floor, except never say '.' nor '.0' nor '.00'
-
-    nearby = triple[:span] + "." + triple[span:]
-    worthy = nearby.rstrip("0").rstrip(".")  # lacks '.' if had only '.' or'.0' or '.00'
-
-    # And never say 'e0' either
-
-    clip = f"{worthy}e{eng}".removesuffix("e0")  # may lack both '.' and 'e'
-
-    # But never wander far
-
-    alt_f = float(clip)
-
-    diff = f - alt_f
-    precision = 10 ** (eng - 3 + span)
-    assert diff < precision, (diff, precision, f, alt_f, clip, eng, span, worthy, triple, span, f)
-
-    return clip
-
-    # "{:.3g}".format(9876) and "{:.3g}".format(1006) talk like this but say 'e+0' & round up
-
-    # math.trunc leaps too far, all the way down to the int ceil/ floor
+    # raises ValueError for Ints that 2025 SI Metric Binary Prefixes can't count out
 
 
 #
@@ -2776,7 +2827,9 @@ if __name__ == "__main__":
 
 # lil todo's
 
-# todo: |pb g to work like |pb match, but accept multiple text args as if or'ed by |grep -e
+# todo0: accept single space as column sep if it's present in same column across all lines
+
+# todo0: |pb g to work like |pb match, but accept multiple text args as if or'ed by |grep -e
 
 # todo0: |pb g /SESS/ for the Python RegEx effect of |grep -ai -e /SESS/
 # todo0: |pb find /SESS/ for str.find of literal text

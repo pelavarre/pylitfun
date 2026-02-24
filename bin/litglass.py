@@ -252,7 +252,7 @@ class LitGlass:
 
             now = dt.datetime.now().astimezone()
             boss = (now - MainStamp).total_seconds()
-            boss_clip = clip_float(boss)
+            boss_clip = clip_metric(boss)
             logger.info("%s", f"and spent {boss_clip}s to launch TerminalBoss")
 
             if flags.byteloop:
@@ -299,19 +299,19 @@ class LitGlass:
             # now = dt.datetime.now().astimezone()
 
             # _import_ = (ImportStamp - aware).total_seconds()
-            # import_clip = clip_float(_import_)
+            # import_clip = clip_metric(_import_)
 
             # _main_ = (MainStamp - aware).total_seconds()
-            # main_clip = clip_float(_main_)
+            # main_clip = clip_metric(_main_)
 
             # launch = (now - aware).total_seconds()
-            # launch_clip = clip_float(launch)
+            # launch_clip = clip_metric(launch)
 
             t = time.time() - mtime
 
             logger_print("")
             logger_print("")
-            logger_print(f"launched and spent {clip_float(t)}s since {mtime=}")
+            logger_print(f"launched and spent {clip_metric(t)}s since {mtime=}")
             # logger_print(f"{mtime=}")
             # logger_print(f"{globals().get("t0")=}")
             # logger_print(f"{import_clip=}")
@@ -489,8 +489,6 @@ class LitGlass:
 
         t0 = time.time()
 
-        _try_clip_float_()
-        _try_clip_int_()
         _try_keyboard_decoder_()
         _try_key_byte_frame_()
         _try_unicode_source_texts_()
@@ -498,7 +496,7 @@ class LitGlass:
         t1 = time.time()
         t1t0 = t1 - t0
         if t1t0 > 250e-6:
-            logger_print(f"spent {clip_float(t1t0)}s on self-test")
+            logger_print(f"spent {clip_metric(t1t0)}s on self-test")
 
 
 #
@@ -821,7 +819,7 @@ class KeycapsGame:
 
         now = dt.datetime.now().astimezone()
         kc = (now - MainStamp).total_seconds()
-        kc_clip = clip_float(kc)
+        kc_clip = clip_metric(kc)
         logger.info("%s", f"and spent {kc_clip}s to launch KeycapsGame")
 
         while not tb.quitting:
@@ -3095,7 +3093,7 @@ class TerminalBoss:
             else:
                 joinables.append(text)
 
-        joinables.append(clip_float(1000 * t1t0))
+        joinables.append(clip_metric(1000 * t1t0))
 
         if alt_kseqs[1:]:
             joinables.append(alt_kseqs[1:])
@@ -6245,16 +6243,91 @@ Inf = float("inf")  # implicitly also defines -Inf and +Inf
 NaN = float("nan")  # actually implies NaN != NaN
 
 
+def clip_metric(f: float) -> str:
+    """Clip the Float but give it a Metric Prefix Multiplier, not an 'e' decimal exponent"""
+
+    metrics = "qryzafpnμm.kMGTPEZYRQ"  # https://en.wikipedia.org/wiki/Metric_prefix
+
+    fclip = clip_float(f)
+
+    if math.isnan(f):  # todo: raise (f, fclip) in place of (f)?
+        raise ValueError(f)  # can't clip NaN
+    if math.isinf(f):
+        raise ValueError(f)  # can't clip Inf
+
+    fmag, _, fexp = fclip.partition("e")
+    if not fexp:
+        clip = fclip
+        return clip
+
+    exp = int(fexp if fexp else "0")
+
+    index = 10 + (exp // 3)
+    metric = metrics[index]
+
+    clip = f"{fmag}{metric}" if exp else fmag
+    return clip  # -120789 --> '-120k', etc
+
+    # raises ValueError for Floats that 2025 SI Metric Prefixes can't count out
+
+
+def clip_float(f: float) -> str:
+    """Find the nearest Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
+
+    # Clip -Inf and +Inf and NaN as themselves
+
+    if math.isnan(f):
+        return "NaN"  # unsigned, not positive and not negative
+
+    if math.isinf(f):
+        absclip = "Inf"
+        clip = ("-" + absclip) if (f < 0) else absclip
+        return clip
+
+    # Raise ValueError if not countable by a 2022 SI Metric Prefix
+
+    if f:
+        if not (1e-30 <= abs(f) < 1000e30):  # 2022 quecto to quetta  # beyond 1991 yocto to yotta
+            raise ValueError(f)  # can't clip larger than quetta, or smaller than quecto
+
+    # Clip as Int if equal to Int, or if >= 3 Digits at left of the Decimal Point
+
+    i = int(f)
+    if (f == i) or (abs(i) > 100):  # includes -0e0
+        clip = clip_int(i)
+        assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(f), f)
+        return clip
+
+    # Raise ValueError if counting as Int might round down the first 3 Digits
+
+    assert (1000e12 + 1) != 1000e12
+    assert (10e15 + 1) == 10e15
+
+    if abs(f) < 1e-12:  # like to block 4.2e-15 -> '4e-15'
+        raise ValueError(f)  # can't clip smaller than 1e-12
+
+    # Clip as an Int multiplied by Metric Prefix below 1
+
+    fudge = 1e-21  # 1e-12 -> '999e-15' without fudge  # fudge so arbitrary you could c*pyright it
+    i = int((f + fudge) / 1e-15)
+    if not i:
+        clip = "0"
+        return clip
+
+    iclip = clip_int(i)
+    imag, _, iexp = iclip.partition("e")
+    exp = int(iexp if iexp else "0") - 15
+
+    clip = f"{imag}e{exp}" if exp else imag
+
+    assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(f), f)
+    return clip  # -120.789 --> '-120', etc
+
+    # raises ValueError for Floats that 2025 SI Metric Prefixes can't count out
+
+
 def clip_int(i: int) -> str:
     """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
-
-    clip = _clip_int_(i)
-    assert _clip_int_(int(float(clip))) == clip, (_clip_int_(int(float(clip))), clip, i)
-
-    return clip
-
-
-def _clip_int_(i: int) -> str:
 
     s = str(int(i))  # '-120789'
 
@@ -6266,6 +6339,7 @@ def _clip_int_(i: int) -> str:
 
     if not eng:
         clip = s
+        assert abs(int(float(clip))) <= abs(i), (abs(int(float(clip))), abs(i), i)
         return clip  # drops 'e0'
 
     assert len(digits) >= 4, (len(digits), eng, sci, digits, i)
@@ -6279,206 +6353,8 @@ def _clip_int_(i: int) -> str:
 
     clip = dash + worthy + "e" + str(eng)  # '-120e3'
 
-    return clip
-
-    # -120789 --> -120e3, etc
-
-
-_int_clips_ = [
-    #
-    (0, "0"),
-    (99, "99"),
-    (999, "999"),
-    #
-    (9000, "9e3"),  # not '9.00e3'  # not '9e+03'
-    (9800, "9.8e3"),  # not '9.0e3'
-    (9870, "9.87e3"),  # not '9.870e3'
-    (9876, "9.87e3"),  # not rounded up to '9.88e3'
-    #
-]
-
-
-def _try_clip_int_() -> None:
-    for i, lit in _int_clips_:
-
-        assert clip_int(i) == lit, (clip_int(i), lit, i)
-
-        assert clip_int(int(float(lit))) == lit, (clip_int(int(float(lit))), lit, i)
-
-        # print(i, lit, f"{i:.3g}")
-
-    # not 9e+03, 9.8e+03, 9.87e+03, 9.88e+03
-
-
-def clip_float(f: float) -> str:
-    """Find the nearest Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
-
-    clip = _clip_float_(f)
-    assert _clip_float_(float(clip)) == clip, (_clip_float_(float(clip)), clip, f)
-
-    return clip
-
-
-def _clip_float_(f: float) -> str:
-
-    if math.isnan(f):
-        return "NaN"  # unsigned as neither positive nor negative
-
-    if math.isinf(f):
-        absclip = "Inf"
-        clip = ("-" + absclip) if (f < 0) else absclip
-        return clip
-
-    if not f:
-        clip = "-0e0" if (math.copysign(1e0, f) < 0e0) else "0"
-        return clip
-
-    absclip = _clip_positive_float_(abs(f))
-    clip = ("-" + absclip) if (f < 0) else absclip
-
-    if f == int(f):
-        assert clip_int(int(f)) == clip, (f, clip_int(int(f)), clip)
-
-    return clip
-
-    # never says '0' except to mean exactly precisely Float +0e0 or Int 0
-    # never ends with '.' nor '.0' nor '.00' nor 'e+0'
-
-    # could return .clip_int for Floats equal to Ints, but doesn't
-
-
-def _clip_positive_float_(f: float) -> str:
-    """Find the nearest Positive Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
-
-    assert f > 0, (f,)
-
-    # Form the Scientific Notation
-
-    sci = int(math.floor(math.log10(f)))
-    precise = f / (10**sci)
-    assert 1 <= precise < 10, (precise, f)
-
-    # Choose a Floor, in the way of Engineering Notation,
-    # but do round up the distortions introduced by 'mag = f / (10**sci)'
-
-    triple = str(int(100 * precise + 0.000123))  # arbitrary 0.000123
-    assert "100" <= triple <= "999", (triple, precise, sci, f)
-
-    eng = 3 * (sci // 3)  # ..., -6, -3, 0, 3, 6, ...
-
-    span = 1 + sci - eng  # 1, 2, or 3
-    assert 1 <= span <= 3, (span, triple, precise, eng, sci, f)
-
-    # Stand on the chosen Floor, except never say '.' nor '.0' nor '.00'
-
-    nearby = triple[:span] + "." + triple[span:]
-    worthy = nearby.rstrip("0").rstrip(".")  # lacks '.' if had only '.' or'.0' or '.00'
-
-    # And never say 'e0' either
-
-    clip = f"{worthy}e{eng}".removesuffix("e0")  # may lack both '.' and 'e'
-
-    # But never wander far
-
-    alt_f = float(clip)
-
-    diff = f - alt_f
-    precision = 10 ** (eng - 3 + span)
-    assert diff < precision, (diff, precision, f, alt_f, clip, eng, span, worthy, triple, span, f)
-
-    return clip
-
-    # "{:.3g}".format(9876) and "{:.3g}".format(1006) talk like this but say 'e+0' & round up
-
-    # math.trunc leaps too far, all the way down to the int ceil/ floor
-
-
-_float_clips_ = [  # not str(f)  # not f"{f:.3g}"  # not f"{f:.3f}"
-    #
-    (-1e-999, "-0e0"),
-    (2e-324, "0"),  # sorry, can't fix, viva Oct/1985 IEEE 754
-    (-2e-324, "-0e0"),
-    #
-    (1e-4, "100e-6"),  # not '0.0001'  # not '0.000'
-    (1e-3, "1e-3"),  # not '0.001'
-    (1.2e-3, "1.2e-3"),  # not '0.0012'  # not '0.001'
-    (9.876e-3, "9.87e-3"),  # not '9.88e-3'  # not '0.009876'  # not '0.00988'  # not '0.010'
-    (1e-2, "10e-3"),  # not '0.01'  # not '0.010'
-    (1e-1, "100e-3"),  # not '0.1'  # not '0.100'
-    #
-    (1e0, "1"),  # not '1.0'  # not '1.000'
-    (1e1, "10"),  # not '10.0'  # not '10.000'
-    (1.2e1, "12"),  # not '12.0'  # not '12.000'
-    (9.876e1, "98.7"),  # not '98.76'  # not '98.8'  # not '98.760'
-    (1e2, "100"),  # not '100.0'  # not '100.000'
-    (1.23e2, "123"),  # not '123.0'  # not '123.000'
-    (987, "987"),  # not '987.000'
-    #
-    (1e3, "1e3"),  # not '1000.0'  # not '1e+03'  # not '1000.000'
-    #
-    (0, "0"),  # not '0.000'
-    (0e0, "0"),  # not '0.0'  # not '0.000'
-    (-0e0, "-0e0"),  # not '-0.0'  # not '-0.000'  # and never the inequivalent '-0' of f"{-0e0:g}"
-    #
-    (float("-inf"), "-Inf"),  # not '-inf'
-    (float("+inf"), "Inf"),  # not 'inf'
-    (float("nan"), "NaN"),  # not 'nan'
-    #
-]
-
-
-def _try_clip_float_() -> None:
-
-    float_clips = list()
-
-    for i in range(1000):
-        f = float(i)
-        lit = str(i)
-        float_clip = (f, lit)
-        float_clips.append(float_clip)
-
-    float_clips.extend(_float_clips_)
-
-    for f, lit in _float_clips_:
-
-        assert clip_float(f) == lit, (clip_float(f), lit, f)
-
-        assert clip_float(float(lit)) == lit, (clip_float(float(lit)), lit, f)
-
-        if f > 0:
-            clip_minus_f = clip_float(-f)
-            assert clip_minus_f == (f"-{lit}"), (clip_minus_f, f"-{lit}", f)
-
-        # print(f, lit, f"{f:.3g}", f"{f:.3f}")
-
-
-# related explorations
-
-_ = """
-
-    ints = list(range(1000))
-    strs = list(str(int((_ / 100) * 100)) for _ in ints)
-    diffs = list(_ for _ in zip(ints, strs) if str(_[0]) != _[-1])
-    len(diffs)  # more than five dozen found
-
-"""
-
-_ = """
-
-    wholes = list(range(1000))
-    tenths = list((_ / 10) for _ in range(1000))
-    hundredths = list((_ / 100) for _ in range(1000))
-
-    floats = wholes + tenths + hundredths
-
-    strs = list(str(_ / 1) for _ in wholes)
-    strs += list(str((_ / 10) * 10) for _ in tenths)
-    strs += list(str((_ / 100) * 100) for _ in hundredths)
-
-    diffs = list(_ for _ in zip(floats, strs) if _[0] != float(_[-1]))
-    len(diffs)  # 235 found
-
-"""
+    assert abs(int(float(clip))) <= abs(i), (abs(int(float(clip))), abs(i), i)
+    return clip  # -120789 --> '-120e3', etc
 
 
 #
