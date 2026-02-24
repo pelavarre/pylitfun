@@ -644,9 +644,12 @@ class ShellBrick:
             #
             ".cut": self.for_line_cut,  # as wide as the Screen
             ".frame": self.for_line_do_frame,  # with .rstrip
+            ".fullmatch": self.for_line_fullmatch,
             ".head": self.for_line_head,  # as tall as the Screen
+            ".index": self.for_line_index,
             ".jq": self.from_text_jq,  # converts to Python
             ".len": self.for_line_len,  # width of Lines, not length of Lines
+            ".match": self.for_line_match,
             ".max": self.from_lines_number_max,  # by Number not by Str
             ".md5": self.from_bytes_md5,  # Byte Length too, not just Hash
             ".min": self.from_lines_number_min,  # by Number not by Str
@@ -1841,12 +1844,18 @@ class ShellBrick:
         """_ for _ in list(sys.i) if re.fullmatch(pattern, _)"""
 
         posargs = self.posargs
+        verb = self.verb
 
         pattern = posargs[0] if posargs else r".* .*"
         assert isinstance(pattern, str), (pattern,)
 
         ilines = self.fetch_ilines()
-        olines = list(_ for _ in ilines if re.fullmatch(pattern, _))
+
+        if verb == ".fullmatch":
+            olines = list(_ for _ in ilines if re.fullmatch(pattern, string=_))
+        else:
+            olines = list(_ for _ in ilines if re.fullmatch(pattern, string=_, flags=re.IGNORECASE))
+
         self.store_olines(olines)
 
     def for_line_head(self) -> None:
@@ -1871,12 +1880,19 @@ class ShellBrick:
         """_ for _ in list(sys.i) try _.index(text)"""
 
         posargs = self.posargs
+        verb = self.verb
 
         text = posargs[0] if posargs else " "
         assert isinstance(text, str), (text,)
 
         ilines = self.fetch_ilines()
-        olines = list(_ for _ in ilines if _.find(text) >= 0)
+
+        casefold = text.casefold()
+        if verb == ".index":
+            olines = list(_ for _ in ilines if _.find(text) >= 0)
+        else:
+            olines = list(_ for _ in ilines if _.casefold().find(casefold) >= 0)
+
         self.store_olines(olines)
 
     def for_line_insert(self) -> None:
@@ -1927,12 +1943,18 @@ class ShellBrick:
         """_ for _ in list(sys.i) if re.search(pattern, _)"""
 
         posargs = self.posargs
+        verb = self.verb
 
         pattern = posargs[0] if posargs else r" "
         assert isinstance(pattern, str), (pattern,)
 
         ilines = self.fetch_ilines()
-        olines = list(_ for _ in ilines if re.search(pattern, _))
+
+        if verb == ".match":
+            olines = list(_ for _ in ilines if re.search(pattern, string=_))
+        else:
+            olines = list(_ for _ in ilines if re.search(pattern, string=_, flags=re.IGNORECASE))
+
         self.store_olines(olines)
 
     def for_line_max(self) -> None:
