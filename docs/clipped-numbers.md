@@ -6,9 +6,10 @@ Beware, this is a technical rant: strong opinions & working code
 ### Contents
 
 - [Why we care](#why-we-care)
-- [One example and its solution](#one-example-and-its-solution)
-  - [Show the problem in the example](#show-the-problem-in-the-example)
+- [One Terminal Shell experience](#one-terminal-shell-experience)
+  - [Show the problem, in this example](#show-the-problem-in-this-example)
   - [Show our solution](#show-our-solution)
+  - [Expand our solution](#expand-our-solution)
   - [Show this problem left broken by 'ls -lh'](#show-this-problem-left-broken-by-ls--lh)
   - [Say what fix solves the four bugs](#say-what-fix-solves-the-four-bugs)
   - [You might find more peace if you don't accept these bugs](#you-might-find-more-peace-if-you-dont-accept-these-bugs)
@@ -30,23 +31,24 @@ Beware, this is a technical rant: strong opinions & working code
   - [Detail on why trust our Simd Formula for floats](#detail-on-why-trust-our-simd-formula-for-floats)
   - [Detail on when to round up, not clip](#detail-on-when-to-round-up-not-clip)
     - [Detail on why rounding up well for us is hard](#detail-on-why-rounding-up-well-for-us-is-hard)
+  - [Related work already here](#related-work-already-here)
 
 
 # Why we care
 
-**The problem:** When you look at a list of file sizes, network traffic, or database counts, your eyes need to instantly grasp which numbers matter. But today's formatting tools fail you. They either show too much detail (making small and large numbers equally hard to compare) or too little (rounding away information you need). This costs you time and accuracy every single day
+**The problem:** When you glance across a list of file sizes, network traffic, or database counts, we need your eyes to grasp instantly which numbers matter. But today's formatting tools fail you. They either show too much detail (making small and large numbers hard to compare) or too little (rounding away information you need). They cost you time and accuracy
 
-**Why it matters:** In the digital age, we work with numbers that span enormous ranges. You might see 74 bytes next to 2 billion bytes in the same table. When your tool says "0" for something that's actually 74, you've been lied to. When it rounds 3652 to "3.6K" but actually means 3.65, you've been confused. These aren't edge cases—they're the norm when you're managing digital systems
+**Why it matters:** We work with numbers that span enormous ranges, a good step larger than in years past. Like lately we'll put 74 bytes next to 2 billion bytes in the same table. When your formatter says "0" for something that's actually 74, you've been lied to. When it rounds 3652 to "3.6K" to mean 3.65, you've been confused. These aren't edge cases. These corners come at you more like daily
 
-**What changed:** Last century's number formatting was designed for analog engineering, where ranges were narrow and precision was limited. Today, we count digital things that span from single bytes to terabytes, from microseconds to years. We need formatting that works across these wild ranges without lying to us
+**What changed:** We wrote the first generation of number formatters for analog engineers. We kept the ranges narrow and limited the precision. Today, we count digital things that run from single bytes to terabytes, from nanoseconds to years. We need formatting that works across our actual data, without lying to us
 
-**What we need:** A quick & simple formatting algorithm that makes it instantly obvious which numbers are big and which are small, that never rounds away information you need, and that always tells you the truth. This paper shows you how to build it
-
-
-# One example and its solution
+**What we need:** A quick & simple way to format numbers that makes it immediately clear which numbers are big and which are small, that never rounds away information you need. A kind of formatting that speaks only truth. This paper shows a way
 
 
-## Show the problem in the example
+# One Terminal Shell experience
+
+
+## Show the problem, in this example
 
 Look at a typical file listing:
 
@@ -64,9 +66,9 @@ Look at a typical file listing:
 %
 ```
 
-Your eyes have to work hard. Is 1378 big or small? Is 10747 much bigger than 1378? You have to count digits. You have to compare numbers mentally. It's slow and error-prone
+Your eyes have to work too hard. Is 1378 big or small? Is 10747 much bigger than 1378? You have to count digits. You have to compare numbers mentally. It's slow and error-prone
 
-Now look at the same listing formatted humanely:
+Now look at the same listing formatted humanely
 
 ```sh
 % ls -l |pb eng replace columns
@@ -82,11 +84,11 @@ Now look at the same listing formatted humanely:
 %
 ```
 
-Notice what happens visually: the numbers with "e3" visually pop forward. The plain numbers fade back. Your eyes instantly see two groups. You don't have to think: you just see
+Notice what happens visually. The big numbers with "e3" visually pop forward. The small plain numbers fade back. Your eyes instantly split the numbers into two groups. You don't have to think: you can just see
 
 ## Show our solution
 
-The big difference here is in the byte counts, classically spoken as precise decimal int literals
+The big difference here is in the byte counts, classically spoken as precise decimal int literals, grown large nowadays
 
 Watch what happens to your visual perception when we lay out a copy of just this one column of numbers
 
@@ -96,7 +98,7 @@ Watch what happens to your visual perception when we lay out a copy of just this
 %
 ```
 
-When you tell us to clip these numbers back to three digits each, then they split themselves apart naturally into two piles
+When you let us clip these numbers back to three digits each, then they split themselves apart naturally into two piles
 
 ```sh
 % ls -l |pb eng awk 5 join
@@ -122,7 +124,9 @@ The big numbers more naturally stand out and step forward, because they have "e3
 %
 ```
 
-Next, watch what happens to your visual perception when we just correct the format of these numbers, but leave them in place in their rows. You see? They quite naturally split their rows across this same dividing line
+## Expand our solution
+
+See next what happens to your visual perception when we do correct the format of these numbers, but we leave them in place in their rows. You see? They quite naturally split their rows across this same dividing line
 
 The extra ink of the "e3" mark visually brings forward the rows of the big numbers
 
@@ -149,9 +153,9 @@ total        72
 %
 ```
 
-You don't have to make time to read through the meaningless detail of particular digits. You can decline to struggle. You can ask for the summary "e3" marks. You can make it a job for the bots to clip away the meaningless detail for you
+You don't have to make time to read through the meaningless detail of the last few digits of each big number. You can decline the struggle. You can make it a job for the bots to clip away the meaningless detail
 
-Clipping your numbers down to three digits marks each row with the engineering exponent of its number. Visually speaking, the rows then sort themselves. Significantly helpful! These clipped numbers speak into your eyes more quickly, more easily, and more accurately
+Clipping down to three digits marks each row with the engineering exponent of its number. Visually speaking, the rows then sort themselves. Significantly helpful! The clipped numbers speak into your eyes more quickly, more easily, and more accurately
 
 
 ## Show this problem left broken by 'ls -lh'
@@ -174,13 +178,13 @@ total 72
 %
 ```
 
-You see? They give you a column of malformed byte counts
-
 ```sh
 % ls -lh |pb eng awk 5 split |pb join
 976B  1.4K  1.3K  818B  1.5K  288B  3.6K  10K  282B  1.6K
 %
 ```
+
+You see? They do try to abbreviate the numbers. But they get it wrong
 
 Four bugs
 
@@ -196,11 +200,11 @@ Well and good, but if your memory is precise then you'll feel annoyed when you n
 
 They get these wrong. Since 1999, our standard has been clear: Ki is 1024 and k is 1000, and they get it wrong. We can show how wrong they go with just one test case. Let's just try counting out 3652 bytes
 
-- Correct = 3.65k (decimal, base 10)
-- Also correct = 3.56Ki (binary, base 1024)
+- Correct = 3.65k (decimal, multiplier 10**3)
+- Also correct = 3.56Ki (binary, multiplier 1024**1)
 - What `ls -lh` says = 3.6K (wrong on multiple counts)
 
-Why so wrong? Well, they rounded 3.56Ki up to 3.6Ki, then mislabeled it as '3.6K'. This comes out backwards. They rounded UP but reported a number that's LESS than the actual value (3.6 < 3.65). This is confusing. This is wrong
+Why so wrong? Well, they rounded 3.56Ki up to 3.6Ki, and then mislabeled it as '3.6K'. This comes out backwards: they rounded UP but then reported a number that's LESS than the actual value (3.6 < 3.65). This is confusing. This is wrong
 
 4 ) **How many digits do you need to see?**
 
@@ -255,7 +259,7 @@ You can have "correct at a glance" precision. Ask for it persistently, and they 
 | ls -lh    |   3.6K |   103K | 288B  | Too little  | Weak   |
 | pb eng    | 3.65e3 |  104e3 |  288  | Helpful     | Strong |
 
-Do you feel you get it? Do you see how our first century of software traditions for clipping numbers has led us astray, when we're counting digital things?
+Do you feel you get it? Do you see how our first century of software traditions for clipping numbers have led us astray, when we're counting digital things?
 
 
 # Fixes known, and not yet well known
@@ -267,7 +271,7 @@ The runtime costs of adopting this code are near zero. This code runs in scratch
 
 ## Fix for Ints
 
-How do I make 'ls -lh' say what it should mean in 2026? I drop the old and misconceived '-h'. I push my counts through our '|pb eng' instead
+How do I make 'ls -lh' say what it should mean in 2026? I drop the old and misconceived '-h'. I push my counts through our Shell Pipe '|pb eng' instead
 
 ```sh
 ls -l |pb eng replace columns
@@ -286,13 +290,19 @@ The 'replace columns' part turns the text into a conventional table of left-alig
 
 You can call on Python to clip a count back to three digits. You don't have to let it whisper lies into your eyes
 
-You can download and run this. It picks out a leading negative dash, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits
+You can download and run our Python. It picks out a leading negative dash, if present. It calculates the scientific exponent, and then finds the engineering exponent nearby. It gives you your first three digits
 
 It never says "e0". It never ends with "." or ".0" or ".00". It never adds on a confusion of "8" vs "B". It always chooses unsigned metric exponents like "e3", never a scientific exponent like "e+2" or "e1" or "e-0". It always does mean powers of 1000 when it doesn't say what "e" means. It never silently swaps in a power of 1024
 
 ```python
 def clip_int(i: int) -> str:
     """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
+
+    uncountable = 1e21
+    if not (-uncountable < i < uncountable):
+        raise ValueError(i)  # can't clip larger than zetta
+
+        # "-999e21": ["-998Z", "-998e21", "-998e21", "ValueError"],  # wrong to say 998
 
     s = str(int(i))  # '-120789'
 
@@ -303,7 +313,9 @@ def clip_int(i: int) -> str:
     assert eng in (sci, sci - 1, sci - 2), (eng, sci, digits, i)
 
     if not eng:
-        return s  # drops 'e0'
+        clip = s
+        assert abs(int(float(clip))) <= abs(i), (abs(int(float(clip))), abs(i), i)
+        return clip  # drops 'e0'
 
     assert len(digits) >= 4, (len(digits), eng, sci, digits, i)
     assert 1 <= (len(digits) - eng) <= 3, (len(digits), eng, sci, digits, i)
@@ -314,12 +326,13 @@ def clip_int(i: int) -> str:
 
     assert "." in nearby, (nearby, precise, eng, sci, digits, i)
 
-    return dash + worthy + "e" + str(eng)  # '-120e3'
+    clip = dash + worthy + "e" + str(eng)  # '-120e3'
 
-    # -120789 --> -120e3, etc
+    assert abs(int(float(clip))) <= abs(i), (abs(int(float(clip))), abs(i), i)
+    return clip  # -120789 --> '-120e3', etc
 ```
 
-our code produces correct int answers. Our code here formats int counts humanely, to speak only truths into my eyes
+Our code produces correct int answers. Our code here formats int counts humanely, to speak only truths into my eyes
 
 ```python
 (0, "0"),
@@ -332,7 +345,7 @@ our code produces correct int answers. Our code here formats int counts humanely
 (9876, "9.87e3"),  # not rounded up to '9.88e3'
 ```
 
-Looks good? You feel you know where to put your copy of this Python code, and when to call it?
+Looks good? You know where to put your copy of this Python code, and when to call it?
 
 
 ### Ints of Google Sheets or Microsoft Excel
@@ -378,7 +391,7 @@ And you can tell Sheet to give the name 'int.clip' to this formula so as to call
 =int.clip(9876)  # '9.87e3
 ```
 
-Looks good? You feel you know where to put your copy of this formula, and when to call it?
+Looks good? You know where to put your copy of this Python code, and when to call it?
 
 
 ## Fix for Floats
@@ -413,73 +426,59 @@ Our code here for floats meets all our same specs for humane truth-speaking form
 def clip_float(f: float) -> str:
     """Find the nearest Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
 
+    # Clip -Inf and +Inf and NaN as themselves
+
     if math.isnan(f):
-        return "NaN"  # unsigned as neither positive nor negative
+        return "NaN"  # unsigned, not positive and not negative
 
     if math.isinf(f):
         absclip = "Inf"
         clip = ("-" + absclip) if (f < 0) else absclip
         return clip
 
-    if not f:
-        clip = "-0e0" if (math.copysign(1e0, f) < 0e0) else "0"
+    # Raise ValueError if not countable by a 2022 SI Metric Prefix
+
+    if f:
+        if not (1e-27 <= abs(f) < 1000e27):  # 2022 ronto to ronna  # beyond 1991 yocto to yotta
+            raise ValueError(f)  # can't clip larger than ronna, or smaller than ronto
+
+        # "999e30": ["998Q", "998e30", "998e30", "788Qi"],  # wrong to say 998
+
+    # Clip as Int if equal to Int, or if >= 3 Digits at left of the Decimal Point
+
+    intf = int(f)
+    if (f == intf) or (abs(intf) >= 101):  # includes -0e0, excludes 100 == 99.999999999999999
+        clip = clip_int(intf)  # may raise ValueError, like at 1e21
+        assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(intf), intf, f)
         return clip
 
-    absclip = _clip_positive_float_(abs(f))
-    clip = ("-" + absclip) if (f < 0) else absclip
+    # Raise ValueError if counting as Int might round down the first 3 Digits
 
-    return clip
+    assert (1000e12 + 1) != 1000e12
+    assert (10e15 + 1) == 10e15
 
-    # never says '0' except to mean exactly precisely Float +0e0 or Int 0
-    # never ends with '.' nor '.0' nor '.00' nor 'e+0'
+    if abs(f) < 1e-12:  # like to block 4.2e-15 -> '4e-15'
+        raise ValueError(f)  # can't clip smaller than 1e-12
 
-    # could return .clip_int for Floats equal to Ints, but doesn't
+    # Clip as an Int multiplied by Metric Prefix below 1
 
+    fudge = -1e-21 if (f < 0) else +1e-21  # fudge so arbitrary you could c*pyright it
+    i = int((f + fudge) / 1e-15)  # 1e-12 -> '999e-15' without fudge
 
-def _clip_positive_float_(f: float) -> str:
-    """Find the nearest Positive Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
+    if not i:
+        clip = "0"  # never '-0'
+        return clip
 
-    assert f > 0, (f,)
+    iclip = clip_int(i)
+    imag, _, iexp = iclip.partition("e")
+    exp = int(iexp if iexp else "0") - 15
 
-    # Form the Scientific Notation
+    clip = f"{imag}e{exp}" if exp else imag
 
-    sci = int(math.floor(math.log10(f)))
-    precise = f / (10**sci)
-    assert 1 <= precise < 10, (precise, f)
+    assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(f), f)
+    return clip  # -120.789 --> '-120', etc
 
-    # Choose a Floor, in the way of Engineering Notation,
-    # but do round up the distortions introduced by 'mag = f / (10**sci)'
-
-    triple = str(int(100 * precise + 0.000123))  # arbitrary 0.000123
-    assert "100" <= triple <= "999", (triple, precise, sci, f)
-
-    eng = 3 * (sci // 3)  # ..., -6, -3, 0, 3, 6, ...
-
-    span = 1 + sci - eng  # 1, 2, or 3
-    assert 1 <= span <= 3, (span, triple, precise, eng, sci, f)
-
-    # Stand on the chosen Floor, except never say '.' nor '.0' nor '.00'
-
-    nearby = triple[:span] + "." + triple[span:]
-    worthy = nearby.rstrip("0").rstrip(".")  # lacks '.' if had only '.' or'.0' or '.00'
-
-    # And never say 'e0' either
-
-    clip = f"{worthy}e{eng}".removesuffix("e0")  # may lack both '.' and 'e'
-
-    # But never wander far
-
-    alt_f = float(clip)
-
-    diff = f - alt_f
-    precision = 10 ** (eng - 3 + span)
-    assert diff < precision, (diff, precision, f, alt_f, clip, eng, span, worthy, triple, span, f)
-
-    return clip
-
-    # "{:.3g}".format(9876) and "{:.3g}".format(1006) talk like this but say 'e+0' & round up
-
-    # math.trunc leaps too far, all the way down to the int ceil/ fl∏oor
+    # raises ValueError for Floats that 2025 SI Metric Prefixes can't count out
 ```
 
 You could claim copyright on your revision of our arbitrary 0.000123 fudge factor in here. The answers come out the same for most choices of what to add. You very nearly only need to add something nonzero and smaller than one. Like you could add in a significant date-time, if you want. Like you could add Tank Man's 1989-06-05 12th Hour, spoke of as 0.1989060512
@@ -513,7 +512,7 @@ Our code here produces correct float answers. Our code here formats float counts
 (float("nan"), "NaN"),  # not 'nan'
 ```
 
-Looks good? You feel you know where to put your copy of this Python code, and when to call it?
+Looks good? You know where to put your copy of this Python code, and when to call it?
 
 
 ### Floats of Google Sheets or Microsoft Excel
@@ -559,7 +558,7 @@ And you can tell g Sheets to give the name 'float.clip' to this formula so as to
 =float.clip(9876.0)  # '9.87e3
 ```
 
-Looks good? You feel you know where to put your copy of this formula, and when to call it?
+Looks good? You know where to put your copy of this formula, and when to call it?
 
 
 #### Do they know you need this?
@@ -644,7 +643,7 @@ Who needs to hear about these fixes? How should we push the word out?
 
 Five hopes
 
-1 ) Help people speak e3, e-3, e6, e-6, etc as metric prefixes of k, m, M, Greek μ, etc
+1 ) Presently our code solves only floats and ints between 1e-12 and 1e12 = between Nano and Giga/ Gibi. It was news to me that our 1985 IEEE 754 Floats as deployed make life difficult for working with numbers smaller or larger than that. Let's hope soon we move on to solve more of the ints, and more of the floats
 
 2 ) Help people separate when to clip a number sharply, vs when to forward all the precision they've got. APIs for data interchange copy out lots of precision for good reasons through standard file formats: .csv, .json, etc
 
@@ -654,6 +653,7 @@ Five hopes
 
 5 ) Help people appreciate when to round up, not clip
 
+
 ## Detail on why trust our Simd Formula for floats
 
 Outside of this paper, we have shown ourselves that our two formulas do agree across the ints from -1000 to 1000, and across a few thousand random ints
@@ -661,6 +661,7 @@ Outside of this paper, we have shown ourselves that our two formulas do agree ac
 As for ints below -1000 and above 1000, we give ourselves inductive algebraic arguments as reasons to believe our float and int formulas always do produce the same correct answers
 
 But what about all the other floats? Who has a complete argument and a definitive proof?
+
 
 ## Detail on when to round up, not clip
 
@@ -670,6 +671,7 @@ Like you do need to round up to 10 KiB, when you need to store 9999 Bytes and yo
 
 But when you're just reporting a measure, you don't need to round up. You can carefully never report more than you measured
 
+
 ### Detail on why rounding up well for us is hard
 
 You can't round up well while working independently, in isolation. You can't decide the margin for me. You need to know:
@@ -678,6 +680,12 @@ You can't round up well while working independently, in isolation. You can't dec
 - What unit we round up to (1 KiB? 4 KiB? 0.5 KiB?)
 
 Only then can you round up correctly for us
+
+
+## Related work already here
+
+We do already help people to speak of e3, e-3, e6, e-6, etc as metric prefixes of k, m, M, Greek μ, etc. And we help speak of Ki, Mi, Gi, etc. In our Code we label these ideas as "def clip_metric" and as "def clip_bimetric"
+
 
 
 <!-- omit in toc -->

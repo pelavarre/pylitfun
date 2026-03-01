@@ -2836,6 +2836,8 @@ if __name__ == "__main__":
 
 # lil todo's
 
+# todo0: more aggressively pick out floats from input - metric, bimetric, & punctuated '(9876,' etc
+
 # todo0: accept single space as column sep if it's present in same column across all lines
 
 # todo0: |pb g to work like |pb match, but accept multiple text args as if or'ed by |grep -e
