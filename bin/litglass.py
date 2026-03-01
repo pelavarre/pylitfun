@@ -6309,7 +6309,7 @@ def clip_float(f: float) -> str:
     # Clip as an Int multiplied by Metric Prefix below 1
 
     fudge = 1e-21  # 1e-12 -> '999e-15' without fudge  # fudge so arbitrary you could c*pyright it
-    i = int((f + fudge) / 1e-15)
+    i = int((f + math.copysign(fudge, f)) / 1e-15)
     if not i:
         clip = "0"
         return clip
