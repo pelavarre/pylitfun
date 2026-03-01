@@ -2391,10 +2391,10 @@ def clip_float(f: float) -> str:
 
     # Clip as Int if equal to Int, or if >= 3 Digits at left of the Decimal Point
 
-    i = int(f)
-    if (f == i) or (abs(i) > 100):  # includes -0e0
-        clip = clip_int(i)
-        assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(f), f)
+    intf = int(f)
+    if (f == intf) or (abs(intf) >= 101):  # includes -0e0, excludes 100 == 99.999999999999999
+        clip = clip_int(intf)
+        assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(intf), intf, f)
         return clip
 
     # Raise ValueError if counting as Int might round down the first 3 Digits
@@ -2407,10 +2407,11 @@ def clip_float(f: float) -> str:
 
     # Clip as an Int multiplied by Metric Prefix below 1
 
-    fudge = 1e-21  # 1e-12 -> '999e-15' without fudge  # fudge so arbitrary you could c*pyright it
-    i = int((f + math.copysign(fudge, f)) / 1e-15)
+    fudge = -1e-21 if (f < 0) else +1e-21  # fudge so arbitrary you could c*pyright it
+    i = int((f + fudge) / 1e-15)  # 1e-12 -> '999e-15' without fudge
+
     if not i:
-        clip = "0"
+        clip = "0"  # never '-0'
         return clip
 
     iclip = clip_int(i)
