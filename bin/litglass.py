@@ -49,6 +49,7 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 
 import __main__
 import argparse
+import ast
 import bdb
 import collections
 import collections.abc  # .collections.abc is not .abc & collections.abc.Callable is not typing.Callable
@@ -488,6 +489,8 @@ class LitGlass:
         """Run slow and quick Self-Test's of this Module"""
 
         t0 = time.time()
+
+        _try_clip_()
 
         _try_keyboard_decoder_()
         _try_key_byte_frame_()
@@ -4175,7 +4178,7 @@ class KeyboardReader:
 
 
 def _try_keyboard_decoder_() -> None:
-    """Try KeyboardDecoder things, or don't bother"""
+    """Try KeyboardDecoder things"""
 
     debugging = False  # '= False' saves like 1ms
     if debugging:
@@ -6239,8 +6242,49 @@ class BytesBox:
 
 
 Inf = float("inf")  # implicitly also defines -Inf and +Inf
-
 NaN = float("nan")  # actually implies NaN != NaN
+
+
+_clips_by_str_f_ = {  # clip_metric, clip_float, clip_int, clip_bimetric
+    #
+    "-Inf": ["ValueError", "-Inf", "", ""],
+    "-1e999": ["ValueError", "-Inf", "", ""],
+    "-1e309": ["ValueError", "-Inf", "", ""],
+    "-1e308": ["ValueError", "ValueError", "ValueError", ""],
+    "-1000e18": ["ValueError", "ValueError", "ValueError", ""],
+    #
+    "-999e18": ["-999E", "-999e18", "-999e18", ""],
+    "-999e3": ["-999k", "-999e3", "-999e3", ""],
+    "-999": ["-999", "-999", "-999", ""],
+    "-1000": ["-1k", "-1e3", "-1e3", ""],
+    #
+    "-1e-9": ["-1n", "-1e-9", "", ""],
+    "-0.001": ["-1m", "-1e-3", "", ""],
+    #
+    "0": ["0", "0", "0", "0"],
+    #
+    "1e-9": ["1n", "1e-9", "", ""],
+    "0.001": ["1m", "1e-3", "", ""],
+    #
+    "999": ["999", "999", "999", "999"],
+    "1000": ["1k", "1e3", "1e3", "1000"],
+    "1023": ["1.02k", "1.02e3", "1.02e3", "1023"],
+    "1024": ["1.02k", "1.02e3", "1.02e3", "1Ki"],
+    "10239": ["10.2k", "10.2e3", "10.2e3", "9.99Ki"],
+    "999e3": ["999k", "999e3", "999e3", "975Ki"],
+    "999e12": ["999T", "999e12", "999e12", "908Ti"],
+    #
+    "999e15": ["999P", "999e15", "999e15", "ValueError"],
+    "999e18": ["999E", "999e18", "999e18", "ValueError"],
+    "1000e18": ["ValueError", "ValueError", "ValueError", "ValueError"],
+    "1e308": ["ValueError", "ValueError", "ValueError", "ValueError"],
+    "1e309": ["ValueError", "Inf", "", ""],
+    "1e999": ["ValueError", "Inf", "", ""],
+    "Inf": ["ValueError", "Inf", "", ""],
+    #
+    "NaN": ["ValueError", "NaN", "", ""],
+    #
+}
 
 
 def clip_metric(f: float) -> str:
@@ -6287,14 +6331,16 @@ def clip_float(f: float) -> str:
     # Raise ValueError if not countable by a 2022 SI Metric Prefix
 
     if f:
-        if not (1e-30 <= abs(f) < 1000e30):  # 2022 quecto to quetta  # beyond 1991 yocto to yotta
-            raise ValueError(f)  # can't clip larger than quetta, or smaller than quecto
+        if not (1e-27 <= abs(f) < 1000e27):  # 2022 ronto to ronna  # beyond 1991 yocto to yotta
+            raise ValueError(f)  # can't clip larger than ronna, or smaller than ronto
+
+        # "999e30": ["998Q", "998e30", "998e30", "788Qi"],  # wrong to say 998
 
     # Clip as Int if equal to Int, or if >= 3 Digits at left of the Decimal Point
 
     intf = int(f)
     if (f == intf) or (abs(intf) >= 101):  # includes -0e0, excludes 100 == 99.999999999999999
-        clip = clip_int(intf)
+        clip = clip_int(intf)  # may raise ValueError, like at 1e21
         assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(intf), intf, f)
         return clip
 
@@ -6330,6 +6376,12 @@ def clip_float(f: float) -> str:
 def clip_int(i: int) -> str:
     """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
 
+    uncountable = 1e21
+    if not (-uncountable < i < uncountable):
+        raise ValueError(i)  # can't clip larger than zetta
+
+        # "-999e21": ["-998Z", "-998e21", "-998e21", "ValueError"],  # wrong to say 998
+
     s = str(int(i))  # '-120789'
 
     _, dash, digits = s.rpartition("-")  # ('', '-', '120789')
@@ -6356,6 +6408,90 @@ def clip_int(i: int) -> str:
 
     assert abs(int(float(clip))) <= abs(i), (abs(int(float(clip))), abs(i), i)
     return clip  # -120789 --> '-120e3', etc
+
+
+def clip_bimetric(i: int) -> str:
+    """Find the nearest binary metric literal, as small or smaller, counting out 0..1023"""
+
+    uncountable = 0x400 * 2**40  # 1 Pi
+    if i < 0:
+        raise ValueError(i)  # can't count negatively many things
+    if i >= uncountable:
+        raise ValueError(i)  # can't count larger than pebi
+
+    metrics = "KMGTPEZYRQ"  # https://physics.nist.gov/cuu/Units/binary.html
+    bimetrics = [""] + list((_ + "i") for _ in metrics)
+
+    multiplier = 1
+    for bimetric in bimetrics:
+        above = multiplier * 0x400
+        if i >= above:
+            multiplier = above
+            continue
+
+        fmag = i / multiplier
+        assert 0 <= fmag < 0x400, (fmag, multiplier, i)
+
+        if fmag >= 100:
+            mag = str(int(fmag))  # (1024 * 1024 - 1) -> '1023Ki'
+        else:
+            mag = str(fmag)[:4].rstrip("0").rstrip(".")  # 10230 -> '9.99Ki'
+
+        clip = f"{mag}{bimetric}"  # (1024 * 1024) -> '1Mi'
+
+        return clip  # 102399 --> '99.9Ki', etc
+
+    assert False, (i,)
+
+    # raises ValueError for Ints that 2025 SI Metric Binary Prefixes can't count out
+
+
+def _try_clip_() -> None:
+    """Try Def-Clip things"""
+
+    kvs = {"-Inf": -Inf, "Inf": Inf, "NaN": NaN}
+
+    for str_f, wants in _clips_by_str_f_.items():
+
+        # Form input
+
+        i = None
+        if str_f in kvs.keys():
+            f = kvs[str_f]
+        else:
+            v = ast.literal_eval(str_f)
+            f = float(v)
+            unreal = math.isnan(f) or math.isinf(f)
+            if not unreal:
+                if int(v) == v:
+                    i = int(f)
+
+        # Try to clip
+
+        try:
+            _metric_ = clip_metric(f)
+        except Exception as exc:
+            _metric_ = type(exc).__name__
+
+        try:
+            _float_ = clip_float(f)
+        except Exception as exc:
+            _float_ = type(exc).__name__
+
+        try:
+            _int_ = "" if (i is None) else clip_int(i)
+        except Exception as exc:
+            _int_ = type(exc).__name__
+
+        try:
+            _bimetric_ = "" if ((i is None) or (i < 0)) else clip_bimetric(i)
+        except Exception as exc:
+            _bimetric_ = type(exc).__name__
+
+        # Require the expected results
+
+        gots = [_metric_, _float_, _int_, _bimetric_]
+        assert gots == wants, (gots, wants, str_f)
 
 
 #
@@ -6485,7 +6621,7 @@ def excepthook(  # ) -> ...:
 
 
 def _try_unicode_source_texts_() -> None:
-    """Explicitly don't limit our Source Text to US Ascii"""
+    """Try Unicode things, far beyond 7-bit US Ascii"""
 
     # not yet an official standard
 

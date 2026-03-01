@@ -2386,14 +2386,16 @@ def clip_float(f: float) -> str:
     # Raise ValueError if not countable by a 2022 SI Metric Prefix
 
     if f:
-        if not (1e-30 <= abs(f) < 1000e30):  # 2022 quecto to quetta  # beyond 1991 yocto to yotta
-            raise ValueError(f)  # can't clip larger than quetta, or smaller than quecto
+        if not (1e-27 <= abs(f) < 1000e27):  # 2022 ronto to ronna  # beyond 1991 yocto to yotta
+            raise ValueError(f)  # can't clip larger than ronna, or smaller than ronto
+
+        # "999e30": ["998Q", "998e30", "998e30", "788Qi"],  # wrong to say 998
 
     # Clip as Int if equal to Int, or if >= 3 Digits at left of the Decimal Point
 
     intf = int(f)
     if (f == intf) or (abs(intf) >= 101):  # includes -0e0, excludes 100 == 99.999999999999999
-        clip = clip_int(intf)
+        clip = clip_int(intf)  # may raise ValueError, like at 1e21
         assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(intf), intf, f)
         return clip
 
@@ -2429,6 +2431,12 @@ def clip_float(f: float) -> str:
 def clip_int(i: int) -> str:
     """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
 
+    uncountable = 1e21
+    if not (-uncountable < i < uncountable):
+        raise ValueError(i)  # can't clip larger than zetta
+
+        # "-999e21": ["-998Z", "-998e21", "-998e21", "ValueError"],  # wrong to say 998
+
     s = str(int(i))  # '-120789'
 
     _, dash, digits = s.rpartition("-")  # ('', '-', '120789')
@@ -2460,11 +2468,11 @@ def clip_int(i: int) -> str:
 def clip_bimetric(i: int) -> str:
     """Find the nearest binary metric literal, as small or smaller, counting out 0..1023"""
 
-    uncountable = 0x400 * 2**100  # 1024 Qi   # Quebi from the year 2022
+    uncountable = 0x400 * 2**40  # 1 Pi
     if i < 0:
         raise ValueError(i)  # can't count negatively many things
     if i >= uncountable:
-        raise ValueError(i)  # can't count larger than quebi
+        raise ValueError(i)  # can't count larger than pebi
 
     metrics = "KMGTPEZYRQ"  # https://physics.nist.gov/cuu/Units/binary.html
     bimetrics = [""] + list((_ + "i") for _ in metrics)
