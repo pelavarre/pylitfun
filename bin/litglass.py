@@ -6261,7 +6261,28 @@ _clips_by_str_f_ = {  # clip_metric, clip_float, clip_int, clip_bimetric
     "-1e-9": ["-1n", "-1e-9", "", ""],
     "-0.001": ["-1m", "-1e-3", "", ""],
     #
+    "-1e-999": ["0", "0", "0", "0"],
+    "-1e-324": ["0", "0", "0", "0"],
+    "-1e-323": ["ValueError", "ValueError", "", ""],
+    "-1e-27": ["ValueError", "ValueError", "", ""],
+    "-1e-24": ["ValueError", "ValueError", "", ""],
+    "-1e-21": ["ValueError", "ValueError", "", ""],
+    "-1e-18": ["ValueError", "ValueError", "", ""],
+    "-1e-15": ["ValueError", "ValueError", "", ""],
+    "-1e-12": ["-1p", "-1e-12", "", ""],
+    #
+    "-0e0": ["0", "0", "0", "0"],
     "0": ["0", "0", "0", "0"],
+    "+0e0": ["0", "0", "0", "0"],
+    #
+    "+1e-12": ["1p", "1e-12", "", ""],
+    "+1e-15": ["ValueError", "ValueError", "", ""],
+    "+1e-21": ["ValueError", "ValueError", "", ""],
+    "+1e-24": ["ValueError", "ValueError", "", ""],
+    "+1e-27": ["ValueError", "ValueError", "", ""],
+    "+1e-323": ["ValueError", "ValueError", "", ""],
+    "+1e-324": ["0", "0", "0", "0"],
+    "+1e-999": ["0", "0", "0", "0"],
     #
     "1e-9": ["1n", "1e-9", "", ""],
     "0.001": ["1m", "1e-3", "", ""],
