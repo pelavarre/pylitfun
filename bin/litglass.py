@@ -6257,12 +6257,13 @@ _clips_by_str_f_ = {  # clip_metric, clip_float, clip_int, clip_bimetric
     "-999e3": ["-999k", "-999e3", "-999e3", ""],
     "-999": ["-999", "-999", "-999", ""],
     "-1000": ["-1k", "-1e3", "-1e3", ""],
+    "-1": ["-1", "-1", "-1", ""],
     #
     "-1e-9": ["-1n", "-1e-9", "", ""],
     "-0.001": ["-1m", "-1e-3", "", ""],
     #
-    "-1e-999": ["0", "0", "0", "0"],
-    "-1e-324": ["0", "0", "0", "0"],
+    "-1e-999": ["-0", "-0e0", "0", "0"],
+    "-1e-324": ["-0", "-0e0", "0", "0"],
     "-1e-323": ["ValueError", "ValueError", "", ""],
     "-1e-27": ["ValueError", "ValueError", "", ""],
     "-1e-24": ["ValueError", "ValueError", "", ""],
@@ -6271,7 +6272,7 @@ _clips_by_str_f_ = {  # clip_metric, clip_float, clip_int, clip_bimetric
     "-1e-15": ["ValueError", "ValueError", "", ""],
     "-1e-12": ["-1p", "-1e-12", "", ""],
     #
-    "-0e0": ["0", "0", "0", "0"],
+    "-0e0": ["-0", "-0e0", "0", "0"],
     "0": ["0", "0", "0", "0"],
     "+0e0": ["0", "0", "0", "0"],
     #
@@ -6287,6 +6288,7 @@ _clips_by_str_f_ = {  # clip_metric, clip_float, clip_int, clip_bimetric
     "1e-9": ["1n", "1e-9", "", ""],
     "0.001": ["1m", "1e-3", "", ""],
     #
+    "1": ["1", "1", "1", "1"],
     "999": ["999", "999", "999", "999"],
     "1000": ["1k", "1e3", "1e3", "1000"],
     "1023": ["1.02k", "1.02e3", "1.02e3", "1023"],
@@ -6319,6 +6321,8 @@ def clip_metric(f: float) -> str:
         raise ValueError(f)  # can't clip NaN
     if math.isinf(f):
         raise ValueError(f)  # can't clip Inf
+    if (not f) and (math.copysign(1, f) < 0):
+        return "-0"  # doesn't lose the minus sign, and doesn't speak of "e0"
 
     fmag, _, fexp = fclip.partition("e")
     if not fexp:
@@ -6348,6 +6352,9 @@ def clip_float(f: float) -> str:
         absclip = "Inf"
         clip = ("-" + absclip) if (f < 0) else absclip
         return clip
+
+    if (not f) and (math.copysign(1, f) < 0):
+        return "-0e0"  # doesn't lose the minus sign  # does speak of "e0"
 
     # Raise ValueError if not countable by a 2022 SI Metric Prefix
 
