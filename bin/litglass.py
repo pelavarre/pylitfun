@@ -6297,9 +6297,13 @@ _clips_by_str_f_ = {  # clip_metric, clip_float, clip_int, clip_bimetric
     "999e3": ["999k", "999e3", "999e3", "975Ki"],
     "999e12": ["999T", "999e12", "999e12", "908Ti"],
     #
-    "999e15": ["999P", "999e15", "999e15", "ValueError"],
-    "999e18": ["999E", "999e18", "999e18", "ValueError"],
-    "1000e18": ["ValueError", "ValueError", "ValueError", "ValueError"],
+    "999e15": ["999P", "999e15", "999e15", "887Pi"],
+    "999e18": ["999E", "999e18", "999e18", "866Ei"],
+    "1000e18": ["ValueError", "ValueError", "ValueError", "867Ei"],
+    "1267650600228229401496703205376": ["ValueError", "ValueError", "ValueError", "1Qi"],
+    "1296806564033478677731127379099648": ["ValueError", "ValueError", "ValueError", "1023Qi"],
+    "1298074214633706907132624082305023": ["ValueError", "ValueError", "ValueError", "1023Qi"],
+    "1298074214633706907132624082305024": ["ValueError", "ValueError", "ValueError", "ValueError"],
     "1e308": ["ValueError", "ValueError", "ValueError", "ValueError"],
     "1e309": ["ValueError", "Inf", "", ""],
     "1e999": ["ValueError", "Inf", "", ""],
@@ -6441,11 +6445,11 @@ def clip_int(i: int) -> str:
 def clip_bimetric(i: int) -> str:
     """Find the nearest binary metric literal, as small or smaller, counting out 0..1023"""
 
-    uncountable = 0x400 * 2**40  # 1 Pi
+    uncountable = 0x400 * 2**100  # 1 Qi
     if i < 0:
         raise ValueError(i)  # can't count negatively many things
     if i >= uncountable:
-        raise ValueError(i)  # can't count larger than pebi
+        raise ValueError(i)  # can't count larger than quebi
 
     metrics = "KMGTPEZYRQ"  # https://physics.nist.gov/cuu/Units/binary.html
     bimetrics = [""] + list((_ + "i") for _ in metrics)
@@ -6457,7 +6461,13 @@ def clip_bimetric(i: int) -> str:
             multiplier = above
             continue
 
-        fmag = i / multiplier
+        below = multiplier // 0x400
+        if not below:
+            fmag = i / multiplier
+        else:
+            qbelow = i // below
+            fmag = qbelow / 0x400
+
         assert 0 <= fmag < 0x400, (fmag, multiplier, i)
 
         if fmag >= 100:
@@ -6490,7 +6500,9 @@ def _try_clip_() -> None:
             v = ast.literal_eval(str_f)
             f = float(v)
             unreal = math.isnan(f) or math.isinf(f)
-            if not unreal:
+            if isinstance(v, int):
+                i = v
+            elif not unreal:
                 if int(v) == v:
                     i = int(f)
 
