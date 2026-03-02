@@ -122,7 +122,7 @@ class GitGopher:
     def __init__(self) -> None:
         self.stdout_isatty = sys.stdout.isatty()  # sampled only once
 
-    def go_for_it(self) -> None:
+    def go_for_it(self) -> None:  # noqa C901 too complex (16  # todo0:
 
         stdout_isatty = self.stdout_isatty
 
@@ -144,6 +144,7 @@ class GitGopher:
         shverb = os.path.basename(shfile_shargv[0])
         assert shverb, (shfile_shargv, shverb)
         shverb_shargv = (shverb, *shfile_shargv[1:])
+        sys_shline = " ".join(shlex_quote_calmly(_) for _ in shverb_shargv)
 
         chosen_shverb = self.form_shverb_for_shargv(shverb_shargv)
         chosen_shargv = (chosen_shverb, *shverb_shargv[1:])
@@ -202,7 +203,7 @@ class GitGopher:
 
         print(tagged_shline, file=sys.stderr)  # prints its ":", not after a "+" or "|"
 
-        # Call the Shell now, and talk up the Results
+        # Call out to Shell, or call Git multiple times, or call Git once
 
         if shell:
             git_run = subprocess.run(run_shline, shell=True)
@@ -218,8 +219,19 @@ class GitGopher:
             if tagged_shverb == "gcaa":
                 self.rescue_git_commit_message(git_run.returncode)
 
+        # Talk up other choices of Git work to do
+
         if not git_run.returncode:
-            if tagged_shverb == "gf":
+
+            if tagged_shverb == "gcaa":
+                if "--date=now" not in diff_shargv:
+                    print(
+                        "# did you want the old AuthorDate, or did you mean:"
+                        f"  {sys_shline} --date=now",
+                        file=sys.stderr,
+                    )
+
+            elif tagged_shverb == "gf":
                 if tagged_shline.endswith(" --quiet"):
                     print("# did you want quiet, or did you mean:  gf --", file=sys.stderr)
                 print("# next:  git rebase", file=sys.stderr)
