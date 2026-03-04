@@ -6250,9 +6250,10 @@ _clips_by_str_f_ = {  # clip_metric, clip_float, clip_int, clip_bimetric
     "-Inf": ["ValueError", "-Inf", "", ""],
     "-1e999": ["ValueError", "-Inf", "", ""],
     "-1e309": ["ValueError", "-Inf", "", ""],
-    "-1e308": ["ValueError", "ValueError", "ValueError", ""],
-    "-1000e18": ["ValueError", "ValueError", "ValueError", ""],
+    "-1e308": ["ValueError", "ValueError", "-100e306", ""],
+    "-1000e18": ["ValueError", "ValueError", "-1e21", ""],
     #
+    "-999e21": ["ValueError", "ValueError", "-998e21", ""],
     "-999e18": ["-999E", "-999e18", "-999e18", ""],
     "-999e3": ["-999k", "-999e3", "-999e3", ""],
     "-999": ["-999", "-999", "-999", ""],
@@ -6299,14 +6300,18 @@ _clips_by_str_f_ = {  # clip_metric, clip_float, clip_int, clip_bimetric
     #
     "999e15": ["999P", "999e15", "999e15", "887Pi"],
     "999e18": ["999E", "999e18", "999e18", "866Ei"],
-    "1000e18": ["ValueError", "ValueError", "ValueError", "867Ei"],
-    "1267650600228229401496703205376": ["ValueError", "ValueError", "ValueError", "1Qi"],
-    "1296806564033478677731127379099648": ["ValueError", "ValueError", "ValueError", "1023Qi"],
-    "1298074214633706907132624082305023": ["ValueError", "ValueError", "ValueError", "1023Qi"],
-    "1298074214633706907132624082305024": ["ValueError", "ValueError", "ValueError", "ValueError"],
-    "1e308": ["ValueError", "ValueError", "ValueError", "ValueError"],
-    "1e309": ["ValueError", "Inf", "", ""],
-    "1e999": ["ValueError", "Inf", "", ""],
+    "999999999999999999999": ["ValueError", "ValueError", "999e18", "867Ei"],
+    "1000*10**18": ["ValueError", "ValueError", "1e21", "867Ei"],
+    "999e21": ["ValueError", "ValueError", "998e21", "846Zi"],
+    "1267650600228229401496703205376": ["ValueError", "ValueError", "1.26e30", "1Qi"],
+    "1296806564033478677731127379099648": ["ValueError", "ValueError", "1.29e33", "1023Qi"],
+    "1298074214633706907132624082305023": ["ValueError", "ValueError", "1.29e33", "1023Qi"],
+    "1298074214633706907132624082305024": ["ValueError", "ValueError", "1.29e33", "ValueError"],
+    "999.876*10**30": ["ValueError", "ValueError", "999e30", "788Qi"],
+    "1000*10**30": ["ValueError", "ValueError", "1e33", "788Qi"],
+    "10**308": ["ValueError", "ValueError", "100e306", "ValueError"],
+    "10**309": ["ValueError", "Inf", "1e309", "ValueError"],
+    "10**999": ["ValueError", "Inf", "1e999", "ValueError"],
     "Inf": ["ValueError", "Inf", "", ""],
     #
     "NaN": ["ValueError", "NaN", "", ""],
@@ -6314,12 +6319,93 @@ _clips_by_str_f_ = {  # clip_metric, clip_float, clip_int, clip_bimetric
 }
 
 
+def _try_clip_() -> None:
+    """Try Def-Clip things"""
+
+    for literal, wants in _clips_by_str_f_.items():
+        f, i = _clip_literal_to_f_i_(literal)
+        gots = _clip_f_i_try_(f, i)
+        assert gots == wants, (gots, wants, literal)
+
+
+def _clip_literal_to_f_i_(literal: str) -> tuple[float, int | None]:
+    """Choose just a Float to try, or a Float and an Int to try"""
+
+    kvs = {"-Inf": -Inf, "Inf": Inf, "NaN": NaN}
+
+    if literal in kvs.keys():
+        i = None
+        f = kvs[literal]
+        return (f, i)
+
+    if "10**" in literal:
+
+        mag, sep, exp = literal.partition("10**")
+
+        i = 10 ** int(exp)
+        try:
+            f = float(i)
+            if i < 1e21:
+                assert f == i, (f, i, literal)
+        except OverflowError:
+            f = -float("Inf") if (i < 0) else float("Inf")
+
+        if mag:
+            assert mag.endswith("*"), (mag, sep, exp, literal)
+            f = float(mag.removesuffix("*")) * 10 ** int(exp)
+            i = int(f)
+            assert f == i, (f, i, literal)
+
+        return (f, i)
+
+    v = ast.literal_eval(literal)
+
+    f = float(v)
+
+    i = None
+    unreal = math.isnan(f) or math.isinf(f)
+    if isinstance(v, int):
+        i = v
+    elif not unreal:
+        if int(v) == v:
+            i = int(f)
+
+    return (f, i)
+
+
+def _clip_f_i_try_(f: float, i: int | None) -> list[str]:
+    """Try just a Float, or try a Float and an Int"""
+
+    try:
+        _metric_ = clip_metric(f)
+    except ValueError as exc:
+        _metric_ = type(exc).__name__
+
+    try:
+        _float_ = clip_float(f)
+    except ValueError as exc:
+        _float_ = type(exc).__name__
+
+    try:
+        _int_ = "" if (i is None) else clip_int(i)
+    except ValueError as exc:
+        _int_ = type(exc).__name__
+
+    try:
+        _bimetric_ = "" if ((i is None) or (i < 0)) else clip_bimetric(i)
+    except ValueError as exc:
+        _bimetric_ = type(exc).__name__
+
+    gots = [_metric_, _float_, _int_, _bimetric_]
+    return gots
+
+
 def clip_metric(f: float) -> str:
     """Clip the Float but give it a Metric Prefix Multiplier, not an 'e' decimal exponent"""
 
     metrics = "qryzafpnμm.kMGTPEZYRQ"  # https://en.wikipedia.org/wiki/Metric_prefix
 
-    fclip = clip_float(f)
+    fclip = clip_float(f)  # .clip_float often raises ValueError outside of +- 1e-27 .. 1e27
 
     if math.isnan(f):  # todo: raise (f, fclip) in place of (f)?
         raise ValueError(f)  # can't clip NaN
@@ -6371,10 +6457,11 @@ def clip_float(f: float) -> str:
     # Clip as Int if equal to Int, or if >= 3 Digits at left of the Decimal Point
 
     intf = int(f)
-    if (f == intf) or (abs(intf) >= 101):  # includes -0e0, excludes 100 == 99.999999999999999
-        clip = clip_int(intf)  # may raise ValueError, like at 1e21
-        assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(intf), intf, f)
-        return clip
+    if -1e21 < f < 1e21:  # because str(int(999e21))[:3] == '998'  # not '999'
+        if (f == intf) or (abs(intf) >= 101):  # includes -0e0, excludes 100 == 99.999999999999999
+            clip = clip_int(intf)  # may raise ValueError, like at 1e21
+            assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(intf), intf, f)
+            return clip
 
     # Raise ValueError if counting as Int might round down the first 3 Digits
 
@@ -6383,6 +6470,8 @@ def clip_float(f: float) -> str:
 
     if abs(f) < 1e-12:  # like to block 4.2e-15 -> '4e-15'
         raise ValueError(f)  # can't clip smaller than 1e-12
+    if abs(f) >= 1e21:  # like to block 999e21 -> '998e21'
+        raise ValueError(f)  # can't clip larger than 1e21
 
     # Clip as an Int multiplied by Metric Prefix below 1
 
@@ -6408,12 +6497,6 @@ def clip_float(f: float) -> str:
 def clip_int(i: int) -> str:
     """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
 
-    uncountable = 1e21
-    if not (-uncountable < i < uncountable):
-        raise ValueError(i)  # can't clip larger than zetta
-
-        # "-999e21": ["-998Z", "-998e21", "-998e21", "ValueError"],  # wrong to say 998
-
     s = str(int(i))  # '-120789'
 
     _, dash, digits = s.rpartition("-")  # ('', '-', '120789')
@@ -6438,7 +6521,9 @@ def clip_int(i: int) -> str:
 
     clip = dash + worthy + "e" + str(eng)  # '-120e3'
 
-    assert abs(int(float(clip))) <= abs(i), (abs(int(float(clip))), abs(i), i)
+    if -1e21 < i < 1e21:
+        assert abs(int(float(clip))) <= abs(i), (abs(int(float(clip))), abs(i), i)
+
     return clip  # -120789 --> '-120e3', etc
 
 
@@ -6482,56 +6567,6 @@ def clip_bimetric(i: int) -> str:
     assert False, (i,)
 
     # raises ValueError for Ints that 2025 SI Metric Binary Prefixes can't count out
-
-
-def _try_clip_() -> None:
-    """Try Def-Clip things"""
-
-    kvs = {"-Inf": -Inf, "Inf": Inf, "NaN": NaN}
-
-    for str_f, wants in _clips_by_str_f_.items():
-
-        # Form input
-
-        i = None
-        if str_f in kvs.keys():
-            f = kvs[str_f]
-        else:
-            v = ast.literal_eval(str_f)
-            f = float(v)
-            unreal = math.isnan(f) or math.isinf(f)
-            if isinstance(v, int):
-                i = v
-            elif not unreal:
-                if int(v) == v:
-                    i = int(f)
-
-        # Try to clip
-
-        try:
-            _metric_ = clip_metric(f)
-        except Exception as exc:
-            _metric_ = type(exc).__name__
-
-        try:
-            _float_ = clip_float(f)
-        except Exception as exc:
-            _float_ = type(exc).__name__
-
-        try:
-            _int_ = "" if (i is None) else clip_int(i)
-        except Exception as exc:
-            _int_ = type(exc).__name__
-
-        try:
-            _bimetric_ = "" if ((i is None) or (i < 0)) else clip_bimetric(i)
-        except Exception as exc:
-            _bimetric_ = type(exc).__name__
-
-        # Require the expected results
-
-        gots = [_metric_, _float_, _int_, _bimetric_]
-        assert gots == wants, (gots, wants, str_f)
 
 
 #
