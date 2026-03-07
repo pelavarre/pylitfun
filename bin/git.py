@@ -91,7 +91,7 @@ ShlinePlusByShverb = {  # sorted by key
     "grv": r"git remote -v |tr ' \t' '\n' |grep : |uniq |sed 's,^,git clone ,'",
     "gs": "git show --color-moved [...]",
     # 30
-    "gsis": "find . -type p && git status --ignored --short",
+    "gsis": ": find . -type p && : find . -type d -empty -not -path '*/.git/*' && git status --ignored --short",
     "gspno": "git show --pretty= --name-only [...]",
     # 32
 }
@@ -927,6 +927,11 @@ class GitGopher:
 
         for shline in shlines_list:
             print(f"+ {shline}", file=sys.stderr)
+
+            if shline.startswith(": "):
+                assert "<" not in shline, (shline,)  # works towards interpreting ": ..." correctly
+                assert ">" not in shline, (shline,)
+                continue
 
             removeprefix = shline.removeprefix("time ")
             shargv = shlex.split(removeprefix)
