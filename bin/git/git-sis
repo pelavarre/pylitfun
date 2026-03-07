@@ -2,6 +2,6 @@
 
 echo + : find . -type p >&2
 echo "+ : find . -type d -empty -not -path '*/.git/*'" >&2
+echo ': gsis && git status --ignored --short'
 
-set -xe
-git status --ignored --short
+: gsis && git status --ignored --short
