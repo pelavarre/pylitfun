@@ -421,7 +421,7 @@ class ShellGopher:
                     text = str_removeflanks_else(word, marks=",./")  # takes str
 
                 if text is not None:
-                    if not bricks:
+                    if not bricks[1:]:
                         newborn = self._compile_brick_if_("append")
                         bricks.append(newborn)
 
@@ -430,6 +430,10 @@ class ShellGopher:
 
                 number = parse_number_else(word)  # takes float | int | bool
                 if number is not None:
+                    if not bricks[1:]:
+                        newborn = self._compile_brick_if_("awk")
+                        bricks.append(newborn)
+
                     newborn.posargs += (number,)
                     continue
 
@@ -997,7 +1001,7 @@ class ShellBrick:
         lower_nybbles = h.hexdigest()
 
         oline = lower_nybbles
-        if verb.startswith("."):
+        if verb.startswith("."):  # .md5
             oline += f"  {len(idata)}"
         oline += "  -"
 
@@ -1046,7 +1050,7 @@ class ShellBrick:
         lower_nybbles = h.hexdigest()
 
         oline = lower_nybbles
-        if verb.startswith("."):
+        if verb.startswith("."):  # .sha256
             oline += f" {len(idata)}"
         oline += "  -"
 
@@ -1194,7 +1198,7 @@ class ShellBrick:
                 #
 
                 unreal = math.isnan(f) or math.isinf(f)
-                if verb.startswith("..") and not unreal:
+                if verb.startswith("..") and not unreal:  # ..eng
 
                     i = int(f)
                     if i != f:
@@ -1203,7 +1207,7 @@ class ShellBrick:
 
                     iosplit = clip_bimetric(i)
 
-                elif verb.startswith("."):
+                elif verb.startswith("."):  # .eng
 
                     iosplit = clip_metric(f)
 
@@ -1600,7 +1604,7 @@ class ShellBrick:
         posargs = self.posargs
 
         if not posargs:
-            n = (y_high - minus) if verb.startswith(".") else default
+            n = (y_high - minus) if verb.startswith(".") else default  # .head, .tail
         else:
             assert not verb.startswith("."), (verb,)
             option_int = self._take_posargs_as_one_int_()
@@ -1622,7 +1626,7 @@ class ShellBrick:
         posargs = self.posargs
 
         if not posargs:
-            n = (x_wide - minus) if verb.startswith(".") else default
+            n = (x_wide - minus) if verb.startswith(".") else default  # .cut
         else:
             assert not verb.startswith("."), (verb,)
             option_int = self._take_posargs_as_one_int_()
@@ -1835,7 +1839,7 @@ class ShellBrick:
         below = 2 * [""]
 
         olines = above + list(_.ljust(ljust).rjust(rjust) for _ in ilines) + below
-        if verb.startswith("."):
+        if verb.startswith("."):  # .frame
             olines = list(_.rstrip() for _ in olines)
 
         self.store_olines(olines)
