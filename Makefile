@@ -51,8 +51,12 @@ help:
 
 
 bin:
-	echo bin/[0-9A-Za-z]* sh/[0-9A-Za-z]* sh/@ sh/_ sh/.[0-9A-Za-z]* |(cd ~/ && xargs -n1 rm -fr)
-	cp -p bin/[0-9A-Za-z]* sh/[0-9A-Za-z]* sh/@ sh/_ sh/.[0-9A-Za-z]* ~/bin/.
+	echo bin/{,git/}[0-9A-Za-z]* sh/[0-9A-Za-z]* sh/@ sh/_ sh/.[0-9A-Za-z]* \
+		|sed 's, bin/git , ,' \
+		|(cd ~/ && xargs -n1 rm -fr)
+	echo bin/{,git/}[0-9A-Za-z]* sh/[0-9A-Za-z]* sh/@ sh/_ sh/.[0-9A-Za-z]* \
+		|sed 's, bin/git , ,' \
+		|xargs -n1 -I{} cp -p {} ~/bin/.
 	rm -fr ~/bin/pwnme
 
 # beware: the classic 'sh' can add ./ and ../ into sh/.*
