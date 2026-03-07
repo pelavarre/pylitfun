@@ -287,7 +287,12 @@ class GitGopher:
             "gla": "# : gla && " + " ".join(extra_gla_shline_str.split()),
         }
 
+        skip_shverbs = ["gsis"]
+
         for shverb, shline_plus in shline_plus_by_shverb.items():
+
+            if shverb in skip_shverbs:
+                continue
 
             alt_shverb = shverb
             pathname = f"bin/{shverb}"
