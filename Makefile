@@ -51,9 +51,10 @@ help:
 
 
 bin:
-	(ls -A bin && ls -A bin/git && ls -A sh) \
+	(ls -A bin && ls -A bin/git-verbs && ls -A sh) \
 		|(cd ~/ && xargs -n1 -I{} rm -fr bin/{})
-	ls -d bin/* bin/git/* sh/* sh/.* |grep -v -e ^bin/git$$ -e ^sh/[.]$$ -e ^sh/[.][.]$$ \
+	ls -d bin/* bin/git-verbs/* sh/* sh/.* \
+		|grep -v -e ^bin/git-verbs$$ -e ^sh/[.]$$ -e ^sh/[.][.]$$ \
 		|xargs -n1 -I{} cp -ip {} ~/bin/.
 	rm -fr ~/bin/pwnme
 
