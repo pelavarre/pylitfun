@@ -362,12 +362,16 @@ class ShellGopher:
     # Make a Shell Pipe by stringing Bricks together in a Line
     #
 
-    def compile_pipe_if(self) -> None:
+    def compile_pipe_if(self) -> None:  # noqa: too complex(18)  # todo0:
         """Compile each Brick"""
 
         sys_stdin_isatty = self.sys_stdin_isatty
         words = self.words
         bricks = self.bricks
+
+        sb = ShellBrick(self, verb="__enter__")  # todo: ugly coupling of knowing "__enter__" etc
+        func_by_verb = sb._form_func_by_verb_()
+        verbs = list(func_by_verb.keys())
 
         # Choose what to write at exit
 
@@ -398,6 +402,9 @@ class ShellGopher:
         assert not bricks, (bricks,)
 
         for index, word in enumerate(lotsa_words):
+            # print(f"{index=}, {word=}", file=sys.stderr)
+
+            # Think differently at first
 
             if index == 0:
                 assert word == "__enter__", (word,)
@@ -406,27 +413,21 @@ class ShellGopher:
                 if word in ("cv", "pb", "plf"):
                     continue
 
-            if index > 1:
+                # todo3: add comment of when (index == 1) doesn't imply in ("cv", "pb", "plf")
+
+            # Pick out a Pos Arg
+
+            if index > 1:  # todo: Pos Args placed before first Brick
                 newborn = bricks[-1]
+
+                # Pick out a Pos Arg Dot
 
                 dot = word
                 if word == ".":
                     newborn.posargs += (dot,)
                     continue
 
-                text: str | None = None
-                if " " in word:  # such as ' ' in '0 '
-                    text = word  # takes str
-                else:
-                    text = str_removeflanks_else(word, marks=",./")  # takes str
-
-                if text is not None:
-                    if not bricks[1:]:
-                        newborn = self._compile_brick_if_("append")
-                        bricks.append(newborn)
-
-                    newborn.posargs += (text,)
-                    continue
+                # Pick out a Pos Arg Number
 
                 number = parse_number_else(word)  # takes float | int | bool
                 if number is not None:
@@ -437,11 +438,48 @@ class ShellGopher:
                     newborn.posargs += (number,)
                     continue
 
-                # todo8: accept 'None' as a Pos Arg of a Shell Brick ?
-                # todo8: declare which Bricks take which Args, compile-time reject TypeError
+                # Pick out a Pos Arg Text
+
+                text = self.parse_text_else(word, verbs=verbs)
+                if text is not None:
+                    if not bricks[1:]:
+                        newborn = self._compile_brick_if_("append")
+                        bricks.append(newborn)
+
+                    newborn.posargs += (text,)
+                    continue
+
+            # Else make a Brick
 
             brick = self._compile_brick_if_(word)
             bricks.append(brick)
+
+            # todo8: accept 'None' as a Pos Arg of a Shell Brick ?
+            # todo8: declare which Bricks take which Args, compile-time reject TypeError
+
+    def parse_text_else(self, text: str, verbs: list[str]) -> str | None:
+        """Evaluate a Str Literal, else return None"""
+
+        evalled: str | None
+
+        if " " in text:  # such as ' ' in '0 '
+            evalled = text  # takes str
+
+            return evalled
+
+        if not re.fullmatch(r"[A-Z_a-z][0-9A-Z_a-z]*", string=text):
+            if text not in verbs:
+                evalled = str_removeflanks_else(text, marks=",./")  # takes str
+                if evalled is None:
+                    evalled = text
+                elif evalled and (evalled == len(evalled) * evalled[-1]):
+                    evalled = text
+
+                return evalled
+
+        return None
+
+        # todo1: work out more thoughtfully which Pos Args should be Str Literals
 
     def _compile_writing_pbcopy_(self, writing_file: bool) -> bool:
         """Choose to write into PbCopy at exit, or not"""
@@ -601,7 +639,6 @@ class ShellBrick:
             "lower": self.from_text_lower,  # |L
             "ord": self.from_text_ord,
             "replace": self.from_text_replace,
-            # "sub": self.for_line_sub,  # todo0:
             "split": self.from_text_split,  # aka words
             "title": self.from_text_title,  # |T
             "upper": self.from_text_upper,  # |U
@@ -633,6 +670,7 @@ class ShellBrick:
             "removeprefix": self.for_line_removeprefix,
             "removesuffix": self.for_line_removesuffix,
             "rstrip": self.for_line_rstrip,
+            "sub": self.for_line_sub,
             "strip": self.for_line_strip,  # unrelated to Shell "which strip" and "man strip"
             #
             # Python Dotted Double Words
@@ -2106,6 +2144,25 @@ class ShellBrick:
         olines = list(_.strip() for _ in ilines)
         self.store_olines(olines)
 
+    def for_line_sub(self) -> None:
+        """re.sub(pattern, repl=repl, string=_) for _ in list(sys.i)"""
+
+        posargs = self.posargs
+
+        pair = posargs[:2]  # todo8: reject extra args
+        if not pair:
+            pair = (r" ", "  ")  # defaults to double U+0020 Space's
+        elif not pair[1:]:
+            pair = (pair[0], "")  # defaults to delete 1 Pattern
+
+        pattern, repl = pair
+        assert isinstance(pattern, str), (pattern,)
+        assert isinstance(repl, str), (repl,)
+
+        ilines = self.fetch_ilines()
+        olines = list(re.sub(pattern, repl, _) for _ in ilines)
+        self.store_olines(olines)
+
     def for_line_tail(self) -> None:
         """list(sys.i)[-9:]"""  # todo8: better help for '|.tail' and '|tail -n'
 
@@ -2850,8 +2907,6 @@ if __name__ == "__main__":
 
 
 # lil todo's
-
-# todo0: |sub .pattern. .repl.
 
 # todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
 

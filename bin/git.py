@@ -750,8 +750,6 @@ class GitGopher:
         if not gdno_run_stdout:
             return (shverb, shline)  # this 'gcam' learned nothing from 'gdno'
 
-            # todo: gcam should pick up new Added Files into the wip
-
         pathnames = gdno_run_stdout.decode().splitlines()
         message = "wip - " + " ".join(pathnames)
 
@@ -1079,13 +1077,12 @@ _ = """  # todo's
 
 # todo0: practice more gsis during --rebase and --cherry-pick
 
-# todo: redistribute as 'git-...' aliases coded as Scripts of the $PATH
+# todo: redistribute ever more 'git-...' aliases coded as Scripts of the $PATH
 
 # todo: measure latency added by calling these aliases in place of an explicit whole shline
 
 # todo: gcam should pick up new Added Files into the wip
 
-# todo: add:  git checkout -
 # todo: no 'git checkout' on purpose:  without args it cancels cherry-pick and hides rebase
 
 # todo: add git commit, git push, git rebase, local/remote mkdir/rmdir of git branches, ...
