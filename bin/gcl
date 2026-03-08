@@ -1,3 +1,0 @@
-#!/bin/sh
-# : gcl && ... && git clean -dffxq
-g.py "$0" "$@"

@@ -1,0 +1,8 @@
+#!/bin/sh
+
+echo ': gcl && echo Press ⌃D && cat - >/dev/null && git clean -dffxq' >&2
+
+echo 'Press ⌃D to auth:  git clean -dffxq'
+cat - >/dev/null
+
+: gcl && git clean -dffxq
