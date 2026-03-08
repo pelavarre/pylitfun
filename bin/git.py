@@ -173,9 +173,22 @@ class GitGopher:
 
         diff_shargv = (diff_shverb, *tweaked_shargv[1:])
 
+        # Show what could happen again at another host or time, but do speak before Auth
+
+        authable = diff_shline.removeprefix("... && ")
+
+        taggable = "echo Press ⌃D && cat - >/dev/null && " + authable
+        taggable_shline = taggable + " " + " ".join(shlex_quote_calmly(_) for _ in diff_shargv[1:])
+        taggable_shline = taggable_shline.rstrip()
+
+        tagged_shverb = "gg" if diff_shverb in ("gg/0", "gg/n") else diff_shverb
+        tagged_shline = f": {tagged_shverb}{given_shsuffix} && {taggable_shline}"
+
+        print(tagged_shline, file=sys.stderr)  # prints its ":", not after a "+" or "|"
+
         # Explicitly auth the especially destructive ops
 
-        authed, taggable = self.auth_git_shline(diff_shline)
+        authed = self.auth_git_shline(diff_shline)
 
         # Shove back on Python ShLex Quote fussily quoting mentions of HEAD~... to no purpose
 
@@ -189,11 +202,9 @@ class GitGopher:
         git_run = self.do_the_work(
             sys_shline=sys_shline,
             shfile_shargv=shfile_shargv,
-            given_shsuffix=given_shsuffix,
             shell=shell,
             diff_shverb=diff_shverb,
             diff_shargv=diff_shargv,
-            taggable=taggable,
             run_shline=run_shline,
             run_shargv=run_shargv,
         )
@@ -835,14 +846,13 @@ class GitGopher:
     # Auth some Git work
     #
 
-    def auth_git_shline(self, shline: str) -> tuple[str, str]:
+    def auth_git_shline(self, shline: str) -> str:
         """Let Auth fail, else say which Shell Line to run and which Shell Line to trace"""
 
         if not shline.startswith("... && "):
-            return (shline, shline)
+            return shline
 
         authable = shline.removeprefix("... && ")
-        taggable = "echo Press ⌃D && cat - >/dev/null && " + authable
 
         print(f"Press ⌃D to auth:  {authable}", file=sys.stderr)
         assert int(0x80 + signal.SIGINT) == 130
@@ -852,7 +862,7 @@ class GitGopher:
             sys.exit(130)
 
         authed = authable
-        return (authed, taggable)
+        return authed
 
     #
     # Do the work
@@ -865,8 +875,6 @@ class GitGopher:
         shell: bool,
         diff_shverb: str,
         diff_shargv: tuple[str, ...],
-        given_shsuffix: str,
-        taggable: str,
         run_shline: str,
         run_shargv: list[str],
     ) -> subprocess.CompletedProcess[bytes]:
@@ -881,22 +889,12 @@ class GitGopher:
                 if stdout_isatty:
                     print("# you got 'gl -1'  # did you mean:  gl --", file=sys.stderr)
 
-        # Loudly promise to call the Shell now
-
-        taggable_shline = taggable + " " + " ".join(shlex_quote_calmly(_) for _ in diff_shargv[1:])
-        taggable_shline = taggable_shline.rstrip()
-
-        tagged_shverb = "gg" if diff_shverb in ("gg/0", "gg/n") else diff_shverb
-        tagged_shline = f": {tagged_shverb}{given_shsuffix} && {taggable_shline}"
-
-        print(tagged_shline, file=sys.stderr)  # prints its ":", not after a "+" or "|"
-
         # Call out to Shell, or call Git multiple times, or call Git once
 
         if shell:
             git_run = subprocess.run(run_shline, shell=True)
         elif " && " in run_shline:
-            assert tagged_shverb in ("gf", "gsis"), (tagged_shverb, run_shline)
+            assert diff_shverb in ("gf", "gsis"), (diff_shverb, run_shline)
             git_run = self.subprocess_run_shlines_till_exit_nonzero(run_shline.split(" && "))
         else:
             git_run = subprocess.run(run_shargv)
@@ -904,14 +902,14 @@ class GitGopher:
         if git_run.returncode:
             print("+ exit", git_run.returncode, file=sys.stderr)
 
-            if tagged_shverb == "gcaa":
+            if diff_shverb == "gcaa":
                 self.rescue_git_commit_message(git_run.returncode)
 
         # Talk up other choices of Git work to do
 
         if not git_run.returncode:
 
-            if tagged_shverb == "gcaa":
+            if diff_shverb == "gcaa":
                 if "--date=now" not in diff_shargv:
                     print(
                         "# did you want the old AuthorDate, or did you mean:"
@@ -919,8 +917,8 @@ class GitGopher:
                         file=sys.stderr,
                     )
 
-            elif tagged_shverb == "gf":
-                if tagged_shline.endswith(" --quiet"):
+            elif diff_shverb == "gf":
+                if run_shline.endswith(" --quiet"):
                     print("# did you want quiet, or did you mean:  gf --", file=sys.stderr)
                 print("# next:  git rebase", file=sys.stderr)
 
