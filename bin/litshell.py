@@ -35,16 +35,16 @@ alt bricks:
   .frame .head .len .max .md5 .min .reverse .sha256 .sort .tail
 
 cryptic bricks:
-  -  0 1 2 3  F L O T U  a h i j k n o r s t u w x  nl pb
+  -  0 1 2 3  F L O T U  a h i j k n o r s t u w x  nl plf
 
 examples:
-  cat README.md |pb
-  pb |wc -l
-  pb str set join
-  pb str set sort join
-  pb str set sort join --sep=''
+  cat README.md |plf
+  plf |wc -l
+  plf str set join
+  plf str set sort join
+  plf str set sort join --sep=''
   echo Hello Shell Pipe Filter Brick World |pbcopy
-  pb
+  plf
   0
   0 upper
   1
@@ -52,11 +52,11 @@ examples:
 """
 
 #
-# No name collision in |pb with: bin/[gp] sh/[defmv]
+# No name collision in |plf with: bin/[gp] sh/[defmv]
 #
 
 #
-# No precedent yet in |pb or sh/ for [bclqwyz] but many Linux define [lw]
+# No precedent yet in |plf or sh/ for [bclqwyz] but many Linux define [lw]
 #
 
 #
@@ -2846,7 +2846,7 @@ if __name__ == "__main__":
 
 # todo0: accept single space as column sep if it's present in same column across all lines
 
-# todo0: teach '|pb columns' to cope with Markdown Tables as input
+# todo0: teach '|plf columns' to cope with Markdown Tables as input
 
 
 # lil todo's
@@ -2855,14 +2855,15 @@ if __name__ == "__main__":
 
 # todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
 
-# todo0: |pb g to work like |pb match, but accept multiple text args as if or'ed by |grep -e
+# todo0: |plf match,fullmatch,index same as sketched for |plf g here
+# todo0: |plf g to work like |plf match, but accept multiple text args as if or'ed by |grep -e
 
-# todo0: |pb g /SESS/ for the Python RegEx effect of |grep -ai -e /SESS/
+# todo0: |plf g /SESS/ for the Python RegEx effect of |grep -ai -e /SESS/
 
 # todo0: debug
-# % pb awk 5 join --sep=' '
+# % plf awk 5 join --sep=' '
 #      plavarre plavarre
-# % pb awk 5 |join --sep=' '
+# % plf awk 5 |join --sep=' '
 # 1415 1378 818 716 1568 288 3652 10747 282 1632
 # %
 
@@ -2901,19 +2902,19 @@ if __name__ == "__main__":
 
 #
 
-# todo4: 'pb' vs 'pb -' @ pb split sort |fmt -n |sed 's,^,  ,' |pb -; pb
+# todo4: 'plf' vs 'plf -' @ plf split sort |fmt -n |sed 's,^,  ,' |plf -; plf
 # todo4: dream up some great way to pass Bytes through |pbcopy
 # todo4: repro and explain '@' marks on 'ls -l' permissions of tracked Files in local Git Clone
 
 #
 
-# todo5: |pb dt datetime struggle to convert input into date/time-stamps
+# todo5: |plf dt datetime struggle to convert input into date/time-stamps
 # todo5: timedelta absolute local """astimezone""
 # todo5: timedelta absolute utc """fromtimestamp""
 # todo5: timedelta relative previous """timedelta"""  # """dt.timedelta(_[0] - _[-1] for _ in zip)"""
 # todo5: timedelta relative t0 """- _[0]"""  # """dt.timedelta(_ - list(sys.i)[0])""
 # todo5: test with our favourite TZ=America/Los_Angeles TZ=Europe/Prague TZ=Asia/Kolkata
-# todo5: pb for work with date/time's as utc floats in order - rel & abs & utc & zone & float
+# todo5: plf for work with date/time's as utc floats in order - rel & abs & utc & zone & float
 
 #
 
@@ -2921,7 +2922,7 @@ if __name__ == "__main__":
 
 #
 
-# todo7: fill out 'pb .' so as to retire 'pq .'
+# todo7: fill out 'plf .' so as to retire 'pq .'
 
 # todo7: add Hp Calculator Words:  fix, sci, ...
 
@@ -2940,14 +2941,14 @@ if __name__ == "__main__":
 
 #
 
-# todo8: mess with what 'pb --' and '|pb --' means
+# todo8: mess with what 'plf --' and '|plf --' means
 
-# todo8: pb hexdump, especially for a -C, especially a memorizable 128 glyph set
+# todo8: plf hexdump, especially for a -C, especially a memorizable 128 glyph set
 
 # todo8: brick helps
 
 # todo8: |expandtabs 2
-# todo8: confusion in having 'pb --sep=-' work while 'pb split /-/' quietly doesn't
+# todo8: confusion in having 'plf --sep=-' work while 'plf split /-/' quietly doesn't
 # todo8: |textwrap.wrap textwrap.fill or some such
 # todo8: |fmt ... just to do |fmt, or more a la |fold -sw $W
 # todo8: reject -t without |column
@@ -2962,8 +2963,8 @@ if __name__ == "__main__":
 
 # todo8: dir(str)
 
-# todo8: pb for reorder and transpose arrays of tsv, for split into tsv
-# todo8: pb for work with tsv's
+# todo8: plf for reorder and transpose arrays of tsv, for split into tsv
+# todo8: plf for work with tsv's
 # todo8: tables
 
 # todo8: mess around with lineseps of \r \n \r\n
