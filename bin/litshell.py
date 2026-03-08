@@ -1294,8 +1294,13 @@ class ShellBrick:
     def from_text_split(self) -> None:
         """str(sys.i).split(sep)"""  # .sep may be None
 
+        posargs = self.posargs
         sg = self.shell_gopher
+
         sep = sg.sep
+        if sep is None:
+            if posargs and isinstance(posargs[0], str):
+                sep = posargs[0]
 
         itext = self.fetch_itext()
         olines = itext.split(sep)  # .sep may be None
@@ -1911,7 +1916,7 @@ class ShellBrick:
         olines = list(_ for _ in ilines if _)
         self.store_olines(olines)
 
-        # todo0: add '|.if' to .rstrip before if
+        # todo8: add '|.if' to .rstrip before if
 
     def for_line_index(self) -> None:
         """_ for _ in list(sys.i) try _.index(text)"""
@@ -1958,9 +1963,14 @@ class ShellBrick:
     def for_line_join(self) -> None:
         """sep.join(list(sys.i))"""  # .sep may be None, then works like " " single Space
 
+        posargs = self.posargs
         verb = self.verb
         sg = self.shell_gopher
+
         sep = sg.sep
+        if sep is None:
+            if posargs and isinstance(posargs[0], str):
+                sep = posargs[0]
 
         default_sep = " " if (verb == "x") else "  "
         osep = default_sep if (sep is None) else sep
@@ -2830,29 +2840,24 @@ if __name__ == "__main__":
 
 # big todo0's
 
-# todo0: teach '|pb columns' to cope with Markdown Tables as input
-
 # todo0: refresh the pipe-bricks.md sorts to look more like the def's here
 
-# todo0: rewrite the git.py to distribute via ~/bin/git-*
-# todo0: demo 'glv' of can rewrite the git.py to distribute via ~/bin/git-*
+# todo0: rewrite ever more of the git.py to distribute via ~/bin/git-*
+
+# todo0: accept single space as column sep if it's present in same column across all lines
+
+# todo0: teach '|pb columns' to cope with Markdown Tables as input
 
 
 # lil todo's
 
-# todo0: more aggressively pick out floats from input - metric, bimetric, & punctuated '(9876,' etc
+# todo0: |sub .pattern. .repl.
 
-# todo0: accept single space as column sep if it's present in same column across all lines
+# todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
 
 # todo0: |pb g to work like |pb match, but accept multiple text args as if or'ed by |grep -e
 
 # todo0: |pb g /SESS/ for the Python RegEx effect of |grep -ai -e /SESS/
-# todo0: |pb find /SESS/ for str.find of literal text
-
-# todo0: the |.eng should give us metric units in place of 'e' and 'e-'
-
-# todo0: add a litprofile.py to run from ~/.zprofile
-# todo0: first up, tell me when Settings Json Backup has gone stale
 
 # todo0: debug
 # % pb awk 5 join --sep=' '
@@ -2861,41 +2866,44 @@ if __name__ == "__main__":
 # 1415 1378 818 716 1568 288 3652 10747 282 1632
 # %
 
-# todo0: split and cross-ref '|.max' '|.min' '|reverse' into Char-by-Char & Line-by-Line
-
 # todo0: into litpython.py, doc which Python Version we scraped Importable Names from
 # todo0: like rescrape from latest and mention that
 
-# todo0: |sub .pattern. .repl.
-# todo0: |remove .from.
+#
 
-# todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
+# todo1: more aggressively pick out floats from input - metric, bimetric, & punctuated '(9876,' etc
+
+# todo1: add a litprofile.py to run from ~/.zprofile
+# todo1: first up, tell me when Settings Json Backup has gone stale
+
+# todo1: split and cross-ref '|.max' '|.min' '|reverse' into Char-by-Char & Line-by-Line
+# todo1: |remove .from.
 
 #
 
-# todo1: sh/cal.py --, for to say 3 months at a time
-# todo1: sh/cal.py to mention part of year
-# todo1: sh/cal.py to mention how to start on Mondays or Sundays
-# todo1: sh/cal.py to prefer python3 -m calendar
+# todo2: sh/cal.py --, for to say 3 months at a time
+# todo2: sh/cal.py to mention part of year
+# todo2: sh/cal.py to mention how to start on Mondays or Sundays
+# todo2: sh/cal.py to prefer python3 -m calendar
 
-# todo1: |sh/nl.py --, for to say |nl -pba -v0
+# todo2: |sh/nl.py --, for to say |nl -pba -v0
 
-# todo1: sh/which.py, finish up how we've begun offline
-
-#
-
-# todo2: finish porting pelavarre/xshverb/ of bin/ k and of bin/ dt ht pq
-# todo2: dt as date && date -u && time
-
-# todo2: |translate .from. .to.
-
-# todo2: |eng '* 512' '1/_' to alter before reformatting
+# todo2: sh/which.py, finish up how we've begun offline
 
 #
 
-# todo3: 'pb' vs 'pb -' @ pb split sort |fmt -n |sed 's,^,  ,' |pb -; pb
-# todo3: dream up some great way to pass Bytes through |pbcopy
-# todo3: repro and explain '@' marks on 'ls -l' permissions of tracked Files in local Git Clone
+# todo3: finish porting pelavarre/xshverb/ of bin/ k and of bin/ dt ht pq
+# todo3: dt as date && date -u && time
+
+# todo3: |translate .from. .to.
+
+# todo3: |eng '* 512' '1/_' to alter before reformatting
+
+#
+
+# todo4: 'pb' vs 'pb -' @ pb split sort |fmt -n |sed 's,^,  ,' |pb -; pb
+# todo4: dream up some great way to pass Bytes through |pbcopy
+# todo4: repro and explain '@' marks on 'ls -l' permissions of tracked Files in local Git Clone
 
 #
 
