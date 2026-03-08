@@ -1,0 +1,4 @@
+#!/bin/sh
+# : plf | ... && pbpaste |...
+# : ... |plf && ... |pbcopy
+$(dirname "$0")/litshell.py plf "$@"

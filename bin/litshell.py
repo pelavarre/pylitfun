@@ -402,8 +402,8 @@ class ShellGopher:
             if index == 0:
                 assert word == "__enter__", (word,)
 
-            if index == 1:  # todo3: say this more simply - pb could mean __enter__
-                if word in ("cv", "pb"):
+            if index == 1:  # todo3: say this more simply - plf could mean __enter__
+                if word in ("cv", "pb", "plf"):
                     continue
 
             if index > 1:
@@ -520,7 +520,7 @@ class ShellGopher:
 
             doc = func.__doc__
 
-            if verb in ("0", "1", "2", "3", "cv", "pb", "__enter__", "__exit__"):
+            if verb in ("0", "1", "2", "3", "cv", "pb", "plf", "__enter__", "__exit__"):
                 continue
 
             s += " " + repr(doc)
