@@ -175,9 +175,11 @@ class GitGopher:
 
         # Show what could happen again at another host or time, but do speak before Auth
 
-        authable = diff_shline.removeprefix("... && ")
+        taggable = diff_shline
+        if diff_shline.startswith("... && "):
+            authable = diff_shline.removeprefix("... && ")
+            taggable = "echo Press ⌃D && cat - >/dev/null && " + authable
 
-        taggable = "echo Press ⌃D && cat - >/dev/null && " + authable
         taggable_shline = taggable + " " + " ".join(shlex_quote_calmly(_) for _ in diff_shargv[1:])
         taggable_shline = taggable_shline.rstrip()
 
