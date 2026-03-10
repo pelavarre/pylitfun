@@ -1,0 +1,4 @@
+# sh/.valid = Guess when my Ssh Certs will expire
+
+set -xe
+ssh-add -l && ssh-add -L |grep -- -"$USER" |ssh-keygen -L -f - |grep Valid
