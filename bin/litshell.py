@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-usage: litshell.py [-h] [-V] [-r] [--sep SEP] [--start START] [WORD ...]
+usage: litshell.py [-h] [-i] [-r] [-V] [--sep SEP] [--start START] [WORD ...]
 
 read/ write the os copy/ paste clipboard buffer, write tty, and write files
 
@@ -10,8 +10,9 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  -V, --version         show version numbers and exit
+  -i, --interactive     ask more questions
   -r, --raw-control-ch  write Control Chars to Tty, don't replace with '¤' Currency-Symbol
+  -V, --version         show version numbers and exit
   --sep SEP             an input or output separator, such as ' ' or ',' or ', '
   --start START         a starting index, such as 0 or 1
 
@@ -244,6 +245,13 @@ class ShellGopher:
             print(mmmyyyy, title, version)  # such as:  Feb/2026 LitShell·Py 0.8.185
             sys.exit(0)  # exits 0 after printing Version
 
+        # Chat on request
+
+        if not ns.words[1:]:
+            if ns.interactive:
+                self.chat_till_quit()
+                sys.exit()
+
         # Run differently because Options & Pos Args
 
         words = self.words
@@ -302,12 +310,14 @@ class ShellGopher:
         parser.add_argument("words", metavar="WORD", nargs="*", help=word_help)
 
         help_help = "show this help message and exit"
+        parser.add_argument("-h", "--help", action="count", help=help_help)
+
+        interactive_help = "ask more questions"
         raw_control_ch_help = "write Control Chars to Tty, don't replace with '¤' Currency-Symbol"
         version_help = "show version numbers and exit"
-
-        parser.add_argument("-h", "--help", action="count", help=help_help)
-        parser.add_argument("-V", "--version", action="count", help=version_help)
+        parser.add_argument("-i", "--interactive", action="count", help=interactive_help)
         parser.add_argument("-r", "--raw-control-ch", action="count", help=raw_control_ch_help)
+        parser.add_argument("-V", "--version", action="count", help=version_help)
 
         sep_help = "an input or output separator, such as ' ' or ',' or ', '"
         start_help = "a starting index, such as 0 or 1"
@@ -576,6 +586,36 @@ class ShellGopher:
 
         for brick in bricks:
             brick.run_as_brick()
+
+    #
+    # Chat till quit
+    #
+
+    def chat_till_quit(self) -> None:
+        """Chat till quit"""
+
+        while True:
+            now = dt.datetime.now()
+            y = now.year
+
+            sys.stdout.flush()
+            print(">>> ", end="", file=sys.stderr)
+            sys.stderr.flush()
+
+            readline = sys.stdin.readline()
+            if not readline:
+                break
+
+            iline = readline.rstrip()
+            d, sep, b = iline.rpartition("/")
+            assert sep == "/"
+
+            strftime = f"{d}/{b}/{y}"
+            t = dt.datetime.strptime(strftime, "%d/%b/%Y")
+
+            print(t.strftime("%a %d/%b  # %Y"))
+
+        print()
 
 
 class ShellBrick:
@@ -2907,6 +2947,14 @@ if __name__ == "__main__":
 
 
 # lil todo's
+
+# todo0: yea 'gco -' and 'gco' should do same
+
+# todo0: debug
+# $ .gpfwl
+# +++ git rev-parse --abbrev-ref HEAD
+# ++ [[ feature/dto-fa-ee == \f\e\a\t\u\r\e\/\d\t\o\-\f\a\-\e\e ]]
+# ++ git push --force-with-lease
 
 # todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
 
