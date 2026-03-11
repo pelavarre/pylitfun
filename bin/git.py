@@ -479,11 +479,14 @@ class GitGopher:
         for index, arg in enumerate(shargv):
             if index == 0:
                 continue
-            if arg == "--":
-                posargv.extend(shargv[(index + 1) :])
-                break
+
             if not arg.startswith("-"):
                 posargv.append(arg)
+            elif arg == "-":
+                posargv.append(arg)
+            elif arg == "--":
+                posargv.extend(shargv[(index + 1) :])
+                break
 
         return tuple(posargv)
 

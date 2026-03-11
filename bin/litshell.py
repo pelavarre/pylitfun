@@ -2948,8 +2948,6 @@ if __name__ == "__main__":
 
 # lil todo0's
 
-# todo0: yea 'gco -' and 'gco' should do same
-
 # todo0: debug
 # $ .gpfwl
 # +++ git rev-parse --abbrev-ref HEAD
