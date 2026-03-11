@@ -56,7 +56,7 @@ bin:
 	ls -d bin/* bin/git-verbs/* sh/* sh/.* \
 		|grep -v -e ^bin/git-verbs$$ -e ^sh/[.]$$ -e ^sh/[.][.]$$ \
 		|xargs -n1 -I{} cp -ip {} ~/bin/.
-	rm -fr ~/bin/pwnme
+	rm -fr ~/bin/pwnme ~/bin/.pwnme
 
 # beware: the classic 'sh' can add ./ and ../ into sh/.*
 # beware: the classic bin/* or sh/* can include a bin/__init__.py or sh/__init__.py

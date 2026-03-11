@@ -2946,7 +2946,7 @@ if __name__ == "__main__":
 # todo0: teach '|plf columns' to cope with Markdown Tables as input
 
 
-# lil todo's
+# lil todo0's
 
 # todo0: yea 'gco -' and 'gco' should do same
 
