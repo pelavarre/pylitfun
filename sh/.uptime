@@ -1,0 +1,4 @@
+# sh/.uptime -- Call for '--pretty' no matter if running at macOS
+
+set -xe
+uptime.py --pretty "$@"

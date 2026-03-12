@@ -2948,13 +2948,7 @@ if __name__ == "__main__":
 
 # lil todo0's
 
-# todo0: debug
-# $ .gpfwl
-# +++ git rev-parse --abbrev-ref HEAD
-# ++ [[ feature/dto-fa-ee == \f\e\a\t\u\r\e\/\d\t\o\-\f\a\-\e\e ]]
-# ++ git push --force-with-lease
-
-# todo0: .uptime to sh/uptime.py -- to give us --pretty at macOS
+# todo0: |plf echo 5 echo --sep=' '
 
 # todo0: |plf match,fullmatch,index same as sketched for |plf g here
 # todo0: |plf g to work like |plf match, but accept multiple text args as if or'ed by |grep -e
@@ -2972,6 +2966,8 @@ if __name__ == "__main__":
 # todo0: like rescrape from latest and mention that
 
 #
+
+# todo1: count nanoseconds as int(10**9 * t1t0), or as float to speak of smaller
 
 # todo1: more aggressively pick out floats from input - metric, bimetric, & punctuated '(9876,' etc
 

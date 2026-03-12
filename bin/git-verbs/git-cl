@@ -2,7 +2,7 @@
 
 echo ': gcl && echo Press ⌃D && cat - >/dev/null && git clean -dffxq' >&2
 
-echo 'Press ⌃D to auth:  git clean -dffxq'
+echo 'Press ⌃D to auth:  git clean -dffxq' >&2
 cat - >/dev/null
 
 : gcl && git clean -dffxq
