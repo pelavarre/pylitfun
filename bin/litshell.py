@@ -658,6 +658,7 @@ class ShellBrick:
             #
             "__enter__": self.run_pipe_enter_if,
             "__exit__": self.run_pipe_exit,
+            "__brick__": self.for_argv_print,  # |__brick__
             #
             # Hp Calculator  Words
             #
@@ -932,6 +933,26 @@ class ShellBrick:
 
             # tested by:  set -o pipefail && seq 123456 |pb && pb |head; echo + exit $?
             # else:  BrokenPipeError: [Errno 32] Broken pipe
+
+    def for_argv_print(self) -> None:
+        """Print the Shell Args as one accurate line of Py Repr"""
+
+        sg = self.shell_gopher
+
+        print()
+
+        verb = self.verb
+        print(f"{verb=}")
+
+        posargs = self.posargs
+        for (i, posarg) in enumerate(posargs):
+            print(f"{i}: {posarg!r}")
+        print(len(posargs))
+
+        print(f"{sg.inverse=}")
+        print(f"{sg.sep=}")
+        print(f"{sg.start=}")
+        print(f"{sg.ignorecase=}")
 
     #
     # Work with our Stack of 4 Revisions of the Paste Buffer
@@ -2948,14 +2969,13 @@ if __name__ == "__main__":
 
 # lil todo0's
 
-# todo0: |plf echo 5 echo --sep=' '
-
 # todo0: |plf match,fullmatch,index same as sketched for |plf g here
 # todo0: |plf g to work like |plf match, but accept multiple text args as if or'ed by |grep -e
-
 # todo0: |plf g /SESS/ for the Python RegEx effect of |grep -ai -e /SESS/
 
-# todo0: debug
+# todo0: ls -l |plf __brick__ 5 __brick__ --sep=' '
+# todo0: debug here, where the --sep of join came to awk, oops
+#
 # % plf awk 5 join --sep=' '
 #      plavarre plavarre
 # % plf awk 5 |join --sep=' '
