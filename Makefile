@@ -52,11 +52,10 @@ help:
 
 bin:
 	(ls -A bin && ls -A bin/git-verbs && ls -A sh) \
-		|(cd ~/ && xargs -n1 -I{} rm -fr bin/{})
+		|(cd ~/ && xargs -I{} rm -fr bin/{})
 	ls -d bin/* bin/git-verbs/* sh/* sh/.* \
 		|grep -v -e ^bin/git-verbs$$ -e ^sh/[.]$$ -e ^sh/[.][.]$$ \
-		|xargs -n1 -I{} cp -ip {} ~/bin/.
-	rm -fr ~/bin/pwnme ~/bin/.pwnme
+		|xargs -I{} cp -ip {} ~/bin/.
 
 # beware: the classic 'sh' can add ./ and ../ into sh/.*
 # beware: the classic bin/* or sh/* can include a bin/__init__.py or sh/__init__.py
