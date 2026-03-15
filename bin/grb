@@ -1,0 +1,3 @@
+#!/bin/sh
+# : grb && git rebase ...
+g.py "$0" "$@"

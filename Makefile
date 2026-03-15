@@ -59,6 +59,7 @@ bin:
 
 # beware: the classic 'sh' can add ./ and ../ into sh/.*
 # beware: the classic bin/* or sh/* can include a bin/__init__.py or sh/__init__.py
+# beware: working far from 'git clean -dffxq' can toss in __pycache__/ dirs to freak us out
 
 
 #

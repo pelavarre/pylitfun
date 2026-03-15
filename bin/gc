@@ -1,0 +1,3 @@
+#!/bin/sh
+# : gc && git commit ...
+g.py "$0" "$@"

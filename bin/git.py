@@ -54,46 +54,49 @@ ShlinePlusByShverb = {  # sorted by key
     "g": "git status --short [...]",
     "ga": "git add ...",
     "gb": "git branch --sort=committerdate",
+    "gc": "git commit ...",
     "gcaa": "git commit --all --amend",
-    "gcaf": "git commit --all --fixup [...]",
     # 5
+    "gcaf": "git commit --all --fixup [...]",
     "gcam": "git commit --all -m wip",  # inverts : grh1 && git reset HEAD~1
     "gcf": "git commit --fixup [...]",
     "gcl": "... && git clean -dffxq",
     "gco": "git checkout ...",  # as if [...] becauses 'gco' is 'git checkout -'
+    # 10
     "gcp": "git cherry-pick ...",
     "gd": "git diff --color-moved [...]",
     "gda": "git describe --always --dirty",
-    # 10
     "gdh": "git diff --color-moved HEAD~1 [...]",
     "gdno": "git diff --name-only [...]",
+    # 15
     "gf": "date && date -u && time git fetch --prune --prune-tags --force",
     "gg/0": "git status",  # "gg": but without Sh Args
     "gg/n": "git grep -ai -e ... -e ...",  # "gg": but with Sh Args
-    # 15
     "ggl": "git grep -l -ai -e ... -e ...",
     "gl": "git log --pretty=fuller --no-decorate --color-moved [...]",
+    # 20
     "gla": "git log --pretty=fuller --no-decorate --color-moved --numstat --author=...",  # [...]
     "glf": "git ls-files |grep -ai -e ... -e ...",  # as if [...] because 'glf' is 'git ls-files'
     "glq": "git log --oneline --no-decorate --color-moved [...]",
     "glqn": """git log --oneline --no-decorate |awk '{print "HEAD~"(NR-1), $0}'""",
     "gls": "git log --pretty=fuller --no-decorate --color-moved --numstat [...]",
-    # 20
+    # 25
     "glv": "git log --oneline --decorate --color-moved [...]",
     "gno": "git diff/show --pretty= --name-only [...]",  # 'qdno' when truthy, else 'qspno'
+    "grb": "git rebase ...",
     "grh": "git reset --hard ...",  # actual no args 'git reset hard' would mean to Head
     "grh1": "git reset HEAD~1",  # inverts : gcam && git commit --all -m wip
+    # 30
     "grhu": "... && git reset --hard @{upstream}",
-    # 25
     "gri": "git rebase -i [...]",
     "grias": "git rebase -i --autosquash [...]",
     "grl": "git reflog --date=relative --numstat",
     "grv": r"git remote -v |tr ' \t' '\n' |grep : |uniq |sed 's,^,git clone ,'",
+    # 35
     "gs": "git show --color-moved [...]",
-    # 30
     "gsis": ": find . -type p && : find . -type d -empty -not -path '*/.git/*' && git status --ignored --short",
     "gspno": "git show --pretty= --name-only [...]",
-    # 32
+    # 38
 }
 
 # often does say '--color-moved' with Hyphen-Minus, but never says '--color=moved' with Equals Sign
@@ -236,6 +239,19 @@ class GitGopher:
 
         shline_plus_by_shverb = ShlinePlusByShverb
 
+        #
+
+        removals = ["gcl", "gsis"]
+
+        alt_shline_plus_by_shverb = dict(shline_plus_by_shverb)
+        for shverb in shline_plus_by_shverb.keys():
+            pathname = f"bin/{shverb}"
+            if shverb in removals:
+                assert not os.path.exists(pathname), (pathname,)
+                del alt_shline_plus_by_shverb[shverb]
+
+        #
+
         extra_gla_shline_str = """
             git log --pretty=fuller --no-decorate --color-moved --numstat
                 --author=$(git config user.email)
@@ -264,7 +280,7 @@ class GitGopher:
 
         skip_shverbs = ["gsis"]
 
-        for shverb, shline_plus in shline_plus_by_shverb.items():
+        for shverb, shline_plus in alt_shline_plus_by_shverb.items():
 
             if shverb in skip_shverbs:
                 continue
