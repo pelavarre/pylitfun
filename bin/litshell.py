@@ -591,12 +591,18 @@ class ShellGopher:
     # Chat till quit
     #
 
-    def chat_till_quit(self) -> None:
+    def chat_till_quit(self) -> None:  # plfi
         """Chat till quit"""
 
+        # Wake up once
+
+        now = dt.datetime.now()
+        y = now.year
+
+        pushes = list()
         while True:
-            now = dt.datetime.now()
-            y = now.year
+
+            # Prompt & read
 
             sys.stdout.flush()
             print(">>> ", end="", file=sys.stderr)
@@ -606,14 +612,20 @@ class ShellGopher:
             if not readline:
                 break
 
+            # Add an abs stamp
+
             iline = readline.rstrip()
             d, sep, b = iline.rpartition("/")
-            assert sep == "/"
+            assert sep == "/", (sep,)
 
             strftime = f"{d}/{b}/{y}"
             t = dt.datetime.strptime(strftime, "%d/%b/%Y")
+            pushes.append(t)
 
-            print(t.strftime("%a %d/%b  # %Y"))
+            # Print the whole timeline
+
+            for t in pushes:
+                print(t.strftime("%a %d/%b  # %Y"))
 
         print()
 
@@ -945,7 +957,7 @@ class ShellBrick:
         print(f"{verb=}")
 
         posargs = self.posargs
-        for (i, posarg) in enumerate(posargs):
+        for i, posarg in enumerate(posargs):
             print(f"{i}: {posarg!r}")
         print(len(posargs))
 
@@ -2958,16 +2970,23 @@ if __name__ == "__main__":
 
 # big todo0's
 
-# todo0: refresh the pipe-bricks.md sorts to look more like the def's here
+# todo: refresh the pipe-bricks.md sorts to look more like the def's here
 
-# todo0: rewrite ever more of the git.py to distribute via ~/bin/git-*
+# todo: rewrite ever more of the git.py to distribute via ~/bin/git-*
 
-# todo0: accept single space as column sep if it's present in same column across all lines
+# todo: accept single space as column sep if it's present in same column across all lines
 
-# todo0: teach '|plf columns' to cope with Markdown Tables as input
+# todo: teach '|plf columns' to cope with Markdown Tables as input
 
 
 # lil todo0's
+
+# todo0: Accept Absolute Jenkins Stamp  # 'Mar 13, 2026, 10:28:50 AM'
+# todo0: Accept Relative Jenkins Stamp  # 'Took 37 min'
+
+# todo0: plfi take input as abs time
+# todo0: plfi take + as rel time speak of next abs time
+# todo0: plfi stack variables w z y x
 
 # todo0: |plf match,fullmatch,index same as sketched for |plf g here
 # todo0: |plf g to work like |plf match, but accept multiple text args as if or'ed by |grep -e
