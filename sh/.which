@@ -1,0 +1,14 @@
+# sh/.which = Show the `which -a` and the first cat $(which ...)
+
+if [ $# -eq 0 ]; then
+    which.py --
+else:
+    while [ $# -ne 0 ]; do
+        (
+            set -xe
+            which -a $1
+            cat $(which $1)
+        )
+        shift
+    done
+fi
