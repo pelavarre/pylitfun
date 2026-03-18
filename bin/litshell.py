@@ -594,40 +594,70 @@ class ShellGopher:
     def chat_till_quit(self) -> None:  # plfi
         """Chat till quit"""
 
-        # Wake up once
-
-        now = dt.datetime.now()
-        y = now.year
+        sys_stdin_isatty = sys.stdin.isatty()  # todo: don't resample?
 
         pushes = list()
         while True:
 
             # Prompt & read
 
-            sys.stdout.flush()
-            print(">>> ", end="", file=sys.stderr)
-            sys.stderr.flush()
+            if sys_stdin_isatty:
+                sys.stdout.flush()
+                print(">>> ", end="", file=sys.stderr)
+                sys.stderr.flush()
 
             readline = sys.stdin.readline()
+            iline = readline.rstrip()
+
+            if not sys_stdin_isatty:
+                sys.stdout.flush()
+                print(">>> " + iline, file=sys.stderr)
+                sys.stderr.flush()
+
             if not readline:
                 break
 
             # Add an abs stamp
 
-            iline = readline.rstrip()
-            d, sep, b = iline.rpartition("/")
-            assert sep == "/", (sep,)
+            t = self.str_to_naive_datetime(iline)
 
-            strftime = f"{d}/{b}/{y}"
-            t = dt.datetime.strptime(strftime, "%d/%b/%Y")
             pushes.append(t)
 
             # Print the whole timeline
 
             for t in pushes:
-                print(t.strftime("%a %d/%b  # %Y"))
+                print(t.strftime("%a %d/%b  %Y-%m-%d %H:%M:%S"))
 
         print()
+
+    def str_to_naive_datetime(self, text: str) -> dt.datetime:
+        """Scrape 1 Naive Datetime from 1 Text"""
+
+        now = dt.datetime.now()
+
+        cy = now.year
+        ym = now.month
+        md = now.day
+
+        # Solve 2:47:14
+
+        splits = text.split(":")
+        if len(splits) == 3:
+            dh, hm, ms = (int(_) for _ in splits)
+            t = dt.datetime(cy, ym, md, dh, hm, ms)
+            return t
+
+        # Solve 31/Dec
+
+        _md_, sep, _yb_ = text.rpartition("/")
+        assert sep == "/", (sep,)
+
+        strftime = f"{_md_}/{_yb_}/{cy}"
+        t = dt.datetime.strptime(strftime, "%d/%b/%Y")
+
+        #
+
+        return t
 
 
 class ShellBrick:
@@ -2980,6 +3010,8 @@ if __name__ == "__main__":
 
 
 # lil todo0's
+
+# todo0: trace the $(git config user.email) for `gla` on Screen in its Run and in its Sh Source
 
 # todo0: Accept Absolute Jenkins Stamp  # 'Mar 13, 2026, 10:28:50 AM'
 # todo0: Accept Relative Jenkins Stamp  # 'Took 37 min'
