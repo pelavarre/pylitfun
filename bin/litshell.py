@@ -596,10 +596,10 @@ class ShellGopher:
 
         sys_stdin_isatty = sys.stdin.isatty()  # todo: don't resample?
 
-        pushes = list()
+        pushes: list[dt.datetime] = list()
         while True:
 
-            # Prompt & read
+            # Prompt & read & trace
 
             if sys_stdin_isatty:
                 sys.stdout.flush()
@@ -607,7 +607,9 @@ class ShellGopher:
                 sys.stderr.flush()
 
             readline = sys.stdin.readline()
+
             iline = readline.rstrip()
+            iwords = iline.split()
 
             if not sys_stdin_isatty:
                 sys.stdout.flush()
@@ -617,9 +619,16 @@ class ShellGopher:
             if not readline:
                 break
 
-            # Add an abs stamp
+            # Pull in an absolute or relative stamp
 
-            t = self.str_to_naive_datetime(iline)
+            if iwords and iwords[0].startswith("+"):
+                t = self.to_relative_datetime(iline, pushes=pushes)
+            elif iwords and iwords[0].startswith("-"):
+                t = self.to_relative_datetime(iline, pushes=pushes)
+            else:
+                t = self.to_naive_datetime(iline)
+
+            # Push out an absolute stamp
 
             pushes.append(t)
 
@@ -630,7 +639,7 @@ class ShellGopher:
 
         print()
 
-    def str_to_naive_datetime(self, text: str) -> dt.datetime:
+    def to_naive_datetime(self, text: str) -> dt.datetime:
         """Scrape 1 Naive Datetime from 1 Text"""
 
         now = dt.datetime.now()
@@ -655,7 +664,36 @@ class ShellGopher:
         strftime = f"{_md_}/{_yb_}/{cy}"
         t = dt.datetime.strptime(strftime, "%d/%b/%Y")
 
-        #
+        # Succeed
+
+        return t
+
+    def to_relative_datetime(self, text: str, pushes: list[dt.datetime]) -> dt.datetime:
+        """Scrape 1 Relative Datetime from 1 Text"""
+
+        iwords = text.split()
+        assert iwords, (iwords,)
+
+        # Take "+" to mean add up, take "-" to mean subtract down
+
+        if iwords[0] == "+":
+            sign = 1
+        elif iwords[0] == "-":
+            sign = -1
+        else:
+            assert False, (iwords,)
+
+        # Solve + 23
+
+        assert len(iwords) == 2, (iwords,)
+        minutes = int(iwords[1])
+
+        delta = sign * dt.timedelta(minutes=minutes)
+
+        # Succeed
+
+        assert pushes, (pushes,)
+        t = pushes[-1] + delta
 
         return t
 
