@@ -27,6 +27,7 @@ examples:
 import __main__
 import os
 import shlex
+import signal
 import subprocess
 import sys
 
@@ -84,10 +85,15 @@ class GrepGopher:
         join = shlex.join(argv)
         print("|" + join, file=sys.stderr)
 
+        assert int(signal.SIGPIPE) == 13, (signal.SIGPIPE,)  # +13, not -13
+
         pass_fds = tuple(int(_) for _ in os.listdir("/dev/fd"))
         run = subprocess.run(argv, pass_fds=pass_fds)
         if run.returncode:
-            print("+ exit", run.returncode, file=sys.stderr)
+            if run.returncode == -13:
+                pass
+            else:
+                print("+ exit", run.returncode, file=sys.stderr)
 
         sys.exit(run.returncode)
 
