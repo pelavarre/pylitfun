@@ -596,7 +596,7 @@ class ShellGopher:
 
         sys_stdin_isatty = sys.stdin.isatty()  # todo: don't resample?
 
-        pushes: list[dt.datetime] = list()
+        pushes: list[dt.datetime | dt.timedelta] = list()
         while True:
 
             # Prompt & read & trace
@@ -609,8 +609,6 @@ class ShellGopher:
             readline = sys.stdin.readline()
 
             iline = readline.rstrip()
-            iwords = iline.split()
-
             if not sys_stdin_isatty:
                 sys.stdout.flush()
                 print(">>> " + iline, file=sys.stderr)
@@ -619,23 +617,52 @@ class ShellGopher:
             if not readline:
                 break
 
+            if not iline:
+                continue
+
             # Pull in an absolute or relative stamp
 
-            if iwords and iwords[0].startswith("+"):
-                t = self.to_relative_datetime(iline, pushes=pushes)
+            nx: dt.datetime | dt.timedelta
+
+            iwords = iline.split()
+
+            if iwords == ["-"]:
+                assert pushes[1:], (pushes,)
+
+                y = pushes[-2]
+                assert isinstance(y, dt.datetime), (y,)
+                x = pushes[-1]
+                assert isinstance(x, dt.datetime), (x,)
+
+                nx = y - x
+
+            elif iwords == ["_"]:
+                assert pushes, (pushes,)
+
+                x = pushes[-1]
+                assert isinstance(x, dt.timedelta), (x,)
+
+                nx = -x
+
+            elif iwords and iwords[0].startswith("+"):
+                nx = self.to_relative_datetime(iline, pushes=pushes)
             elif iwords and iwords[0].startswith("-"):
-                t = self.to_relative_datetime(iline, pushes=pushes)
+                nx = self.to_relative_datetime(iline, pushes=pushes)
+
             else:
-                t = self.to_naive_datetime(iline)
+                nx = self.to_naive_datetime(iline)
 
             # Push out an absolute stamp
 
-            pushes.append(t)
+            pushes.append(nx)
 
             # Print the whole timeline
 
-            for t in pushes:
-                print(t.strftime("%a %d/%b  %Y-%m-%d %H:%M:%S"))
+            for p in pushes:
+                if isinstance(p, dt.datetime):
+                    print(p.strftime("%a %d/%b  %Y-%m-%d %H:%M:%S"))
+                else:
+                    print(p)
 
         print()
 
@@ -651,24 +678,40 @@ class ShellGopher:
         # Solve 2:47:14
 
         splits = text.split(":")
-        if len(splits) == 3:
+
+        if len(splits) == 2:  # 2:47
+            dh, hm = (int(_) for _ in splits)
+            t = dt.datetime(cy, ym, md, dh, hm)
+            return t
+
+        if len(splits) == 3:  # 2:47:14
             dh, hm, ms = (int(_) for _ in splits)
             t = dt.datetime(cy, ym, md, dh, hm, ms)
             return t
 
-        # Solve 31/Dec
+        # Solve 31/Dec/2025
 
-        _md_, sep, _yb_ = text.rpartition("/")
-        assert sep == "/", (sep,)
+        splits = text.split("/")
 
-        strftime = f"{_md_}/{_yb_}/{cy}"
-        t = dt.datetime.strptime(strftime, "%d/%b/%Y")
+        if len(splits) == 2:  # 31/Dec
+            _md_, _yb_ = splits
+            strftime = f"{_md_}/{_yb_}/{cy}"
+            t = dt.datetime.strptime(strftime, "%d/%b/%Y")
+            return t
 
-        # Succeed
+        if len(splits) == 3:  # 31/Dec/2025
+            _md_, _yb_, _cy_ = splits
+            strftime = f"{_md_}/{_yb_}/{_cy_}"
+            t = dt.datetime.strptime(strftime, "%d/%b/%Y")
+            return t
 
-        return t
+        # Give up
 
-    def to_relative_datetime(self, text: str, pushes: list[dt.datetime]) -> dt.datetime:
+        assert False, (text,)
+
+    def to_relative_datetime(
+        self, text: str, pushes: list[dt.datetime | dt.timedelta]
+    ) -> dt.datetime:
         """Scrape 1 Relative Datetime from 1 Text"""
 
         iwords = text.split()
@@ -690,10 +733,15 @@ class ShellGopher:
 
         delta = sign * dt.timedelta(minutes=minutes)
 
-        # Succeed
+        # Combine
 
         assert pushes, (pushes,)
-        t = pushes[-1] + delta
+        x = pushes[-1]
+        assert isinstance(x, dt.datetime), (x,)
+
+        t = x + delta
+
+        # Succeed
 
         return t
 
