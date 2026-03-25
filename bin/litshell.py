@@ -247,10 +247,9 @@ class ShellGopher:
 
         # Chat on request
 
-        if not ns.words[1:]:
-            if ns.interactive:
-                self.chat_till_quit()
-                sys.exit()
+        if ns.interactive:
+            self.chat_till_quit()
+            sys.exit()
 
         # Run differently because Options & Pos Args
 
@@ -591,8 +590,19 @@ class ShellGopher:
     # Chat till quit
     #
 
-    def chat_till_quit(self) -> None:  # plfi
+    def chat_till_quit(self) -> None:  # plfi  # noqa C901 too complex  # todo0
         """Chat till quit"""
+
+        argv = list(sys.argv)
+
+        argv.pop(0)
+        if argv[:1] == ["plf"]:
+            argv.pop(0)
+        if argv[:1] == ["-i"]:
+            argv.pop(0)
+
+        if argv:
+            print(">>> ", file=sys.stderr)
 
         sys_stdin_isatty = sys.stdin.isatty()  # todo: don't resample?
 
@@ -601,15 +611,19 @@ class ShellGopher:
 
             # Prompt & read & trace
 
-            if sys_stdin_isatty:
+            if sys_stdin_isatty and not argv:
                 sys.stdout.flush()
                 print(">>> ", end="", file=sys.stderr)
                 sys.stderr.flush()
 
-            readline = sys.stdin.readline()
+            if argv:
+                readline = argv[0]
+            else:
+                readline = sys.stdin.readline()
 
             iline = readline.rstrip()
-            if not sys_stdin_isatty:
+
+            if argv or not sys_stdin_isatty:
                 sys.stdout.flush()
                 print(">>> " + iline, file=sys.stderr)
                 sys.stderr.flush()
@@ -622,7 +636,7 @@ class ShellGopher:
 
             # Pull in an absolute or relative stamp
 
-            nx: dt.datetime | dt.timedelta
+            nx: dt.datetime | dt.timedelta | None
 
             iwords = iline.split()
 
@@ -652,6 +666,27 @@ class ShellGopher:
             else:
                 nx = self.to_naive_datetime(iline)
 
+            #
+
+            _locals_ = dict()
+            if pushes:
+                _locals_["x"] = pushes[-1]
+                if pushes[1:]:
+                    _locals_["y"] = pushes[-2]
+                    if pushes[2:]:
+                        _locals_["z"] = pushes[-3]
+                        if pushes[3:]:
+                            _locals_["w"] = pushes[-4]
+
+            if nx is None:
+                nx = eval(iline, globals=globals(), locals=_locals_)
+
+            #
+
+            if nx is None:
+                print("plfi: meaningless: {iline}")
+                continue
+
             # Push out an absolute stamp
 
             pushes.append(nx)
@@ -660,13 +695,62 @@ class ShellGopher:
 
             for p in pushes:
                 if isinstance(p, dt.datetime):
-                    print(p.strftime("%a %d/%b  %Y-%m-%d %H:%M:%S"))
+
+                    hms = p.strftime("%H:%M:%S")
+                    if hms == "00:00:00":
+                        print(p.strftime("%a %d/%b  %Y-%m-%d"))  # Thu 15/Oct  2026-10-15
+                    else:
+                        print(p.strftime("%a %d/%b  %Y-%m-%d %H:%M:%S"))  # 59:59:59
+
+                elif isinstance(p, dt.timedelta):
+
+                    if p.microseconds:
+                        print(str(p))
+                    else:
+                        s = int(p.total_seconds())
+
+                        ms = s % 60
+                        m = s // 60
+
+                        hm = m % 60
+                        h = m // 60
+
+                        dh = h % 24
+                        d = h // 24
+
+                        wd = d % 7
+                        w = d // 7
+
+                        otext = ""
+                        if w:
+                            otext += f"{w}w"
+                        if wd:
+                            otext += f"{wd}d"
+                        if dh:
+                            otext += f"{dh}h"
+                        if hm:
+                            otext += f"{hm}m"
+                        if ms or (not otext):
+                            otext += f"{ms}s"
+
+                        if w and not (dh or hm or ms):
+                            otext += f"  {d}d"
+
+                        print(otext)
+
                 else:
-                    print(p)
+
+                    print(repr(p))
+
+            #
+
+            if argv:
+                print(">>>", file=sys.stderr)
+                argv.pop(0)
 
         print()
 
-    def to_naive_datetime(self, text: str) -> dt.datetime:
+    def to_naive_datetime(self, text: str) -> dt.datetime | None:
         """Scrape 1 Naive Datetime from 1 Text"""
 
         now = dt.datetime.now()
@@ -707,7 +791,7 @@ class ShellGopher:
 
         # Give up
 
-        assert False, (text,)
+        return None
 
     def to_relative_datetime(
         self, text: str, pushes: list[dt.datetime | dt.timedelta]
@@ -3096,6 +3180,10 @@ if __name__ == "__main__":
 
 
 # lil todo0's
+
+# todo0: some verb to scroll so next prints come at top of screen
+
+# todo0: 'gca' for 'git commit --amend'
 
 # todo0: trace the $(git config user.email) for `gla` on Screen in its Run and in its Sh Source
 
