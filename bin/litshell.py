@@ -3183,8 +3183,6 @@ if __name__ == "__main__":
 
 # todo0: some verb to scroll so next prints come at top of screen
 
-# todo0: 'gca' for 'git commit --amend'
-
 # todo0: trace the $(git config user.email) for `gla` on Screen in its Run and in its Sh Source
 
 # todo0: Accept Absolute Jenkins Stamp  # 'Mar 13, 2026, 10:28:50 AM'

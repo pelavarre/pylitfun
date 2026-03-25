@@ -55,48 +55,49 @@ ShlinePlusByShverb = {  # sorted by key
     "ga": "git add ...",
     "gb": "git branch --sort=committerdate",
     "gc": "git commit ...",
-    "gcaa": "git commit --all --amend",
+    "gca": "git commit --amend",
     # 5
+    "gcaa": "git commit --all --amend",
     "gcaf": "git commit --all --fixup [...]",
     "gcam": "git commit --all -m wip",  # inverts : grh1 && git reset HEAD~1
     "gcf": "git commit --fixup [...]",
     "gcl": "... && git clean -dffxq",
-    "gco": "git checkout ...",  # as if [...] becauses 'gco' is 'git checkout -'
     # 10
+    "gco": "git checkout ...",  # as if [...] becauses 'gco' is 'git checkout -'
     "gcp": "git cherry-pick ...",
     "gd": "git diff --color-moved [...]",
     "gda": "git describe --always --dirty",
     "gdh": "git diff --color-moved HEAD~1 [...]",
-    "gdno": "git diff --name-only [...]",
     # 15
+    "gdno": "git diff --name-only [...]",
     "gf": "date && date -u && time git fetch --prune --prune-tags --force",
     "gg/0": "git status",  # "gg": but without Sh Args
     "gg/n": "git grep -ai -e ... -e ...",  # "gg": but with Sh Args
     "ggl": "git grep -l -ai -e ... -e ...",
-    "gl": "git log --pretty=fuller --no-decorate --color-moved [...]",
     # 20
+    "gl": "git log --pretty=fuller --no-decorate --color-moved [...]",
     "gla": "git log --pretty=fuller --no-decorate --color-moved --numstat --author=...",  # [...]
     "glf": "git ls-files |grep -ai -e ... -e ...",  # as if [...] because 'glf' is 'git ls-files'
     "glq": "git log --oneline --no-decorate --color-moved [...]",
     "glqn": """git log --oneline --no-decorate |awk '{print "HEAD~"(NR-1), $0}'""",
-    "gls": "git log --pretty=fuller --no-decorate --color-moved --numstat [...]",
     # 25
+    "gls": "git log --pretty=fuller --no-decorate --color-moved --numstat [...]",
     "glv": "git log --oneline --decorate --color-moved [...]",
     "gno": "git diff/show --pretty= --name-only [...]",  # 'qdno' when truthy, else 'qspno'
     "grb": "git rebase ...",
     "grh": "git reset --hard ...",  # actual no args 'git reset hard' would mean to Head
-    "grh1": "git reset HEAD~1",  # inverts : gcam && git commit --all -m wip
     # 30
+    "grh1": "git reset HEAD~1",  # inverts : gcam && git commit --all -m wip
     "grhu": "... && git reset --hard @{upstream}",
     "gri": "git rebase -i [...]",
     "grias": "git rebase -i --autosquash [...]",
     "grl": "git reflog --date=relative --numstat",
-    "grv": r"git remote -v |tr ' \t' '\n' |grep : |uniq |sed 's,^,git clone ,'",
     # 35
+    "grv": r"git remote -v |tr ' \t' '\n' |grep : |uniq |sed 's,^,git clone ,'",
     "gs": "git show --color-moved [...]",
     "gsis": ": find . -type p && : find . -type d -empty -not -path '*/.git/*' && git status --ignored --short",
     "gspno": "git show --pretty= --name-only [...]",
-    # 38
+    # 39
 }
 
 # often does say '--color-moved' with Hyphen-Minus, but never says '--color=moved' with Equals Sign
@@ -485,7 +486,7 @@ class GitGopher:
         assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
-        # ga, gcp, gg/n, ggl, glf, grh
+        # ga, gc, gco, gcp, gg/n, ggl, glf, grh
 
     def maybe_posargv_from_shargv(self, shargv: tuple[str, ...]) -> tuple[str, ...]:
         """Pick out the Args with a look of a Pos Arg, though maybe the substance of an Option"""
@@ -601,7 +602,7 @@ class GitGopher:
         assert shsuffix == "", (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
-        # gb, gcaa, gcam, gda, gdh, gf, glqn, gno, grh1, grhu, grl, grv, gsis
+        # gb, gca, gcaa, gcam, gda, gdh, gf, glqn, gno, grh1, grhu, grl, grv, gsis
 
     def find_git_who(self) -> str:
         """Go fetch the 'git config user.email'"""

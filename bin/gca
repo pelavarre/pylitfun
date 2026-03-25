@@ -1,0 +1,3 @@
+#!/bin/sh
+# : gca && git commit --amend
+g.py "$0" "$@"
