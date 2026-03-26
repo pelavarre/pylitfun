@@ -3181,7 +3181,9 @@ if __name__ == "__main__":
 
 # lil todo0's
 
-# todo0: some verb to scroll so next prints come at top of screen
+# todo0: retire vqno eqno
+
+# todo0: polish up head -1 sh/.*
 
 # todo0: trace the $(git config user.email) for `gla` on Screen in its Run and in its Sh Source
 

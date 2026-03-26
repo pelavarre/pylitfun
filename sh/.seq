@@ -1,0 +1,9 @@
+# sh/.seq = Call 'seq' to scroll all the Screen Rows up and away
+
+ROWS=$(stty size </dev/tty|cut -d' ' -f1)  # $LINES flakes out variously
+
+echo "+ seq $((ROWS - 1))" >&2
+echo "+ printf '\e[H''\e[J'"  # exactly only the \e[J, not the \e[2J of Shell 'clear'
+
+seq $((ROWS - 1))
+printf '\e[H''\e[J'
