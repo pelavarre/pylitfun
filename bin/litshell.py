@@ -3181,7 +3181,28 @@ if __name__ == "__main__":
 
 # lil todo0's
 
-# todo0: retire vqno eqno
+# --author could be auto-completed for any command, such as glq --author
+
+# the .diff can be to say nothing after a .cp
+
+# plf insert '/  /'
+# is not plf insert '  '
+
+# glqn -19
+
+# the 'p' script should cope with urllib.parse.quote etc
+
+# synch up ~/.vimrc especially \ X
+
+# todo0: plf ord, plf str ord, are not the same
+# todo0: it's the 'plf ord' that goes with 'plf bytes'
+
+# % plf wc
+# NameError: name 'wc' is not defined
+# % plf wc -w
+# usage: litshell.py [-h] [-i] [-r] [-V] [--sep SEP] [--start START] [WORD ...]
+# litshell.py: error: unrecognized arguments: -w
+# %
 
 # todo0: polish up head -1 sh/.*
 

@@ -5,7 +5,10 @@
 if [ $# -ne 0 ]; then
 
     set -xe
-    screen -rr "$@"
+    T=$1
+    echo "logfile $T.screen" >$T.cfg
+    echo "logfile flush 0" >>$T.cfg
+    T=$T screen -S $T -L -c $T.cfg
 
 else
 
