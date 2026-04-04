@@ -3196,11 +3196,6 @@ if __name__ == "__main__":
 
 # lil todo0's
 
-# todo0: trace the $(git config user.email) for `gla` on Screen in its Run and in its Sh Source
-
-# todo0: coin function .bracket to mean
-# bind 'set enable-bracketed-paste off' 2>/dev/null; unset zle_bracketed_paste
-
 # todo0: polish up head -1 sh/.*
 
 # todo0: Accept Absolute Jenkins Stamp  # 'Mar 13, 2026, 10:28:50 AM'

@@ -446,6 +446,7 @@ class GitGopher:
 
             shsuffix = " ..."  # shouts out Args
             if not posargv:
+                print(f"+ git config user.email ==> {gwho!r}", file=sys.stderr)
                 shline += " " + shlex.quote(f"--author={gwho}")
                 if not shargv[1:]:
                     shline = shline.replace(" --color-moved", "")
@@ -821,12 +822,13 @@ class GitGopher:
                 return shargv  # f"--author={author}" already solved earlier
 
             author = posargv[0]
-            i = shargv.index(author)
+            start_eq_1 = 1
+            i = shargv.index(author, start_eq_1)
 
             words = list()
             words.append(shargv[0])  # 'gla'
             words.append(f"--author={author}")
-            words.extend(shargv[:i])
+            words.extend(shargv[1:i])
             words.extend(shargv[(i + 1) :])
 
             tweaked_shargv = tuple(words)
@@ -841,6 +843,8 @@ class GitGopher:
 
                 for i, sharg in enumerate(shargv[1:]):
                     if sharg == "--author":
+                        print(f"+ git config user.email ==> {gwho!r}", file=sys.stderr)
+
                         words = list()
                         words.append(shargv[0])  # 'gl...'
                         words.append(f"--author={gwho}")
