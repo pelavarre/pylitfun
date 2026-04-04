@@ -3181,8 +3181,6 @@ if __name__ == "__main__":
 
 # lil todo0's
 
-# the .diff can be to say nothing after a .cp
-
 # plf insert '/  /'
 # is not plf insert '  '
 

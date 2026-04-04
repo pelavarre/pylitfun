@@ -1,0 +1,4 @@
+# sh/.diff = Compare the last backup made by .cp, against the present
+
+set -xe
+diff -brpu $(ls -rt "$@"~*~) "$@"
