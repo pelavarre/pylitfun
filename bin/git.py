@@ -79,7 +79,7 @@ ShlinePlusByShverb = {  # sorted by key
     "gla": "git log --pretty=fuller --no-decorate --color-moved --numstat --author=...",  # [...]
     "glf": "git ls-files |grep -ai -e ... -e ...",  # as if [...] because 'glf' is 'git ls-files'
     "glq": "git log --oneline --no-decorate --color-moved [...]",
-    "glqn": """git log --oneline --no-decorate |awk '{print "HEAD~"(NR-1), $0}'""",
+    "glqn": "git log --oneline --no-decorate --color-moved [...]",  # but adds |awk to number lines
     # 25
     "gls": "git log --pretty=fuller --no-decorate --color-moved --numstat [...]",
     "glv": "git log --oneline --decorate --color-moved [...]",
@@ -194,6 +194,10 @@ class GitGopher:
         tagged_shverb = "gg" if diff_shverb in ("gg/0", "gg/n") else diff_shverb
         tagged_shline = f": {tagged_shverb}{given_shsuffix} && {taggable_shline}"
 
+        if tagged_shverb == "glqn":
+            assert shell, (shell, tagged_shverb, tagged_shline)
+            tagged_shline += """ |awk '{print "HEAD~"(NR-1), $0}'"""
+
         print(tagged_shline, file=sys.stderr)  # prints its ":", not after a "+" or "|"
 
         # Explicitly auth the especially destructive ops
@@ -204,6 +208,10 @@ class GitGopher:
 
         run_shline = authed + " " + " ".join(shlex_quote_calmly(_) for _ in diff_shargv[1:])
         run_shline = run_shline.rstrip()
+
+        if tagged_shverb == "glqn":
+            assert shell, (shell, tagged_shverb, run_shline)
+            run_shline += """ |awk '{print "HEAD~"(NR-1), $0}'"""
 
         run_shargv = shlex.split(authed) + list(diff_shargv[1:])
 
@@ -267,12 +275,13 @@ class GitGopher:
             "glf": "# : glf && git ls-files",
         }
 
-        with_shline_by_shverb = {
+        ends_shline_by_shverb = {
             "gcaf": "  # --default=HEAD",
             "gcf": "  # --default=HEAD",
             "gf": "  # --default=--quiet",
             "gl": "  # --default=-1",
             "glq": "  # --default=-9",
+            "glqn": """ | awk '{print "HEAD~"(NR-1), $0}'  # --default=-9""",
             "gls": "  # --default=-9",
             "glv": "  # --default=-9",
         }
@@ -313,8 +322,8 @@ class GitGopher:
             lines = text.splitlines()
             if shverb in before_shline_by_shverb:
                 lines[1:1] = [before_shline_by_shverb[shverb]]
-            if shverb in with_shline_by_shverb:
-                lines[1] += with_shline_by_shverb[shverb]
+            if shverb in ends_shline_by_shverb:
+                lines[1] += ends_shline_by_shverb[shverb]
             if shverb in after_shline_by_shverb:
                 lines[-1:-1] = [after_shline_by_shverb[shverb]]
 
@@ -526,7 +535,7 @@ class GitGopher:
             shsuffix = ""  # shouts out No Pos Args (indeed No Args)
 
             if shverb_shline_plus.startswith("git log "):
-                assert shverb in ("gl", "glq", "gls", "glv"), (shverb, shline)
+                assert shverb in ("gl", "glq", "glqn", "gls", "glv"), (shverb, shline)
                 shline = shline.replace(" --color-moved", "")
 
             if shverb_shline_plus == "git commit --all --fixup [...]":
@@ -543,7 +552,7 @@ class GitGopher:
                     shline += " -1"  # tilts into:  gl -1
 
             elif shverb_shline_plus.startswith("git log "):
-                assert shverb in ("glq", "gls", "glv"), (shverb, shline)
+                assert shverb in ("glq", "glqn", "gls", "glv"), (shverb, shline)
                 if shverb not in ("gls",):  # tilts into:  gls --
                     if stdout_isatty:
                         shline += " -9"  # tilts into:  glq -9, glv -9
@@ -593,9 +602,9 @@ class GitGopher:
 
             leading_pos_arg = (shargv1 == "-") or (not shargv1.startswith("-"))
 
-            too_many_args = leading_pos_arg
-            if shverb in ("glqn", "grhu", "grv"):
-                too_many_args = True
+            too_many_args = leading_pos_arg  # rejects pos args, accepts dash & dash-dash options
+            if shverb in ("grhu", "grv"):
+                too_many_args = True  # rejects pos args and rejects dash & dash-dash options
 
             if too_many_args:
                 print(no_arg_usage, file=sys.stderr)
@@ -662,7 +671,13 @@ class GitGopher:
             shell = True
             return (shell, shline)
 
-        if shverb in ("glqn", "grv"):
+        if shverb == "glqn":
+            assert " |" not in shline, (shline, shverb)
+
+            shell = True
+            return (True, shline)
+
+        if shverb == "grv":
             assert " |" in shline, (shline, shverb)
 
             shell = True
@@ -822,7 +837,7 @@ class GitGopher:
 
         if shargv[1:]:
             if shline_plus.startswith("git log "):
-                assert shverb in ("gl", "glq", "gls", "glv"), (shverb, shline_plus)
+                assert shverb in ("gl", "glq", "glqn", "gls", "glv"), (shverb, shline_plus)
 
                 for i, sharg in enumerate(shargv[1:]):
                     if sharg == "--author":
