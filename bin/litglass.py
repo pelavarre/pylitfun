@@ -47,7 +47,6 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 # import time
 # t0 = time.time()
 
-import __main__
 import argparse
 import ast
 import bdb
@@ -229,8 +228,8 @@ class LitGlass:
 
         naive = dt.datetime.now()
 
-        parser = self.arg_doc_to_parser(__main__.__doc__ or "")
-        ns = self.shell_args_take_in(args=sys.argv[1:], parser=parser)
+        parser = self.arg_doc_to_parser(__doc__ or "")
+        ns = self.shell_args_take_in(argv_minus=sys.argv[1:], parser=parser)
 
         if flags.logging:  # writes into:  tail -F __pycache__/litglass.log
             self.logging_resume()
@@ -347,14 +346,14 @@ class LitGlass:
 
         return parser
 
-    def shell_args_take_in(self, args: list[str], parser: ArgDocParser) -> argparse.Namespace:
+    def shell_args_take_in(self, argv_minus: list[str], parser: ArgDocParser) -> argparse.Namespace:
         """Take in the Shell Command-Line Args"""
 
-        ns = parser.parse_args_if(args)  # often prints help & exits zero
+        ns = parser.parse_args_if(argv_minus)  # often prints help & exits zero
         print_usage = parser.parser.print_usage
 
         ns_keys = list(vars(ns).keys())
-        assert ns_keys == ["force", "seed", "eggs"], (ns_keys, ns, args)
+        assert ns_keys == ["force", "seed", "eggs"], (ns_keys, ns, argv_minus)
 
         self.shell_args_take_in_eggs(ns.eggs, print_usage=print_usage)
 

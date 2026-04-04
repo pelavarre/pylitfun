@@ -27,7 +27,6 @@ examples:
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
 
 
-import __main__
 import datetime as dt
 import difflib
 import os
@@ -47,7 +46,7 @@ if not __debug__:
 assert int(0x80 + signal.SIGINT) == 130
 
 
-# Disclose nearly three dozen everyday Git Idioms
+# Configure
 
 ShlinePlusByShverb = {  # sorted by key
     # 0
@@ -111,6 +110,9 @@ if _diffs_:
 assert not _diffs_, (_diffs_,)
 
 
+# Run from the Shell Command Line
+
+
 def main() -> None:
     """Run from the Shell Command Line"""
 
@@ -124,7 +126,7 @@ class GitGopher:
     stdout_isatty: bool
 
     def __init__(self) -> None:
-        self.stdout_isatty = sys.stdout.isatty()  # sampled only once
+        self.stdout_isatty = sys.stdout.isatty()  # sampled once
 
     def go_for_it(self) -> None:
 
@@ -241,7 +243,7 @@ class GitGopher:
         """Print the Doc and exit zero, if '--help' in the Shell Args"""
 
         if "--help" in sys.argv[1:]:
-            print(__main__.__doc__, file=sys.stderr)
+            print(__doc__, file=sys.stderr)
             sys.exit(0)  # exits 0 after printing Help
 
     def exit_if_dash_dash_make_bin(self) -> None:

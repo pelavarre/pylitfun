@@ -90,7 +90,6 @@ examples:
 
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
 
-import __main__
 import argparse
 import collections
 import collections.abc  # .collections.abc is not .abc & collections.abc.Callable is not typing.Callable
@@ -226,7 +225,7 @@ class ShellGopher:
 
         # Take Options & Pos Args in from the Shell Command Line
 
-        parser = self.arg_doc_to_parser(__main__.__doc__ or "")
+        parser = self.arg_doc_to_parser(__doc__ or "")
         ns = self.shell_args_take_in(argv_minus, parser=parser)
 
         if ns.help:
@@ -3172,9 +3171,10 @@ if __name__ == "__main__":
 
 # big todo0's
 
-# todo: refresh the pipe-bricks.md sorts to look more like the def's here
-
 # todo: rewrite ever more of the git.py to distribute via ~/bin/git-*
+# todo: rewrite ever more of the git.py to distribute via ~/bin/litgit.py
+
+# todo: refresh the pipe-bricks.md sorts to look more like the def's here
 
 # todo: accept single space as column sep if it's present in same column across all lines
 
