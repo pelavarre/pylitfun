@@ -128,7 +128,7 @@ class GitGopher:
 
     def go_for_it(self) -> None:
 
-        # Fail if no Shell Args
+        # Quit early for good reasons
 
         usage = "usage: git.py [--help] [--make-bin] SHFILE [SHWORD ...]"
 
@@ -136,10 +136,16 @@ class GitGopher:
             print(usage)
             sys.exit(2)  # exits 2 for bad args
 
-        # Choose a Shell Verb and Shell Args to come after it
-
         self.exit_if_dash_dash_help()
+
         self.exit_if_dash_dash_make_bin()
+
+        # Take the Git Clone at the Pwd as more Args
+
+        gwho = self.find_git_who()
+        gtop = self.find_git_top(default=None)
+
+        # Choose a Shell Verb and Shell Args to come after it
 
         shfile_shargv = sys.argv[1:]
 
@@ -153,8 +159,8 @@ class GitGopher:
 
         # Replace the Shell Verb with a Git Shell Line, and edit the Args
 
-        found_shline, given_shsuffix = self.form_shverb_shline(chosen_shargv)
-        tweaked_shargv = self.shargv_tweak_up(chosen_shverb, shargv=chosen_shargv)
+        found_shline, given_shsuffix = self.form_shverb_shline(chosen_shargv, gwho=gwho)
+        tweaked_shargv = self.shargv_tweak_up(chosen_shverb, shargv=chosen_shargv, gwho=gwho)
 
         # Choose to call Git through Shell or not
 
@@ -163,8 +169,6 @@ class GitGopher:
         )
 
         # Take the Shell Pwd & Git Diff into account
-
-        gtop = self.find_git_top(default=None)
 
         relpath = os.path.relpath(gtop)
         if gtop != os.getcwd():
@@ -367,7 +371,7 @@ class GitGopher:
     # Form the ShLine
     #
 
-    def form_shverb_shline(self, shargv: tuple[str, ...]) -> tuple[str, str]:
+    def form_shverb_shline(self, shargv: tuple[str, ...], gwho: str) -> tuple[str, str]:
         """Expand the Shell Verb as a Git Alias, with or without Args"""
 
         shverb = shargv[0]
@@ -381,23 +385,27 @@ class GitGopher:
 
         if shverb_shline_plus.endswith("..."):
 
-            shline, shsuffix = self._form_shline_required_args_(shverb, shverb_shline_plus, shargv)
+            shline, shsuffix = self._form_shline_required_args_(
+                shverb, shverb_shline_plus=shverb_shline_plus, shargv=shargv, gwho=gwho
+            )
 
         elif shverb_shline_plus.endswith(" [...]"):
 
-            shline, shsuffix = self._form_shline_optional_args_(shverb, shverb_shline_plus, shargv)
+            shline, shsuffix = self._form_shline_optional_args_(
+                shverb, shverb_shline_plus=shverb_shline_plus, shargv=shargv, gwho=gwho
+            )
 
         else:
 
             shline, shsuffix = self._form_shline_no_leading_pos_arg_(
-                shverb, shverb_shline_plus, shargv
+                shverb, shverb_shline_plus=shverb_shline_plus, shargv=shargv, gwho=gwho
             )
 
-        assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
+        assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv, gwho)
         return (shline, shsuffix)
 
     def _form_shline_required_args_(
-        self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...]
+        self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...], gwho: str
     ) -> tuple[str, str]:
         """Handle case where >= 1 Shell Args are required"""
 
@@ -405,10 +413,6 @@ class GitGopher:
 
         assert shverb_shline_plus.endswith("..."), (shverb_shline_plus,)
         required_args_usage = f"usage: {shverb} ..."
-
-        # Discover the present main Author
-
-        gwho = self.find_git_who()
 
         # Tweak 'gco' away from Doc when supposedly required Args absent
 
@@ -508,7 +512,7 @@ class GitGopher:
         return tuple(posargv)
 
     def _form_shline_optional_args_(
-        self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...]
+        self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...], gwho: str
     ) -> tuple[str, str]:
         """Handle case where >= 0 Shell Args are accepted, and sometimes add 1 Shell Arg"""
 
@@ -550,7 +554,7 @@ class GitGopher:
         # g, gcaf, gcf, gd, gdno, gg/0, gl, glf, glq, gls, glv, gno, gri, grias, gs, gspno
 
     def _form_shline_no_leading_pos_arg_(
-        self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...]
+        self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...], gwho: str
     ) -> tuple[str, str]:
         """Handle case where no Shell Args are accepted, or first Shell Arg must not be a Positional Arg"""
 
@@ -631,6 +635,7 @@ class GitGopher:
         # Succeed
 
         gwho = gwho_run.stdout.decode().rstrip()
+        assert gwho, (gwho,)
 
         return gwho
 
@@ -699,6 +704,7 @@ class GitGopher:
         # Succeed
 
         gtop = gtop_run.stdout.decode().rstrip()
+        assert gtop, (gtop,)
 
         return gtop
 
@@ -783,7 +789,7 @@ class GitGopher:
     # Choose ShArgV
     #
 
-    def shargv_tweak_up(self, shverb: str, shargv: tuple[str, ...]) -> tuple[str, ...]:
+    def shargv_tweak_up(self, shverb: str, shargv: tuple[str, ...], gwho: str) -> tuple[str, ...]:
         """Tune Greps to presume text, ignore case, and match >= 1 patterns"""
 
         posargv = self.maybe_posargv_from_shargv(shargv)
@@ -794,6 +800,7 @@ class GitGopher:
         # Tweak 'gla jqdoe' up into 'gl --author=jqdoe', etc
 
         if shverb in ("gla",):
+            breakpoint()
             assert shline_plus.endswith(" --author=..."), (shline_plus, shverb)
             if posargv:
                 author = posargv[0]
