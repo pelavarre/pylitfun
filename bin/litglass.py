@@ -6676,13 +6676,13 @@ def excepthook(  # ) -> ...:
         if not hasattr(sys, "last_exc"):
             setattr(sys, "last_exc", exc_value)  # ducks out of confusing pdb.pm()
 
-            # todo: figure out when this does and doesn't happen
+            # todo: figure out when .last_exc is and isn't initted for us
 
     if exc_traceback is not None:
         if not hasattr(sys, "last_traceback"):
             setattr(sys, "last_traceback", exc_traceback)  # ducks out of confusing pdb.pm()
 
-            # todo: figure out when this does and doesn't happen
+            # todo: figure out when .last_traceback is and isn't initted for us
 
     print(">" ">" "> pdb.pm()", file=with_stderr)  # (3 * ">") spelled unlike a Git Conflict
     pdb.pm()

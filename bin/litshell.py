@@ -112,6 +112,8 @@ import textwrap
 import traceback
 import unicodedata
 
+_: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
+
 if not __debug__:
     raise NotImplementedError([__debug__])  # 'better python3 than python3 -O'
 
@@ -3194,8 +3196,6 @@ if __name__ == "__main__":
 
 # lil todo0's
 
-# the 'p' script should cope with urllib.parse.quote etc
-
 # todo0: trace the $(git config user.email) for `gla` on Screen in its Run and in its Sh Source
 
 # todo0: coin function .bracket to mean
@@ -3222,9 +3222,6 @@ if __name__ == "__main__":
 # % plf awk 5 |join --sep=' '
 # 1415 1378 818 716 1568 288 3652 10747 282 1632
 # %
-
-# todo0: into litpython.py, doc which Python Version we scraped Importable Names from
-# todo0: like rescrape from latest and mention that
 
 #
 

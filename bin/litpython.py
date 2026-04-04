@@ -1,28 +1,24 @@
 #!/usr/bin/env python3
 
 r"""
-usage: litpython.py [-h] [PYLINE ...]
+usage: litpython.py [-h] [PY ...]
 
 exec some lines of python code, without making you type out the 'import's
 
 positional arguments:
-  PYLINE      a line of python code to execute
+  PY          one more line of python code to exec
 
 options:
   -h, --help  show this help message and exit
 
 quirks:
-  trusts Git to tell it when new Names becomes Importable
+  trusts Git to say when new Names becomes Importable
 
 examples:
-  p 'print("".join(chr(_) for _ in range(0x20, 0x7E + 1)))'
-  p
-    dt.datetime.now().astimezone()  # no import required
+  p  # and then no imports required, like you can just say:  dt.datetime.now().astimezone()
+  p 'p(t)' 'p(repr(t))'  # (p, t, logger, parser) defined for you as eager shorthand
+  p 'print("".join(chr(_) for _ in range(0x20, 0x7E + 1)))'  # no interaction required
 """
-
-# todo: ./litpython.py  # implies -i -c ''
-# todo: ./litpython.py 'sys.otext = "".join(chr(_) for _ in range(0x20, 0x7E + 1))'  # pipes pb for you
-# todo: pbpaste
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
 
@@ -35,7 +31,6 @@ import bdb
 import collections.abc
 import dataclasses
 import datetime as dt
-import decimal
 import difflib
 import importlib
 import logging
@@ -46,17 +41,18 @@ import sys
 import textwrap
 import traceback
 import types
+import urllib  # eager 'import urllib', at first without our lazy 'import urllib.parse'
 import zoneinfo
+
+_: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
 
 if not __debug__:
     raise NotImplementedError([__debug__])  # 'better python3 than python3 -O'
 
 
-logger = logging.getLogger(__name__)
-
 Pacific = zoneinfo.ZoneInfo("America/Los_Angeles")
 PacificLaunch = dt.datetime.now(Pacific)
-UTC = zoneinfo.ZoneInfo("UTC")  # todo: extend welcome into the periphery beyond San Francisco
+UTC = zoneinfo.ZoneInfo("UTC")  # extends welcome into the Periphery (outside San Francisco)
 
 
 #
@@ -86,15 +82,18 @@ def try_main() -> None:
     pyjoin = "\n".join(pylines)
     pytext = textwrap.dedent(pyjoin).strip()
 
-    globals_add_do_python_names()
+    _globals_add_lazy_imports_()
+    _globals_add_eager_objects_()
 
-    # Run the given Python Code
-    # Else chat after Return from Def Main
+    # Run Python Code when given Python Code, else launch a chat with Python
 
     if pytext:
         exec(pytext)
     else:
         os.environ["PYTHONINSPECT"] = str(True)
+
+        # t = dt.datetime.now(Pacific)
+        # print(t - PacificLaunch)  # < 2ms lately at my desk
 
 
 def arg_doc_to_parser(doc: str) -> "ArgDocParser":
@@ -105,26 +104,55 @@ def arg_doc_to_parser(doc: str) -> "ArgDocParser":
 
     parser = ArgDocParser(doc, add_help=True)
 
-    pyline_help = "a line of python code to execute"
-    parser.add_argument("pylines", metavar="PYLINE", nargs="*", help=pyline_help)
+    py_help = "one more line of python code to exec"
+    parser.add_argument("pylines", metavar="PY", nargs="*", help=py_help)
 
     return parser
 
 
 #
-# Launch a chat with Python
+# Delay chat for long enough to form some commonly helpful Python Objects
 #
 
 
-def globals_add_do_python_names() -> None:
+def _globals_add_eager_objects_() -> None:
+    "Delay chat for long enough to form some commonly helpful Python Objects"
 
     g = globals()
+
+    if "logger" not in g.keys():
+        logger = logging.getLogger(__name__)
+        g["logger"] = logger
+
+    if "p" not in g.keys():
+        p = print
+        g["p"] = p
+
+    if "parser" not in g.keys():
+        parser = argparse.ArgumentParser()
+        g["parser"] = parser
+
+    if "t" not in g.keys():
+        g["t"] = PacificLaunch
+
+
+#
+# Define 'print(repr(globals()))' to mean Import Everything
+#
+
+
+def _globals_add_lazy_imports_() -> None:
+    "Define 'print(repr(globals()))' to mean Import Everything"
+
+    g = globals()
+
     for name in PYTHON_IMPORTS:
         if name not in g.keys():
             g[name] = LazyImport(name)
 
     if "D" not in g.keys():
-        g["D"] = decimal.Decimal  # todo: lazily do:  from decimal import Decimal as D
+        D = LazyImport(import_="decimal.Decimal", as_="D")
+        g["D"] = D
 
     if "dt" not in g.keys():
         dt = LazyImport(import_="datetime", as_="dt")
@@ -138,17 +166,6 @@ def globals_add_do_python_names() -> None:
         np = LazyImport(import_="numpy", as_="np")
         g["np"] = np
 
-    if "logger" not in g.keys():
-        g["logger"] = logger
-
-    if "p" not in g.keys():
-        p = print
-        g["p"] = p
-
-    if "parser" not in g.keys():
-        parser = argparse.ArgumentParser()
-        g["parser"] = parser
-
     if "pd" not in g.keys():
         pd = LazyImport(import_="pandas", as_="pd")
         g["pd"] = pd
@@ -157,8 +174,12 @@ def globals_add_do_python_names() -> None:
         plt = LazyImport(import_="matplotlib.pyplot", as_="plt")
         g["plt"] = plt
 
-    if "t" not in g.keys():
-        g["t"] = PacificLaunch
+    setattr(urllib, "parse", LazyImport(import_="urllib.parse"))
+
+    # todo: lazy 'email.mime.multipart', 'email.mime.text', 'logging.handlers', 'unittest.mock'
+    # todo: lazy 'urllib' without 'urllib.parse'
+
+    # todo: lazy PyPi 'import mysql.connector'
 
 
 class LazyImport:
@@ -183,72 +204,80 @@ class LazyImport:
 
 _PYTHON_IMPORTS_TEXT_ = """
 
-
-    # hard-to-discover basics
-    # sorted(_[0] for _  in sys.modules.items() if not hasattr(_[-1], "__file__"))
+    # the most eager Imports
+    #
+    #   import sys
+    #   items = list(sys.modules.items())
+    #   sorted(_[0] for _  in items if not _[0].startswith("_") and not hasattr(_[-1], "__file__"))
+    #
 
     __main__
 
     atexit builtins errno itertools marshal posix pwd sys time
 
 
-    # from ".so" Shared Object Libraries
-    # minus deprecated: audioop nis pyexpat
+    # the ".so" Shared Object Libraries of
+    #
+    #   cd $(python3 -c 'import os, readline; print(os.path.dirname(readline.__file__))')
+    #   ls *.so |grep -v ^_
+    #
+    # minus obscure:  xxlimited_35 xxlimited xxsubtype
 
-    array binascii cmath fcntl grp
-    math mmap readline resource select syslog termios unicodedata zlib
+    array  binascii  cmath  fcntl  grp
+    math mmap  readline resource  select syslog  termios  unicodedata  zlib
 
 
-    # from Py Files
-    # minus deprecated: aifc cgi cgitb chunk crypt imghdr
-    # minus deprecated: mailcap nntplib pipes sndhdr sunau telnetlib uu uuid xdrlib
+    # the Py Files of
+    #
+    #   cd $(python3 -c 'import abc, os; print(os.path.dirname(abc.__file__))')
+    #   ls *.py |grep -v ^_ |cut -d. -f1 |cut -d/ -f1 |LC_ALL=C sort
+    #
 
-    abc antigravity argparse ast asynchat asyncore  base64 bdb bisect bz2
+    abc annotationlib antigravity argparse ast  base64 bdb bisect bz2
     cProfile calendar cmd code codecs codeop colorsys
         compileall configparser contextlib contextvars copy copyreg csv
     dataclasses datetime decimal difflib dis doctest  enum
     filecmp fileinput fnmatch fractions ftplib functools
     genericpath getopt getpass gettext glob graphlib gzip
-    hashlib heapq hmac  imaplib imp inspect io ipaddress  keyword
-    linecache locale lzma
+    hashlib heapq hmac  imaplib inspect io ipaddress  keyword  linecache locale lzma
 
     mailbox mimetypes modulefinder
     netrc ntpath nturl2path numbers  opcode operator optparse os
-    pathlib pdb pickle pickletools pkgutil platform plistlib poplib posixpath
+    pdb pickle pickletools pkgutil platform plistlib poplib posixpath
         pprint profile pstats pty py_compile pyclbr pydoc
     queue quopri  random reprlib rlcompleter runpy
-    sched secrets selectors shelve shlex shutil signal site smtpd smtplib socket
-        socketserver sre_compile sre_constants sre_parse ssl stat statistics string
-        stringprep struct subprocess symtable sysconfig
+    sched secrets selectors shelve shlex shutil signal site sitecustomize smtplib socket
+        socketserver sre_compile sre_constants sre_parse ssl stat statistics
+        stringprep struct subprocess symtable
     tabnanny tarfile tempfile textwrap this threading timeit token tokenize
         trace traceback tracemalloc tty turtle types typing
-    warnings  wave weakref webbrowser  zipapp zipfile zipimport
+    uuid  warnings wave weakref webbrowser  zipapp zipimport
 
+    # the Py Folders of
+    #
+    #   cd $(python3 -c 'import abc, os; print(os.path.dirname(abc.__file__))')
+    #   ls */__init__.py |grep -v ^_ |cut -d. -f1 |cut -d/ -f1 |LC_ALL=C sort
 
-    # from Dirs containing an "_init__.py" File
+    asyncio  collections compression concurrent ctypes curses  dbm
+    email encodings ensurepip  html http  idlelib importlib  json  logging
 
-    asyncio  collections concurrent ctypes curses  dbm distutils
-    email encodings ensurepip  html http  idlelib importlib  json  lib2to3 logging
-
-    multiprocessing  pydoc_data  re  sqlite3  test tkinter tomllib turtledemo
-    unittest urllib urllib.parse  venv  wsgiref  xml xmlrpc  zoneinfo
+    multiprocessing  pathlib pydoc_data  re  sqlite3 string sysconfig
+    test tkinter tomllib turtledemo  unittest urllib  venv  wsgiref  xml xmlrpc  zipfile zoneinfo
 
 
     # from VEnv Pip Install
 
-    jira matplotlib numpy pandas psutil psycopg2 redis requests
-
+    jira matplotlib mysql numpy pandas psutil psycopg2 redis requests
 
 """
+
 
 PYTHON_IMPORTS = _PYTHON_IMPORTS_TEXT_.splitlines()
 PYTHON_IMPORTS = list(_.partition("#")[0] for _ in PYTHON_IMPORTS)
 PYTHON_IMPORTS = list(_.strip() for _ in PYTHON_IMPORTS)
 PYTHON_IMPORTS = " ".join(PYTHON_IMPORTS).split()
 
-assert len(PYTHON_IMPORTS) == 201, (len(PYTHON_IMPORTS), 201)
-
-# todo: doc which Python Version we scraped these Importable Names from
+assert len(PYTHON_IMPORTS) == 199, (len(PYTHON_IMPORTS), 199)  # Feb/2026 Python 3.14.3
 
 
 #
@@ -534,13 +563,13 @@ def excepthook(  # ) -> ...:
         if not hasattr(sys, "last_exc"):
             setattr(sys, "last_exc", exc_value)  # ducks out of confusing pdb.pm()
 
-            # todo: figure out when this does and doesn't happen
+            # todo: figure out when .last_exc is and isn't initted for us
 
     if exc_traceback is not None:
         if not hasattr(sys, "last_traceback"):
             setattr(sys, "last_traceback", exc_traceback)  # ducks out of confusing pdb.pm()
 
-            # todo: figure out when this does and doesn't happen
+            # todo: figure out when .last_traceback is and isn't initted for us
 
     print(">" ">" "> pdb.pm()", file=with_stderr)  # (3 * ">") spelled unlike a Git Conflict
     pdb.pm()
@@ -552,6 +581,9 @@ def excepthook(  # ) -> ...:
 
 if __name__ == "__main__":
     main()
+
+
+# todo: objects for iterating over
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
