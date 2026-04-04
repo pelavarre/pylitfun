@@ -1,0 +1,4 @@
+# sh/.python = Launch the Python Repl
+
+set -xe
+python3 -i -c ''

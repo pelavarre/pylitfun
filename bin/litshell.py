@@ -3178,20 +3178,8 @@ if __name__ == "__main__":
 
 # todo: teach '|plf columns' to cope with Markdown Tables as input
 
-
-# lil todo0's
-
 # plf insert '/  /'
 # is not plf insert '  '
-
-# glqn -19
-
-# the 'p' script should cope with urllib.parse.quote etc
-
-# synch up ~/.vimrc especially \ X
-
-# todo0: plf ord, plf str ord, are not the same
-# todo0: it's the 'plf ord' that goes with 'plf bytes'
 
 # % plf wc
 # NameError: name 'wc' is not defined
@@ -3200,9 +3188,20 @@ if __name__ == "__main__":
 # litshell.py: error: unrecognized arguments: -w
 # %
 
-# todo0: polish up head -1 sh/.*
+# todo0: plf ord, plf str ord, are not the same
+# todo0: it's the 'plf ord' that goes with 'plf bytes'
+
+
+# lil todo0's
+
+# the 'p' script should cope with urllib.parse.quote etc
 
 # todo0: trace the $(git config user.email) for `gla` on Screen in its Run and in its Sh Source
+
+# todo0: coin function .bracket to mean
+# bind 'set enable-bracketed-paste off' 2>/dev/null; unset zle_bracketed_paste
+
+# todo0: polish up head -1 sh/.*
 
 # todo0: Accept Absolute Jenkins Stamp  # 'Mar 13, 2026, 10:28:50 AM'
 # todo0: Accept Relative Jenkins Stamp  # 'Took 37 min'
