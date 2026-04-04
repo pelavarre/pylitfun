@@ -797,28 +797,44 @@ class GitGopher:
         shline_plus_by_shverb = ShlinePlusByShverb
         shline_plus = shline_plus_by_shverb[shverb]
 
-        # Tweak 'gla jqdoe' up into 'gl --author=jqdoe', etc
+        # Tweak 'gla jqdoe' up into 'gl --author=jqdoe'
 
         if shverb in ("gla",):
-            breakpoint()
             assert shline_plus.endswith(" --author=..."), (shline_plus, shverb)
-            if posargv:
-                author = posargv[0]
 
-                alt_sharg1 = "--author=" + author  # already unquoted
+            if not posargv:
+                return shargv  # f"--author={author}" already solved earlier
 
-                alt_shargv_1 = list()
-                for index, arg in enumerate(shargv):
-                    if index == 0:
-                        continue
-                    if arg == author:  # todo: make this remove-the-arg Code layered and elegant?
-                        continue
-                    alt_shargv_1.append(arg)
+            author = posargv[0]
+            i = shargv.index(author)
 
-                tweaked_shargv = shargv[:1] + (alt_sharg1,) + tuple(alt_shargv_1)
-                return tweaked_shargv
+            words = list()
+            words.append(shargv[0])  # 'gla'
+            words.append(f"--author={author}")
+            words.extend(shargv[:i])
+            words.extend(shargv[(i + 1) :])
 
-            return shargv
+            tweaked_shargv = tuple(words)
+
+            return tweaked_shargv
+
+        # Tweak 'gl... --author' up into 'gl... --author=jqdoe'
+
+        if shargv[1:]:
+            if shline_plus.startswith("git log "):
+                assert shverb in ("gl", "glq", "gls", "glv"), (shverb, shline_plus)
+
+                for i, sharg in enumerate(shargv[1:]):
+                    if sharg == "--author":
+                        words = list()
+                        words.append(shargv[0])  # 'gl...'
+                        words.append(f"--author={gwho}")
+                        words.extend(shargv[1 : (i + 1)])
+                        words.extend(shargv[(i + 2) :])
+
+                        tweaked_shargv = tuple(words)
+
+                        return tweaked_shargv
 
         # Tweak 'grias 3' up into 'grias HEAD~3', etc
 
