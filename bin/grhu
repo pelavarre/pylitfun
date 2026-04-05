@@ -1,3 +1,0 @@
-#!/bin/sh
-# : grhu && ... && git reset --hard @{upstream}
-g.py "$0" "$@"

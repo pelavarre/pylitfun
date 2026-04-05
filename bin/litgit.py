@@ -129,13 +129,14 @@ class GitGopher:
         """Say how to abbreviate each verb phrase"""
 
         d = {
-            "gcl": self.git_clean,
+            "gcl": self.git_clean_dffx,
+            "grhu": self.git_reset_hard_upstream,
             "gsis": self.git_status_ignored_short,
         }
 
         return d
 
-    def git_clean(self) -> int:  # gcl
+    def git_clean_dffx(self) -> int:  # gcl
         """
         usage: gcl [-h] [-n]
 
@@ -147,9 +148,10 @@ class GitGopher:
 
         works as one of:
           : gcl && echo Press ⌃D && cat - >/dev/null && git clean -dffxq
+          : grhu && echo Press ⌃D && cat - >/dev/null && git reset --hard @{upstream}
           : gsis && git status --ignored --short
 
-        defaults to git ops:
+        defaults to git ops choices:
           -d = delete untracked dirs
           -ff = delete untracked nested .git/ dirs and other files and dirs, without asking again
           -x = delete the untracked files of 'git status --ignored', not only unignored files
@@ -164,7 +166,7 @@ class GitGopher:
           git clean -ndffx
         """
 
-        doc = self.git_clean.__doc__
+        doc = self.git_clean_dffx.__doc__
         parser = ArgDocParser(doc or "", add_help=True)
 
         n_help = "dry run, to show what would be deleted, without deleting anything"
@@ -176,7 +178,7 @@ class GitGopher:
         else:
             ns = parser.parse_args_if(shwords or ["--"])  # often prints help & exits zero
 
-        # Guess what will happen
+        # Guess what happens if auth'ed
 
         if ns.n:
 
@@ -189,12 +191,11 @@ class GitGopher:
 
             return returncode
 
-        # Else make it so
+        # Call on Git only if auth'ed, if not cancelled
 
-        print(": gcl && echo Press ⌃D && cat - >/dev/null && git clean -dffxq", file=sys.stderr)
         shline = "git clean -dffxq"
-
-        print("Press ⌃D to auth:  git clean -dffxq", file=sys.stderr)
+        print(f": gcl && echo Press ⌃D && cat - >/dev/null && {shline}", file=sys.stderr)
+        print(f"Press ⌃D to auth:  {shline}", file=sys.stderr)
 
         assert int(0x80 + signal.SIGINT) == 130
         try:
@@ -208,6 +209,59 @@ class GitGopher:
 
         return returncode
 
+        # git clean -ndffx
+        # ... && git clean -dffxq
+
+    def git_reset_hard_upstream(self) -> int:  # grhu
+        """
+        usage: grhu [-h]
+
+        roll back to what you last fetched and checked out
+
+        options:
+          -h, --help  show this help message and exit
+
+        works lots more simply after:
+          git rebase --abort
+          git cherry-pick --abort
+          git checkout main
+
+        quirks:
+          asks for ⌃D to auth (or ⌃C to quit), before overwriting or deleting files
+
+        examples:
+          grhu
+        """
+
+        doc = self.git_reset_hard_upstream.__doc__
+        parser = ArgDocParser(doc or "", add_help=True)
+
+        shwords = self.shwords
+        if not shwords and not sys.argv[2:]:
+            parser.parse_args_if([])  # often prints help & exits zero
+        else:
+            parser.parse_args_if(shwords or ["--"])  # often prints help & exits zero
+
+        # Call on Git only if auth'ed, if not cancelled
+
+        shline = "git reset --hard @{upstream}"
+        print(f": grhu && echo Press ⌃D && cat - >/dev/null && {shline}", file=sys.stderr)
+        print(f"Press ⌃D to auth:  {shline}", file=sys.stderr)
+
+        assert int(0x80 + signal.SIGINT) == 130
+        try:
+            sys.stdin.read()
+        except KeyboardInterrupt:  # macOS prints "^" and "C" without a "\r\n"
+            returncode = 130
+            return returncode
+
+        run = subprocess.run(shlex.split(shline))
+        returncode = run.returncode
+
+        return returncode
+
+        # ... && git reset --hard @{upstream}
+
     def git_status_ignored_short(self) -> int:  # gsis
         """
         usage: gsis [-h]
@@ -220,8 +274,11 @@ class GitGopher:
         works as one of:
           : gcl && echo Press ⌃D && cat - >/dev/null && git clean -dffxq
           : gsis && git status --ignored --short
-          find . -type p  # doesn't list untracked named pipes
-          find . -type d -empty -not -path '*/.git/*'  # doesn't list untracked empty dirs
+
+        quirks:
+          doesn't list
+            find . -type p  # untracked named pipes
+            find . -type d -empty -not -path '*/.git/*'  # empty dirs
 
         examples:
           gsis
@@ -251,6 +308,10 @@ class GitGopher:
         returncode = run.returncode
 
         return returncode
+
+        # : find . -type p
+        # && : find . -type d -empty -not -path '*/.git/*'
+        # && git status --ignored --short
 
 
 #
