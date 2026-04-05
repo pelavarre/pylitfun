@@ -130,6 +130,7 @@ class GitGopher:
 
         d = {
             "gcl": self.git_clean,
+            "gsis": self.git_status_ignored_short,
         }
 
         return d
@@ -144,7 +145,8 @@ class GitGopher:
           -h, --help  show this help message and exit
           -n          dry run, to show what would be deleted, without deleting anything
 
-        works well with:
+        works as one of:
+          : gcl && echo Press ⌃D && cat - >/dev/null && git clean -dffxq
           : gsis && git status --ignored --short
 
         defaults to git ops:
@@ -159,15 +161,16 @@ class GitGopher:
         examples:
           gcl
           gcl -n
+          git clean -ndffx
         """
 
-        shwords = self.shwords
-
-        parser = ArgDocParser(self.git_clean.__doc__ or "", add_help=True)
+        doc = self.git_clean.__doc__
+        parser = ArgDocParser(doc or "", add_help=True)
 
         n_help = "dry run, to show what would be deleted, without deleting anything"
         parser.add_argument("-n", action="count", help=n_help)
 
+        shwords = self.shwords
         if not shwords and not sys.argv[2:]:
             ns = parser.parse_args_if([])  # often prints help & exits zero
         else:
@@ -189,6 +192,8 @@ class GitGopher:
         # Else make it so
 
         print(": gcl && echo Press ⌃D && cat - >/dev/null && git clean -dffxq", file=sys.stderr)
+        shline = "git clean -dffxq"
+
         print("Press ⌃D to auth:  git clean -dffxq", file=sys.stderr)
 
         assert int(0x80 + signal.SIGINT) == 130
@@ -198,7 +203,42 @@ class GitGopher:
             returncode = 130
             return returncode
 
-        shline = "git clean -dffxq"
+        run = subprocess.run(shlex.split(shline))
+        returncode = run.returncode
+
+        return returncode
+
+    def git_status_ignored_short(self) -> int:  # gsis
+        """
+        usage: gsis [-h]
+
+        lists untracked files to remove from (or add to) the working tree
+
+        options:
+          -h, --help  show this help message and exit
+
+        works as one of:
+          : gcl && echo Press ⌃D && cat - >/dev/null && git clean -dffxq
+          : gsis && git status --ignored --short
+
+        examples:
+          gsis
+          git clean -ndffx
+        """
+
+        doc = self.git_status_ignored_short.__doc__
+        parser = ArgDocParser(doc or "", add_help=True)
+
+        shwords = self.shwords
+        if not shwords and not sys.argv[2:]:
+            parser.parse_args_if([])  # often prints help & exits zero
+        else:
+            parser.parse_args_if(shwords or ["--"])  # often prints help & exits zero
+
+        # Call Git Status Ignored Short
+
+        print(": gsis && git status --ignored --short", file=sys.stderr)
+        shline = "git status --ignored --short"
 
         run = subprocess.run(shlex.split(shline))
         returncode = run.returncode
