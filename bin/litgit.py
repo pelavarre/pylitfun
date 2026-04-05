@@ -220,6 +220,8 @@ class GitGopher:
         works as one of:
           : gcl && echo Press ⌃D && cat - >/dev/null && git clean -dffxq
           : gsis && git status --ignored --short
+          find . -type p  # doesn't list untracked named pipes
+          find . -type d -empty -not -path '*/.git/*'  # doesn't list untracked empty dirs
 
         examples:
           gsis
@@ -234,6 +236,11 @@ class GitGopher:
             parser.parse_args_if([])  # often prints help & exits zero
         else:
             parser.parse_args_if(shwords or ["--"])  # often prints help & exits zero
+
+        # Say how to list some untracked things that Git Status refuses to list
+
+        print("+ : find . -type p", file=sys.stderr)
+        print("+ : find . -type d -empty -not -path '*/.git/*'", file=sys.stderr)
 
         # Call Git Status Ignored Short
 
