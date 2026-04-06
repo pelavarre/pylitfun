@@ -604,8 +604,12 @@ if __name__ == "__main__":
 
 _ = """  # todo's
 
-# todo: dream up todo's
+# todo: fetch the per-verb help in the caller
 
+# todo: next port = "grl": "git reflog --date=relative --numstat",
+# todo: grl, grl --, grl -4
+
+# todo: port ever more of our three dozen Git Aliases at bin/git.py
 # todo: port the --make-bin work into here from bin/git.py
 
 """

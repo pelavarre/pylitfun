@@ -1,0 +1,3 @@
+# sh/.history = Dump History in Chrono Order but drop Duplicates before last Repeat
+
+cat ~/.*.log |pb decode reverse set reverse cut

@@ -3169,56 +3169,7 @@ if __name__ == "__main__":
     main()
 
 
-# big todo0's
-
-# todo: rewrite ever more of the git.py to distribute via ~/bin/git-*
-# todo: rewrite ever more of the git.py to distribute via ~/bin/litgit.py
-
-# todo: refresh the pipe-bricks.md sorts to look more like the def's here
-
-# todo: accept single space as column sep if it's present in same column across all lines
-
-# todo: teach '|plf columns' to cope with Markdown Tables as input
-
-# plf insert '/  /'
-# is not plf insert '  '
-
-# % plf wc
-# NameError: name 'wc' is not defined
-# % plf wc -w
-# usage: litshell.py [-h] [-i] [-r] [-V] [--sep SEP] [--start START] [WORD ...]
-# litshell.py: error: unrecognized arguments: -w
-# %
-
-# todo0: plf ord, plf str ord, are not the same
-# todo0: it's the 'plf ord' that goes with 'plf bytes'
-
-
-# lil todo0's
-
-# todo0: polish up head -1 sh/.*
-
-# todo0: Accept Absolute Jenkins Stamp  # 'Mar 13, 2026, 10:28:50 AM'
-# todo0: Accept Relative Jenkins Stamp  # 'Took 37 min'
-
-# todo0: plfi take input as abs time
-# todo0: plfi take + as rel time speak of next abs time
-# todo0: plfi stack variables w z y x
-
-# todo0: |plf match,fullmatch,index same as sketched for |plf g here
-# todo0: |plf g to work like |plf match, but accept multiple text args as if or'ed by |grep -e
-# todo0: |plf g /SESS/ for the Python RegEx effect of |grep -ai -e /SESS/
-
-# todo0: ls -l |plf __brick__ 5 __brick__ --sep=' '
-# todo0: debug here, where the --sep of join came to awk, oops
-#
-# % plf awk 5 join --sep=' '
-#      plavarre plavarre
-# % plf awk 5 |join --sep=' '
-# 1415 1378 818 716 1568 288 3652 10747 282 1632
-# %
-
-#
+# forgotten todo's
 
 # todo1: count nanoseconds as int(10**9 * t1t0), or as float to speak of smaller
 
@@ -3339,6 +3290,62 @@ if __name__ == "__main__":
 # todo9: more than one of ("0", "1", "2", "3"), such as Shell ? while 'ls -C ?' is '0 1 2 3'
 
 # todo9: drop all the unhelped verbs?
+
+
+# big todo0's
+
+# todo: rewrite ever more of the git.py to distribute via ~/bin/git-*
+# todo: rewrite ever more of the git.py to distribute via ~/bin/litgit.py
+
+# todo: refresh the pipe-bricks.md sorts to look more like the def's here
+
+# todo: accept single space as column sep if it's present in same column across all lines
+
+# todo: teach '|plf columns' to cope with Markdown Tables as input
+
+# plf insert '/  /'
+# is not plf insert '  '
+
+# % plf wc
+# NameError: name 'wc' is not defined
+# % plf wc -w
+# usage: litshell.py [-h] [-i] [-r] [-V] [--sep SEP] [--start START] [WORD ...]
+# litshell.py: error: unrecognized arguments: -w
+# %
+
+# todo0: plf ord, plf str ord, are not the same
+# todo0: it's the 'plf ord' that goes with 'plf bytes'
+
+
+# middling todo0's
+
+# todo0: polish up head -1 sh/.*
+
+# todo0: Accept Absolute Jenkins Stamp  # 'Mar 13, 2026, 10:28:50 AM'
+# todo0: Accept Relative Jenkins Stamp  # 'Took 37 min'
+
+# todo0: plfi take input as abs time
+# todo0: plfi take + as rel time speak of next abs time
+# todo0: plfi stack variables w z y x
+
+# todo0: |plf match,fullmatch,index same as sketched for |plf g here
+# todo0: |plf g to work like |plf match, but accept multiple text args as if or'ed by |grep -e
+# todo0: |plf g /SESS/ for the Python RegEx effect of |grep -ai -e /SESS/
+
+# todo0: ls -l |plf __brick__ 5 __brick__ --sep=' '
+# todo0: debug here, where the --sep of join came to awk, oops
+#
+# % plf awk 5 join --sep=' '
+#      plavarre plavarre
+# % plf awk 5 |join --sep=' '
+# 1415 1378 818 716 1568 288 3652 10747 282 1632
+# %
+
+
+# smaller todo0's
+
+# todo0: . or .. or ... or .... to pop for length without reprinting
+# todo0: = or == or === or ==== to duplicate for length without reprinting
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
