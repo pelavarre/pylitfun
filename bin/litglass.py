@@ -7023,6 +7023,9 @@ if __name__ == "__main__":
 # todo's
 
 
+# todo00: Write /dev/tty for Containers that lack writable /dev/stderr
+
+
 # todo0: Serve well as the 'export EDITOR=' of Shell ⌃X⌃E
 
 
