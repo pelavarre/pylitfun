@@ -1,4 +1,5 @@
 #!/bin/sh
-(cd ~/Public/pelavarre/byoverbs/ && bin/pwnme && make bin ||:) \
-    && (cd ~/Public/pelavarre/xshverb/ && bin/pwnme && make bin ||:) \
-    && (cd ~/Public/pylitfun/ && sh/pwnme && make bin)
+true \
+    && (echo && cd ~/Public/pelavarre/byoverbs/ && bin/pwnme && make bin ||:) \
+    && (echo && cd ~/Public/pelavarre/xshverb/ && bin/pwnme && make bin ||:) \
+    && (echo && cd ~/Public/pylitfun/ && sh/pwnme && make bin)

@@ -13,6 +13,7 @@ quirks:
   redundant with 'uptime --pretty' at many Linux and at few macOS
 
 examples:
+  uptime.py --pretty
   uptime.py --
   uptime.py --h
 """
@@ -135,7 +136,7 @@ def fetch_uptime_if() -> tuple[int, int, int]:
     shline = "uptime"
     argv = shlex.split(shline)
 
-    print(f"+ {shline}", file=sys.stderr)
+    # print(f"+ {shline}", file=sys.stderr)
 
     run = subprocess.run(argv, input=b"", stdout=subprocess.PIPE)
     stdout = run.stdout
