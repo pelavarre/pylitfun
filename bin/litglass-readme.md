@@ -1,15 +1,10 @@
-# pylitfun
+# pylitfun / ... / litglass-readme.md
 
 **A Python terminal engine that actually gets input decoding right**
 
 In pure Python, working down at the level of raw terminal bytes, with zero dependencies
 
 For the nine of us who notice when a ⇧← comes out wrong, as if it were a plain ←
-
-<div align="center">
-⚪ ⚫ 🔴 🔵 🟠 🟡 🟢 🟣 🟤 <br>
-⬛ ⬜ 🟥 🟦 🟧 🟨 🟩 🟪 🟫 <br>
-</div>
 
 
 ## The Problem
