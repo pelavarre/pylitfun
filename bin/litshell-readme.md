@@ -1569,7 +1569,7 @@ The rest could learn to run in parallel with one another, so as to give you your
 
 <!--
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/docs/pipe-bricks.md
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/litshell-readme.md
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git
 
 -->

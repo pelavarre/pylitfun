@@ -229,7 +229,7 @@ Broken and probably know how to fix
 
 <!--
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/README.md
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/litglass-readme.md
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git
 
 -->

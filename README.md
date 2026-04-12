@@ -34,14 +34,22 @@ I can keep up this one Git Repo outside, hosting four projects
 + [Lit Python - Read Me](./bin/litpython-readme.md) <br>
 + [Lit Shell - Read Me](./bin/litshell-readme.md) <br>
 
-## Got a picture of what we look like?
+## Bright colours
 
-Yep
+I found this bit of Unicode Ascii Art and I like it, but I've not yet found good words to go with it
 
 ⚪ ⚫ 🔴 🔵 🟠 🟡 🟢 🟣 🟤 <br>
 ⬛ ⬜ 🟥 🟦 🟧 🟨 🟩 🟪 🟫 <br>
 
-Sorted by Unicode Code Point, the comic-colored Emoji are ⚪ ⚫ ⬛ ⬜ 🔴 🔵 🟠 🟡 🟢 🟣 🟤 🟥 🟦 🟧 🟨 🟩 🟪 🟫.
-A bit of what's different about us is that we remember, the first four come out-of-order
+It looks like it looks because, sorted by Unicode Code Point, the comic-colored Emoji are ⚪ ⚫ ⬛ ⬜ 🔴 🔵 🟠 🟡 🟢 🟣 🟤 🟥 🟦 🟧 🟨 🟩 🟪 🟫
+
+A bit of what's different about us is that we well remember, the first four of those, they come out-of-order, and don't quite quite always render as characters of the same size
 
 : -)
+
+<!--
+
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/README.md
+# copied from:  git clone https://github.com/pelavarre/pylitfun.git
+
+-->
