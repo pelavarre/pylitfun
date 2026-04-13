@@ -11,7 +11,8 @@
 - [2 Winning at work](#2-winning-at-work)
   - [2.1 Doing the important things, and the urgent things too](#21-doing-the-important-things-and-the-urgent-things-too)
   - [2.2 Getting things done, vs making \& keeping friends](#22-getting-things-done-vs-making--keeping-friends)
-  - [2.3 Feeling Bored, Impatient, Baffled, or Dissed for good reason](#23-feeling-bored-impatient-baffled-or-dissed-for-good-reason)
+  - [2.3 Chart the Course ™, Behind the Scenes ™, Get Things Going ™, Take Charge ™](#23-chart-the-course--behind-the-scenes--get-things-going--take-charge-)
+  - [2.4 Feeling Bored, Impatient, Baffled, or Dissed for good reason](#24-feeling-bored-impatient-baffled-or-dissed-for-good-reason)
 - [3 Ways my bosses have gotten away with wronging us](#3-ways-my-bosses-have-gotten-away-with-wronging-us)
   - [3.1 Nine ways bosses have bullied me out of getting things done](#31-nine-ways-bosses-have-bullied-me-out-of-getting-things-done)
   - [3.2 Five ways bosses have slapped me out of making friends with them](#32-five-ways-bosses-have-slapped-me-out-of-making-friends-with-them)
@@ -118,17 +119,17 @@ As often as I make you feel that hurt, I need you to tell me, so I stop it
 
 I ask from you for what I ask from you because I know I can. Other bosses, before you, have got it right. You can do at least as well, and probably better, since by now I more know what's going on
 
-I know I can ask a job to make me feel
+I know I can ask a job to make me feel I am
 
-a ) I'm having fun <br>
-b ) I'm making a difference <br>
-c ) I'm learning <br>
+1. having fun
+2. making a difference
+3. learning
 
 I know I can ask a job to make me not-feel I'm working here
 
-d ) by accident, instead of somewhere else <br>
-e ) to look good in the eyes of my friends & family, instead of working on what I care about <br>
-f ) only because these people give me lots more money <br>
+4. by accident, instead of somewhere else
+5. to look good in the eyes of my friends & family, instead of working on what I care about
+6. only because these people give me lots more money
 
 These six points come from authors Lindsay McGregor & Neel Doshi. They dropped out of McKinsey, got married, and wrote a book: "Primed to Perform", Oct/2015, 368 pages
 
@@ -164,7 +165,23 @@ When you feel I've leant way over into making & keeping friends, then we can ask
 This is the Thomas-Kilmann Conflict Mode Instrument. Group classes take an hour to teach it well
 
 
-### 2.3 Feeling Bored, Impatient, Baffled, or Dissed for good reason
+### 2.3 Chart the Course ™, Behind the Scenes ™, Get Things Going ™, Take Charge ™
+
+People working in teams split apart to work different roles. Books of pop psych & self-help try to sketch these roles well
+
+Linda Berens has gone and trademarked her names for the four roles she finds people working through:
+
+1. Chart the Course™ = Give us a clear path and keep our work on track
+2. Behind the Scenes™ = Go for the best result by first gathering, analyzing, summarizing several points of view on lots of data
+3. Get Things Going™ = Persuade, involve, and spark the rest of us to move early & often
+4. Take Charge™ = Drive results, take decisive action, make sure the goal gets done
+
+You're a boss with staff and budget. So you probably cover role (4) well for us. I'd guess I'm most valuable when asked for (1), else for (2), else for (3)
+
+When we see me mostly paid to do (3) well, then we can guess we forgot to ask me for (2) and we didn't listen well when I volunteered (1)
+
+
+### 2.4 Feeling Bored, Impatient, Baffled, or Dissed for good reason
 
 > When you carry on a conversation with someone about a given subject, you adjust what you say according to your understanding of the other person. You might consider how much they care about the subject, how much they already know about it, how receptive they are to learning from you, and whether they're even interested in the conversation in the first place. If you get any of that wrong, then bad things happen -- they might feel patronised, uninterested, impatient, or utterly baffled
 
