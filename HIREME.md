@@ -64,11 +64,13 @@ Its self-referential irony -- acknowledging verbosity in §2.5 while writing 350
 
 We must ask, can you afford me. Really, can you?
 
-No boss has ever been happy with my work on our second project. The road to happy has been for the boss to invest a full half hour to talk with me every week. That's how we make time for the boss to say out loud in words what they really need. The things you know and say without words, I don't entirely miss them, but I almost don't hear or guess them
+No boss had ever been happy with my work on our second project, until 2023. The road to happy turned out to be for the boss to invest a full half hour to talk with me every week. That's how we make time for the boss to say out loud in words what they really need
 
-You will find my work on our first project astonishingly good. But only because you put the work in up front. You already had to tell the other bosses what we need to get done, when, and why. That's how you got them to give you the money to hire me
+What I'm strongest at is talking with machines. Talking with you, I don't do that so very well. In particular, the many things you know and say without words, I don't entirely miss them, but I almost don't hear them. As often as you leave me guessing, you're inviting me to guess wrong. Oops
 
-You told them first, you told me second. I delivered before time, below cost, and better than spec. But after the first project, in the next project, out there we go way wrong together, ouch. Unless you do show up early again, to do your part, again. You can do your part quickly without me, or slowly with me, but you can't just skip it because you've got no other bosses telling you to do it. You've got to get your part done well and early. Else we're wasting my time on being misled by you
+You will find my work on our first project astonishingly good. Astonishingly good exactly because you did put the work in up front. You had to tell the other bosses what we need to get done, when, and why. You showed up and did that well. That's how you got them to give you the money to hire me
+
+You told them first, you told me second. I delivered our first project before time, below cost, and better than spec. But after the first project, in our second project, out there we go way wrong together, ouch. Unless you do show up early again, to do your part, again. You can do your part quickly without me, or slowly with me, but you can't just skip it because you've got no other bosses telling you to do it. You've got to get your part done well and early. Else we're wasting my time on being misled by you
 
 Come now, tell me what you need to get done, when, and why. Let's bet on me, that's what I'm asking of you
 
