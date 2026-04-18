@@ -534,12 +534,25 @@ class GitGopher:
         shline = shverb_shline_plus.removesuffix(" [...]")
 
         shsuffix = " ..."  # shouts out Args
+        posargs = tuple(
+            _ for _ in shargv[1:] if ((_ != "--") and (_ == (len(_) * "-"))) or not _.startswith("-")
+        )
+
+        if posargs and (posargs == shargv[1:]):
+            if shverb_shline_plus.startswith("git log "):
+                assert shverb in ("glq", "glqn", "gls", "glv"), (shverb, shline)
+                if shverb != "glqn":  # todo0: glqn $hash doesn't make much sense
+                    if stdout_isatty:
+                        shline += " -1"  # tilts into:  glq -1 $hash, gls -1 $hash, glv -1 $hash
+
         if not shargv[1:]:
             shsuffix = ""  # shouts out No Pos Args (indeed No Args)
 
             if shverb_shline_plus.startswith("git log "):
                 assert shverb in ("gl", "glq", "glqn", "gls", "glv"), (shverb, shline)
                 shline = shline.replace(" --color-moved", "")
+
+            #
 
             if shverb_shline_plus == "git commit --all --fixup [...]":
                 assert shverb in ("gcaf",), (shverb, shline)
