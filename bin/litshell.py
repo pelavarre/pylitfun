@@ -3344,10 +3344,6 @@ if __name__ == "__main__":
 
 # smaller todo0's
 
-# todo0: add 'ggi' generally and '.ggi' in limited distribution
-
-# todo0: 'dt' with more than 1 arg, such as:  dt sleep 1
-
 # todo0: illusion of a hang at:  gg $(find . |grep [.]py$ |head -10)
 
 # todo0: . or .. or ... or .... to pop for length without reprinting

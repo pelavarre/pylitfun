@@ -907,6 +907,8 @@ class GitGopher:
     def _shargs_grep_expand_ai_e_(self, shargs: tuple[str, ...], shverb: str) -> tuple[str, ...]:
         """Tune to presume text, ignore case, and match >= 1 patterns"""
 
+        #
+
         strs = list()
 
         if shverb == "ggi":
@@ -915,18 +917,60 @@ class GitGopher:
             assert shverb in ("gg/n", "ggl", "glf"), (shverb,)
             strs.append("-ai")  # -a = --text  # -i = --ignore-case
 
+        patterns: list[str] = list()
+        pathnames: list[str] = list()
+
         for i, arg in enumerate(shargs):
+            iplus = i + 1
             if arg == "--":
                 strs.extend(shargs[i:])
+                pathnames.extend(shargs[iplus:])
                 break
             elif arg.startswith("-"):
                 strs.append(arg)
             else:
                 strs.append("-e")
                 strs.append(arg)
+                patterns.append(arg)
+
+        #
+
+        alt_shverb = "gg" if (shverb == "gg/n") else shverb
+
+        n0 = len(patterns)
+        n1 = len(pathnames)
+        if not n1:
+            if n0 > 9:
+
+                if all(("/" in _) for _ in patterns):
+                    tracks = self.git_ls_files()
+                    n2 = len(tracks)
+
+                    print(
+                        f"{alt_shverb}: Searching for {n0} Pathnames in {n2} Tracked Files",
+                        file=sys.stderr,
+                    )
+
+        #
 
         argv = tuple(strs)
         return argv
+
+    def git_ls_files(self) -> list[str]:
+        """List the Tracked Files by Pathname"""
+
+        argv = shlex.split("git ls-files")
+        run = subprocess.run(
+            argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+
+        assert not run.returncode, (run.returncode, run.stdout, run.stderr)
+
+        stdout = run.stdout
+        decode = stdout.decode()
+        splitlines = decode.splitlines()
+
+        return splitlines
 
     #
     # Auth some Git work
