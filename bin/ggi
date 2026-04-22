@@ -1,0 +1,3 @@
+#!/bin/sh
+# : ggi && git grep -a -e ... -e ...
+g.py "$0" "$@"

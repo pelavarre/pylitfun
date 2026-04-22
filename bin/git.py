@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-usage: git.py [--help] [--make-bin] SHFILE [SHWORD ...]
+usage: git.py [--help] [--make-bin] [SHFILE] [SHWORD ...]
 
 abbreviate the subcommands to call Git, but do show them in full
 
@@ -72,6 +72,7 @@ ShlinePlusByShverb = {  # sorted by key
     "gf": "date && date -u && time git fetch --prune --prune-tags --force",
     "gg/0": "git status",  # "gg": but without Sh Args
     "gg/n": "git grep -ai -e ... -e ...",  # "gg": but with Sh Args
+    "ggi": "git grep -a -e ... -e ...",
     "ggl": "git grep -l -ai -e ... -e ...",
     # 20
     "gl": "git log --pretty=fuller --no-decorate --color-moved [...]",
@@ -132,7 +133,7 @@ class GitGopher:
 
         # Quit early for good reasons
 
-        usage = "usage: git.py [--help] [--make-bin] SHFILE [SHWORD ...]"
+        usage = "usage: git.py [--help] [--make-bin] [SHFILE] [SHWORD ...]"
 
         if not sys.argv[1:]:
             print(usage)
@@ -256,7 +257,7 @@ class GitGopher:
 
         #
 
-        removals = ["gcl", "gsis"]
+        removals = ["gcl", "grhu", "gsis"]
 
         alt_shline_plus_by_shverb = dict(shline_plus_by_shverb)
         for shverb in shline_plus_by_shverb.keys():
@@ -481,6 +482,8 @@ class GitGopher:
         shline = shverb_shline_plus.removesuffix(" ...")
         if shverb_shline_plus.endswith(" -ai -e ... -e ..."):
             shline = shverb_shline_plus.removesuffix(" -ai -e ... -e ...")
+        elif shverb_shline_plus.endswith(" -a -e ... -e ..."):
+            shline = shverb_shline_plus.removesuffix(" -a -e ... -e ...")
 
         shsuffix = " ..."  # shouts out Args
 
@@ -887,7 +890,7 @@ class GitGopher:
 
         # Convert to '|grep -ai -e ... -e ...' and fall through, else don't
 
-        if shverb not in ("gg/n", "ggl", "glf"):
+        if shverb not in ("gg/n", "ggi", "ggl", "glf"):
             return shargv
 
         if (shverb == "glf") and not shargv[1:]:
@@ -895,17 +898,23 @@ class GitGopher:
 
         assert shargv[1:], (shargv[1:], shverb)
 
-        shargv = (shargv[0],) + self._shargs_grep_expand_ai_e_(shargv[1:])
+        shargv = (shargv[0],) + self._shargs_grep_expand_ai_e_(shargv[1:], shverb=shverb)
 
         # Success
 
         return shargv
 
-    def _shargs_grep_expand_ai_e_(self, shargs: tuple[str, ...]) -> tuple[str, ...]:
+    def _shargs_grep_expand_ai_e_(self, shargs: tuple[str, ...], shverb: str) -> tuple[str, ...]:
         """Tune to presume text, ignore case, and match >= 1 patterns"""
 
         strs = list()
-        strs.append("-ai")  # -a = --text  # -i = --ignore-case
+
+        if shverb == "ggi":
+            strs.append("-a")  # -a = --text
+        else:
+            assert shverb in ("gg/n", "ggl", "glf"), (shverb,)
+            strs.append("-ai")  # -a = --text  # -i = --ignore-case
+
         for i, arg in enumerate(shargs):
             if arg == "--":
                 strs.extend(shargs[i:])
