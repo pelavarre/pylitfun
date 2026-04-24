@@ -15,6 +15,8 @@
   - [3.3 Chart the Course ™, Behind the Scenes ™, Get Things Going ™, Take Charge ™](#33-chart-the-course--behind-the-scenes--get-things-going--take-charge-)
   - [3.4 Forming, Storming, Norming, \& Performing](#34-forming-storming-norming--performing)
   - [3.5 Feeling Bored, Impatient, Baffled, or Dissed for good reason](#35-feeling-bored-impatient-baffled-or-dissed-for-good-reason)
+  - [3.6 Reshuffling the points of the story](#36-reshuffling-the-points-of-the-story)
+  - [3.7 Telling you how to do your own job](#37-telling-you-how-to-do-your-own-job)
 - [4 Losing at work](#4-losing-at-work)
   - [4.1 Nine ways bosses have bullied me out of getting things done](#41-nine-ways-bosses-have-bullied-me-out-of-getting-things-done)
   - [4.2 Five ways bosses have slapped me out of making friends with them](#42-five-ways-bosses-have-slapped-me-out-of-making-friends-with-them)
@@ -219,6 +221,28 @@ Maybe you've got skills that build deep trust much faster? I've not seen it, as 
 That's from "Designing Interfaces", by Jenifer Tidwell Nov/2005, p. 7/331
 
 As often as I give you too much credit -- calling you curious, patient, imaginative, and collegial while you're not feeling it -- I need you to tell me, out loud in words, so I stop hurting you by talking and talking, on and on and on
+
+
+### 3.6 Reshuffling the points of the story
+
+You'll often need to hear the "Bottom Line Up Front (BLUF)" = Recommendations, before Conclusions, before Opinions, before Facts
+
+When you feel that's not what you got from me, I need you to tell me your need, so I can meet it
+
+You'll often need to hear Who, What, When, Where, Why, & How, in exactly that order
+
+When you feel I've shuffled the order or dropped a point, I need you to tell me your need, so I can meet it
+
+Neither of these conventions come naturally me. But I can conform to custom on request
+
+
+### 3.7 Telling you how to do your own job
+
+Sometimes you need me to tell us directly how I feel we should work
+
+It's lots hard for me to really believe you want that. If you mean it, I need you to ask me more than once
+
+I feel it's way easy for you to feel I'm talking AT you, while what we need is for me to talk WITH you. As often as you feel I am ducking the question, you can help us by asking if I'm feeling you need more floor time
 
 
 ## 4 Losing at work
