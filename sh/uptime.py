@@ -136,8 +136,6 @@ def fetch_uptime_if() -> tuple[int, int, int]:
     shline = "uptime"
     argv = shlex.split(shline)
 
-    # print(f"+ {shline}", file=sys.stderr)
-
     run = subprocess.run(argv, input=b"", stdout=subprocess.PIPE)
     stdout = run.stdout
 
@@ -147,11 +145,10 @@ def fetch_uptime_if() -> tuple[int, int, int]:
         decode = stdout.decode()
         lines = decode.splitlines()
         if len(lines) == 1:
-
             line = lines[-1]
             words = line.split()
-            if words[4:]:
 
+            if words[4:]:
                 stamp, up, _yd_, days, hhmm = words[:5]
                 if stamp and _yd_ and hhmm:
                     if (up, days) == ("up", "days,"):
@@ -164,6 +161,21 @@ def fetch_uptime_if() -> tuple[int, int, int]:
 
                         return (yd, h, m)
 
+            if words[2:]:
+                stamp, up, hhmm = words[:3]
+                if stamp and hhmm:
+                    if up == "up":
+
+                        yd = 0
+
+                        hh, mm = hhmm.split(":")
+                        h = int(hh)
+                        m = int(mm.removesuffix(","))
+
+                        return (yd, h, m)
+
+    print("uptime.py: did fail to parse", file=sys.stderr)
+    print("+ uptime", file=sys.stderr)
     os.write(sys.stdout.fileno(), run.stdout)
 
     if returncode:
