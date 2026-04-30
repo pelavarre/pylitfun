@@ -130,7 +130,7 @@ def parse_args_if() -> None:
     sys.exit(2)  # exits 2 after bad Args
 
 
-def fetch_uptime_if() -> tuple[int, int, int]:
+def fetch_uptime_if() -> tuple[int, int, int]:  # noqa C901 too complex
     """Run 'uptime' and scrape days, hours, & minutes since last restart, else exit"""
 
     shline = "uptime"
@@ -146,11 +146,16 @@ def fetch_uptime_if() -> tuple[int, int, int]:
         lines = decode.splitlines()
         if len(lines) == 1:
             line = lines[-1]
+
+            # line = "12:06  up 38 secs, ..."
+            # line = "12:06  up 1 min, ..."
+            # line = "12:08  up 3 mins, ..."
+
             words = line.split()
 
             if words[4:]:
                 stamp, up, _yd_, days, hhmm = words[:5]
-                if stamp and _yd_ and hhmm:
+                if stamp and _yd_ and (":" in hhmm):
                     if (up, days) == ("up", "days,"):
 
                         yd = int(_yd_)  # counts days of one or more years
@@ -161,10 +166,34 @@ def fetch_uptime_if() -> tuple[int, int, int]:
 
                         return (yd, h, m)
 
+            if words[3:]:
+                stamp, up, _m_, mins = words[:4]
+                if stamp and _m_:
+                    if (up, mins) in [("up", "min,"), ("up", "mins,")]:
+
+                        yd = 0
+
+                        h = 0
+                        m = int(_m_)
+
+                        return (yd, h, m)
+
+            if words[3:]:
+                stamp, up, _s_, secs = words[:4]
+                if stamp and _s_:
+                    if (up, secs) in [("up", "sec,"), ("up", "secs,")]:
+
+                        yd = 0
+
+                        h = 0
+                        m = 0
+
+                        return (yd, h, m)
+
             if words[2:]:
                 stamp, up, hhmm = words[:3]
-                if stamp and hhmm:
-                    if up == "up":
+                if stamp:
+                    if (up == "up") and (":" in hhmm):
 
                         yd = 0
 
