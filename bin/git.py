@@ -543,8 +543,8 @@ class GitGopher:
 
         if posargs and (posargs == shargv[1:]):
             if shverb_shline_plus.startswith("git log "):
-                assert shverb in ("glq", "glqn", "gls", "glv"), (shverb, shline)
-                if shverb != "glqn":  # todo0: glqn $hash doesn't make much sense
+                if shverb not in ("gla", "glqn"):  # todo0: glqn $hash doesn't make much sense
+                    assert shverb in ("gl", "glq", "gls", "glv"), (shverb, shline)
                     if stdout_isatty:
                         shline += " -1"  # tilts into:  glq -1 $hash, gls -1 $hash, glv -1 $hash
 

@@ -3344,6 +3344,9 @@ if __name__ == "__main__":
 
 # smaller todo0's
 
+# (echo '620 (8h ago)' && echo '686 (8h ago)') |plf column  # why two columns not one
+# plf |sed 's,   *,\t,g' |plf  # could be |plf unexpand a la Shell
+
 # todo0: illusion of a hang at:  gg $(find . |grep [.]py$ |head -10)
 
 # todo0: . or .. or ... or .... to pop for length without reprinting
