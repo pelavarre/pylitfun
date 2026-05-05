@@ -3344,6 +3344,13 @@ if __name__ == "__main__":
 
 # smaller todo0's
 
+# .ls -l to turn off the --full-time
+
+# $ .mv dir/
+# + mv -i dir/ dir/~0505jqd1127~
+# mv: cannot move 'dir/' to a subdirectory of itself, 'dir/~0505jqd1127~'
+# $
+
 # (echo '620 (8h ago)' && echo '686 (8h ago)') |plf column  # why two columns not one
 # plf |sed 's,   *,\t,g' |plf  # could be |plf unexpand a la Shell
 

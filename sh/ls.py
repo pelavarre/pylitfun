@@ -387,5 +387,5 @@ if __name__ == "__main__":
 # except maybe i'll end up preferring to go for date/time-created over date/time-modified when those sort orders differ
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/which.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/ls.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git
