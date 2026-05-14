@@ -6635,7 +6635,7 @@ with_stderr = sys.stderr
 assert int(0x80 + signal.SIGINT) == 130  # discloses the Nonzero Exit Code for after ⌃C SigInt
 
 
-def excepthook(  # ) -> ...:
+def excepthook(  # last modified on 2025-05-14 or later
     exc_type: type[BaseException] | None,  # aka .type
     exc_value: BaseException | None,  # aka .exc_obj aka .value
     exc_traceback: types.TracebackType | None,  # aka .exc_tb aka .traceback aka .tb

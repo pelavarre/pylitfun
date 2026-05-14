@@ -15,7 +15,9 @@ quirks:
   does the 'find . |grep [.]py$' part for you
 
 examples:
-  ./sh/py2def.py excepthook
+  rm -fr ./def*.py
+  ./sh/py2def.py exc.pthook
+  ls ./def*.py
 """
 
 import argparse
@@ -93,7 +95,7 @@ def run_for_defname(defname: str) -> None:
 
             rstrip = line.rstrip()
             if re.search(pattern, string=rstrip):
-                opathname = f"./{n}.py"
+                opathname = f"./def{n}.py"
                 skip = write_one_file(opathname, path=path, lines=lines, i=i_of_line)
                 i += skip - 1
 
