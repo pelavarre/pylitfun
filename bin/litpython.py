@@ -100,7 +100,7 @@ def try_main() -> None:
         # print(t - PacificLaunch)  # < 2ms lately at my desk
 
 
-def arg_doc_to_parser(doc: str) -> "ArgDocParser":
+def arg_doc_to_parser(doc: str) -> ArgDocParser:
     """Declare the Options & Positional Arguments"""
 
     assert argparse.REMAINDER == "..."

@@ -50,7 +50,7 @@ def main() -> None:
     print()
 
 
-def arg_doc_to_parser(doc: str) -> "ArgDocParser":
+def arg_doc_to_parser(doc: str) -> ArgDocParser:
     """Declare the Options & Positional Arguments"""
 
     parser = ArgDocParser(doc, add_help=True)

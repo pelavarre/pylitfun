@@ -3344,6 +3344,12 @@ if __name__ == "__main__":
 
 # smaller todo0's
 
+# from |plf .jq . we could say
+# print(json.dumps(j)) # from |.jq
+
+# self. in place of ClassName. at mentions of @staticmethod
+# "" in place of "" in Python Source
+
 # .ls -l to turn off the --full-time
 
 # $ .mv dir/
