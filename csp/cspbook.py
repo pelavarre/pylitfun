@@ -122,6 +122,14 @@ def csp_exec(csp: str) -> None:
     if strip == "dir()":
         procnames = list(csp_builtins.keys())
         print(procnames)
+
+        return
+
+    if strip.startswith("??") or strip.endswith("??"):
+        procname = strip.strip("?")
+        named = to_proc_from_name(procname)
+        print(json.dumps(named))
+
         return
 
     # todo: Disentangle the Scopes of one Proc Def and the next
@@ -131,16 +139,9 @@ def csp_exec(csp: str) -> None:
     # Step through the Csp Code
 
     procname = strip
+    named = to_proc_from_name(procname)
+
     while True:
-
-        # Take a Proc Name
-
-        if procname in csp_globals.keys():
-            named = csp_globals[procname]
-        elif procname in csp_builtins.keys():
-            named = csp_builtins[procname]
-        else:
-            raise NameError(f"name {procname!r} is not defined")
 
         # Complete an Empty Proc
 
@@ -171,6 +172,12 @@ def csp_exec(csp: str) -> None:
 
         # Step into the Seq
 
+        esc = "⎋"
+        end = "⏎\n"
+
+        esc = "\x1B"
+        end = ""
+
         while True:
 
             assert seq[1:], (seq, procname)
@@ -186,6 +193,9 @@ def csp_exec(csp: str) -> None:
 
                 ack = sys.stdin.readline()  # echoes to stdout
                 if ack == "\n":
+                    sys.stdout.flush()
+                    print(f"{esc}[A" f"{esc}[K", end=f"{end}", file=sys.stderr)
+                    sys.stderr.flush()
                     continue
 
                 print()
@@ -193,10 +203,32 @@ def csp_exec(csp: str) -> None:
 
             if isinstance(guarded, str):
                 procname = guarded
+                named = to_proc_from_name(procname)
                 break
 
             assert isinstance(guarded, list), (type(guarded), guarded)
             seq = guarded
+
+            continue
+
+        if named:
+            print()  # shows the jump into the next Proc
+
+        continue
+
+def to_proc_from_name(procname: str) -> typing.Any:
+    """Fetch the Body of a Proc Def"""
+
+    csp_builtins = csp_sys_modules["builtins"]
+
+    if procname in csp_globals.keys():
+        named = csp_globals[procname]
+    elif procname in csp_builtins.keys():
+        named = csp_builtins[procname]
+    else:
+        raise NameError(f"name {procname!r} is not defined")
+
+    return named
 
 
 def import_csp_module(modulename: str) -> object:
