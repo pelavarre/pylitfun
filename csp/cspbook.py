@@ -16,7 +16,6 @@ quirks:
   works like Python works:
     cspbook.py --help
     cspbook.py --
-    cspbook.py -i
     cspbook.py -i -c ''
       dir()
 
@@ -95,9 +94,11 @@ def try_main() -> None:
 
     pathname = sys.argv[0]
     if (not ns.c) and (not ns.i):
-        version = pathname_read_version(pathname)
+        version = pathname_read_version(pathname)  # '0.15.255'
         ymd = PacificLaunch.strftime("%Y-%m-%d")
-        eprint(f"Python Csp {version} (main, {ymd})", file=sys.stderr)
+        eprint(f"Csp Python {version} (main, {ymd})", file=sys.stderr)
+
+        # Csp Python 0.9.89 (main, 2026-05-25)
 
     if ns.c:
         csp = ns.c
