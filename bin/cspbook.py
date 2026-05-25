@@ -28,6 +28,7 @@ import collections.abc
 import dataclasses
 import datetime as dt
 import difflib
+import json
 import os
 import pdb
 import signal
@@ -101,8 +102,66 @@ def arg_doc_to_parser(doc: str) -> ArgDocParser:
 #
 
 
+csp_sys_modules: dict[str, object] = dict()
+
+
 def csp_exec(csp: str) -> None:
     """Exec one line of csp code"""
+
+    modulename = csp
+    _ = import_csp_module(modulename)
+
+
+def import_csp_module(modulename: str) -> object:
+    """Import one Csp Module at most once per Linux Process"""
+
+    if modulename in csp_sys_modules.keys():
+        return csp_sys_modules[modulename]
+
+    #
+
+    pathnames = which_csp_module(modulename)
+
+    if not pathnames:
+        raise ModuleNotFoundError(f"No module named {modulename!r}")  # in os.getcwd()
+
+    if pathnames[1:]:
+        n = len(pathnames)
+        raise ModuleNotFoundError(f"name {modulename!r} has {n} definitions: {pathnames}")
+
+    #
+
+    pathname = pathnames[-1]
+
+    try:
+        pj = json.loads(pathname)
+    except Exception as exc:
+        raise SyntaxError(f"name {modulename!r} at {pathname!r}") from exc
+
+    #
+
+    csp_sys_modules[modulename] = pj
+
+    return pj
+
+
+def which_csp_module(modulename: str) -> list[str]:
+    """Find all the Pathnames of a Csp Module Name"""
+
+    pathnames = list()
+
+    filename = f"{modulename}.json"
+    casefold = filename.casefold()
+
+    for dirpath, dirnames, filenames in os.walk("."):
+        dirnames.sort()  # no matter if hidden dir
+        filenames.sort()
+        casefolds = list(_.casefold() for _ in filenames)
+        if casefold in casefolds:  # no matter if hidden file
+            pathname = os.path.join(dirpath, filename)
+            pathnames.append(pathname)
+
+    return pathnames  # maybe empty, maybe multiple
 
 
 #
