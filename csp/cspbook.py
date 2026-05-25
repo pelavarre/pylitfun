@@ -98,7 +98,7 @@ def try_main() -> None:
         ymd = PacificLaunch.strftime("%Y-%m-%d")
         eprint(f"Csp Python {version} (main, {ymd})", file=sys.stderr)
 
-        # Csp Python 0.9.89 (main, 2026-05-25)
+        # Csp Python 0.4.39 (main, 2026-05-24)
 
     if ns.c:
         csp = ns.c
@@ -172,6 +172,7 @@ def csp_exec(csp: str) -> None:
         # Complete an Empty Proc
 
         if not named:
+            print("STOP")
             break
 
         # Take a Global Proc Def, else an unnamed Seq

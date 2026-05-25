@@ -58,7 +58,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.10.31 (main, 2026-05-25)
+    Csp Python 0.3.221 (main, 2026-05-25)
     csp>
     csp> ^D
     %
@@ -93,6 +93,7 @@ Run a Csp Proc of 1 Event.
     ["coin", "STOP"]
     csp> U1
     coin
+    STOP
     csp> 
 
 6
@@ -107,6 +108,7 @@ Run a Csp Proc through 4 Events.
     choc
     coin
     choc
+    STOP
     csp> 
 
 7
@@ -120,6 +122,7 @@ Run another Csp Proc through 4 Events.
     up
     right
     right
+    STOP
     csp> 
 
 8
