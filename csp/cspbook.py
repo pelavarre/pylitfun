@@ -30,12 +30,14 @@ import datetime as dt
 import difflib
 import json
 import os
+import pathlib
 import pdb
 import signal
 import sys
 import textwrap
 import traceback
 import types
+import typing
 import zoneinfo
 
 _: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
@@ -75,6 +77,8 @@ def try_main() -> None:
     parser = arg_doc_to_parser(doc)
     ns = parser.parse_args_if(sys.argv[1:])
 
+    _ = import_csp_module("builtins")
+
     if ns.c:
         csp = ns.c
         csp_exec(csp)
@@ -102,23 +106,30 @@ def arg_doc_to_parser(doc: str) -> ArgDocParser:
 #
 
 
-csp_sys_modules: dict[str, object] = dict()
+csp_sys_modules: dict[str, typing.Any] = dict()
 
 
 def csp_exec(csp: str) -> None:
     """Exec one line of csp code"""
 
-    modulename = csp
-    _ = import_csp_module(modulename)
+    builtins = csp_sys_modules["builtins"]
+
+    if csp not in builtins.keys():
+        raise NameError(f"name {csp!r} is not defined")
+
+    pj = builtins[csp]
+    print(json.dumps(pj, indent=2))
 
 
 def import_csp_module(modulename: str) -> object:
     """Import one Csp Module at most once per Linux Process"""
 
+    # Import at most once
+
     if modulename in csp_sys_modules.keys():
         return csp_sys_modules[modulename]
 
-    #
+    # Require exactly one Source File found
 
     pathnames = which_csp_module(modulename)
 
@@ -129,18 +140,25 @@ def import_csp_module(modulename: str) -> object:
         n = len(pathnames)
         raise ModuleNotFoundError(f"name {modulename!r} has {n} definitions: {pathnames}")
 
-    #
+    # Take as 1 Json Object
 
     pathname = pathnames[-1]
 
-    try:
-        pj = json.loads(pathname)
-    except Exception as exc:
-        raise SyntaxError(f"name {modulename!r} at {pathname!r}") from exc
+    path = pathlib.Path(pathname)
+    text = path.read_text()
 
-    #
+    pj = dict()
+    if text:
+        try:
+            pj = json.loads(text)
+        except Exception as exc:
+            raise SyntaxError(f"name {modulename!r} at {pathname!r}") from exc
+
+    # Start mutating the Json Object
 
     csp_sys_modules[modulename] = pj
+
+    # Succeed
 
     return pj
 
@@ -156,9 +174,11 @@ def which_csp_module(modulename: str) -> list[str]:
     for dirpath, dirnames, filenames in os.walk("."):
         dirnames.sort()  # no matter if hidden dir
         filenames.sort()
+
         casefolds = list(_.casefold() for _ in filenames)
         if casefold in casefolds:  # no matter if hidden file
             pathname = os.path.join(dirpath, filename)
+
             pathnames.append(pathname)
 
     return pathnames  # maybe empty, maybe multiple
