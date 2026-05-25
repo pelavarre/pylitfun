@@ -1,8 +1,10 @@
 # pylitfun / ... / cspbook-py-readme.md
 
-We'll put words here soon, I promise
+What should the CLI be for speaking with a CSP Program, when you've got Python on your desk in place of Lisp?
 
-Of course, if you make time to ask me now, then I'll put more words here more promptly
+How about like this?
+
+
 
 <!--
 

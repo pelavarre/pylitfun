@@ -10,10 +10,23 @@ options:
   -i          prompt and reply, loop loop till quit
   -c CSP      one line of csp code to exec
 
+quirks:
+  trusts you to press Return to continue, ⌃C to cancel, ⌃D to quit
+  trusts your Terminal Shell tab to understand ⎋[⇧A ⎋[⇧K
+  works like Python works:
+    cspbook.py --help
+    cspbook.py --
+    cspbook.py -i
+    cspbook.py -i -c ''
+      dir()
+
 examples:
   cspbook.py
-  cspbook.py -i -c ''
+  cspbook.py --help
   cspbook.py -c STOP
+  cspbook.py -c CTR
+  cspbook.py -c CLOCK1
+  cspbook.py -c CH5B
 """
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -28,6 +41,7 @@ import collections.abc
 import dataclasses
 import datetime as dt
 import difflib
+import hashlib
 import json
 import os
 import pathlib
@@ -79,9 +93,15 @@ def try_main() -> None:
 
     _ = import_csp_module("builtins")
 
+    pathname = sys.argv[0]
+    if (not ns.c) and (not ns.i):
+        version = pathname_read_version(pathname)
+        ymd = PacificLaunch.strftime("%Y-%m-%d")
+        eprint(f"Python Csp {version} (main, {ymd})", file=sys.stderr)
+
     if ns.c:
         csp = ns.c
-        csp_exec(csp)
+        csp_exec(csp)  # may raise SystemExit
 
     if ns.i or not ns.c:
         csp_chat()
@@ -116,6 +136,11 @@ def csp_exec(csp: str) -> None:
     strip = csp.strip()
 
     csp_builtins = csp_sys_modules["builtins"]
+
+    # Take 'dir()' as a meta-instruction
+
+    if strip in ("exit", "exit()", "quit", "quit()"):
+        sys.exit()
 
     # Take 'dir()' as a meta-instruction
 
@@ -162,7 +187,7 @@ def csp_exec(csp: str) -> None:
             seq = named[procname]
 
             if procname in csp_globals.keys():
-                print(f"Warning: Redefining Global Proc {procname!r}", file=sys.stderr)
+                eprint(f"Warning: Redefining Global Proc {procname!r}", file=sys.stderr)
 
             csp_globals[procname] = seq
 
@@ -171,12 +196,6 @@ def csp_exec(csp: str) -> None:
             raise NotImplementedError(type(named), named)
 
         # Step into the Seq
-
-        esc = "⎋"
-        end = "⏎\n"
-
-        esc = "\x1B"
-        end = ""
 
         while True:
 
@@ -187,16 +206,15 @@ def csp_exec(csp: str) -> None:
             for eventname in guards:
                 print(eventname)
 
-                sys.stdout.flush()
-                print("> ", end="", file=sys.stderr)
-                sys.stderr.flush()
-
+                eprint("> ", end="", file=sys.stderr)
                 ack = sys.stdin.readline()  # echoes to stdout
-                if ack == "\n":
-                    sys.stdout.flush()
-                    print(f"{esc}[A" f"{esc}[K", end=f"{end}", file=sys.stderr)
-                    sys.stderr.flush()
+
+                if ack == "\n" or (ack.strip() == eventname):
+                    eprint("\033[A" "\033[K", end="", file=sys.stderr)
                     continue
+
+                    # ⎋[A Cursor Up (CUP)
+                    # ⎋[K Erase in Line (EL)
 
                 print()
                 return
@@ -215,6 +233,7 @@ def csp_exec(csp: str) -> None:
             print()  # shows the jump into the next Proc
 
         continue
+
 
 def to_proc_from_name(procname: str) -> typing.Any:
     """Fetch the Body of a Proc Def"""
@@ -322,9 +341,7 @@ def csp_chat() -> None:
 
     while True:
 
-        sys.stdout.flush()
-        print("csp> ", end="", file=sys.stderr)
-        sys.stderr.flush()
+        eprint("csp> ", end="", file=sys.stderr)
 
         try:
             csp = sys.stdin.readline()  # echoes to stdout
@@ -342,7 +359,7 @@ def csp_chat() -> None:
             continue
 
         try:
-            csp_exec(csp)
+            csp_exec(csp)  # may raise SystemExit
         except KeyboardInterrupt:
             print()
             print("KeyboardInterrupt")
@@ -580,6 +597,47 @@ class ArgDocParser:
         return diffs
 
         # .parser.format_help defaults to color its texts, since Oct/2025 Python 3.14
+
+
+#
+# Amp up Import HashLib
+#
+
+
+def pathname_read_version(pathname: str) -> str:
+    """Hash the Bytes of a File down to a purely Decimal $Major.$Minor.$Micro Version Str"""
+
+    path = pathlib.Path(pathname)
+    path_bytes = path.read_bytes()
+
+    hasher = hashlib.md5()
+    hasher.update(path_bytes)
+    hash_bytes = hasher.digest()
+
+    str_hash = hash_bytes.hex()
+    str_hash = str_hash.upper()  # such as 32 nybbles 'a451f4d7589110b33da89a2d173216e3'
+
+    major = 0
+    minor = int(str_hash[0], 0x10)  # 0..15
+    micro = int(str_hash[1:][:2], 0x10)  # 0..255
+
+    version = f"{major}.{minor}.{micro}"
+    return version
+
+    # 0.15.255
+
+
+#
+# Amp up Import Sys
+#
+
+
+def eprint(*args: object, end: str = "\n", file: typing.TextIO) -> None:
+    """Print to Stderr without disordering Stdout"""
+
+    sys.stdout.flush()  # especially when file is not sys.stdout
+    print(*args, end=end, file=file)
+    sys.stderr.flush()
 
 
 #
