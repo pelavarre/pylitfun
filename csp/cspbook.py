@@ -107,18 +107,96 @@ def arg_doc_to_parser(doc: str) -> ArgDocParser:
 
 
 csp_sys_modules: dict[str, typing.Any] = dict()
+csp_globals: dict[str, typing.Any] = dict()
 
 
 def csp_exec(csp: str) -> None:
     """Exec one line of csp code"""
 
-    builtins = csp_sys_modules["builtins"]
+    strip = csp.strip()
 
-    if csp not in builtins.keys():
-        raise NameError(f"name {csp!r} is not defined")
+    csp_builtins = csp_sys_modules["builtins"]
 
-    pj = builtins[csp]
-    print(json.dumps(pj, indent=2))
+    # Take 'dir()' as a meta-instruction
+
+    if strip == "dir()":
+        procnames = list(csp_builtins.keys())
+        print(procnames)
+        return
+
+    # todo: Disentangle the Scopes of one Proc Def and the next
+
+    csp_globals.clear()
+
+    # Step through the Csp Code
+
+    procname = strip
+    while True:
+
+        # Take a Proc Name
+
+        if procname in csp_globals.keys():
+            named = csp_globals[procname]
+        elif procname in csp_builtins.keys():
+            named = csp_builtins[procname]
+        else:
+            raise NameError(f"name {procname!r} is not defined")
+
+        # Complete an Empty Proc
+
+        if not named:
+            break
+
+        # Take a Global Proc Def, else an unnamed Seq
+
+        if isinstance(named, list):
+
+            seq = named
+
+        elif isinstance(named, dict):
+            keys = list(named.keys())
+            assert len(keys) == 1, (keys, procname)
+
+            procname = keys[-1]
+            seq = named[procname]
+
+            if procname in csp_globals.keys():
+                print(f"Warning: Redefining Global Proc {procname!r}", file=sys.stderr)
+
+            csp_globals[procname] = seq
+
+        else:
+
+            raise NotImplementedError(type(named), named)
+
+        # Step into the Seq
+
+        while True:
+
+            assert seq[1:], (seq, procname)
+            guards = seq[:-1]
+            guarded = seq[-1]
+
+            for eventname in guards:
+                print(eventname)
+
+                sys.stdout.flush()
+                print("> ", end="", file=sys.stderr)
+                sys.stderr.flush()
+
+                ack = sys.stdin.readline()  # echoes to stdout
+                if ack == "\n":
+                    continue
+
+                print()
+                return
+
+            if isinstance(guarded, str):
+                procname = guarded
+                break
+
+            assert isinstance(guarded, list), (type(guarded), guarded)
+            seq = guarded
 
 
 def import_csp_module(modulename: str) -> object:
@@ -153,6 +231,24 @@ def import_csp_module(modulename: str) -> object:
             pj = json.loads(text)
         except Exception as exc:
             raise SyntaxError(f"name {modulename!r} at {pathname!r}") from exc
+
+    keys = list(pj.keys())
+    for k in keys:
+        assert isinstance(k, str), (type(k), k)
+
+    for k in keys:
+        assert isinstance(k, str), (type(k), k)
+
+        if k == "__doc__":  # keeps the Docstring
+            continue
+
+        if k.startswith("#"):  # drops each Comment
+            del pj[k]
+            continue
+
+        if k.startswith("__") and k.endswith("__"):  # drops each Dunder Key, no matter if known
+            del pj[k]
+            continue
 
     # Start mutating the Json Object
 
@@ -198,15 +294,29 @@ def csp_chat() -> None:
         print("csp> ", end="", file=sys.stderr)
         sys.stderr.flush()
 
-        csp = sys.stdin.readline()  # echoes to stdout
+        try:
+            csp = sys.stdin.readline()  # echoes to stdout
+        except KeyboardInterrupt:
+            print()
+            print("KeyboardInterrupt")
+            continue
 
         if not csp:
             print()
             sys.stdout.flush()
-
             break
 
-        csp_exec(csp)
+        if not csp.strip():
+            continue
+
+        try:
+            csp_exec(csp)
+        except KeyboardInterrupt:
+            print()
+            print("KeyboardInterrupt")
+            continue
+
+        continue
 
 
 #

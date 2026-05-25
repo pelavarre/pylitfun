@@ -1,9 +1,73 @@
 {
     "__doc__": "todo: docstring for csp/builtins.json",
-    "CLOCK": [
-        "tick",
-        "CLOCK"
+    "# 1.1.1": "Prefix",
+    "U1": [
+        "coin",
+        "STOP"
     ],
+    "U2": [
+        "coin",
+        [
+            "choc",
+            [
+                "coin",
+                [
+                    "choc",
+                    "STOP"
+                ]
+            ]
+        ]
+    ],
+    "CTR": [
+        "right",
+        "up",
+        "right",
+        "right",
+        "STOP"
+    ],
+    "# 1.1.2": "Recursion",
+    "CLOCK1": [
+        "tick",
+        "CLOCK1"
+    ],
+    "CLOCK2": {
+        "X": [
+            "tick",
+            "X"
+        ]
+    },
+    "VMS1": [
+        "coin",
+        [
+            "choc",
+            "VMS1"
+        ]
+    ],
+    "VMS2": {
+        "X": [
+            "coin",
+            [
+                "choc",
+                "X"
+            ]
+        ]
+    },
+    "CH5A": [
+        "in5p",
+        "out2p",
+        "out1p",
+        "out2p",
+        "CH5A"
+    ],
+    "CH5B": [
+        "in5p",
+        "out1p",
+        "out1p",
+        "out1p",
+        "out2p",
+        "CH5B"
+    ],
+    "STOP": [],
     "__farewell__": [
         "posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/builtins.json",
         "copied from:  git clone https://github.com/pelavarre/litpython.git"
