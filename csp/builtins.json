@@ -1,0 +1,15 @@
+{
+    "__doc__": "todo: docstring for csp/builtins.json",
+    "defs": [
+        {
+            "CLOCK": [
+                "tick",
+                "CLOCK"
+            ]
+        }
+    ],
+    "__farewell__": [
+        "posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/builtins.json",
+        "copied from:  git clone https://github.com/pelavarre/litpython.git"
+    ]
+}
