@@ -43,6 +43,7 @@ Ask for more of a man page.
         cspbook.py --
         cspbook.py -i -c ''
           dir()
+          dir(__builtins__)
 
     examples:
       cspbook.py
@@ -58,7 +59,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.3.221 (main, 2026-05-25)
+    Csp Python 0.1.46 (main, 2026-05-30)
     csp>
     csp> ^D
     %
@@ -68,15 +69,20 @@ Ask what version you're working with, and quit.
 Chat without showing the version, and look at the built-in globals, but then quit.
 
     % ./csp/cspbook.py -i -c ''
-    csp> 
+    csp>
     csp> dir()
+    ['__builtins__', '__doc__']
+    csp>
+    csp> dir(__builtins__)
     ['__doc__', 'U1', 'U2', 'CTR', 'CLOCK1', 'CLOCK2', 'VMS1', 'VMS2', 'CH5A', 'CH5B', 'STOP']
-    csp> 
-    csp> ^C
-    KeyboardInterrupt
-    csp> 
+    csp>
+    csp> __builtins__.__doc__
+    'Built-in procs, and other objects.'
+    csp>
+    csp> __doc__
+    csp>
     csp> ^D
-    % 
+    %
 
 5
 
@@ -85,16 +91,16 @@ Chat to show the source, and run the source.
 Run a Csp Proc of 1 Event.
 
     % ./csp/cspbook.py -i -c ''
-    csp> 
+    csp>
     csp> dir()
     ['__doc__', 'U1', 'U2', 'CTR', 'CLOCK1', 'CLOCK2', 'VMS1', 'VMS2', 'CH5A', 'CH5B', 'STOP']
-    csp> 
+    csp>
     csp> U1??
     ["coin", "STOP"]
     csp> U1
     coin
     STOP
-    csp> 
+    csp>
 
 6
 
@@ -102,14 +108,14 @@ Run a Csp Proc through 4 Events.
 
     csp> U2??
     ["coin", ["choc", ["coin", ["choc", "STOP"]]]]
-    csp> 
+    csp>
     csp> U2
     coin
     choc
     coin
     choc
     STOP
-    csp> 
+    csp>
 
 7
 
@@ -123,7 +129,7 @@ Run another Csp Proc through 4 Events.
     right
     right
     STOP
-    csp> 
+    csp>
 
 8
 
@@ -133,13 +139,13 @@ Run a Csp Proc that loops.
     ["tick", "CLOCK1"]
     csp> CLOCK1
     tick
-    
+
     tick
-    
+
     tick
     > ^C
     KeyboardInterrupt
-    csp> 
+    csp>
 
 9
 
@@ -149,14 +155,14 @@ Run another Csp Proc that loops, but defined in terms of a local name "X" for th
     {"X": ["tick", "X"]}
     csp> CLOCK2
     tick
-    
+
     tick
-    
+
     tick
     > ^C
     KeyboardInterrupt
-    csp> 
-    csp> 
+    csp>
+    csp>
 
 10
 
@@ -167,12 +173,12 @@ Run a Csp Proc that loops through more than one Event.
     csp> VMS1
     coin
     choc
-    
+
     coin
     choc
     > ^C
     KeyboardInterrupt
-    csp> 
+    csp>
 
 11
 
@@ -183,14 +189,14 @@ Run another Csp Proc that loops through more than one Event, and defined in term
     csp> VMS2
     coin
     choc
-    
+
     coin
     choc
-    
+
     coin
     > ^C
     KeyboardInterrupt
-    csp> 
+    csp>
 
 12
 
@@ -207,11 +213,11 @@ Run a Csp Proc that loops through four Events.
     out2p
     out1p
     out2p
-    
+
     in5p
     > ^C
     KeyboardInterrupt
-    csp> 
+    csp>
 
 13
 
@@ -225,24 +231,24 @@ Run another Csp Proc that loops through four Events.
     out1p
     out1p
     out2p
-    
+
     in5p
     > ^C
     KeyboardInterrupt
-    csp> 
+    csp>
 
 14
 
 Run an empty Csp Proc, and quit chatting.
 
-    csp> 
+    csp>
     csp> STOP
-    csp> 
+    csp>
     csp> ^C
     KeyboardInterrupt
-    csp> 
+    csp>
     csp> ^D
-    % 
+    %
 
 <!--
 

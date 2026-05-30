@@ -93,12 +93,10 @@ def try_main() -> None:
     _ = import_csp_module("builtins")
 
     pathname = sys.argv[0]
-    if (not ns.c) and (not ns.i):
-        version = pathname_read_version(pathname)  # '0.15.255'
-        ymd = PacificLaunch.strftime("%Y-%m-%d")
-        eprint(f"Csp Python {version} (main, {ymd})", file=sys.stderr)
+    str_version = pathname_read_hash_ymd_version(pathname)  # '0.4.39 (main, 2026-05-24)'
 
-        # Csp Python 0.4.39 (main, 2026-05-24)
+    if (not ns.c) and (not ns.i):
+        eprint(f"Csp Python {str_version}", file=sys.stderr)
 
     if ns.c:
         csp = ns.c
@@ -135,36 +133,56 @@ def csp_exec(csp: str) -> None:
     """Exec one line of csp code"""
 
     strip = csp.strip()
+    join = "".join(csp.split())
 
+    csp_dir = ["__builtins__", "__doc__"]  # todo: add ["__name__"] = "__main__", etc
     csp_builtins = csp_sys_modules["builtins"]
 
-    # Take 'dir()' as a meta-instruction
+    # Take 'quit()' etc as a meta-instruction
 
-    if strip in ("exit", "exit()", "quit", "quit()"):
+    if join in ("exit", "exit()", "quit", "quit()"):
         sys.exit()
 
-    # Take 'dir()' as a meta-instruction
+    # Take 'dir()' and 'dir(__builtins__)' as meta-instructions
 
-    if strip == "dir()":
-        procnames = list(csp_builtins.keys())
-        print(procnames)
-
+    if join == "__doc__":  # todo: find "__doc__" in .csp_dir and quit before .csp_builtins
         return
+
+    if join == "dir()":
+        procnames = list(csp_dir)  # 'better copied than aliased'
+        print(procnames)
+        return
+
+    if join == "dir(__builtins__)":
+        procnames = list(csp_builtins)  # 'better copied than aliased'
+        print(procnames)
+        return
+
+    if join == "__builtins__.__doc__":
+        print(repr(csp_builtins["__doc__"]))
+        return
+
+    # Take suffix or prefix '??' as a meta-instruction
 
     if strip.startswith("??") or strip.endswith("??"):
         procname = strip.strip("?")
         named = to_proc_from_name(procname)
         print(json.dumps(named))
-
         return
+
+    # Single Step through the Csp Code of 1 Proc Def
+
+    procname = strip
+    procname_single_step(procname)
 
     # todo: Disentangle the Scopes of one Proc Def and the next
 
+
+def procname_single_step(procname: str) -> None:
+    """Single Step through the Csp Code of 1 Proc Def"""
+
     csp_globals.clear()
 
-    # Step through the Csp Code
-
-    procname = strip
     named = to_proc_from_name(procname)
 
     while True:
@@ -604,6 +622,19 @@ class ArgDocParser:
 #
 # Amp up Import HashLib
 #
+
+
+def pathname_read_hash_ymd_version(pathname: str) -> str:
+    """Give this revision of this Python Program a Version Date & Name"""
+
+    path = pathlib.Path(pathname)
+    mtime = dt.datetime.fromtimestamp(path.stat().st_mtime).astimezone()
+    ymd_version = mtime.strftime("%Y-%m-%d")
+
+    hash_version = pathname_read_version(pathname)  # '0.15.255'
+
+    str_version = f"{hash_version} (main, {ymd_version})"  # '0.4.39 (main, 2026-05-24)'
+    return str_version
 
 
 def pathname_read_version(pathname: str) -> str:

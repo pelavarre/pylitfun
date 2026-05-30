@@ -1,5 +1,5 @@
 {
-    "__doc__": "todo: docstring for csp/builtins.json",
+    "__doc__": "Built-in procs, and other objects.",
     "# 1.1.1": "Prefix",
     "U1": [
         "coin",
