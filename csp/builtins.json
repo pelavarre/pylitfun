@@ -4,11 +4,11 @@
   "STOP": [],
   "# 1.1": "Introduction",
   "# 1.1.1": "Prefix",
-  "X1A": [
+  "X1.A": [
     "coin",
     "STOP"
   ],
-  "X2A": [
+  "X2.A": [
     "coin",
     [
       "choc",
@@ -29,24 +29,24 @@
     "STOP"
   ],
   "# 1.1.2": "Recursion",
-  "CLOCK1": [
+  "CLOCK.A": [
     "tick",
-    "CLOCK1"
+    "CLOCK.A"
   ],
-  "CLOCK2": {
+  "CLOCK.B": {
     "X": [
       "tick",
       "X"
     ]
   },
-  "VMS1": [
+  "VMS.A": [
     "coin",
     [
       "choc",
-      "VMS1"
+      "VMS.A"
     ]
   ],
-  "VMS2": {
+  "VMS.B": {
     "X": [
       "coin",
       [
@@ -71,7 +71,7 @@
     "CH5B"
   ],
   "# 1.1.3": "Choice",
-  "X1B": {
+  "X1.B": {
     "up": "STOP",
     "right": [
       "right",
@@ -120,7 +120,35 @@
       }
     }
   },
-  "# 1.1.3 X5 X6 X7 X8": "todo",
+  "VMCRED": {
+    "X": {
+      "coin": [
+        "choc",
+        "X"
+      ],
+      "choc": [
+        "coin",
+        "X"
+      ]
+    }
+  },
+  "VMS2": [
+    "coin",
+    "VMCRED"
+  ],
+  "COPYBIT": {
+    "X": {
+      "in.0": [
+        "out.0",
+        "X"
+      ],
+      "in.1": [
+        "out.1",
+        "X"
+      ]
+    }
+  },
+  "# 1.1.3 X8": "gives us nothing to put here",
   "# 1.1.4": "Mutual recursion",
   "__farewell__": [
     "posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/builtins.json",

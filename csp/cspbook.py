@@ -184,7 +184,7 @@ def _exec_(csp: str) -> None:
     # todo: Disentangle the Scopes of one Proc Def and the next
 
 
-def procname_single_step(procname: str) -> None:
+def procname_single_step(procname: str) -> None:  # todo: fixme:  # noqa C901 complex (16)
     """Walk through the Events of 1 Named Process"""
 
     proc = to_proc_from_name(procname)
@@ -214,10 +214,7 @@ def procname_single_step(procname: str) -> None:
             assert len(items) == 1, (len(items), items)
 
             item = items[-1]
-            k = item[0]
             v = item[-1]
-
-            assert k == procname, (k, procname)
 
             if procname in _globals_.keys():
                 eprint(f"Warning: Redefining Global Proc {procname!r}", file=sys.stderr)
@@ -251,10 +248,20 @@ def procname_single_step(procname: str) -> None:
 
                 # Walk through a Sequence named by Shorthand of Shorthand
 
-                assert isinstance(v_v, Sequence), (type(v_v), v_v)
-                seq = v_v
+                if isinstance(v_v, Sequence):
+                    seq = v_v
 
-                proc = seq_single_step(seq)
+                    proc = seq_single_step(seq)
+                    if proc:
+                        continue
+                    break
+
+                # Walk through a Choice named by Shorthand of Shorthand
+
+                assert isinstance(v_v, Choice), (type(v_v), v_v)
+                choice = v_v
+
+                proc = choice_single_step(choice)
                 if proc:
                     continue
                 break
@@ -539,11 +546,15 @@ class Shorthand(dict[str, object]):
             self[k] = sequence
         else:
             assert isinstance(v, dict), (type(v), v)
-            assert len(v.keys()) == 1, (len(v.keys()), v.keys(), v)
-
-            v_items = list(v.items())
-            shorthand = Shorthand(v_items)
-            self[k] = shorthand
+            if len(v.keys()) == 1:
+                v_items = list(v.items())
+                shorthand = Shorthand(v_items)
+                self[k] = shorthand
+            else:
+                assert len(v.keys()) > 1, (len(v.keys()), v.keys(), v)
+                v_items = list(v.items())
+                choice = Choice(v)
+                self[k] = choice
 
 
 class Choice(dict[str, object]):
@@ -1005,9 +1016,6 @@ def excepthook(  # last modified on 2026-05-14 or later
 
 if __name__ == "__main__":
     main()
-
-
-# todo: objects for iterating over
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789

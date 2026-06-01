@@ -15,7 +15,7 @@ Ask what you can do.
     cspbook.py
     cspbook.py --help
     cspbook.py -c CTR
-    cspbook.py -c CLOCK1
+    cspbook.py -c CLOCK.B
     cspbook.py -c CH5B
     cspbook.py --
 
@@ -48,10 +48,10 @@ Ask for more of a man page.
     examples:
       cspbook.py
       cspbook.py --help
-      cspbook.py -c STOP
       cspbook.py -c CTR
-      cspbook.py -c CLOCK1
+      cspbook.py -c CLOCK.B
       cspbook.py -c CH5B
+      cspbook.py --
     %
 
 3
@@ -59,7 +59,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.5.67 (main, 2026-05-31)
+    Csp Python 0.9.98 (main, 2026-06-01)
     csp>
     csp> ^D
     %
@@ -74,7 +74,7 @@ Chat without showing the version, and look at the built-in globals, but then qui
     ['__builtins__', '__doc__']
     csp>
     csp> dir(__builtins__)
-    ['__doc__', 'STOP', 'X1A', 'X2A', 'CTR', 'CLOCK1', 'CLOCK2', 'VMS1', 'VMS2', 'CH5A', 'CH5B', 'X1B', 'CH5C', 'VMCT', 'VMC']
+    ['__doc__', 'STOP', 'X1.A', 'X2.A', 'CTR', 'CLOCK.A', 'CLOCK.B', 'VMS.A', 'VMS.B', 'CH5A', 'CH5B', 'X1.B', 'CH5C', 'VMCT', 'VMC', 'VMCRED', 'VMS2', 'COPYBIT']
     csp>
     csp> __builtins__.__doc__
     'Built-in procs, and other objects.'
@@ -93,20 +93,19 @@ Run a Csp Process of 1 Event.
     % ./csp/cspbook.py -i -c ''
     csp>
     csp> dir(__builtins__)
-    ['__doc__', 'STOP', 'X1A', 'X2A', 'CTR', 'CLOCK1', 'CLOCK2', 'VMS1', 'VMS2', 'CH5A', 'CH5B', 'X1B', 'CH5C', 'VMCT', 'VMC']
+    ['__doc__', 'STOP', 'X1.A', 'X2.A', 'CTR', 'CLOCK.A', 'CLOCK.B', 'VMS.A', 'VMS.B', 'CH5A', 'CH5B', 'X1.B', 'CH5C', 'VMCT', 'VMC', 'VMCRED', 'VMS2', 'COPYBIT']
     csp>
-    csp> U1??
+    csp> X1.A??
     ["coin", "STOP"]
-    csp> U1
+    csp> X1.A
     coin
-    STOP
     csp>
 
 6
 
 Run a Csp Process through 4 Events.
 
-    csp> U2??
+    csp> X2.A??
     ["coin", ["choc", ["coin", ["choc", "STOP"]]]]
     csp>
     csp> U2
@@ -114,7 +113,6 @@ Run a Csp Process through 4 Events.
     choc
     coin
     choc
-    STOP
     csp>
 
 7
@@ -128,16 +126,15 @@ Run another Csp Process through 4 Events.
     up
     right
     right
-    STOP
     csp>
 
 8
 
 Run a Csp Process that loops.
 
-    csp> CLOCK1??
-    ["tick", "CLOCK1"]
-    csp> CLOCK1
+    csp> CLOCK.A??
+    ["tick", "CLOCK.A"]
+    csp> CLOCK.A
     tick
 
     tick
@@ -151,9 +148,9 @@ Run a Csp Process that loops.
 
 Run another Csp Process that loops, but defined in terms of a local name "X" for the Process.
 
-    csp> CLOCK2??
+    csp> CLOCK.B??
     {"X": ["tick", "X"]}
-    csp> CLOCK2
+    csp> CLOCK.B
     tick
 
     tick
@@ -168,9 +165,9 @@ Run another Csp Process that loops, but defined in terms of a local name "X" for
 
 Run a Csp Process that loops through more than one Event.
 
-    csp> VMS1??
-    ["coin", ["choc", "VMS1"]]
-    csp> VMS1
+    csp> VMS.A??
+    ["coin", ["choc", "VMS.A"]]
+    csp> VMS.A
     coin
     choc
 
@@ -184,9 +181,9 @@ Run a Csp Process that loops through more than one Event.
 
 Run another Csp Process that loops through more than one Event, and defined in terms of a local name "X" for the Process.
 
-    csp> VMS2??
+    csp> VMS.B??
     {"X": ["coin", ["choc", "X"]]}
-    csp> VMS2
+    csp> VMS.B
     coin
     choc
 
@@ -243,16 +240,19 @@ Run an empty Csp Process, and quit chatting.
 
     csp>
     csp> STOP
+    STOP
     csp>
+
     csp> ^C
     KeyboardInterrupt
     csp>
+
     csp> ^D
     %
 
 15
 
-Todo: Run Csp Processes that make choices: X1B, CH5C, VMCT, VMC, etc
+Todo: Run Csp Processes that make choices: X1.B, CH5C, VMCT, VMC, VMCRED, VMS2, COPYBIT etc
 
 <!--
 
