@@ -59,7 +59,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.5.248 (main, 2026-05-31)
+    Csp Python 0.5.67 (main, 2026-05-31)
     csp>
     csp> ^D
     %
@@ -74,7 +74,7 @@ Chat without showing the version, and look at the built-in globals, but then qui
     ['__builtins__', '__doc__']
     csp>
     csp> dir(__builtins__)
-    ['__doc__', 'STOP', 'U1', 'U2', 'CTR', 'CLOCK1', 'CLOCK2', 'VMS1', 'VMS2', 'CH5A', 'CH5B']
+    ['__doc__', 'STOP', 'X1A', 'X2A', 'CTR', 'CLOCK1', 'CLOCK2', 'VMS1', 'VMS2', 'CH5A', 'CH5B', 'X1B', 'CH5C', 'VMCT', 'VMC']
     csp>
     csp> __builtins__.__doc__
     'Built-in procs, and other objects.'
@@ -88,12 +88,12 @@ Chat without showing the version, and look at the built-in globals, but then qui
 
 Chat to show the source, and run the source.
 
-Run a Csp Proc of 1 Event.
+Run a Csp Process of 1 Event.
 
     % ./csp/cspbook.py -i -c ''
     csp>
-    csp> dir()
-    ['STOP', '__doc__', 'U1', 'U2', 'CTR', 'CLOCK1', 'CLOCK2', 'VMS1', 'VMS2', 'CH5A', 'CH5B']
+    csp> dir(__builtins__)
+    ['__doc__', 'STOP', 'X1A', 'X2A', 'CTR', 'CLOCK1', 'CLOCK2', 'VMS1', 'VMS2', 'CH5A', 'CH5B', 'X1B', 'CH5C', 'VMCT', 'VMC']
     csp>
     csp> U1??
     ["coin", "STOP"]
@@ -104,7 +104,7 @@ Run a Csp Proc of 1 Event.
 
 6
 
-Run a Csp Proc through 4 Events.
+Run a Csp Process through 4 Events.
 
     csp> U2??
     ["coin", ["choc", ["coin", ["choc", "STOP"]]]]
@@ -119,7 +119,7 @@ Run a Csp Proc through 4 Events.
 
 7
 
-Run another Csp Proc through 4 Events.
+Run another Csp Process through 4 Events.
 
     csp> CTR??
     ["right", "up", "right", "right", "STOP"]
@@ -133,7 +133,7 @@ Run another Csp Proc through 4 Events.
 
 8
 
-Run a Csp Proc that loops.
+Run a Csp Process that loops.
 
     csp> CLOCK1??
     ["tick", "CLOCK1"]
@@ -149,7 +149,7 @@ Run a Csp Proc that loops.
 
 9
 
-Run another Csp Proc that loops, but defined in terms of a local name "X" for the Proc.
+Run another Csp Process that loops, but defined in terms of a local name "X" for the Process.
 
     csp> CLOCK2??
     {"X": ["tick", "X"]}
@@ -166,7 +166,7 @@ Run another Csp Proc that loops, but defined in terms of a local name "X" for th
 
 10
 
-Run a Csp Proc that loops through more than one Event.
+Run a Csp Process that loops through more than one Event.
 
     csp> VMS1??
     ["coin", ["choc", "VMS1"]]
@@ -182,7 +182,7 @@ Run a Csp Proc that loops through more than one Event.
 
 11
 
-Run another Csp Proc that loops through more than one Event, and defined in terms of a local name "X" for the Proc.
+Run another Csp Process that loops through more than one Event, and defined in terms of a local name "X" for the Process.
 
     csp> VMS2??
     {"X": ["coin", ["choc", "X"]]}
@@ -200,7 +200,7 @@ Run another Csp Proc that loops through more than one Event, and defined in term
 
 12
 
-Run a Csp Proc that loops through four Events.
+Run a Csp Process that loops through four Events.
 
     csp> CH5A
     in5p
@@ -221,7 +221,7 @@ Run a Csp Proc that loops through four Events.
 
 13
 
-Run another Csp Proc that loops through four Events.
+Run another Csp Process that loops through four Events.
 
     csp> CH5B??
     ["in5p", "out1p", "out1p", "out1p", "out2p", "CH5B"]
@@ -239,7 +239,7 @@ Run another Csp Proc that loops through four Events.
 
 14
 
-Run an empty Csp Proc, and quit chatting.
+Run an empty Csp Process, and quit chatting.
 
     csp>
     csp> STOP
@@ -249,6 +249,10 @@ Run an empty Csp Proc, and quit chatting.
     csp>
     csp> ^D
     %
+
+15
+
+Todo: Run Csp Processes that make choices: X1B, CH5C, VMCT, VMC, etc
 
 <!--
 

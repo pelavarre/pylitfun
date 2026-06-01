@@ -171,9 +171,9 @@ def _exec_(csp: str) -> None:
     # Take suffix or prefix '??' as a meta-instruction
 
     if strip.startswith("??") or strip.endswith("??"):
-        procname = strip.strip("?")
-        named = to_proc_from_name(procname)
-        print(json.dumps(named))
+        procname = strip.strip(" ?")
+        proc = to_proc_from_name(procname)
+        print(json.dumps(proc))
         return
 
     # Single Step through the Csp Code of 1 Proc Def
@@ -185,27 +185,32 @@ def _exec_(csp: str) -> None:
 
 
 def procname_single_step(procname: str) -> None:
-    """Single Step through the Csp Code of 1 Proc Def"""
+    """Walk through the Events of 1 Named Process"""
 
-    named = to_proc_from_name(procname)
+    proc = to_proc_from_name(procname)
 
     while True:
 
         # Complete an Empty Proc
 
-        if not named:
+        if not proc:
             print("STOP")
             return
 
-        # Take a Global Proc Def, else an unnamed Seq
+        # Walk through a named Sequence
 
-        if isinstance(named, Sequence):
+        if isinstance(proc, Sequence):
+            seq = proc
+            proc = seq_single_step(seq)
+            if proc:
+                continue
+            break
 
-            seq = named
+        # Dive into Shorthand
 
-        elif isinstance(named, Shorthand):
+        if isinstance(proc, Shorthand):
 
-            items = list(named.items())
+            items = list(proc.items())
             assert len(items) == 1, (len(items), items)
 
             item = items[-1]
@@ -219,12 +224,18 @@ def procname_single_step(procname: str) -> None:
 
             _globals_[procname] = v
 
+            # Walk through a Sequence named by Shorthand
+
             if isinstance(v, Sequence):
-
                 seq = v
+                proc = seq_single_step(seq)
+                if proc:
+                    continue
+                break
 
-            else:
-                assert isinstance(v, Shorthand), (type(v), v)
+            # Dive into Shorthand named by Shorthand
+
+            if isinstance(v, Shorthand):
 
                 v_items = list(v.items())
                 assert len(v_items) == 1, (len(v_items), v_items)
@@ -238,55 +249,132 @@ def procname_single_step(procname: str) -> None:
 
                 _globals_[v_k] = v_v
 
+                # Walk through a Sequence named by Shorthand of Shorthand
+
                 assert isinstance(v_v, Sequence), (type(v_v), v_v)
                 seq = v_v
 
-        else:
-
-            raise NotImplementedError(type(named), named)
-
-        # Step into the Seq
-
-        while True:
-
-            assert seq[1:], (seq, procname)
-            guards = seq[:-1]
-            guarded = seq[-1]
-
-            for eventname in guards:
-                print(eventname)
-
-                eprint("> ", end="", file=sys.stderr)
-                try:
-                    ack = sys.stdin.readline()  # echoes to stdout
-                except KeyboardInterrupt:
-                    print()
-                    return
-
-                if ack == "\n" or (ack.strip() == eventname):
-                    eprint("\033[A" "\033[K", end="", file=sys.stderr)
+                proc = seq_single_step(seq)
+                if proc:
                     continue
-
-                    # ⎋[A Cursor Up (CUP)
-                    # ⎋[K Erase in Line (EL)
-
-                print()
-                return
-
-            if isinstance(guarded, Mention):
-                procname = guarded
-                named = to_proc_from_name(procname)
                 break
 
-            assert isinstance(guarded, Sequence), (type(guarded), guarded)
-            seq = guarded
+            # Else give up on something named by Shorthand
 
-            continue
+            raise NotImplementedError(type(v), v)
 
-        if named:
-            print()  # shows the jump into the next Proc
+        # Make a choice
+
+        if isinstance(proc, Choice):
+            choice = proc
+            proc = choice_single_step(choice)
+            if proc:
+                continue
+            break
+
+        # Else give up on something named by Scope
+
+        raise NotImplementedError(type(proc), proc)
+
+
+def seq_single_step(seq: Sequence) -> object:
+    """Single Step through the Csp Code of 1 Sequence"""
+
+    # Step into the Seq
+
+    while True:
+
+        assert seq[1:], (seq,)
+        guards = seq[:-1]
+        ward = seq[-1]
+
+        for eventname in guards:
+            print(eventname)
+
+            eprint("> ", end="", file=sys.stderr)
+            try:
+                ack = sys.stdin.readline()  # echoes to stdout
+            except KeyboardInterrupt:
+                print()
+                return False
+
+            if ack == "\n" or (ack.strip() == eventname):
+                eprint("\033[A" "\033[K", end="", file=sys.stderr)
+                continue
+
+                # ⎋[A Cursor Up (CUP)
+                # ⎋[K Erase in Line (EL)
+
+            print()
+            return None
+
+        if isinstance(ward, Mention):
+            procname = ward
+            proc = to_proc_from_name(procname)
+            print()
+            break
+
+        if isinstance(ward, Choice):
+            choice = ward
+            proc = choice_single_step(choice)
+            break
+
+        assert isinstance(ward, Sequence), (type(ward), ward)
+        seq = ward
 
         continue
+
+    return proc
+
+
+def choice_single_step(choice: Choice) -> object:
+    """Single Step through the Csp Code of 1 Choice"""
+
+    while True:
+
+        eventnames = choice.eventnames
+        if not eventnames:
+            eventnames.extend(choice.keys())
+
+        eventname = eventnames.pop(0)
+
+        #
+
+        print(eventname)
+
+        eprint("> ", end="", file=sys.stderr)
+        try:
+            ack = sys.stdin.readline()  # echoes to stdout
+        except KeyboardInterrupt:
+            print()
+            return None
+
+        if ack == "\n" or (ack.strip() == eventname):
+            eprint("\033[A" "\033[K", end="", file=sys.stderr)
+
+            chosen = choice[eventname]
+            if isinstance(chosen, Sequence):
+                proc = chosen
+                return proc
+
+            if isinstance(chosen, Choice):
+                choice = chosen
+                continue
+
+            assert isinstance(chosen, Mention), (type(chosen), chosen)
+            procname = chosen
+            proc = to_proc_from_name(procname)
+            if proc:
+                print()
+                return proc
+
+            return None
+
+            # ⎋[A Cursor Up (CUP)
+            # ⎋[K Erase in Line (EL)
+
+        print()
+        return None
 
 
 def to_proc_from_name(procname: str) -> typing.Any:
@@ -295,13 +383,13 @@ def to_proc_from_name(procname: str) -> typing.Any:
     _builtins_ = _sys_modules_["builtins"]
 
     if procname in _globals_.keys():  # todo: pick apart _locals_ vs _globals_
-        named = _globals_[procname]
+        proc = _globals_[procname]
     elif procname in _builtins_.keys():
-        named = _builtins_[procname]
+        proc = _builtins_[procname]
     else:
         raise NameError(f"name {procname!r} is not defined")
 
-    return named
+    return proc
 
 
 def _import_module_(modulename: str) -> None:
@@ -422,10 +510,16 @@ class Scope(dict[str, object]):
                 continue
 
             assert isinstance(v, dict), (type(v), v)
-            assert len(v.keys()) == 1, (len(v.keys()), v.keys(), v)
+            assert v.keys(), (v.keys(), v)
 
-            shorthand = Shorthand([item])
-            self[k] = shorthand
+            if len(v.keys()) == 1:
+                shorthand = Shorthand([item])
+                self[k] = shorthand
+                continue
+
+            choice = Choice(v)
+            self[k] = choice
+            continue
 
 
 class Shorthand(dict[str, object]):
@@ -452,6 +546,37 @@ class Shorthand(dict[str, object]):
             self[k] = shorthand
 
 
+class Choice(dict[str, object]):
+    """A Choice is a Dict of Events guarding Processes"""
+
+    eventnames: list[str]
+
+    def __init__(self, pj: dict[str, object]) -> None:
+        super().__init__(pj)
+
+        self.eventnames = list()
+
+        items = list(pj.items())
+        assert len(items) >= 2, (len(items), pj.keys())
+
+        for k, v in items:
+
+            if isinstance(v, list):
+                sequence = Sequence(v)
+                self[k] = sequence
+                continue
+
+            if isinstance(v, dict):
+                assert len(v.keys()) >= 2, (len(v.keys()), v.keys())
+                choice = Choice(v)
+                self[k] = choice
+                continue
+
+            assert isinstance(v, str), (type(v), v)
+            self[k] = Mention(v)
+            continue
+
+
 class Sequence(list[object]):
     """A Sequence is a Tuple of Events and a Mention of Shorthand"""
 
@@ -472,9 +597,12 @@ class Sequence(list[object]):
         tail = pj[index]
         if isinstance(tail, list):
             self[index] = Sequence(tail)
-        else:
-            assert isinstance(tail, str), (type(tail), tail)
+        elif isinstance(tail, str):
             self[index] = Mention(tail)
+        else:
+            assert isinstance(tail, dict), (type(tail), tail)
+            assert len(tail.keys()) > 1, (len(tail.keys()), tail.keys(), tail)
+            self[index] = Choice(tail)
 
 
 class Event(str):
