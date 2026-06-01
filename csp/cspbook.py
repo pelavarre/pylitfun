@@ -90,7 +90,7 @@ def try_main() -> None:
     parser = arg_doc_to_parser(doc)
     ns = parser.parse_args_if(sys.argv[1:])
 
-    _ = import_csp_module("builtins")
+    _import_module_("builtins")
 
     pathname = sys.argv[0]
     str_version = pathname_read_hash_ymd_version(pathname)  # '0.4.39 (main, 2026-05-24)'
@@ -100,7 +100,7 @@ def try_main() -> None:
 
     if ns.c:
         csp = ns.c
-        csp_exec(csp)  # may raise SystemExit
+        _exec_(csp)  # may raise SystemExit
 
     if ns.i or not ns.c:
         csp_chat()
@@ -125,18 +125,23 @@ def arg_doc_to_parser(doc: str) -> ArgDocParser:
 #
 
 
-csp_sys_modules: dict[str, typing.Any] = dict()
-csp_globals: dict[str, typing.Any] = dict()
+_sys_modules_: dict[str, Scope] = dict()
+_globals_: dict[str, object] = dict()
 
 
-def csp_exec(csp: str) -> None:
-    """Exec one line of csp code"""
+def _exec_(csp: str) -> None:
+    """Exec one line of Csp code"""
 
     strip = csp.strip()
     join = "".join(csp.split())
 
-    csp_dir = ["__builtins__", "__doc__"]  # todo: add ["__name__"] = "__main__", etc
-    csp_builtins = csp_sys_modules["builtins"]
+    _builtins_ = _sys_modules_["builtins"]
+
+    _globals_.clear()
+
+    _locals_ = _globals_
+    _locals_["__builtins__"] = _builtins_
+    _locals_["__doc__"] = None
 
     # Take 'quit()' etc as a meta-instruction
 
@@ -145,21 +150,21 @@ def csp_exec(csp: str) -> None:
 
     # Take 'dir()' and 'dir(__builtins__)' as meta-instructions
 
-    if join == "__doc__":  # todo: find "__doc__" in .csp_dir and quit before .csp_builtins
+    if join == "__doc__":  # todo: find "__doc__" in ._locals_ and quit before ._builtins_
         return
 
     if join == "dir()":
-        procnames = list(csp_dir)  # 'better copied than aliased'
+        procnames = list(_locals_)  # 'better copied than aliased'
         print(procnames)
         return
 
     if join == "dir(__builtins__)":
-        procnames = list(csp_builtins)  # 'better copied than aliased'
+        procnames = list(_builtins_)  # 'better copied than aliased'
         print(procnames)
         return
 
     if join == "__builtins__.__doc__":
-        print(repr(csp_builtins["__doc__"]))
+        print(repr(_builtins_["__doc__"]))
         return
 
     # Take suffix or prefix '??' as a meta-instruction
@@ -181,8 +186,6 @@ def csp_exec(csp: str) -> None:
 def procname_single_step(procname: str) -> None:
     """Single Step through the Csp Code of 1 Proc Def"""
 
-    csp_globals.clear()
-
     named = to_proc_from_name(procname)
 
     while True:
@@ -195,21 +198,47 @@ def procname_single_step(procname: str) -> None:
 
         # Take a Global Proc Def, else an unnamed Seq
 
-        if isinstance(named, list):
+        if isinstance(named, Sequence):
 
             seq = named
 
-        elif isinstance(named, dict):
-            keys = list(named.keys())
-            assert len(keys) == 1, (keys, procname)
+        elif isinstance(named, Shorthand):
 
-            procname = keys[-1]
-            seq = named[procname]
+            items = list(named.items())
+            assert len(items) == 1, (len(items), items)
 
-            if procname in csp_globals.keys():
+            item = items[-1]
+            k = item[0]
+            v = item[-1]
+
+            assert k == procname, (k, procname)
+
+            if procname in _globals_.keys():
                 eprint(f"Warning: Redefining Global Proc {procname!r}", file=sys.stderr)
 
-            csp_globals[procname] = seq
+            _globals_[procname] = v
+
+            if isinstance(v, Sequence):
+
+                seq = v
+
+            else:
+                assert isinstance(v, Shorthand), (type(v), v)
+
+                v_items = list(v.items())
+                assert len(v_items) == 1, (len(v_items), v_items)
+
+                v_item = v_items[-1]
+                v_k = v_item[0]
+                v_v = v_item[-1]
+
+                if v_k in _globals_.keys():
+                    eprint(f"Warning: Redefining Global Proc {v_k!r}", file=sys.stderr)
+
+                _globals_[v_k] = v_v
+
+                assert isinstance(v_v, Sequence), (type(v_v), v_v)
+                seq = v_v
 
         else:
 
@@ -239,12 +268,12 @@ def procname_single_step(procname: str) -> None:
                 print()
                 return
 
-            if isinstance(guarded, str):
+            if isinstance(guarded, Mention):
                 procname = guarded
                 named = to_proc_from_name(procname)
                 break
 
-            assert isinstance(guarded, list), (type(guarded), guarded)
+            assert isinstance(guarded, Sequence), (type(guarded), guarded)
             seq = guarded
 
             continue
@@ -258,25 +287,41 @@ def procname_single_step(procname: str) -> None:
 def to_proc_from_name(procname: str) -> typing.Any:
     """Fetch the Body of a Proc Def"""
 
-    csp_builtins = csp_sys_modules["builtins"]
+    _builtins_ = _sys_modules_["builtins"]
 
-    if procname in csp_globals.keys():
-        named = csp_globals[procname]
-    elif procname in csp_builtins.keys():
-        named = csp_builtins[procname]
+    if procname in _globals_.keys():  # todo: pick apart _locals_ vs _globals_
+        named = _globals_[procname]
+    elif procname in _builtins_.keys():
+        named = _builtins_[procname]
     else:
         raise NameError(f"name {procname!r} is not defined")
 
     return named
 
 
-def import_csp_module(modulename: str) -> object:
+def _import_module_(modulename: str) -> None:
     """Import one Csp Module at most once per Linux Process"""
 
     # Import at most once
 
-    if modulename in csp_sys_modules.keys():
-        return csp_sys_modules[modulename]
+    if modulename in _sys_modules_.keys():
+        return
+
+    # Import one Csp Module Json
+
+    pj = import_csp_module_json(modulename)
+
+    # Convert to an Abstract Syntax Tree
+
+    scope = Scope(pj)
+
+    # Start mutating the Json Object
+
+    _sys_modules_[modulename] = scope
+
+
+def import_csp_module_json(modulename: str) -> dict[str, object]:
+    """Import one Csp Module Json"""
 
     # Require exactly one Source File found
 
@@ -321,10 +366,6 @@ def import_csp_module(modulename: str) -> object:
             del pj[k]
             continue
 
-    # Start mutating the Json Object
-
-    csp_sys_modules[modulename] = pj
-
     # Succeed
 
     return pj
@@ -349,6 +390,94 @@ def which_csp_module(modulename: str) -> list[str]:
             pathnames.append(pathname)
 
     return pathnames  # maybe empty, maybe multiple
+
+
+#
+# Structure the parts of a Csp Program
+#
+
+
+class Scope(dict[str, object]):
+    """A Scope is a Dict of Shorthand's"""
+
+    def __init__(self, pj: dict[str, object]) -> None:
+        super().__init__(pj)
+
+        items = list(self.items())
+        for item in items:
+            k, v = item
+
+            if k == "__doc__":
+                assert isinstance(v, str), (type(v), v)
+                continue
+
+            if isinstance(v, list):
+                sequence = Sequence(v)
+                self[k] = sequence
+                continue
+
+            assert isinstance(v, dict), (type(v), v)
+            assert len(v.keys()) == 1, (len(v.keys()), v.keys(), v)
+
+            shorthand = Shorthand([item])
+            self[k] = shorthand
+
+
+class Shorthand(dict[str, object]):
+    """A Shorthand is Part given a Mentionable Name"""
+
+    def __init__(self, pj: typing.Iterable[tuple[str, object]]) -> None:
+        super().__init__(pj)
+
+        items = list(pj)
+
+        item = items[-1]
+        k = item[0]
+        v = item[-1]
+
+        if isinstance(v, list):
+            sequence = Sequence(v)
+            self[k] = sequence
+        else:
+            assert isinstance(v, dict), (type(v), v)
+            assert len(v.keys()) == 1, (len(v.keys()), v.keys(), v)
+
+            v_items = list(v.items())
+            shorthand = Shorthand(v_items)
+            self[k] = shorthand
+
+
+class Sequence(list[object]):
+    """A Sequence is a Tuple of Events and a Mention of Shorthand"""
+
+    def __init__(self, pj: list[object]) -> None:
+        super().__init__(pj)
+
+        if not pj:
+            return
+
+        assert len(pj) >= 2, (len(pj), pj)
+
+        for k, v in enumerate(pj[:-1]):
+            assert isinstance(v, str), (type(v), v)
+            _v_ = Event(v)
+            self[k] = _v_
+
+        index = -1
+        tail = pj[index]
+        if isinstance(tail, list):
+            self[index] = Sequence(tail)
+        else:
+            assert isinstance(tail, str), (type(tail), tail)
+            self[index] = Mention(tail)
+
+
+class Event(str):
+    """An Event has a Name"""
+
+
+class Mention(str):
+    """A Mention is the Name of a Shorthand"""
 
 
 #
@@ -379,7 +508,7 @@ def csp_chat() -> None:
             continue
 
         try:
-            csp_exec(csp)  # may raise SystemExit
+            _exec_(csp)  # may raise SystemExit
         except KeyboardInterrupt:
             print()
             print("KeyboardInterrupt")

@@ -59,7 +59,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.1.46 (main, 2026-05-30)
+    Csp Python 0.0.109 (main, 2026-05-31)
     csp>
     csp> ^D
     %
@@ -74,7 +74,7 @@ Chat without showing the version, and look at the built-in globals, but then qui
     ['__builtins__', '__doc__']
     csp>
     csp> dir(__builtins__)
-    ['__doc__', 'U1', 'U2', 'CTR', 'CLOCK1', 'CLOCK2', 'VMS1', 'VMS2', 'CH5A', 'CH5B', 'STOP']
+    ['__doc__', 'STOP', 'U1', 'U2', 'CTR', 'CLOCK1', 'CLOCK2', 'VMS1', 'VMS2', 'CH5A', 'CH5B']
     csp>
     csp> __builtins__.__doc__
     'Built-in procs, and other objects.'
@@ -93,7 +93,7 @@ Run a Csp Proc of 1 Event.
     % ./csp/cspbook.py -i -c ''
     csp>
     csp> dir()
-    ['__doc__', 'U1', 'U2', 'CTR', 'CLOCK1', 'CLOCK2', 'VMS1', 'VMS2', 'CH5A', 'CH5B', 'STOP']
+    ['STOP', '__doc__', 'U1', 'U2', 'CTR', 'CLOCK1', 'CLOCK2', 'VMS1', 'VMS2', 'CH5A', 'CH5B']
     csp>
     csp> U1??
     ["coin", "STOP"]

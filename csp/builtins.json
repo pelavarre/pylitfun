@@ -1,5 +1,8 @@
 {
     "__doc__": "Built-in procs, and other objects.",
+    "# 1": "Processes",
+    "STOP": [],
+    "# 1.1": "Introduction",
     "# 1.1.1": "Prefix",
     "U1": [
         "coin",
@@ -67,7 +70,6 @@
         "out2p",
         "CH5B"
     ],
-    "STOP": [],
     "__farewell__": [
         "posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/builtins.json",
         "copied from:  git clone https://github.com/pelavarre/litpython.git"
