@@ -14,10 +14,10 @@ Ask what you can do.
 
     cspbook.py
     cspbook.py --help
-    cspbook.py -c STOP
     cspbook.py -c CTR
     cspbook.py -c CLOCK1
     cspbook.py -c CH5B
+    cspbook.py --
 
     %
 
@@ -59,7 +59,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.0.109 (main, 2026-05-31)
+    Csp Python 0.5.248 (main, 2026-05-31)
     csp>
     csp> ^D
     %

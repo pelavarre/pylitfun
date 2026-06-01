@@ -26,6 +26,7 @@ examples:
   cspbook.py -c CTR
   cspbook.py -c CLOCK1
   cspbook.py -c CH5B
+  cspbook.py --
 """
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -194,7 +195,7 @@ def procname_single_step(procname: str) -> None:
 
         if not named:
             print("STOP")
-            break
+            return
 
         # Take a Global Proc Def, else an unnamed Seq
 
@@ -256,7 +257,11 @@ def procname_single_step(procname: str) -> None:
                 print(eventname)
 
                 eprint("> ", end="", file=sys.stderr)
-                ack = sys.stdin.readline()  # echoes to stdout
+                try:
+                    ack = sys.stdin.readline()  # echoes to stdout
+                except KeyboardInterrupt:
+                    print()
+                    return
 
                 if ack == "\n" or (ack.strip() == eventname):
                     eprint("\033[A" "\033[K", end="", file=sys.stderr)
