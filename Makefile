@@ -14,6 +14,7 @@ make help  # shows many help lines and exits zero
 make bin  # updates your Shell Path ~/bin/ Folder
 make pips  # installs/ updates Add-on's for Python from PyPi·Org
 make sense  # calls for Code Review from Black, Flake8, and MyPy Strict
+make tests  # updates:  git diff csp/cspbook-py-readme.md
 
 endef
 
@@ -32,6 +33,7 @@ examples:
   make bin  # updates your Shell Path ~/bin/ Folder from our bin/ and sh/
   make pips  # installs/ updates Python add-on's from PyPi·Org
   make sense  # calls for Code Review from Black, Flake8, and MyPy Strict
+  make tests  # updates:  git diff csp/cspbook-py-readme.md
 endef
 
 
@@ -148,6 +150,14 @@ shellcheck:
 	fi
 	:
 	shellcheck bin/pwnme
+
+
+#
+# Updates:  git diff csp/cspbook-py-readme.md
+#
+
+tests:
+	csp/cspbook.py --make-tests
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/Makefile

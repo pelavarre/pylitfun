@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
 r"""
-usage: cspbook.py [-h] [-i] [-c CSP]
+usage: cspbook.py [-h] [-i] [-c CSP] [--make-tests]
 
 exec some lines of csp code
 
 options:
-  -h, --help  show this help message and exit
-  -i          prompt and reply, loop loop till quit
-  -c CSP      one line of csp code to exec
+  -h, --help    show this help message and exit
+  -i            prompt and reply, loop loop till quit
+  -c CSP        one line of csp code to exec
+  --make-tests  update:  git diff csp/cspbook-py-readme.md
 
 quirks:
   trusts you to press Return to continue, ⌃C to cancel, ⌃D to quit
@@ -20,13 +21,10 @@ quirks:
       dir()
 
 examples:
-  cspbook.py
-  cspbook.py --help
-  cspbook.py -c STOP
+  cspbook.py -i
   cspbook.py -c CTR
   cspbook.py -c CLOCK1
   cspbook.py -c CH5B
-  cspbook.py --
 """
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -42,6 +40,7 @@ import dataclasses
 import datetime as dt
 import difflib
 import hashlib
+import io
 import json
 import os
 import pathlib
@@ -96,15 +95,23 @@ def try_main() -> None:
     pathname = sys.argv[0]
     str_version = pathname_read_hash_ymd_version(pathname)  # '0.4.39 (main, 2026-05-24)'
 
+    if ns.make_tests:
+        _make_tests_()
+
     if (not ns.c) and (not ns.i):
-        eprint(f"Csp Python {str_version}", file=sys.stderr)
+        if not ns.make_tests:  # if banner for '--'
+            eprint(f"Csp Python {str_version}")
 
     if ns.c:
         csp = ns.c
         _exec_(csp)  # may raise SystemExit
 
-    if ns.i or not ns.c:
-        csp_chat()
+    if ns.i:
+        _chat_()
+    elif ns.make_tests:
+        pass
+    else:  # if chat for '--'
+        _chat_()
 
 
 def arg_doc_to_parser(doc: str) -> ArgDocParser:
@@ -114,11 +121,53 @@ def arg_doc_to_parser(doc: str) -> ArgDocParser:
 
     i_help = "prompt and reply, loop loop till quit"
     c_help = "one line of csp code to exec"
+    make_tests_help = "update:  git diff csp/cspbook-py-readme.md"
 
     parser.add_argument("-i", action="count", help=i_help)
     parser.add_argument("-c", metavar="CSP", help=c_help)
+    parser.add_argument("--make-tests", action="count", help=make_tests_help)
 
     return parser
+
+
+#
+# Prompt and reply, loop loop till quit
+#
+
+
+def _chat_() -> None:
+    """Prompt and reply, loop loop till quit"""
+
+    while True:
+
+        eprint("csp> ", end="")
+
+        try:
+            csp = sys.stdin.readline()  # echoes to stdout
+        except KeyboardInterrupt:
+            print()
+            print("KeyboardInterrupt")
+            continue
+
+        if not csp:
+            print()
+            sys.stdout.flush()
+            break
+
+        if not csp.strip():
+            continue
+
+        try:
+            _exec_(csp)  # may raise SystemExit
+        except KeyboardInterrupt:
+            print()
+            print("KeyboardInterrupt")
+            continue
+
+        continue
+
+
+# ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
 
 
 #
@@ -217,7 +266,7 @@ def procname_single_step(procname: str) -> None:  # todo: fixme:  # noqa C901 co
             v = item[-1]
 
             if procname in _globals_.keys():
-                eprint(f"Warning: Redefining Global Proc {procname!r}", file=sys.stderr)
+                eprint(f"Warning: Redefining Global Proc {procname!r}")
 
             _globals_[procname] = v
 
@@ -242,7 +291,7 @@ def procname_single_step(procname: str) -> None:  # todo: fixme:  # noqa C901 co
                 v_v = v_item[-1]
 
                 if v_k in _globals_.keys():
-                    eprint(f"Warning: Redefining Global Proc {v_k!r}", file=sys.stderr)
+                    eprint(f"Warning: Redefining Global Proc {v_k!r}")
 
                 _globals_[v_k] = v_v
 
@@ -298,7 +347,7 @@ def seq_single_step(seq: Sequence) -> object:
         for eventname in guards:
             print(eventname)
 
-            eprint("> ", end="", file=sys.stderr)
+            eprint("> ", end="")
             try:
                 ack = sys.stdin.readline()  # echoes to stdout
             except KeyboardInterrupt:
@@ -306,7 +355,7 @@ def seq_single_step(seq: Sequence) -> object:
                 return False
 
             if ack == "\n" or (ack.strip() == eventname):
-                eprint("\033[A" "\033[K", end="", file=sys.stderr)
+                eprint("\033[A" "\033[K", end="")
                 continue
 
                 # ⎋[A Cursor Up (CUP)
@@ -349,7 +398,7 @@ def choice_single_step(choice: Choice) -> object:
 
         print(eventname)
 
-        eprint("> ", end="", file=sys.stderr)
+        eprint("> ", end="")
         try:
             ack = sys.stdin.readline()  # echoes to stdout
         except KeyboardInterrupt:
@@ -357,7 +406,7 @@ def choice_single_step(choice: Choice) -> object:
             return None
 
         if ack == "\n" or (ack.strip() == eventname):
-            eprint("\033[A" "\033[K", end="", file=sys.stderr)
+            eprint("\033[A" "\033[K", end="")
 
             chosen = choice[eventname]
             if isinstance(chosen, Sequence):
@@ -409,7 +458,7 @@ def _import_module_(modulename: str) -> None:
 
     # Import one Csp Module Json
 
-    pj = import_csp_module_json(modulename)
+    pj = _import_module_json_(modulename)
 
     # Convert to an Abstract Syntax Tree
 
@@ -420,12 +469,12 @@ def _import_module_(modulename: str) -> None:
     _sys_modules_[modulename] = scope
 
 
-def import_csp_module_json(modulename: str) -> dict[str, object]:
+def _import_module_json_(modulename: str) -> dict[str, object]:
     """Import one Csp Module Json"""
 
     # Require exactly one Source File found
 
-    pathnames = which_csp_module(modulename)
+    pathnames = _which_module_(modulename)
 
     if not pathnames:
         raise ModuleNotFoundError(f"No module named {modulename!r}")  # in os.getcwd()
@@ -471,7 +520,7 @@ def import_csp_module_json(modulename: str) -> dict[str, object]:
     return pj
 
 
-def which_csp_module(modulename: str) -> list[str]:
+def _which_module_(modulename: str) -> list[str]:
     """Find all the Pathnames of a Csp Module Name"""
 
     pathnames = list()
@@ -625,40 +674,131 @@ class Mention(str):
 
 
 #
-# Prompt and reply, loop loop till quit
+# Amp up Import ArgParse
 #
 
 
-def csp_chat() -> None:
-    """Prompt and reply, loop loop till quit"""
+def _make_tests_() -> None:
+    """Update:  git diff csp/cspbook-py-readme.md"""
 
-    while True:
+    _dir_ = os.path.dirname(__file__)
+    iopathname = os.path.join(_dir_, "cspbook-py-readme.md")
+    iopath = pathlib.Path(iopathname)
 
-        eprint("csp> ", end="", file=sys.stderr)
+    itext = iopath.read_text()
+    ilines = itext.splitlines()
 
-        try:
-            csp = sys.stdin.readline()  # echoes to stdout
-        except KeyboardInterrupt:
-            print()
-            print("KeyboardInterrupt")
-            continue
+    #
 
-        if not csp:
-            print()
-            sys.stdout.flush()
-            break
+    finite_verbs = ("X1.A", "X2.A", "CTR", "STOP")
+    # indefinite_verbs = ("CLOCK.A", "CLOCK.B", "VMS.A", "VMS.B", "CH5A", "CH5B")  # todo: fixme
 
-        if not csp.strip():
-            continue
+    #
 
-        try:
-            _exec_(csp)  # may raise SystemExit
-        except KeyboardInterrupt:
-            print()
-            print("KeyboardInterrupt")
-            continue
+    dent = 4 * " "
+    olines = list()
 
-        continue
+    i = 0
+    while i < len(ilines):
+        iline = ilines[i]
+        i += 1
+
+        olines.append(iline)
+
+        eline = iline.removeprefix(dent + "csp> ")
+        if eline != iline:
+            verb = eline.removesuffix("??")
+            if verb != eline:
+                if verb in finite_verbs:
+                    i = _make_one_test_(olines, ilines=ilines, i=i, verb=verb)
+
+    #
+
+    otext = "\n".join(olines) + "\n"
+    iopath.write_text(otext)
+
+    return  # success
+
+
+def _make_one_test_(olines: list[str], ilines: list[str], i: int, verb: str) -> int:
+    """Make one Test Result from one Verb"""
+
+    j = i
+
+    # Drop old Result
+
+    grafs = 0
+    while j < len(ilines):
+        jline = ilines[j]
+        j += 1
+
+        if not jline:
+            grafs += 1
+            if grafs > 1:
+                break
+
+        assert j < len(ilines), (j, len(ilines), i, verb)
+
+    # Insert one new Source Dump
+
+    dent = 4 * " "
+
+    proc = to_proc_from_name(procname=verb)
+    plines = json.dumps(proc).splitlines()
+    olines.extend((dent + _) for _ in plines)
+    olines.append(dent + "csp> ".rstrip())
+    olines.append("")
+
+    # Say how to collect outputs
+
+    tprints = list()
+
+    def _tprint_(text: str = "", end: str = "\n") -> None:
+        tprints.append(text + end)
+
+    # Start collecting outputs
+
+    with_stdin = sys.stdin
+    with_eprint = eprint
+
+    module = sys.modules[__name__]
+    assert not hasattr(module, "print")
+    assert getattr(module, "eprint") is with_eprint
+
+    sys.stdin = io.StringIO(123 * "\n")
+    setattr(module, "print", _tprint_)
+    setattr(module, "eprint", _tprint_)
+    try:
+        _exec_(verb)
+    finally:
+        sys.stdin = with_stdin
+        delattr(module, "print")
+        setattr(module, "eprint", with_eprint)
+
+    olines.append(dent + f"csp> {verb}")
+
+    ktext = "".join(tprints)
+    klines = ktext.splitlines()
+    klines = list(_ for _ in klines if _ != "> \033[A\033[K")
+    klines = list(_.removeprefix("> \033[A\033[K") for _ in klines)
+    olines.extend((dent + _.rstrip()) for _ in klines)
+
+    olines.append(dent + "csp> ".rstrip())
+    olines.append("")
+
+    # Succeed
+
+    # iopath = pathlib.Path("m.md")
+    # otext = "\n".join(olines) + "\n"
+    # iopath.write_text(otext)
+    #
+    # eprint(f"SQUIRREL {verb!r}")
+    # breakpoint()
+
+    return j
+
+
+# ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
 
 
 #
@@ -938,11 +1078,11 @@ def pathname_read_version(pathname: str) -> str:
 #
 
 
-def eprint(*args: object, end: str = "\n", file: typing.TextIO) -> None:
+def eprint(*args: object, end: str = "\n") -> None:
     """Print to Stderr without disordering Stdout"""
 
     sys.stdout.flush()  # especially when file is not sys.stdout
-    print(*args, end=end, file=file)
+    print(*args, end=end, file=sys.stderr)
     sys.stderr.flush()
 
 
@@ -1016,6 +1156,10 @@ def excepthook(  # last modified on 2026-05-14 or later
 
 if __name__ == "__main__":
     main()
+
+
+# todo0: make tests: update version
+# todo0: make tests: update traces ended by KeyboardInterrupt "\x03"
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789

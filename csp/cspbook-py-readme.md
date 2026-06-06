@@ -12,12 +12,10 @@ Ask what you can do.
 
     % ./csp/cspbook.py
 
-    cspbook.py
-    cspbook.py --help
+    cspbook.py -i
     cspbook.py -c CTR
-    cspbook.py -c CLOCK.B
+    cspbook.py -c CLOCK1
     cspbook.py -c CH5B
-    cspbook.py --
 
     %
 
@@ -26,14 +24,15 @@ Ask what you can do.
 Ask for more of a man page.
 
     % ./csp/cspbook.py --help
-    usage: cspbook.py [-h] [-i] [-c CSP]
+    usage: cspbook.py [-h] [-i] [-c CSP] [--make-tests]
 
     exec some lines of csp code
 
     options:
-    -h, --help  show this help message and exit
-    -i          prompt and reply, loop loop till quit
-    -c CSP      one line of csp code to exec
+    -h, --help    show this help message and exit
+    -i            prompt and reply, loop loop till quit
+    -c CSP        one line of csp code to exec
+    --make-tests  update:  git diff csp/cspbook-py-readme.md
 
     quirks:
       trusts you to press Return to continue, ⌃C to cancel, ⌃D to quit
@@ -43,15 +42,13 @@ Ask for more of a man page.
         cspbook.py --
         cspbook.py -i -c ''
           dir()
-          dir(__builtins__)
 
     examples:
       cspbook.py
       cspbook.py --help
       cspbook.py -c CTR
-      cspbook.py -c CLOCK.B
+      cspbook.py -c CLOCK1
       cspbook.py -c CH5B
-      cspbook.py --
     %
 
 3
@@ -86,6 +83,21 @@ Chat without showing the version, and look at the built-in globals, but then qui
 
 5
 
+Run an empty Csp Process, and quit chatting.
+
+    csp> STOP
+    STOP
+    csp>
+
+    csp> ^C
+    KeyboardInterrupt
+    csp>
+
+    csp> ^D
+    %
+
+6
+
 Chat to show the source, and run the source.
 
 Run a Csp Process of 1 Event.
@@ -95,32 +107,38 @@ Run a Csp Process of 1 Event.
     csp> dir(__builtins__)
     ['__doc__', 'STOP', 'X1.A', 'X2.A', 'CTR', 'CLOCK.A', 'CLOCK.B', 'VMS.A', 'VMS.B', 'CH5A', 'CH5B', 'X1.B', 'CH5C', 'VMCT', 'VMC', 'VMCRED', 'VMS2', 'COPYBIT']
     csp>
+
     csp> X1.A??
     ["coin", "STOP"]
+    csp>
+
     csp> X1.A
     coin
     csp>
 
-6
+7
 
 Run a Csp Process through 4 Events.
 
     csp> X2.A??
     ["coin", ["choc", ["coin", ["choc", "STOP"]]]]
     csp>
-    csp> U2
+
+    csp> X2.A
     coin
     choc
     coin
     choc
     csp>
 
-7
+8
 
 Run another Csp Process through 4 Events.
 
     csp> CTR??
     ["right", "up", "right", "right", "STOP"]
+    csp>
+
     csp> CTR
     right
     up
@@ -128,12 +146,14 @@ Run another Csp Process through 4 Events.
     right
     csp>
 
-8
+9
 
 Run a Csp Process that loops.
 
     csp> CLOCK.A??
     ["tick", "CLOCK.A"]
+    csp>
+
     csp> CLOCK.A
     tick
 
@@ -144,12 +164,14 @@ Run a Csp Process that loops.
     KeyboardInterrupt
     csp>
 
-9
+10
 
 Run another Csp Process that loops, but defined in terms of a local name "X" for the Process.
 
     csp> CLOCK.B??
     {"X": ["tick", "X"]}
+    csp>
+
     csp> CLOCK.B
     tick
 
@@ -161,12 +183,14 @@ Run another Csp Process that loops, but defined in terms of a local name "X" for
     csp>
     csp>
 
-10
+11
 
 Run a Csp Process that loops through more than one Event.
 
     csp> VMS.A??
     ["coin", ["choc", "VMS.A"]]
+    csp>
+
     csp> VMS.A
     coin
     choc
@@ -177,12 +201,14 @@ Run a Csp Process that loops through more than one Event.
     KeyboardInterrupt
     csp>
 
-11
+12
 
 Run another Csp Process that loops through more than one Event, and defined in terms of a local name "X" for the Process.
 
     csp> VMS.B??
     {"X": ["coin", ["choc", "X"]]}
+    csp>
+
     csp> VMS.B
     coin
     choc
@@ -195,16 +221,14 @@ Run another Csp Process that loops through more than one Event, and defined in t
     KeyboardInterrupt
     csp>
 
-12
+13
 
 Run a Csp Process that loops through four Events.
 
-    csp> CH5A
-    in5p
-    > ^C
-    KeyboardInterrupt
     csp> CH5A??
     ["in5p", "out2p", "out1p", "out2p", "CH5A"]
+    csp>
+
     csp> CH5A
     in5p
     out2p
@@ -216,12 +240,14 @@ Run a Csp Process that loops through four Events.
     KeyboardInterrupt
     csp>
 
-13
+14
 
 Run another Csp Process that loops through four Events.
 
     csp> CH5B??
     ["in5p", "out1p", "out1p", "out1p", "out2p", "CH5B"]
+    csp>
+
     csp> CH5B
     in5p
     out1p
@@ -234,25 +260,21 @@ Run another Csp Process that loops through four Events.
     KeyboardInterrupt
     csp>
 
-14
+15
 
-Run an empty Csp Process, and quit chatting.
+Speak of the empty Csp Process as a Choice between no Events.
 
+    csp> STOP??
+    []
     csp>
+
     csp> STOP
     STOP
     csp>
 
-    csp> ^C
-    KeyboardInterrupt
-    csp>
+16
 
-    csp> ^D
-    %
-
-15
-
-Todo: Run Csp Processes that make choices: X1.B, CH5C, VMCT, VMC, VMCRED, VMS2, COPYBIT etc
+Todo: Run more Csp Processes that make choices: X1.B, CH5C, VMCT, VMC, VMCRED, VMS2, COPYBIT etc
 
 <!--
 
