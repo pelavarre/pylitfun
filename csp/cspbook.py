@@ -681,6 +681,11 @@ class Mention(str):
 def _make_tests_() -> None:
     """Update:  git diff csp/cspbook-py-readme.md"""
 
+    pathname = sys.argv[0]
+    str_version = pathname_read_hash_ymd_version(pathname)  # '0.4.39 (main, 2026-05-24)'
+
+    #
+
     _dir_ = os.path.dirname(__file__)
     iopathname = os.path.join(_dir_, "cspbook-py-readme.md")
     iopath = pathlib.Path(iopathname)
@@ -705,12 +710,29 @@ def _make_tests_() -> None:
 
         olines.append(iline)
 
-        eline = iline.removeprefix(dent + "csp> ")
-        if eline != iline:
+        # Add version trace
+
+        dedented = iline.removeprefix(dent)
+        if dedented == "% ./csp/cspbook.py --":
+            i = _drop_grafs_(ilines, i=i, n=1)
+            olines.append(dent + f"Csp Python {str_version}")
+            olines.append(dent + "csp> ".rstrip())
+            olines.append(dent + "csp> ^D")
+            olines.append(dent + "% ".rstrip())
+            olines.append("")
+
+            continue
+
+        # Add source & exec trace
+
+        eline = dedented.removeprefix("csp> ")
+        if eline != dedented:
             verb = eline.removesuffix("??")
             if verb != eline:
                 if verb in finite_verbs:
                     i = _make_one_test_(olines, ilines=ilines, i=i, verb=verb)
+
+                    continue
 
     #
 
@@ -1175,7 +1197,6 @@ if __name__ == "__main__":
     main()
 
 
-# todo0: make tests: update version
 # todo0: make tests: update traces ended by KeyboardInterrupt "\x03"
 
 
