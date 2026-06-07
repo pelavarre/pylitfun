@@ -723,9 +723,19 @@ def _make_tests_() -> None:
 def _make_one_test_(olines: list[str], ilines: list[str], i: int, verb: str) -> int:
     """Make one Test Result from one Verb"""
 
-    j = i
+    j = _drop_grafs_(ilines, i=i, n=2)
 
-    # Drop old Result
+    _add_source_trace_(olines=olines, verb=verb)
+    _add_exec_trace_(olines=olines, verb=verb)
+
+    return j
+
+
+def _drop_grafs_(ilines: list[str], i: int, n: int) -> int:
+    """Drop N Grafs of Md Lines"""
+
+    j = i
+    assert n, (n,)
 
     grafs = 0
     while j < len(ilines):
@@ -734,12 +744,16 @@ def _make_one_test_(olines: list[str], ilines: list[str], i: int, verb: str) -> 
 
         if not jline:
             grafs += 1
-            if grafs > 1:
+            if grafs >= n:
                 break
 
-        assert j < len(ilines), (j, len(ilines), i, verb)
+        assert j < len(ilines), (j, len(ilines), i, n)
 
-    # Insert one new Source Dump
+    return j
+
+
+def _add_source_trace_(olines: list[str], verb: str) -> None:
+    """Add one Source Print"""
 
     dent = 4 * " "
 
@@ -748,6 +762,9 @@ def _make_one_test_(olines: list[str], ilines: list[str], i: int, verb: str) -> 
     olines.extend((dent + _) for _ in plines)
     olines.append(dent + "csp> ".rstrip())
     olines.append("")
+
+
+def _add_exec_trace_(olines: list[str], verb: str) -> None:
 
     # Say how to collect outputs
 
@@ -775,6 +792,8 @@ def _make_one_test_(olines: list[str], ilines: list[str], i: int, verb: str) -> 
         delattr(module, "print")
         setattr(module, "eprint", with_eprint)
 
+    dent = 4 * " "
+
     olines.append(dent + f"csp> {verb}")
 
     ktext = "".join(tprints)
@@ -794,8 +813,6 @@ def _make_one_test_(olines: list[str], ilines: list[str], i: int, verb: str) -> 
     #
     # eprint(f"SQUIRREL {verb!r}")
     # breakpoint()
-
-    return j
 
 
 # ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
