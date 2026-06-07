@@ -56,7 +56,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.6.33 (main, 2026-06-07)
+    Csp Python 0.12.132 (main, 2026-06-07)
     csp>
     csp> ^D
     %
@@ -172,7 +172,7 @@ Run a Csp Process that loops.
 Run another Csp Process that loops, but defined in terms of a local name "X" for the Process.
 
     csp> CLOCK.B??
-    {"CLOCK.B": {"X": ["tick", "X"]}}
+    {"X": ["tick", "X"]}
     csp>
 
     csp> CLOCK.B
@@ -208,7 +208,7 @@ Run a Csp Process that loops through more than one Event.
 Run another Csp Process that loops through more than one Event, and defined in terms of a local name "X" for the Process.
 
     csp> VMS.B??
-    {"VMS.B": {"X": ["coin", ["choc", "X"]]}}
+    {"X": ["coin", ["choc", "X"]]}
     csp>
 
     csp> VMS.B

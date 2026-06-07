@@ -263,12 +263,13 @@ def procname_single_step(procname: str) -> None:  # todo: fixme:  # noqa C901 co
             assert len(items) == 1, (len(items), items)
 
             item = items[-1]
+            k = item[0]
             v = item[-1]
 
-            if procname in _globals_.keys():
-                eprint(f"Warning: Redefining Global Proc {procname!r}")
+            if k in _globals_.keys():
+                eprint(f"Warning: Redefining Global Proc {k!r}")
 
-            _globals_[procname] = v
+            _globals_[k] = v
 
             # Walk through a Sequence named by Shorthand
 
@@ -447,11 +448,21 @@ def to_proc_from_name(procname: str) -> typing.Any:
     _builtins_ = _sys_modules_["builtins"]
 
     if procname in _globals_.keys():  # todo: pick apart _locals_ vs _globals_
-        proc = _globals_[procname]
+        top = _globals_[procname]
     elif procname in _builtins_.keys():
-        proc = _builtins_[procname]
+        top = _builtins_[procname]
     else:
         raise NameError(f"name {procname!r} is not defined")
+
+    # __builtins__.print(f"SQUIRREL {procname=} {top=}", file=sys.__stderr__)
+
+    proc = top
+    if isinstance(top, dict):
+        keys = list(top.keys())
+        if len(keys) == 1:
+            key = keys[-1]
+            if key == procname:
+                proc = top[key]
 
     return proc
 
@@ -825,7 +836,7 @@ def _add_exec_trace_(olines: list[str], verb: str, jlines: list[str]) -> None:
                 elif lstrip == "> ^C":  # '⌃' != '^'
                     cancelling = True
                 elif lstrip == "KeyboardInterrupt":
-                    assert cancelling, (jlines, verb,)
+                    assert cancelling, (jlines, verb)
                 else:
                     inputs += 1
 
@@ -833,7 +844,7 @@ def _add_exec_trace_(olines: list[str], verb: str, jlines: list[str]) -> None:
 
     itext = inputs * "\n"
     if cancelling:
-        itext += "\x03"  # 
+        itext += "\x03"  #
 
     # if verb == "CLOCK.A":
     #     print(repr(itext))
@@ -1236,6 +1247,9 @@ def excepthook(  # last modified on 2026-05-14 or later
 
 if __name__ == "__main__":
     main()
+
+
+# todo0: serialize builtins.json back out
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
