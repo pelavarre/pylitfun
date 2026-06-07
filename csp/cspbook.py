@@ -23,7 +23,7 @@ quirks:
 examples:
   cspbook.py -i
   cspbook.py -c CTR
-  cspbook.py -c CLOCK1
+  cspbook.py -c CLOCK.B
   cspbook.py -c CH5B
 """
 
@@ -350,8 +350,16 @@ def seq_single_step(seq: Sequence) -> object:
             eprint("> ", end="")
             try:
                 ack = sys.stdin.readline()  # echoes to stdout
+                # path = pathlib.Path("ack.txt")
+                # with path.open("a") as a:
+                #     a.write(repr(ack) + "\n")
             except KeyboardInterrupt:
                 print()
+                return False
+
+            if ack == "\x03":
+                eprint("> ^C")
+                eprint("KeyboardInterrupt")
                 return False
 
             if ack == "\n" or (ack.strip() == eventname):
@@ -695,11 +703,6 @@ def _make_tests_() -> None:
 
     #
 
-    finite_verbs = ("X1.A", "X2.A", "CTR", "STOP")
-    # indefinite_verbs = ("CLOCK.A", "CLOCK.B", "VMS.A", "VMS.B", "CH5A", "CH5B")  # todo: fixme
-
-    #
-
     dent = 4 * " "
     olines = list()
 
@@ -714,10 +717,12 @@ def _make_tests_() -> None:
 
         dedented = iline.removeprefix(dent)
         if dedented == "% ./csp/cspbook.py --":
-            i = _drop_grafs_(ilines, i=i, n=1)
+            jlines = _drop_lines_(ilines, i=i)
+            i += len(jlines)
+
             olines.append(dent + f"Csp Python {str_version}")
             olines.append(dent + "csp> ".rstrip())
-            olines.append(dent + "csp> ^D")
+            olines.append(dent + "csp> ^D")  # '⌃' != '^'
             olines.append(dent + "% ".rstrip())
             olines.append("")
 
@@ -729,10 +734,9 @@ def _make_tests_() -> None:
         if eline != dedented:
             verb = eline.removesuffix("??")
             if verb != eline:
-                if verb in finite_verbs:
-                    i = _make_one_test_(olines, ilines=ilines, i=i, verb=verb)
+                i = _make_one_test_(olines, ilines=ilines, i=i, verb=verb)
 
-                    continue
+                continue
 
     #
 
@@ -745,37 +749,51 @@ def _make_tests_() -> None:
 def _make_one_test_(olines: list[str], ilines: list[str], i: int, verb: str) -> int:
     """Make one Test Result from one Verb"""
 
-    j = _drop_grafs_(ilines, i=i, n=2)
+    jlines = _drop_lines_(ilines, i=i)
+    j = i + len(jlines)
 
     _add_source_trace_(olines=olines, verb=verb)
-    _add_exec_trace_(olines=olines, verb=verb)
+    _add_exec_trace_(olines=olines, verb=verb, jlines=jlines)
 
     return j
 
 
-def _drop_grafs_(ilines: list[str], i: int, n: int) -> int:
-    """Drop N Grafs of Md Lines"""
+def _drop_lines_(ilines: list[str], i: int) -> list[str]:
+    """Drop the Lines of dented Grafs till next undented Graf"""
+
+    assert i, (i,)
+
+    iline = ilines[i - 1]
+    ident = len(iline) - len(iline.lstrip())
+    # eprint("")
+    # eprint(f"SQUIRREL {iline=}")
 
     j = i
-    assert n, (n,)
 
-    grafs = 0
+    jlines = list()
     while j < len(ilines):
         jline = ilines[j]
         j += 1
 
-        if not jline:
-            grafs += 1
-            if grafs >= n:
+        jdent = len(jline) - len(jline.lstrip())
+        if jline:
+            if not jdent:
+                assert j > i, (i, j, jdent, ident, jline, iline)
                 break
 
-        assert j < len(ilines), (j, len(ilines), i, n)
+        # eprint(f"SQUIRREL {jline=}")
+        jlines.append(jline)
 
-    return j
+        ji = j - i
+        assert ji < 100, (i, j, ji)
+
+        assert j < len(ilines), (j, len(ilines), i)
+
+    return jlines
 
 
 def _add_source_trace_(olines: list[str], verb: str) -> None:
-    """Add one Source Print"""
+    """Add one Trace of Prints of Source"""
 
     dent = 4 * " "
 
@@ -786,7 +804,40 @@ def _add_source_trace_(olines: list[str], verb: str) -> None:
     olines.append("")
 
 
-def _add_exec_trace_(olines: list[str], verb: str) -> None:
+def _add_exec_trace_(olines: list[str], verb: str, jlines: list[str]) -> None:
+    """Add one Trace of Prints of Exec"""
+
+    # Count nonblank lines after the first Graf
+
+    inputs = -1
+
+    cancelling = False
+
+    grafs = 0
+    for jline in jlines:
+        if not jline:
+            grafs += 1
+        elif grafs >= 1:
+            lstrip = jline.lstrip()
+            if lstrip:
+                if lstrip.startswith("csp>"):
+                    pass
+                elif lstrip == "> ^C":  # '⌃' != '^'
+                    cancelling = True
+                elif lstrip == "KeyboardInterrupt":
+                    assert cancelling, (jlines, verb,)
+                else:
+                    inputs += 1
+
+    assert inputs >= 0, (inputs, jlines, verb)
+
+    itext = inputs * "\n"
+    if cancelling:
+        itext += "\x03"  # 
+
+    # if verb == "CLOCK.A":
+    #     print(repr(itext))
+    #     breakpoint()
 
     # Say how to collect outputs
 
@@ -804,7 +855,7 @@ def _add_exec_trace_(olines: list[str], verb: str) -> None:
     assert not hasattr(module, "print")
     assert getattr(module, "eprint") is with_eprint
 
-    sys.stdin = io.StringIO(123 * "\n")
+    sys.stdin = io.StringIO(itext)
     setattr(module, "print", _tprint_)
     setattr(module, "eprint", _tprint_)
     try:
@@ -818,23 +869,13 @@ def _add_exec_trace_(olines: list[str], verb: str) -> None:
 
     olines.append(dent + f"csp> {verb}")
 
-    ktext = "".join(tprints)
+    kprints = list(_ for _ in tprints if "\n" in _)
+    ktext = "".join(kprints)
     klines = ktext.splitlines()
-    klines = list(_ for _ in klines if _ != "> \033[A\033[K")
-    klines = list(_.removeprefix("> \033[A\033[K") for _ in klines)
-    olines.extend((dent + _.rstrip()) for _ in klines)
+    olines.extend(((dent + _).rstrip()) for _ in klines)
 
     olines.append(dent + "csp> ".rstrip())
     olines.append("")
-
-    # Succeed
-
-    # iopath = pathlib.Path("m.md")
-    # otext = "\n".join(olines) + "\n"
-    # iopath.write_text(otext)
-    #
-    # eprint(f"SQUIRREL {verb!r}")
-    # breakpoint()
 
 
 # ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
@@ -1195,9 +1236,6 @@ def excepthook(  # last modified on 2026-05-14 or later
 
 if __name__ == "__main__":
     main()
-
-
-# todo0: make tests: update traces ended by KeyboardInterrupt "\x03"
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789

@@ -14,7 +14,7 @@ Ask what you can do.
 
     cspbook.py -i
     cspbook.py -c CTR
-    cspbook.py -c CLOCK1
+    cspbook.py -c CLOCK.B
     cspbook.py -c CH5B
 
     %
@@ -47,7 +47,7 @@ Ask for more of a man page.
       cspbook.py
       cspbook.py --help
       cspbook.py -c CTR
-      cspbook.py -c CLOCK1
+      cspbook.py -c CLOCK.B
       cspbook.py -c CH5B
     %
 
@@ -56,7 +56,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.6.153 (main, 2026-06-07)
+    Csp Python 0.6.33 (main, 2026-06-07)
     csp>
     csp> ^D
     %
@@ -114,6 +114,7 @@ Run a Csp Process of 1 Event.
 
     csp> X1.A
     coin
+
     csp>
 
 7
@@ -129,6 +130,7 @@ Run a Csp Process through 4 Events.
     choc
     coin
     choc
+
     csp>
 
 8
@@ -144,6 +146,7 @@ Run another Csp Process through 4 Events.
     up
     right
     right
+
     csp>
 
 9
@@ -169,7 +172,7 @@ Run a Csp Process that loops.
 Run another Csp Process that loops, but defined in terms of a local name "X" for the Process.
 
     csp> CLOCK.B??
-    {"X": ["tick", "X"]}
+    {"CLOCK.B": {"X": ["tick", "X"]}}
     csp>
 
     csp> CLOCK.B
@@ -180,7 +183,6 @@ Run another Csp Process that loops, but defined in terms of a local name "X" for
     tick
     > ^C
     KeyboardInterrupt
-    csp>
     csp>
 
 11
@@ -206,7 +208,7 @@ Run a Csp Process that loops through more than one Event.
 Run another Csp Process that loops through more than one Event, and defined in terms of a local name "X" for the Process.
 
     csp> VMS.B??
-    {"X": ["coin", ["choc", "X"]]}
+    {"VMS.B": {"X": ["coin", ["choc", "X"]]}}
     csp>
 
     csp> VMS.B
