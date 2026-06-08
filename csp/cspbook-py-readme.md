@@ -56,7 +56,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.1.184 (main, 2026-06-07)
+    Csp Python 0.2.134 (main, 2026-06-07)
     csp>
     csp> ^D
     %
@@ -267,7 +267,7 @@ Run another Csp Process that loops through four Events.
 Speak of the empty Csp Process as a Choice between no Events.
 
     csp> STOP??
-    []
+    {}
     csp>
 
     csp> STOP

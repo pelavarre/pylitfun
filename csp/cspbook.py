@@ -578,7 +578,6 @@ class Scope(dict[str, object]):
                 continue
 
             assert isinstance(v, dict), (type(v), v)
-            assert v.keys(), (v.keys(), v)
 
             if len(v.keys()) == 1:
                 shorthand = Shorthand(v)
@@ -629,7 +628,8 @@ class Choice(dict[str, object]):
         self.eventnames = list()
 
         items = list(pj.items())
-        assert len(items) >= 2, (len(items), pj.keys())
+        if items:
+            assert len(items) >= 2, (len(items), pj.keys())
 
         for k, v in items:
 

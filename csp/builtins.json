@@ -1,7 +1,7 @@
 {
   "__doc__": "Built-in procs, and other objects.",
   "# 1": "Processes",
-  "STOP": [],
+  "STOP": {},
   "# 1.1": "Introduction",
   "# 1.1.1": "Prefix",
   "X1.A": [
