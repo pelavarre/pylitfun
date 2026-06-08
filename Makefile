@@ -56,7 +56,7 @@ bin:
 	(ls -A bin && ls -A bin/git-verbs && ls -A sh) \
 		|(cd ~/ && xargs -I{} rm -fr bin/{})
 	ls -d bin/* bin/git-verbs/* sh/* sh/.* \
-		|grep -v -e ^bin/git-verbs$$ -e ^sh/[.]$$ -e ^sh/[.][.]$$ \
+		|grep -v -e ^bin/git-verbs$$ -e ^sh/[.]$$ -e ^sh/[.][.]$$ -e sh/pwnme$$ \
 		|xargs -I{} cp -ip {} ~/bin/.
 
 # beware: the classic 'sh' can add ./ and ../ into sh/.*
