@@ -4,7 +4,7 @@ What should the CLI be for speaking with a CSP Program, when you've got Python o
 
 How about like this?
 
-Fourteen Demos.
+Twenty-two Demos.
 
 1
 
@@ -56,7 +56,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.6.81 (main, 2026-06-07)
+    Csp Python 0.14.176 (main, 2026-06-07)
     csp>
     csp> ^D
     %
@@ -321,7 +321,7 @@ Run a Csp Process that loops over a choice of a couple of sequences.
 
 18
 
-Run another Csp Process that loops through a choice of sequences, but while defined in terms of a local name "X" for the Process.
+Run another Csp Process that loops through a choice of two sequences, but while defined in terms of a local name "X" for the Process.
 
     csp> VMCT??
     {"X": ["coin", {"choc": "X", "toffee": "X"}]}
@@ -338,7 +338,100 @@ Run another Csp Process that loops through a choice of sequences, but while defi
     > ^C
     csp>
 
-Todo: Run more Csp Processes that make choices: VMC, VMCRED, VMS2, COPYBIT etc
+19
+
+Run a Csp Process that loops through choices and choices of many of sequences, indeed even a sequence that ends with a STOP process.`
+
+    csp> VMC??
+    {"in2p": {"large": "VMC", "small": ["out1p", "VMC"]}, "in1p": {"small": "VMC", "in1p": {"large": "VMC", "in1p": "STOP"}}}
+    csp>
+
+    csp> VMC
+    in2p
+    large
+
+    in1p
+    small
+
+    in2p
+    small
+    out1p
+
+    in1p
+    in1p
+    large
+
+    in2p
+    large
+
+    in1p
+    small
+
+    in2p
+    small
+    out1p
+
+    in1p
+    in1p
+    in1p
+    csp>
+
+20
+
+Run a Csp Process that chooses up front between two sequences, again while defined in terms of a local name "X" for the Process.
+
+    csp> VMCRED??
+    {"X": {"coin": ["choc", "X"], "choc": ["coin", "X"]}}
+    csp>
+
+    csp> VMCRED
+    coin
+    choc
+
+    choc
+    coin
+
+    coin
+    > ^C
+    csp>
+
+21
+
+Run a Csp Process that sets up another Csp Process.
+
+    csp> VMS2??
+    ["coin", "VMCRED"]
+    csp>
+
+    csp> VMS2
+    coin
+
+    coin
+    choc
+
+    choc
+    coin
+    > ^C
+    csp>
+
+22
+
+Show how looping over a choice of two sequences copies one bit and another and another.
+
+    csp> COPYBIT??
+    {"X": {"in.0": ["out.0", "X"], "in.1": ["out.1", "X"]}}
+    csp>
+
+    csp> COPYBIT
+    in.0
+    out.0
+
+    in.1
+    out.1
+
+    in.0
+    > ^C
+    csp>
 
 <!--
 

@@ -45,6 +45,7 @@ import json
 import os
 import pathlib
 import pdb
+import re
 import signal
 import sys
 import textwrap
@@ -187,7 +188,7 @@ def _exec_(csp: str) -> None:
 
     _builtins_ = _sys_modules_["builtins"]
 
-    _globals_.clear()
+    _globals_.clear()  # todo1: Disentangle the Scopes of one Proc Def and the next
 
     _locals_ = _globals_
     _locals_["__builtins__"] = _builtins_
@@ -200,7 +201,7 @@ def _exec_(csp: str) -> None:
 
     # Take 'dir()' and 'dir(__builtins__)' as meta-instructions
 
-    if join == "__doc__":  # todo: find "__doc__" in ._locals_ and quit before ._builtins_
+    if join == "__doc__":  # todo2: find "__doc__" in ._locals_ and quit before ._builtins_
         return
 
     if join == "dir()":
@@ -220,9 +221,14 @@ def _exec_(csp: str) -> None:
     # Take suffix or prefix '??' as a meta-instruction
 
     if strip.startswith("??") or strip.endswith("??"):
+
         procname = strip.strip(" ?")
         proc = to_proc_from_name(procname)
         print(json.dumps(proc))
+
+        for choice in Choice.selves:
+            choice.eventnames.clear()
+
         return
 
     # Single Step through the Csp Code of 1 Proc Def
@@ -230,10 +236,8 @@ def _exec_(csp: str) -> None:
     procname = strip
     procname_single_step(procname)
 
-    # todo: Disentangle the Scopes of one Proc Def and the next
 
-
-def procname_single_step(procname: str) -> None:  # todo: fixme:  # noqa C901 complex (16)
+def procname_single_step(procname: str) -> None:  # todo0:  # noqa C901 complex (16)
     """Walk through the Events of 1 Named Process"""
 
     proc = to_proc_from_name(procname)
@@ -276,6 +280,15 @@ def procname_single_step(procname: str) -> None:  # todo: fixme:  # noqa C901 co
             if isinstance(v, Sequence):
                 seq = v
                 proc = seq_single_step(seq)
+                if proc:
+                    continue
+                break
+
+            # Walk through a Choice named by Shorthand of Shorthand
+
+            if isinstance(v, Choice):
+                choice = v
+                proc = choice_single_step(choice)
                 if proc:
                     continue
                 break
@@ -351,9 +364,6 @@ def seq_single_step(seq: Sequence) -> object:
             eprint("> ", end="")
             try:
                 ack = sys.stdin.readline()  # echoes to stdout
-                # path = pathlib.Path("ack.txt")
-                # with path.open("a") as a:
-                #     a.write(repr(ack) + "\n")
             except KeyboardInterrupt:
                 print()
                 return False
@@ -413,6 +423,10 @@ def choice_single_step(choice: Choice) -> object:
             print()
             return None
 
+        if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
+            eprint("> ^C")
+            return False
+
         if ack == "\n" or (ack.strip() == eventname):
             eprint("\033[A" "\033[K", end="")
 
@@ -446,7 +460,7 @@ def to_proc_from_name(procname: str) -> typing.Any:
 
     _builtins_ = _sys_modules_["builtins"]
 
-    if procname in _globals_.keys():  # todo: pick apart _locals_ vs _globals_
+    if procname in _globals_.keys():  # todo2: pick apart _locals_ vs _globals_
         proc = _globals_[procname]
     elif procname in _builtins_.keys():
         proc = _builtins_[procname]
@@ -619,10 +633,14 @@ class Shorthand(dict[str, object]):
 class Choice(dict[str, object]):
     """A Choice is a Dict of Events guarding Processes"""
 
+    selves: list[Choice] = list()
+
     eventnames: list[str]
 
     def __init__(self, pj: dict[str, object]) -> None:
         super().__init__(pj)
+
+        Choice.selves.append(self)
 
         self.eventnames = list()
 
@@ -714,11 +732,19 @@ def _make_tests_() -> None:
     olines = list()
 
     i = 0
+    n = 1
     while i < len(ilines):
         iline = ilines[i]
         i += 1
 
         olines.append(iline)
+
+        # Number the demos
+
+        if re.fullmatch(r"[0-9]+", string=iline):
+            olines[-1] = str(n)
+            n += 1
+            continue
 
         # Add version trace
 
@@ -760,6 +786,9 @@ def _make_one_test_(olines: list[str], ilines: list[str], i: int, verb: str) -> 
     j = i + len(jlines)
 
     _add_source_trace_(olines=olines, verb=verb)
+    for choice in Choice.selves:
+        choice.eventnames.clear()
+
     _add_exec_trace_(olines=olines, verb=verb, jlines=jlines)
     if verb in ("X1.B",):
         _add_exec_trace_(olines=olines, verb=verb, jlines=jlines)
@@ -1237,6 +1266,12 @@ def excepthook(  # last modified on 2026-05-14 or later
 
 if __name__ == "__main__":
     main()
+
+
+# todo1: think more through when to clear history of walking Choice's at return to top-level
+# todo1: think more through why X1.B needs two exec traces
+# todo1: think more about when to trace STOP Process as an Event
+# todo1: find more todo1
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
