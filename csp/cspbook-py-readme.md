@@ -56,7 +56,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.14.176 (main, 2026-06-07)
+    Csp Python 0.15.172 (main, 2026-06-07)
     csp>
     csp> ^D
     %
@@ -114,7 +114,7 @@ Run a Csp Process of 1 Event.
 
     csp> X1.A
     coin
-
+    STOP
     csp>
 
 7
@@ -130,7 +130,7 @@ Run a Csp Process through 4 Events.
     choc
     coin
     choc
-
+    STOP
     csp>
 
 8
@@ -146,7 +146,7 @@ Run another Csp Process through 4 Events.
     up
     right
     right
-
+    STOP
     csp>
 
 9
@@ -283,13 +283,14 @@ Run a Csp Process that stops in a couple of different ways.
 
     csp> X1.B
     up
+    STOP
     csp>
 
     csp> X1.B
     right
     right
     up
-
+    STOP
     csp>
 
 17
@@ -374,6 +375,7 @@ Run a Csp Process that loops through choices and choices of many of sequences, i
     in1p
     in1p
     in1p
+    STOP
     csp>
 
 20

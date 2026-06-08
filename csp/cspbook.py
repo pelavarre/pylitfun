@@ -247,8 +247,7 @@ def procname_single_step(procname: str) -> None:  # todo0:  # noqa C901 complex 
         # Complete an Empty Proc
 
         if not proc:
-            print("STOP")
-            return
+            break
 
         # Walk through a named Sequence
 
@@ -346,6 +345,10 @@ def procname_single_step(procname: str) -> None:  # todo0:  # noqa C901 complex 
 
         raise NotImplementedError(type(proc), proc)
 
+    assert not proc, (proc,)
+    if proc is not False:
+        print("STOP")
+
 
 def seq_single_step(seq: Sequence) -> object:
     """Single Step through the Csp Code of 1 Sequence"""
@@ -359,33 +362,39 @@ def seq_single_step(seq: Sequence) -> object:
         ward = seq[-1]
 
         for eventname in guards:
+
+            assert eventname, (eventname,)
             print(eventname)
 
-            eprint("> ", end="")
-            try:
-                ack = sys.stdin.readline()  # echoes to stdout
-            except KeyboardInterrupt:
-                print()
-                return False
+            while True:
 
-            if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
-                eprint("> ^C")
-                return False
+                eprint("> ", end="")
+                try:
+                    ack = sys.stdin.readline()  # echoes to stdout
+                except KeyboardInterrupt:
+                    print()
+                    return False
 
-            if ack == "\n" or (ack.strip() == eventname):
+                if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
+                    eprint("> ^C")
+                    return False
+
                 eprint("\033[A" "\033[K", end="")
+                if ack == "\n" or (ack.strip() == eventname):
+                    break
+
+                    # ⎋[A Cursor Up (CUP)
+                    # ⎋[K Erase in Line (EL)
+
                 continue
 
-                # ⎋[A Cursor Up (CUP)
-                # ⎋[K Erase in Line (EL)
-
-            print()
-            return None
+            continue
 
         if isinstance(ward, Mention):
             procname = ward
             proc = to_proc_from_name(procname)
-            print()
+            if proc:
+                print()
             break
 
         if isinstance(ward, Choice):
@@ -412,47 +421,46 @@ def choice_single_step(choice: Choice) -> object:
 
         eventname = eventnames.pop(0)
 
-        #
-
+        assert eventname, (eventname,)
         print(eventname)
 
-        eprint("> ", end="")
-        try:
-            ack = sys.stdin.readline()  # echoes to stdout
-        except KeyboardInterrupt:
-            print()
-            return None
+        while True:
 
-        if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
-            eprint("> ^C")
-            return False
-
-        if ack == "\n" or (ack.strip() == eventname):
-            eprint("\033[A" "\033[K", end="")
-
-            chosen = choice[eventname]
-            if isinstance(chosen, Sequence):
-                proc = chosen
-                return proc
-
-            if isinstance(chosen, Choice):
-                choice = chosen
-                continue
-
-            assert isinstance(chosen, Mention), (type(chosen), chosen)
-            procname = chosen
-            proc = to_proc_from_name(procname)
-            if proc:
+            eprint("> ", end="")
+            try:
+                ack = sys.stdin.readline()  # echoes to stdout
+            except KeyboardInterrupt:
                 print()
-                return proc
+                return False
 
-            return None
+            if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
+                eprint("> ^C")
+                return False
 
-            # ⎋[A Cursor Up (CUP)
-            # ⎋[K Erase in Line (EL)
+            eprint("\033[A" "\033[K", end="")
+            if ack == "\n" or (ack.strip() == eventname):
+                break
 
-        print()
-        return None
+                # ⎋[A Cursor Up (CUP)
+                # ⎋[K Erase in Line (EL)
+
+        chosen = choice[eventname]
+        if isinstance(chosen, Sequence):
+            proc = chosen
+            return proc
+
+        if isinstance(chosen, Choice):
+            choice = chosen
+            continue
+
+        assert isinstance(chosen, Mention), (type(chosen), chosen)
+        procname = chosen
+        proc = to_proc_from_name(procname)
+        if proc:
+            print()
+            return proc
+
+        return proc
 
 
 def to_proc_from_name(procname: str) -> typing.Any:
@@ -1268,10 +1276,10 @@ if __name__ == "__main__":
     main()
 
 
+# todo0: find more todo0
+
 # todo1: think more through when to clear history of walking Choice's at return to top-level
 # todo1: think more through why X1.B needs two exec traces
-# todo1: think more about when to trace STOP Process as an Event
-# todo1: find more todo1
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
