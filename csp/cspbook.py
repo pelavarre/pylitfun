@@ -360,7 +360,6 @@ def seq_single_step(seq: Sequence) -> object:
 
             if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
                 eprint("> ^C")
-                eprint("KeyboardInterrupt")
                 return False
 
             if ack == "\n" or (ack.strip() == eventname):
@@ -762,6 +761,8 @@ def _make_one_test_(olines: list[str], ilines: list[str], i: int, verb: str) -> 
 
     _add_source_trace_(olines=olines, verb=verb)
     _add_exec_trace_(olines=olines, verb=verb, jlines=jlines)
+    if verb in ("X1.B",):
+        _add_exec_trace_(olines=olines, verb=verb, jlines=jlines)
 
     return j
 
@@ -829,20 +830,15 @@ def _add_exec_trace_(olines: list[str], verb: str, jlines: list[str]) -> None:
                     pass
                 elif lstrip == "> ^C":  # '⌃' != '^'
                     cancelling = True
-                elif lstrip == "KeyboardInterrupt":
-                    assert cancelling, (jlines, verb)
                 else:
                     inputs += 1
 
     assert inputs >= 0, (inputs, jlines, verb)
 
-    itext = inputs * "\n"
+    itext = 123 * "\n"  # todo: arbitrarily large enough, maybe
     if cancelling:
-        itext += "\x03"  #
-
-    # if verb == "CLOCK.A":
-    #     print(repr(itext))
-    #     breakpoint()
+        itext = inputs * "\n"
+        itext += "\x03"  # emulates raising KeyboardInterrupt at ^C
 
     # Say how to collect outputs
 

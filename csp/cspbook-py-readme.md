@@ -56,7 +56,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.2.134 (main, 2026-06-07)
+    Csp Python 0.6.81 (main, 2026-06-07)
     csp>
     csp> ^D
     %
@@ -164,7 +164,6 @@ Run a Csp Process that loops.
 
     tick
     > ^C
-    KeyboardInterrupt
     csp>
 
 10
@@ -182,7 +181,6 @@ Run another Csp Process that loops, but defined in terms of a local name "X" for
 
     tick
     > ^C
-    KeyboardInterrupt
     csp>
 
 11
@@ -199,13 +197,14 @@ Run a Csp Process that loops through more than one Event.
 
     coin
     choc
+
+    coin
     > ^C
-    KeyboardInterrupt
     csp>
 
 12
 
-Run another Csp Process that loops through more than one Event, and defined in terms of a local name "X" for the Process.
+Run another Csp Process that loops through more than one Event, but while defined in terms of a local name "X" for the Process.
 
     csp> VMS.B??
     {"X": ["coin", ["choc", "X"]]}
@@ -219,8 +218,8 @@ Run another Csp Process that loops through more than one Event, and defined in t
     choc
 
     coin
+    choc
     > ^C
-    KeyboardInterrupt
     csp>
 
 13
@@ -238,8 +237,8 @@ Run a Csp Process that loops through four Events.
     out2p
 
     in5p
+    out2p
     > ^C
-    KeyboardInterrupt
     csp>
 
 14
@@ -258,8 +257,8 @@ Run another Csp Process that loops through four Events.
     out2p
 
     in5p
+    out1p
     > ^C
-    KeyboardInterrupt
     csp>
 
 15
@@ -276,7 +275,70 @@ Speak of the empty Csp Process as a Choice between no Events.
 
 16
 
-Todo: Run more Csp Processes that make choices: X1.B, CH5C, VMCT, VMC, VMCRED, VMS2, COPYBIT etc
+Run a Csp Process that stops in a couple of different ways.
+
+    csp> X1.B??
+    {"up": "STOP", "right": ["right", "up", "STOP"]}
+    csp>
+
+    csp> X1.B
+    up
+    csp>
+
+    csp> X1.B
+    right
+    right
+    up
+
+    csp>
+
+17
+
+Run a Csp Process that loops over a choice of a couple of sequences.
+
+    csp> CH5C??
+    ["in5p", {"out1p": ["out1p", "out1p", "out2p", "CH5C"], "out2p": ["out1p", "out2p", "CH5C"]}]
+    csp>
+
+    csp> CH5C
+    in5p
+    out1p
+    out1p
+    out1p
+    out2p
+
+    in5p
+    out2p
+    out1p
+    out2p
+
+    in5p
+    out1p
+    out1p
+    out1p
+    > ^C
+    csp>
+
+18
+
+Run another Csp Process that loops through a choice of sequences, but while defined in terms of a local name "X" for the Process.
+
+    csp> VMCT??
+    {"X": ["coin", {"choc": "X", "toffee": "X"}]}
+    csp>
+
+    csp> VMCT
+    coin
+    choc
+
+    coin
+    toffee
+
+    coin
+    > ^C
+    csp>
+
+Todo: Run more Csp Processes that make choices: VMC, VMCRED, VMS2, COPYBIT etc
 
 <!--
 
