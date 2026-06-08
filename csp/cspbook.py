@@ -358,7 +358,7 @@ def seq_single_step(seq: Sequence) -> object:
                 print()
                 return False
 
-            if ack == "\x03":
+            if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
                 eprint("> ^C")
                 eprint("KeyboardInterrupt")
                 return False
@@ -448,21 +448,11 @@ def to_proc_from_name(procname: str) -> typing.Any:
     _builtins_ = _sys_modules_["builtins"]
 
     if procname in _globals_.keys():  # todo: pick apart _locals_ vs _globals_
-        top = _globals_[procname]
+        proc = _globals_[procname]
     elif procname in _builtins_.keys():
-        top = _builtins_[procname]
+        proc = _builtins_[procname]
     else:
         raise NameError(f"name {procname!r} is not defined")
-
-    # __builtins__.print(f"SQUIRREL {procname=} {top=}", file=sys.__stderr__)
-
-    proc = top
-    if isinstance(top, dict):
-        keys = list(top.keys())
-        if len(keys) == 1:
-            key = keys[-1]
-            if key == procname:
-                proc = top[key]
 
     return proc
 
@@ -482,6 +472,9 @@ def _import_module_(modulename: str) -> None:
     # Convert to an Abstract Syntax Tree
 
     scope = Scope(pj)
+
+    # path = pathlib.Path("j.json")
+    # path.write_text(json.dumps(scope, indent=2) + "\n")
 
     # Start mutating the Json Object
 
@@ -526,11 +519,11 @@ def _import_module_json_(modulename: str) -> dict[str, object]:
         if k == "__doc__":  # keeps the Docstring
             continue
 
-        if k.startswith("#"):  # drops each Comment
+        if k.startswith("__") and k.endswith("__"):  # drops any other Dunder Key
             del pj[k]
             continue
 
-        if k.startswith("__") and k.endswith("__"):  # drops each Dunder Key, no matter if known
+        if k.startswith("#"):  # drops each Comment
             del pj[k]
             continue
 
@@ -588,7 +581,7 @@ class Scope(dict[str, object]):
             assert v.keys(), (v.keys(), v)
 
             if len(v.keys()) == 1:
-                shorthand = Shorthand([item])
+                shorthand = Shorthand(v)
                 self[k] = shorthand
                 continue
 
@@ -596,33 +589,33 @@ class Scope(dict[str, object]):
             self[k] = choice
             continue
 
+        assert pj == self, (pj, self)
+
 
 class Shorthand(dict[str, object]):
     """A Shorthand is Part given a Mentionable Name"""
 
-    def __init__(self, pj: typing.Iterable[tuple[str, object]]) -> None:
+    def __init__(self, pj: dict[str, object]) -> None:
         super().__init__(pj)
 
-        items = list(pj)
+        assert isinstance(pj, dict), (type(pj), pj)
 
-        item = items[-1]
-        k = item[0]
-        v = item[-1]
+        keys = list(pj.keys())
+        assert len(keys) == 1, (len(keys), keys, pj)
+
+        k = keys[-1]
+        v = pj[k]
 
         if isinstance(v, list):
             sequence = Sequence(v)
             self[k] = sequence
-        else:
-            assert isinstance(v, dict), (type(v), v)
-            if len(v.keys()) == 1:
-                v_items = list(v.items())
-                shorthand = Shorthand(v_items)
-                self[k] = shorthand
-            else:
-                assert len(v.keys()) > 1, (len(v.keys()), v.keys(), v)
-                v_items = list(v.items())
-                choice = Choice(v)
-                self[k] = choice
+            return
+
+        assert isinstance(v, dict), (type(v), v)
+        choice = Choice(v)
+        self[k] = choice
+
+        assert pj == self, (pj, self)
 
 
 class Choice(dict[str, object]):
@@ -655,6 +648,8 @@ class Choice(dict[str, object]):
             self[k] = Mention(v)
             continue
 
+        assert pj == self, (pj, self)
+
 
 class Sequence(list[object]):
     """A Sequence is a Tuple of Events and a Mention of Shorthand"""
@@ -682,6 +677,8 @@ class Sequence(list[object]):
             assert isinstance(tail, dict), (type(tail), tail)
             assert len(tail.keys()) > 1, (len(tail.keys()), tail.keys(), tail)
             self[index] = Choice(tail)
+
+        assert pj == self, (pj, self)
 
 
 class Event(str):
@@ -776,8 +773,6 @@ def _drop_lines_(ilines: list[str], i: int) -> list[str]:
 
     iline = ilines[i - 1]
     ident = len(iline) - len(iline.lstrip())
-    # eprint("")
-    # eprint(f"SQUIRREL {iline=}")
 
     j = i
 
@@ -792,7 +787,6 @@ def _drop_lines_(ilines: list[str], i: int) -> list[str]:
                 assert j > i, (i, j, jdent, ident, jline, iline)
                 break
 
-        # eprint(f"SQUIRREL {jline=}")
         jlines.append(jline)
 
         ji = j - i
@@ -1247,9 +1241,6 @@ def excepthook(  # last modified on 2026-05-14 or later
 
 if __name__ == "__main__":
     main()
-
-
-# todo0: serialize builtins.json back out
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
