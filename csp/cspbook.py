@@ -790,6 +790,10 @@ def _make_tests_() -> None:
 def _make_one_test_(olines: list[str], ilines: list[str], i: int, verb: str) -> int:
     """Make one Test Result from one Verb"""
 
+    proc = to_proc_from_name(procname=verb)
+    n = _count_stops_(proc)
+    execs = max(1, n)
+
     jlines = _drop_lines_(ilines, i=i)
     j = i + len(jlines)
 
@@ -797,11 +801,24 @@ def _make_one_test_(olines: list[str], ilines: list[str], i: int, verb: str) -> 
     for choice in Choice.selves:
         choice.eventnames.clear()
 
-    _add_exec_trace_(olines=olines, verb=verb, jlines=jlines)
-    if verb in ("X1.B",):
+    for _ in range(execs):
         _add_exec_trace_(olines=olines, verb=verb, jlines=jlines)
 
     return j
+
+
+def _count_stops_(pj: object) -> int:
+    """Count the STOP's in a Proc"""
+
+    if isinstance(pj, dict):
+        return sum(_count_stops_(_) for _ in pj.values())
+    if isinstance(pj, list):
+        return sum(_count_stops_(_) for _ in pj)
+    if isinstance(pj, str):
+        if pj == "STOP":
+            return 1
+
+    return 0
 
 
 def _drop_lines_(ilines: list[str], i: int) -> list[str]:
@@ -1279,7 +1296,6 @@ if __name__ == "__main__":
 # todo0: find more todo0
 
 # todo1: think more through when to clear history of walking Choice's at return to top-level
-# todo1: think more through why X1.B needs two exec traces
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
