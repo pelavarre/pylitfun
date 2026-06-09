@@ -361,34 +361,12 @@ def seq_single_step(seq: Sequence) -> object:
         guards = seq[:-1]
         ward = seq[-1]
 
-        for eventname in guards:
+        for guard in guards:  # todo9: choices=choices to skip ahead
+            assert isinstance(guard, str), (type(guard), guard)
 
-            assert eventname, (eventname,)
-            print(eventname)
-
-            while True:
-
-                eprint("> ", end="")
-                try:
-                    ack = sys.stdin.readline()  # echoes to stdout
-                except KeyboardInterrupt:
-                    print()
-                    return False
-
-                if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
-                    eprint("> ^C")
-                    return False
-
-                eprint("\033[A" "\033[K", end="")
-                if ack == "\n" or (ack.strip() == eventname):
-                    break
-
-                    # ⎋[A Cursor Up (CUP)
-                    # ⎋[K Erase in Line (EL)
-
-                continue
-
-            continue
+            eventname = take_name(names=[guard], default=guard)
+            if not eventname:
+                return False
 
         if isinstance(ward, Mention):
             procname = ward
@@ -410,39 +388,63 @@ def seq_single_step(seq: Sequence) -> object:
     return proc
 
 
+def take_name(names: list[str], default: str) -> str:
+    """Prompt with an Event Name, and take the same."""
+
+    assert default, (default,)
+    assert default in names, (default, names)
+
+    eprint(default)
+
+    while True:
+
+        eprint("> ", end="")
+        try:
+            ack = sys.stdin.readline()  # echoes to stdout
+        except KeyboardInterrupt:
+            eprint()
+            return ""
+
+        if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
+            eprint("> ^C")
+            return ""
+
+        if not ack:
+            eprint("^D")
+            return ""
+
+        eprint("\r" "\033[A" "\033[K", end="")
+
+        strip = ack.strip()
+        if (ack == "\n") or (strip == default):
+            return default
+
+        if strip in names:
+            eprint("\r" "\033[A" "\033[K", end="")
+            eprint(strip)
+            return strip
+
+        continue
+
+    # \r Carriage Return (CR)
+    # ⎋[A Cursor Up (CUP)
+    # ⎋[K Erase in Line (EL)
+
+
 def choice_single_step(choice: Choice) -> object:
     """Single Step through the Csp Code of 1 Choice"""
 
     while True:
+        names = list(choice.keys())
 
         eventnames = choice.eventnames
         if not eventnames:
-            eventnames.extend(choice.keys())
+            eventnames.extend(names)
 
-        eventname = eventnames.pop(0)
-
-        assert eventname, (eventname,)
-        print(eventname)
-
-        while True:
-
-            eprint("> ", end="")
-            try:
-                ack = sys.stdin.readline()  # echoes to stdout
-            except KeyboardInterrupt:
-                print()
-                return False
-
-            if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
-                eprint("> ^C")
-                return False
-
-            eprint("\033[A" "\033[K", end="")
-            if ack == "\n" or (ack.strip() == eventname):
-                break
-
-                # ⎋[A Cursor Up (CUP)
-                # ⎋[K Erase in Line (EL)
+        default = eventnames.pop(0)
+        eventname = take_name(names=names, default=default)
+        if not eventname:
+            return False
 
         chosen = choice[eventname]
         if isinstance(chosen, Sequence):
@@ -1295,6 +1297,7 @@ if __name__ == "__main__":
 
 # todo0: find more todo0
 
+# todo1: do enough input line history to accept ↑ Return to repeat input
 # todo1: think more through when to clear history of walking Choice's at return to top-level
 
 
