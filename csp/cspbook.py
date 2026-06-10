@@ -48,8 +48,10 @@ import pdb
 import re
 import signal
 import sys
+import termios
 import textwrap
 import traceback
+import tty
 import types
 import typing
 import zoneinfo
@@ -144,7 +146,7 @@ def _chat_() -> None:
         eprint("csp> ", end="")
 
         try:
-            csp = sys.stdin.readline()  # echoes to stdout
+            csp = sys.stdin.readline()  # reads and echoes
         except KeyboardInterrupt:
             print()
             print("KeyboardInterrupt")
@@ -400,7 +402,7 @@ def take_name(names: list[str], default: str) -> str:
 
         eprint("> ", end="")
         try:
-            ack = sys.stdin.readline()  # echoes to stdout
+            ack = _sys_sydin_readline_()  # echoes to stdout
         except KeyboardInterrupt:
             eprint()
             return ""
@@ -1288,6 +1290,109 @@ def excepthook(  # last modified on 2026-05-14 or later
 
 
 #
+# Amp up Import Termios & Import Tty
+#
+
+
+def _sys_sydin_readline_() -> str:
+    """Read one Line from Stdin without echo if not Tty, else from Terminal with echo"""
+
+    isatty = sys.stdin.isatty()
+    if not isatty:
+        readline = sys.stdin.readline()
+        return readline
+
+    with TerminalIO() as tty:
+        readline = tty.readline()
+        return readline
+
+
+class TerminalIO:
+
+    stdio: typing.TextIO  # sys.__stderr__
+    fileno: int  # 2
+    tcgetattr: list[int | list[bytes | int]]  # replaced by .__enter__ and by .__exit__
+
+    def __init__(self) -> None:
+
+        assert sys.__stderr__, (sys.__stderr__,)
+
+        stdio = sys.__stderr__
+        self.stdio = stdio
+        self.fileno = stdio.fileno()
+        self.tcgetattr = list()
+
+    def __enter__(self) -> TerminalIO:
+
+        stdio = self.stdio
+        fileno = self.fileno
+        tcgetattr = self.tcgetattr
+
+        stdio.flush()
+
+        assert not tcgetattr, (tcgetattr,)
+
+        tcgetattr = termios.tcgetattr(fileno)
+        assert tcgetattr, (tcgetattr,)
+        self.tcgetattr = tcgetattr  # replaces
+
+        tty.setraw(fileno, when=termios.TCSADRAIN)
+
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+
+        stdio = self.stdio
+        fileno = self.fileno
+        tcgetattr = self.tcgetattr
+
+        assert tcgetattr, (tcgetattr,)
+
+        stdio.flush()  # before 'termios.tcsetattr' of TerminalStudio.__exit__
+
+        fd = fileno
+        when = termios.TCSADRAIN
+        attributes = tcgetattr
+        termios.tcsetattr(fd, when, attributes)
+
+        self.tcgetattr = list()  # replaces
+
+    def readline(self) -> str:
+        """Read one Line, from fresh Keyboard Entry or Keyboard Editing of History"""
+
+        while True:
+
+            b = self.read_one_byte()
+
+            if b == b"\x03":
+                eprint("^C", end="")
+                raise KeyboardInterrupt()
+
+            if b == b"\x04":
+                eprint("^D", end="")
+                return ""
+
+            if b == b"\x0D" == b"\r":
+                eprint("", end="\r\n")
+                return "\n"
+
+            # eprint(repr(b), end="\r\n")
+
+    def read_one_byte(self) -> bytes:
+        """Read one Byte"""
+
+        fileno = self.fileno
+
+        fd = fileno
+        length = 1
+        read = os.read(fd, length)
+
+        assert len(read) == 1, (read,)  # todo: test os.read returns empty
+
+        return read
+
+
+#
 # Run from the Shell Command Line, if not imported
 #
 
@@ -1297,7 +1402,6 @@ if __name__ == "__main__":
 
 # todo0: find more todo0
 
-# todo1: do enough input line history to accept ↑ Return to repeat input
 # todo1: think more through when to clear history of walking Choice's at return to top-level
 
 
