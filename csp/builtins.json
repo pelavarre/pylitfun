@@ -4,11 +4,19 @@
   "STOP": {},
   "# 1.1": "Introduction",
   "# 1.1.1": "Prefix",
+  "X1": {
+    "up": "STOP",
+    "right": [
+      "right",
+      "up",
+      "STOP"
+    ]
+  },
   "X1.A": [
     "coin",
     "STOP"
   ],
-  "X2.A": [
+  "X2": [
     "coin",
     [
       "choc",
@@ -29,6 +37,12 @@
     "STOP"
   ],
   "# 1.1.2": "Recursion",
+  "CLOCK": {
+    "X": [
+      "tick",
+      "X"
+    ]
+  },
   "CLOCK.A": [
     "tick",
     "CLOCK.A"
@@ -150,6 +164,10 @@
   },
   "# 1.1.3 X8": "gives us nothing to put here",
   "# 1.1.4": "Mutual recursion",
+  "__todo__": [
+    "todo0: define X1 and CLOCK as last redefined but more abstractly, less concretely",
+    "todo0: don't add X1.A till just before X1.B"
+  ],
   "__farewell__": [
     "posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/builtins.json",
     "copied from:  git clone https://github.com/pelavarre/litpython.git"

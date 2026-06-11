@@ -71,7 +71,7 @@ Chat without showing the version, and look at the built-in globals, but then qui
     ['__builtins__', '__doc__']
     csp>
     csp> dir(__builtins__)
-    ['__doc__', 'STOP', 'X1.A', 'X2.A', 'CTR', 'CLOCK.A', 'CLOCK.B', 'VMS.A', 'VMS.B', 'CH5A', 'CH5B', 'X1.B', 'CH5C', 'VMCT', 'VMC', 'VMCRED', 'VMS2', 'COPYBIT']
+    ['__doc__', 'STOP', 'X1', 'X1.A', 'X2', 'CTR', 'CLOCK', 'CLOCK.A', 'CLOCK.B', 'VMS.A', 'VMS.B', 'CH5A', 'CH5B', 'X1.B', 'CH5C', 'VMCT', 'VMC', 'VMCRED', 'VMS2', 'COPYBIT']
     csp>
     csp> __builtins__.__doc__
     'Built-in procs, and other objects.'
@@ -105,7 +105,7 @@ Run a Csp Process of 1 Event.
     % ./csp/cspbook.py -i -c ''
     csp>
     csp> dir(__builtins__)
-    ['__doc__', 'STOP', 'X1.A', 'X2.A', 'CTR', 'CLOCK.A', 'CLOCK.B', 'VMS.A', 'VMS.B', 'CH5A', 'CH5B', 'X1.B', 'CH5C', 'VMCT', 'VMC', 'VMCRED', 'VMS2', 'COPYBIT']
+    ['__doc__', 'STOP', 'X1', 'X1.A', 'X2', 'CTR', 'CLOCK', 'CLOCK.A', 'CLOCK.B', 'VMS.A', 'VMS.B', 'CH5A', 'CH5B', 'X1.B', 'CH5C', 'VMCT', 'VMC', 'VMCRED', 'VMS2', 'COPYBIT']
     csp>
 
     csp> X1.A??
@@ -121,11 +121,11 @@ Run a Csp Process of 1 Event.
 
 Run a Csp Process through 4 Events.
 
-    csp> X2.A??
+    csp> X2??
     ["coin", ["choc", ["coin", ["choc", "STOP"]]]]
     csp>
 
-    csp> X2.A
+    csp> X2
     coin
     choc
     coin
