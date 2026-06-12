@@ -32,7 +32,7 @@ import subprocess
 import sys
 
 if not __debug__:
-    raise NotImplementedError([__debug__])  # 'better python3 than python3 -O'
+    raise NotImplementedError([__debug__])  # 'better python3 without -O than with -O'
 
 
 def main() -> None:

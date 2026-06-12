@@ -47,7 +47,7 @@ import zoneinfo
 _: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
 
 if not __debug__:
-    raise NotImplementedError([__debug__])  # 'better python3 than python3 -O'
+    raise NotImplementedError([__debug__])  # 'better python3 without -O than with -O'
 
 
 Pacific = zoneinfo.ZoneInfo("America/Los_Angeles")

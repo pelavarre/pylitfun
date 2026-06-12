@@ -114,7 +114,7 @@ import unicodedata
 _: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
 
 if not __debug__:
-    raise NotImplementedError([__debug__])  # 'better python3 than python3 -O'
+    raise NotImplementedError([__debug__])  # 'better python3 without -O than with -O'
 
 
 _os_environ_get_cloud_shell_ = os.environ.get("CLOUD_SHELL", "")

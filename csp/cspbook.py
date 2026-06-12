@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 r"""
-usage: cspbook.py [-h] [-i] [-c CSP] [--make-tests]
+usage: cspbook.py [-h] [-i] [-c CODELINE] [--make-tests]
 
 exec some lines of csp code
 
 options:
   -h, --help    show this help message and exit
   -i            prompt and reply, loop loop till quit
-  -c CSP        one line of csp code to exec
+  -c CODELINE   one line of csp code to exec
   --make-tests  update:  git diff csp/cspbook-py-readme.md
 
 quirks:
@@ -56,10 +56,10 @@ import types
 import typing
 import zoneinfo
 
-_: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
+# _: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
 
 if not __debug__:
-    raise NotImplementedError([__debug__])  # 'better python3 than python3 -O'
+    raise NotImplementedError([__debug__])  # 'better python3 without -O than with -O'
 
 
 Pacific = zoneinfo.ZoneInfo("America/Los_Angeles")
@@ -77,8 +77,11 @@ def main() -> None:
     sys.excepthook = excepthook
 
     try:
+
         try_main()
-    except Exception:  # not KeyboardInterrupt nor SystemExit
+
+    except Exception:  # not KeyboardInterrupt  # not SystemExit
+
         PacificQuit = dt.datetime.now(Pacific)
         print(PacificQuit, PacificQuit - PacificLaunch)
         excepthook(*sys.exc_info())
@@ -93,28 +96,31 @@ def try_main() -> None:
     parser = arg_doc_to_parser(doc)
     ns = parser.parse_args_if(sys.argv[1:])
 
-    _import_module_("builtins")
+    ct = CodeTalker()
+    cw = ct.code_wrangler
+    cw.import_module("builtins")
 
     pathname = sys.argv[0]
     str_version = pathname_read_hash_ymd_version(pathname)  # '0.4.39 (main, 2026-05-24)'
 
+    cs = CodeSketcher(ct)
     if ns.make_tests:
-        _make_tests_()
+        cs.update_md()
 
     if (not ns.c) and (not ns.i):
         if not ns.make_tests:  # if banner for '--'
             eprint(f"Csp Python {str_version}")
 
     if ns.c:
-        csp = ns.c
-        _exec_(csp)  # may raise SystemExit
+        codeline = ns.c
+        ct.sys_exec(codeline)  # may raise SystemExit
 
     if ns.i:
-        _chat_()
+        ct.sys_chat()
     elif ns.make_tests:
         pass
     else:  # if chat for '--'
-        _chat_()
+        ct.sys_chat()
 
 
 def arg_doc_to_parser(doc: str) -> ArgDocParser:
@@ -127,460 +133,476 @@ def arg_doc_to_parser(doc: str) -> ArgDocParser:
     make_tests_help = "update:  git diff csp/cspbook-py-readme.md"
 
     parser.add_argument("-i", action="count", help=i_help)
-    parser.add_argument("-c", metavar="CSP", help=c_help)
+    parser.add_argument("-c", metavar="CODELINE", help=c_help)
     parser.add_argument("--make-tests", action="count", help=make_tests_help)
 
     return parser
 
 
-#
-# Prompt and reply, loop loop till quit
-#
-
-
-def _chat_() -> None:
-    """Prompt and reply, loop loop till quit"""
-
-    while True:
-
-        eprint("csp> ", end="")
-
-        try:
-            csp = sys.stdin.readline()  # reads and echoes
-        except KeyboardInterrupt:
-            print()
-            print("KeyboardInterrupt")
-            continue
-
-        if not csp:
-            print()
-            sys.stdout.flush()
-            break
-
-        if not csp.strip():
-            continue
-
-        try:
-            _exec_(csp)  # may raise SystemExit
-        except KeyboardInterrupt:
-            print()
-            print("KeyboardInterrupt")
-            continue
-
-        continue
-
-
+# ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
+# ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
 # ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
 
 
-#
-# Run through a Csp Program
-#
+class CodeTalker:
+    """Run Code and walk through Code"""
 
+    code_wrangler: CodeWrangler
 
-_sys_modules_: dict[str, Scope] = dict()
-_globals_: dict[str, object] = dict()
+    def __init__(self) -> None:
 
+        cw = CodeWrangler()
+        self.code_wrangler = cw
 
-def _exec_(csp: str) -> None:
-    """Exec one line of Csp code"""
+    #
+    # Prompt and reply, loop loop till quit
+    #
 
-    strip = csp.strip()
-    join = "".join(csp.split())
+    def sys_chat(self) -> None:
+        """Prompt and reply, loop loop till quit"""
 
-    _builtins_ = _sys_modules_["builtins"]
+        while True:
 
-    _globals_.clear()  # todo1: Disentangle the Scopes of one Proc Def and the next
+            eprint("csp> ", end="")
 
-    _locals_ = _globals_
-    _locals_["__builtins__"] = _builtins_
-    _locals_["__doc__"] = None
-
-    # Take 'quit()' etc as a meta-instruction
-
-    if join in ("exit", "exit()", "quit", "quit()"):
-        sys.exit()
-
-    # Take 'dir()' and 'dir(__builtins__)' as meta-instructions
-
-    if join == "__doc__":  # todo2: find "__doc__" in ._locals_ and quit before ._builtins_
-        return
-
-    if join == "dir()":
-        procnames = list(_locals_)  # 'better copied than aliased'
-        print(procnames)
-        return
-
-    if join == "dir(__builtins__)":
-        procnames = list(_builtins_)  # 'better copied than aliased'
-        print(procnames)
-        return
-
-    if join == "__builtins__.__doc__":
-        print(repr(_builtins_["__doc__"]))
-        return
-
-    # Take suffix or prefix '??' as a meta-instruction
-
-    if strip.startswith("??") or strip.endswith("??"):
-
-        procname = strip.strip(" ?")
-        proc = to_proc_from_name(procname)
-        print(json.dumps(proc))
-
-        for choice in Choice.selves:
-            choice.eventnames.clear()
-
-        return
-
-    # Single Step through the Csp Code of 1 Proc Def
-
-    procname = strip
-    procname_single_step(procname)
-
-
-def procname_single_step(procname: str) -> None:  # todo0:  # noqa C901 complex (16)
-    """Walk through the Events of 1 Named Process"""
-
-    proc = to_proc_from_name(procname)
-
-    while True:
-
-        # Complete an Empty Proc
-
-        if not proc:
-            break
-
-        # Walk through a named Sequence
-
-        if isinstance(proc, Sequence):
-            seq = proc
-            proc = seq_single_step(seq)
-            if proc:
+            try:
+                csp = sys.stdin.readline()  # reads and echoes
+            except KeyboardInterrupt:
+                print()
+                print("KeyboardInterrupt")
                 continue
-            break
 
-        # Dive into Shorthand
+            if not csp:
+                print()
+                sys.stdout.flush()
+                break
 
-        if isinstance(proc, Shorthand):
+            if not csp.strip():
+                continue
 
-            items = list(proc.items())
-            assert len(items) == 1, (len(items), items)
+            try:
+                self.sys_exec(csp)  # may raise SystemExit
+            except KeyboardInterrupt:
+                print()
+                print("KeyboardInterrupt")
+                continue
 
-            item = items[-1]
-            k = item[0]
-            v = item[-1]
+            continue
 
-            if k in _globals_.keys():
-                eprint(f"Warning: Redefining Global Proc {k!r}")
+    #
+    # Run through a Csp Program
+    #
 
-            _globals_[k] = v
+    def sys_exec(self, codeline: str) -> None:
+        """Exec one line of Csp code"""
 
-            # Walk through a Sequence named by Shorthand
+        strip = codeline.strip()
+        join = "".join(codeline.split())
 
-            if isinstance(v, Sequence):
-                seq = v
-                proc = seq_single_step(seq)
+        cw = self.code_wrangler
+        sys_globals = cw.sys_globals
+        sys_modules = cw.sys_modules
+        sys_builtins = sys_modules["builtins"]
+
+        sys_globals.clear()  # todo1: Disentangle the Scopes of one Proc Def and the next
+
+        sys_locals = sys_globals
+        sys_locals["__builtins__"] = sys_globals
+        sys_locals["__doc__"] = None
+
+        # Take 'quit()' etc as a meta-instruction
+
+        if join in ("exit", "exit()", "quit", "quit()"):
+            sys.exit()
+
+        # Take 'dir()' and 'dir(__builtins__)' as meta-instructions
+
+        if join == "__doc__":  # todo2: find "__doc__" in ._locals_ and quit before ._builtins_
+            return
+
+        if join == "dir()":
+            procnames = list(sys_locals)  # 'better copied than aliased'
+            print(procnames)
+            return
+
+        if join == "dir(__builtins__)":
+            procnames = list(sys_builtins)  # 'better copied than aliased'
+            print(procnames)
+            return
+
+        if join == "__builtins__.__doc__":
+            print(repr(sys_builtins["__doc__"]))
+            return
+
+        # Take suffix or prefix '??' as a meta-instruction
+
+        if strip.startswith("??") or strip.endswith("??"):
+
+            procname = strip.strip(" ?")
+            proc = self.to_proc_from_name(procname)
+            print(json.dumps(proc))
+
+            for choice in Choice.selves:
+                choice.eventnames.clear()
+
+            return
+
+        # Single Step through the Csp Code of 1 Proc Def
+
+        procname = strip
+        self.procname_single_step(procname)
+
+    def procname_single_step(self, procname: str) -> None:  # todo0:  # noqa C901 complex (16)
+        """Walk through the Events of 1 Named Process"""
+
+        cw = self.code_wrangler
+        sys_globals = cw.sys_globals
+
+        proc = self.to_proc_from_name(procname)
+
+        while True:
+
+            # Complete an Empty Proc
+
+            if not proc:
+                break
+
+            # Walk through a named Sequence
+
+            if isinstance(proc, Sequence):
+                seq = proc
+                proc = self.seq_single_step(seq)
                 if proc:
                     continue
                 break
 
-            # Walk through a Choice named by Shorthand of Shorthand
+            # Dive into Shorthand
 
-            if isinstance(v, Choice):
-                choice = v
-                proc = choice_single_step(choice)
-                if proc:
-                    continue
-                break
+            if isinstance(proc, Shorthand):
 
-            # Dive into Shorthand named by Shorthand
+                items = list(proc.items())
+                assert len(items) == 1, (len(items), items)
 
-            if isinstance(v, Shorthand):
+                item = items[-1]
+                k = item[0]
+                v = item[-1]
 
-                v_items = list(v.items())
-                assert len(v_items) == 1, (len(v_items), v_items)
+                if k in sys_globals.keys():
+                    eprint(f"Warning: Redefining Global Proc {k!r}")
 
-                v_item = v_items[-1]
-                v_k = v_item[0]
-                v_v = v_item[-1]
+                sys_globals[k] = v
 
-                if v_k in _globals_.keys():
-                    eprint(f"Warning: Redefining Global Proc {v_k!r}")
+                # Walk through a Sequence named by Shorthand
 
-                _globals_[v_k] = v_v
-
-                # Walk through a Sequence named by Shorthand of Shorthand
-
-                if isinstance(v_v, Sequence):
-                    seq = v_v
-
-                    proc = seq_single_step(seq)
+                if isinstance(v, Sequence):
+                    seq = v
+                    proc = self.seq_single_step(seq)
                     if proc:
                         continue
                     break
 
                 # Walk through a Choice named by Shorthand of Shorthand
 
-                assert isinstance(v_v, Choice), (type(v_v), v_v)
-                choice = v_v
+                if isinstance(v, Choice):
+                    choice = v
+                    proc = self.choice_single_step(choice)
+                    if proc:
+                        continue
+                    break
 
-                proc = choice_single_step(choice)
+                # Dive into Shorthand named by Shorthand
+
+                if isinstance(v, Shorthand):
+
+                    v_items = list(v.items())
+                    assert len(v_items) == 1, (len(v_items), v_items)
+
+                    v_item = v_items[-1]
+                    v_k = v_item[0]
+                    v_v = v_item[-1]
+
+                    if v_k in sys_globals.keys():
+                        eprint(f"Warning: Redefining Global Proc {v_k!r}")
+
+                    sys_globals[v_k] = v_v
+
+                    # Walk through a Sequence named by Shorthand of Shorthand
+
+                    if isinstance(v_v, Sequence):
+                        seq = v_v
+
+                        proc = self.seq_single_step(seq)
+                        if proc:
+                            continue
+                        break
+
+                    # Walk through a Choice named by Shorthand of Shorthand
+
+                    assert isinstance(v_v, Choice), (type(v_v), v_v)
+                    choice = v_v
+
+                    proc = self.choice_single_step(choice)
+                    if proc:
+                        continue
+                    break
+
+                # Else give up on something named by Shorthand
+
+                raise NotImplementedError(type(v), v)
+
+            # Make a choice
+
+            if isinstance(proc, Choice):
+                choice = proc
+                proc = self.choice_single_step(choice)
                 if proc:
                     continue
                 break
 
-            # Else give up on something named by Shorthand
+            # Else give up on something named by Scope
 
-            raise NotImplementedError(type(v), v)
+            raise NotImplementedError(type(proc), proc)
 
-        # Make a choice
+        assert not proc, (proc,)
+        if proc is not False:
+            print("STOP")
 
-        if isinstance(proc, Choice):
-            choice = proc
-            proc = choice_single_step(choice)
-            if proc:
-                continue
-            break
+    def seq_single_step(self, seq: Sequence) -> object:
+        """Single Step through the Csp Code of 1 Sequence"""
 
-        # Else give up on something named by Scope
+        # Step into the Seq
 
-        raise NotImplementedError(type(proc), proc)
+        while True:
 
-    assert not proc, (proc,)
-    if proc is not False:
-        print("STOP")
+            assert seq[1:], (seq,)
+            guards = seq[:-1]
+            ward = seq[-1]
 
+            for guard in guards:  # todo9: choices=choices to skip ahead
+                assert isinstance(guard, str), (type(guard), guard)
 
-def seq_single_step(seq: Sequence) -> object:
-    """Single Step through the Csp Code of 1 Sequence"""
+                eventname = self.take_name(names=[guard], default=guard)
+                if not eventname:
+                    return False
 
-    # Step into the Seq
+            if isinstance(ward, Mention):
+                procname = ward
+                proc = self.to_proc_from_name(procname)
+                if proc:
+                    print()
+                break
 
-    while True:
+            if isinstance(ward, Choice):
+                choice = ward
+                proc = self.choice_single_step(choice)
+                break
 
-        assert seq[1:], (seq,)
-        guards = seq[:-1]
-        ward = seq[-1]
+            assert isinstance(ward, Sequence), (type(ward), ward)
+            seq = ward
 
-        for guard in guards:  # todo9: choices=choices to skip ahead
-            assert isinstance(guard, str), (type(guard), guard)
+            continue
 
-            eventname = take_name(names=[guard], default=guard)
+        return proc
+
+    def take_name(self, names: list[str], default: str) -> str:
+        """Prompt with an Event Name, and take the same."""
+
+        assert default, (default,)
+        assert default in names, (default, names)
+
+        eprint(default)
+
+        while True:
+
+            eprint("> ", end="")
+            try:
+                ack = _sys_sydin_readline_()  # echoes to stdout
+            except KeyboardInterrupt:
+                eprint()
+                return ""
+
+            if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
+                eprint("> ^C")
+                return ""
+
+            if not ack:
+                eprint("^D")
+                return ""
+
+            eprint("\r" "\033[A" "\033[K", end="")
+
+            strip = ack.strip()
+            if (ack == "\n") or (strip == default):
+                return default
+
+            if strip in names:
+                eprint("\r" "\033[A" "\033[K", end="")
+                eprint(strip)
+                return strip
+
+            continue
+
+        # \r Carriage Return (CR)
+        # ⎋[A Cursor Up (CUP)
+        # ⎋[K Erase in Line (EL)
+
+    def choice_single_step(self, choice: Choice) -> object:
+        """Single Step through the Csp Code of 1 Choice"""
+
+        while True:
+            names = list(choice.keys())
+
+            eventnames = choice.eventnames
+            if not eventnames:
+                eventnames.extend(names)
+
+            default = eventnames.pop(0)
+            eventname = self.take_name(names=names, default=default)
             if not eventname:
                 return False
 
-        if isinstance(ward, Mention):
-            procname = ward
-            proc = to_proc_from_name(procname)
+            chosen = choice[eventname]
+            if isinstance(chosen, Sequence):
+                proc = chosen
+                return proc
+
+            if isinstance(chosen, Choice):
+                choice = chosen
+                continue
+
+            assert isinstance(chosen, Mention), (type(chosen), chosen)
+            procname = chosen
+            proc = self.to_proc_from_name(procname)
             if proc:
                 print()
-            break
+                return proc
 
-        if isinstance(ward, Choice):
-            choice = ward
-            proc = choice_single_step(choice)
-            break
-
-        assert isinstance(ward, Sequence), (type(ward), ward)
-        seq = ward
-
-        continue
-
-    return proc
-
-
-def take_name(names: list[str], default: str) -> str:
-    """Prompt with an Event Name, and take the same."""
-
-    assert default, (default,)
-    assert default in names, (default, names)
-
-    eprint(default)
-
-    while True:
-
-        eprint("> ", end="")
-        try:
-            ack = _sys_sydin_readline_()  # echoes to stdout
-        except KeyboardInterrupt:
-            eprint()
-            return ""
-
-        if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
-            eprint("> ^C")
-            return ""
-
-        if not ack:
-            eprint("^D")
-            return ""
-
-        eprint("\r" "\033[A" "\033[K", end="")
-
-        strip = ack.strip()
-        if (ack == "\n") or (strip == default):
-            return default
-
-        if strip in names:
-            eprint("\r" "\033[A" "\033[K", end="")
-            eprint(strip)
-            return strip
-
-        continue
-
-    # \r Carriage Return (CR)
-    # ⎋[A Cursor Up (CUP)
-    # ⎋[K Erase in Line (EL)
-
-
-def choice_single_step(choice: Choice) -> object:
-    """Single Step through the Csp Code of 1 Choice"""
-
-    while True:
-        names = list(choice.keys())
-
-        eventnames = choice.eventnames
-        if not eventnames:
-            eventnames.extend(names)
-
-        default = eventnames.pop(0)
-        eventname = take_name(names=names, default=default)
-        if not eventname:
-            return False
-
-        chosen = choice[eventname]
-        if isinstance(chosen, Sequence):
-            proc = chosen
             return proc
 
-        if isinstance(chosen, Choice):
-            choice = chosen
-            continue
+    def to_proc_from_name(self, procname: str) -> typing.Any:
+        """Fetch the Body of a Proc Def"""
 
-        assert isinstance(chosen, Mention), (type(chosen), chosen)
-        procname = chosen
-        proc = to_proc_from_name(procname)
-        if proc:
-            print()
-            return proc
+        cw = self.code_wrangler
+        sys_globals = cw.sys_globals
+        sys_modules = cw.sys_modules
+
+        _builtins_ = sys_modules["builtins"]
+
+        if procname in sys_globals.keys():  # todo2: pick apart _locals_ vs _globals_
+            proc = sys_globals[procname]
+        elif procname in _builtins_.keys():
+            proc = _builtins_[procname]
+        else:
+            raise NameError(f"name {procname!r} is not defined")
 
         return proc
 
 
-def to_proc_from_name(procname: str) -> typing.Any:
-    """Fetch the Body of a Proc Def"""
-
-    _builtins_ = _sys_modules_["builtins"]
-
-    if procname in _globals_.keys():  # todo2: pick apart _locals_ vs _globals_
-        proc = _globals_[procname]
-    elif procname in _builtins_.keys():
-        proc = _builtins_[procname]
-    else:
-        raise NameError(f"name {procname!r} is not defined")
-
-    return proc
-
-
-def _import_module_(modulename: str) -> None:
-    """Import one Csp Module at most once per Linux Process"""
-
-    # Import at most once
-
-    if modulename in _sys_modules_.keys():
-        return
-
-    # Import one Csp Module Json
-
-    pj = _import_module_json_(modulename)
-
-    # Convert to an Abstract Syntax Tree
-
-    scope = Scope(pj)
-
-    # path = pathlib.Path("j.json")
-    # path.write_text(json.dumps(scope, indent=2) + "\n")
-
-    # Start mutating the Json Object
-
-    _sys_modules_[modulename] = scope
-
-
-def _import_module_json_(modulename: str) -> dict[str, object]:
-    """Import one Csp Module Json"""
-
-    # Require exactly one Source File found
-
-    pathnames = _which_module_(modulename)
-
-    if not pathnames:
-        raise ModuleNotFoundError(f"No module named {modulename!r}")  # in os.getcwd()
-
-    if pathnames[1:]:
-        n = len(pathnames)
-        raise ModuleNotFoundError(f"name {modulename!r} has {n} definitions: {pathnames}")
-
-    # Take as 1 Json Object
-
-    pathname = pathnames[-1]
-
-    path = pathlib.Path(pathname)
-    text = path.read_text()
-
-    pj = dict()
-    if text:
-        try:
-            pj = json.loads(text)
-        except Exception as exc:
-            raise SyntaxError(f"name {modulename!r} at {pathname!r}") from exc
-
-    keys = list(pj.keys())
-    for k in keys:
-        assert isinstance(k, str), (type(k), k)
-
-    for k in keys:
-        assert isinstance(k, str), (type(k), k)
-
-        if k == "__doc__":  # keeps the Docstring
-            continue
-
-        if k.startswith("__") and k.endswith("__"):  # drops any other Dunder Key
-            del pj[k]
-            continue
-
-        if k.startswith("#"):  # drops each Comment
-            del pj[k]
-            continue
-
-    # Succeed
-
-    return pj
-
-
-def _which_module_(modulename: str) -> list[str]:
-    """Find all the Pathnames of a Csp Module Name"""
-
-    pathnames = list()
-
-    filename = f"{modulename}.json"
-    casefold = filename.casefold()
-
-    for dirpath, dirnames, filenames in os.walk("."):
-        dirnames.sort()  # no matter if hidden dir
-        filenames.sort()
-
-        casefolds = list(_.casefold() for _ in filenames)
-        if casefold in casefolds:  # no matter if hidden file
-            pathname = os.path.join(dirpath, filename)
-
-            pathnames.append(pathname)
-
-    return pathnames  # maybe empty, maybe multiple
-
-
 #
-# Structure the parts of a Csp Program
+# Wrangle Code
 #
+
+
+class CodeWrangler:
+    """Wrangle Code"""
+
+    sys_modules: dict[str, Scope] = dict()  # like Python sys.modules
+    sys_globals: dict[str, object] = dict()  # like Python globals()
+
+    def import_module(self, modulename: str) -> None:
+        """Import one Csp Module at most once per Linux Process"""
+
+        sys_modules = self.sys_modules
+
+        # Import at most once
+
+        if modulename in sys_modules.keys():
+            return
+
+        # Import one Csp Module Json
+
+        pj = self.import_module_json(modulename)
+
+        # Convert to an Abstract Syntax Tree
+
+        scope = Scope(pj)
+
+        # path = pathlib.Path("j.json")
+        # path.write_text(json.dumps(scope, indent=2) + "\n")
+
+        # Start mutating the Json Object
+
+        sys_modules[modulename] = scope
+
+    def import_module_json(self, modulename: str) -> dict[str, object]:
+        """Import one Csp Module Json"""
+
+        # Require exactly one Source File found
+
+        pathnames = self.which_module_json(modulename)
+
+        if not pathnames:
+            raise ModuleNotFoundError(f"No module named {modulename!r}")  # in os.getcwd()
+
+        if pathnames[1:]:
+            n = len(pathnames)
+            raise ModuleNotFoundError(f"name {modulename!r} has {n} definitions: {pathnames}")
+
+        # Take as 1 Json Object
+
+        pathname = pathnames[-1]
+
+        path = pathlib.Path(pathname)
+        text = path.read_text()
+
+        pj = dict()
+        if text:
+            try:
+                pj = json.loads(text)
+            except Exception as exc:
+                raise SyntaxError(f"name {modulename!r} at {pathname!r}") from exc
+
+        keys = list(pj.keys())
+        for k in keys:
+            assert isinstance(k, str), (type(k), k)
+
+        for k in keys:
+            assert isinstance(k, str), (type(k), k)
+
+            if k == "__doc__":  # keeps the Docstring
+                continue
+
+            if k.startswith("__") and k.endswith("__"):  # drops any other Dunder Key
+                del pj[k]
+                continue
+
+            if k.startswith("#"):  # drops each Comment
+                del pj[k]
+                continue
+
+        # Succeed
+
+        return pj
+
+    def which_module_json(self, modulename: str) -> list[str]:
+        """Find all the Pathnames of a Csp Module Name"""
+
+        pathnames = list()
+
+        filename = f"{modulename}.json"
+        casefold = filename.casefold()
+
+        for dirpath, dirnames, filenames in os.walk("."):
+            dirnames.sort()  # no matter if hidden dir
+            filenames.sort()  # 'better ordered than muddled'
+
+            casefolds = list(_.casefold() for _ in filenames)
+            if casefold in casefolds:  # no matter if hidden file
+                pathname = os.path.join(dirpath, filename)
+
+                pathnames.append(pathname)
+
+        return pathnames  # maybe empty, maybe multiple
 
 
 class Scope(dict[str, object]):
@@ -719,224 +741,235 @@ class Mention(str):
 
 
 #
-# Amp up Import ArgParse
+# Update:  git diff csp/cspbook-py-readme.md
 #
 
 
-def _make_tests_() -> None:
+class CodeSketcher:
     """Update:  git diff csp/cspbook-py-readme.md"""
 
-    pathname = sys.argv[0]
-    str_version = pathname_read_hash_ymd_version(pathname)  # '0.4.39 (main, 2026-05-24)'
+    code_talker: CodeTalker
 
-    #
+    def __init__(self, code_talker: CodeTalker) -> None:
+        self.code_talker = code_talker
 
-    _dir_ = os.path.dirname(__file__)
-    iopathname = os.path.join(_dir_, "cspbook-py-readme.md")
-    iopath = pathlib.Path(iopathname)
+    def update_md(self) -> None:
+        """Update:  git diff csp/cspbook-py-readme.md"""
 
-    itext = iopath.read_text()
-    ilines = itext.splitlines()
+        pathname = sys.argv[0]
+        str_version = pathname_read_hash_ymd_version(pathname)  # '0.4.39 (main, 2026-05-24)'
 
-    #
+        #
 
-    dent = 4 * " "
-    olines = list()
+        _dir_ = os.path.dirname(__file__)
+        iopathname = os.path.join(_dir_, "cspbook-py-readme.md")
+        iopath = pathlib.Path(iopathname)
 
-    i = 0
-    n = 1
-    while i < len(ilines):
-        iline = ilines[i]
-        i += 1
+        itext = iopath.read_text()
+        ilines = itext.splitlines()
 
-        olines.append(iline)
+        #
 
-        # Number the demos
+        dent = 4 * " "
+        olines = list()
 
-        if re.fullmatch(r"[0-9]+", string=iline):
-            olines[-1] = str(n)
-            n += 1
-            continue
+        i = 0
+        n = 1
+        while i < len(ilines):
+            iline = ilines[i]
+            i += 1
 
-        # Add version trace
+            olines.append(iline)
 
-        dedented = iline.removeprefix(dent)
-        if dedented == "% ./csp/cspbook.py --":
-            jlines = _drop_lines_(ilines, i=i)
-            i += len(jlines)
+            # Number the demos
 
-            olines.append(dent + f"Csp Python {str_version}")
-            olines.append(dent + "csp> ".rstrip())
-            olines.append(dent + "csp> ^D")  # '⌃' != '^'
-            olines.append(dent + "% ".rstrip())
-            olines.append("")
+            if re.fullmatch(r"[0-9]+", string=iline):
+                olines[-1] = str(n)
+                n += 1
+                continue
 
-            continue
+            # Add version trace
 
-        # Add source & exec trace
+            dedented = iline.removeprefix(dent)
+            if dedented == "% ./csp/cspbook.py --":
+                jlines = self.drop_lines(ilines, i=i)
+                i += len(jlines)
 
-        eline = dedented.removeprefix("csp> ")
-        if eline != dedented:
-            verb = eline.removesuffix("??")
-            if verb != eline:
-                i = _make_one_test_(olines, ilines=ilines, i=i, verb=verb)
+                olines.append(dent + f"Csp Python {str_version}")
+                olines.append(dent + "csp> ".rstrip())
+                olines.append(dent + "csp> ^D")  # '⌃' != '^'
+                olines.append(dent + "% ".rstrip())
+                olines.append("")
 
                 continue
 
-    #
+            # Add source & exec trace
 
-    otext = "\n".join(olines) + "\n"
-    iopath.write_text(otext)
+            eline = dedented.removeprefix("csp> ")
+            if eline != dedented:
+                verb = eline.removesuffix("??")
+                if verb != eline:
+                    i = self.make_one_test(olines, ilines=ilines, i=i, verb=verb)
 
-    return  # success
+                    continue
+
+        #
+
+        otext = "\n".join(olines) + "\n"
+        iopath.write_text(otext)
+
+        return  # success
+
+    def make_one_test(self, olines: list[str], ilines: list[str], i: int, verb: str) -> int:
+        """Make one Test Result from one Verb"""
+
+        ct = self.code_talker
+
+        proc = ct.to_proc_from_name(procname=verb)
+        n = self.count_stops(proc)
+        execs = max(1, n)
+
+        jlines = self.drop_lines(ilines, i=i)
+        j = i + len(jlines)
+
+        self.add_source_trace(olines=olines, verb=verb)
+        for choice in Choice.selves:
+            choice.eventnames.clear()
+
+        for _ in range(execs):
+            self.add_exec_trace(olines=olines, verb=verb, jlines=jlines)
+
+        return j
+
+    def count_stops(self, pj: object) -> int:
+        """Count the STOP's in a Proc"""
+
+        if isinstance(pj, dict):
+            return sum(self.count_stops(_) for _ in pj.values())
+        if isinstance(pj, list):
+            return sum(self.count_stops(_) for _ in pj)
+        if isinstance(pj, str):
+            if pj == "STOP":
+                return 1
+
+        return 0
+
+    def drop_lines(self, ilines: list[str], i: int) -> list[str]:
+        """Drop the Lines of dented Grafs till next undented Graf"""
+
+        assert i, (i,)
+
+        iline = ilines[i - 1]
+        ident = len(iline) - len(iline.lstrip())
+
+        j = i
+
+        jlines = list()
+        while j < len(ilines):
+            jline = ilines[j]
+            j += 1
+
+            jdent = len(jline) - len(jline.lstrip())
+            if jline:
+                if not jdent:
+                    assert j > i, (i, j, jdent, ident, jline, iline)
+                    break
+
+            jlines.append(jline)
+
+            ji = j - i
+            assert ji < 100, (i, j, ji)
+
+            assert j < len(ilines), (j, len(ilines), i)
+
+        return jlines
+
+    def add_source_trace(self, olines: list[str], verb: str) -> None:
+        """Add one Trace of Prints of Source"""
+
+        ct = self.code_talker
+
+        dent = 4 * " "
+
+        proc = ct.to_proc_from_name(procname=verb)
+        plines = json.dumps(proc).splitlines()
+        olines.extend((dent + _) for _ in plines)
+        olines.append(dent + "csp> ".rstrip())
+        olines.append("")
+
+    def add_exec_trace(self, olines: list[str], verb: str, jlines: list[str]) -> None:
+        """Add one Trace of Prints of Exec"""
+
+        ct = self.code_talker
+
+        # Count nonblank lines after the first Graf
+
+        inputs = -1
+
+        cancelling = False
+
+        grafs = 0
+        for jline in jlines:
+            if not jline:
+                grafs += 1
+            elif grafs >= 1:
+                lstrip = jline.lstrip()
+                if lstrip:
+                    if lstrip.startswith("csp>"):
+                        pass
+                    elif lstrip == "> ^C":  # '⌃' != '^'
+                        cancelling = True
+                    else:
+                        inputs += 1
+
+        assert inputs >= 0, (inputs, jlines, verb)
+
+        itext = 123 * "\n"  # todo: arbitrarily large enough, maybe
+        if cancelling:
+            itext = inputs * "\n"
+            itext += "\x03"  # emulates raising KeyboardInterrupt at ^C
+
+        # Say how to collect outputs
+
+        tprints = list()
+
+        def _tprint_(text: str = "", end: str = "\n") -> None:
+            tprints.append(text + end)
+
+        # Start collecting outputs
+
+        with_stdin = sys.stdin
+        with_eprint = eprint
+
+        module = sys.modules[__name__]
+        assert not hasattr(module, "print")
+        assert getattr(module, "eprint") is with_eprint
+
+        sys.stdin = io.StringIO(itext)
+        setattr(module, "print", _tprint_)
+        setattr(module, "eprint", _tprint_)
+        try:
+            ct.sys_exec(verb)
+        finally:
+            sys.stdin = with_stdin
+            delattr(module, "print")
+            setattr(module, "eprint", with_eprint)
+
+        dent = 4 * " "
+
+        olines.append(dent + f"csp> {verb}")
+
+        kprints = list(_ for _ in tprints if "\n" in _)
+        ktext = "".join(kprints)
+        klines = ktext.splitlines()
+        olines.extend(((dent + _).rstrip()) for _ in klines)
+
+        olines.append(dent + "csp> ".rstrip())
+        olines.append("")
 
 
-def _make_one_test_(olines: list[str], ilines: list[str], i: int, verb: str) -> int:
-    """Make one Test Result from one Verb"""
-
-    proc = to_proc_from_name(procname=verb)
-    n = _count_stops_(proc)
-    execs = max(1, n)
-
-    jlines = _drop_lines_(ilines, i=i)
-    j = i + len(jlines)
-
-    _add_source_trace_(olines=olines, verb=verb)
-    for choice in Choice.selves:
-        choice.eventnames.clear()
-
-    for _ in range(execs):
-        _add_exec_trace_(olines=olines, verb=verb, jlines=jlines)
-
-    return j
-
-
-def _count_stops_(pj: object) -> int:
-    """Count the STOP's in a Proc"""
-
-    if isinstance(pj, dict):
-        return sum(_count_stops_(_) for _ in pj.values())
-    if isinstance(pj, list):
-        return sum(_count_stops_(_) for _ in pj)
-    if isinstance(pj, str):
-        if pj == "STOP":
-            return 1
-
-    return 0
-
-
-def _drop_lines_(ilines: list[str], i: int) -> list[str]:
-    """Drop the Lines of dented Grafs till next undented Graf"""
-
-    assert i, (i,)
-
-    iline = ilines[i - 1]
-    ident = len(iline) - len(iline.lstrip())
-
-    j = i
-
-    jlines = list()
-    while j < len(ilines):
-        jline = ilines[j]
-        j += 1
-
-        jdent = len(jline) - len(jline.lstrip())
-        if jline:
-            if not jdent:
-                assert j > i, (i, j, jdent, ident, jline, iline)
-                break
-
-        jlines.append(jline)
-
-        ji = j - i
-        assert ji < 100, (i, j, ji)
-
-        assert j < len(ilines), (j, len(ilines), i)
-
-    return jlines
-
-
-def _add_source_trace_(olines: list[str], verb: str) -> None:
-    """Add one Trace of Prints of Source"""
-
-    dent = 4 * " "
-
-    proc = to_proc_from_name(procname=verb)
-    plines = json.dumps(proc).splitlines()
-    olines.extend((dent + _) for _ in plines)
-    olines.append(dent + "csp> ".rstrip())
-    olines.append("")
-
-
-def _add_exec_trace_(olines: list[str], verb: str, jlines: list[str]) -> None:
-    """Add one Trace of Prints of Exec"""
-
-    # Count nonblank lines after the first Graf
-
-    inputs = -1
-
-    cancelling = False
-
-    grafs = 0
-    for jline in jlines:
-        if not jline:
-            grafs += 1
-        elif grafs >= 1:
-            lstrip = jline.lstrip()
-            if lstrip:
-                if lstrip.startswith("csp>"):
-                    pass
-                elif lstrip == "> ^C":  # '⌃' != '^'
-                    cancelling = True
-                else:
-                    inputs += 1
-
-    assert inputs >= 0, (inputs, jlines, verb)
-
-    itext = 123 * "\n"  # todo: arbitrarily large enough, maybe
-    if cancelling:
-        itext = inputs * "\n"
-        itext += "\x03"  # emulates raising KeyboardInterrupt at ^C
-
-    # Say how to collect outputs
-
-    tprints = list()
-
-    def _tprint_(text: str = "", end: str = "\n") -> None:
-        tprints.append(text + end)
-
-    # Start collecting outputs
-
-    with_stdin = sys.stdin
-    with_eprint = eprint
-
-    module = sys.modules[__name__]
-    assert not hasattr(module, "print")
-    assert getattr(module, "eprint") is with_eprint
-
-    sys.stdin = io.StringIO(itext)
-    setattr(module, "print", _tprint_)
-    setattr(module, "eprint", _tprint_)
-    try:
-        _exec_(verb)
-    finally:
-        sys.stdin = with_stdin
-        delattr(module, "print")
-        setattr(module, "eprint", with_eprint)
-
-    dent = 4 * " "
-
-    olines.append(dent + f"csp> {verb}")
-
-    kprints = list(_ for _ in tprints if "\n" in _)
-    ktext = "".join(kprints)
-    klines = ktext.splitlines()
-    olines.extend(((dent + _).rstrip()) for _ in klines)
-
-    olines.append(dent + "csp> ".rstrip())
-    olines.append("")
-
-
+# ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
+# ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
 # ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
 
 
@@ -1372,7 +1405,7 @@ class TerminalIO:
                 eprint("^D", end="")
                 return ""
 
-            if b == b"\x0D" == b"\r":
+            if b == b"\x0d" == b"\r":
                 eprint("", end="\r\n")
                 return "\n"
 

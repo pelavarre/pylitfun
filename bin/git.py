@@ -40,7 +40,7 @@ import time
 import typing
 
 if not __debug__:
-    raise NotImplementedError([__debug__])  # 'better python3 than python3 -O'
+    raise NotImplementedError([__debug__])  # 'better python3 without -O than with -O'
 
 
 assert int(0x80 + signal.SIGINT) == 130
