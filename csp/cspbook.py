@@ -432,7 +432,7 @@ class CodeTalker:
         sys_modules = cw.sys_modules
         sys_builtins = sys_modules["builtins"]
 
-        sys_globals.clear()  # todo2: Disentangle the Scopes of one Proc Def and the next
+        sys_globals.clear()  # todo3: Disentangle the Scopes of one Proc Def and the next
 
         sys_locals = sys_globals
         sys_locals["__builtins__"] = sys_globals
@@ -445,7 +445,7 @@ class CodeTalker:
 
         # Take 'dir()' and 'dir(__builtins__)' as meta-instructions
 
-        if join == "__doc__":  # todo2: find "__doc__" in ._locals_ and quit before ._builtins_
+        if join == "__doc__":  # todo3: find "__doc__" in ._locals_ and quit before ._builtins_
             return
 
         if join == "dir()":
@@ -716,7 +716,7 @@ class CodeTalker:
 
         _builtins_ = sys_modules["builtins"]
 
-        if procname in sys_globals.keys():  # todo2: pick apart sys_locals vs sys_globals
+        if procname in sys_globals.keys():  # todo3: pick apart sys_locals vs sys_globals
             proc = sys_globals[procname]
         elif procname in _builtins_.keys():
             proc = _builtins_[procname]
@@ -1435,10 +1435,22 @@ if __name__ == "__main__":
 
 # todo: find more todo0:
 
-# todo1: when TerminalIO owned, adopt ⌃ U+2303 Up Arrowhead in place of ^ U+005E Circumflex Accent
+# todo1: TerminalIO: ¤ U+00A4 Currency Sign for unbound chars
+# todo1: TerminalIO: read & echo & Return text
 
-# todo2: dream up how to run through, not step through, all the traces of VMC etc
-# todo2: think more through when to clear history of walking Choice's at return to top-level
+# todo1: TerminalIO: ⌃? backspace text
+# todo1: TerminalIO: ⌃? backspace text vs native ⌃C ⌃D ⌃? especially when wrapped after Space
+# todo1: TerminalIO: ⌃U restart text, from stty -a
+# todo1: TerminalIO: ⌃W backspace over last word - differs over _ - inside Python vs stty/sh
+# todo1: TerminalIO: ⌃R reprint, from stty -a
+# todo1: TerminalIO: ⌃V quote char, from stty -a
+# todo1: TerminalIO: ⌃Z suspend process, from stty -a
+# todo1: TerminalIO: ⌃\ quit process, from stty -a
+
+# todo2: when TerminalIO owned, adopt ⌃ U+2303 Up Arrowhead in place of ^ U+005E Circumflex Accent
+
+# todo3: dream up how to run through, not step through, all the traces of VMC etc
+# todo3: think more through when to clear history of walking Choice's at return to top-level
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
