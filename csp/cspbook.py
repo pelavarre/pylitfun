@@ -480,11 +480,8 @@ class CodeTalker:
         procname = strip
         self.procname_single_step(procname)
 
-    def procname_single_step(self, procname: str) -> None:  # todo0:  # noqa C901 complex (19)
+    def procname_single_step(self, procname: str) -> None:
         """Walk through the Events of 1 Named Process"""
-
-        cw = self.code_wrangler
-        sys_globals = cw.sys_globals
 
         proc = self.to_proc_from_name(procname)
 
@@ -507,76 +504,11 @@ class CodeTalker:
             # Dive into Shorthand
 
             if isinstance(proc, Shorthand):
-
-                items = list(proc.items())
-                assert len(items) == 1, (len(items), items)
-
-                item = items[-1]
-                k = item[0]
-                v = item[-1]
-
-                if k in sys_globals.keys():
-                    eprint(f"Warning: Redefining Global Proc {k!r}")
-
-                sys_globals[k] = v
-
-                # Walk through a Sequence named by Shorthand
-
-                if isinstance(v, Sequence):
-                    seq = v
-                    proc = self.seq_single_step(seq)
-                    if proc:
-                        continue
-                    break
-
-                # Walk through a Choice named by Shorthand of Shorthand
-
-                if isinstance(v, Choice):
-                    choice = v
-                    proc = self.choice_single_step(choice)
-                    if proc:
-                        continue
-                    break
-
-                # Dive into Shorthand named by Shorthand
-
-                if isinstance(v, Shorthand):
-
-                    v_items = list(v.items())
-                    assert len(v_items) == 1, (len(v_items), v_items)
-
-                    v_item = v_items[-1]
-                    v_k = v_item[0]
-                    v_v = v_item[-1]
-
-                    if v_k in sys_globals.keys():
-                        eprint(f"Warning: Redefining Global Proc {v_k!r}")
-
-                    sys_globals[v_k] = v_v
-
-                    # Walk through a Sequence named by Shorthand of Shorthand
-
-                    if isinstance(v_v, Sequence):
-                        seq = v_v
-
-                        proc = self.seq_single_step(seq)
-                        if proc:
-                            continue
-                        break
-
-                    # Walk through a Choice named by Shorthand of Shorthand
-
-                    assert isinstance(v_v, Choice), (type(v_v), v_v)
-                    choice = v_v
-
-                    proc = self.choice_single_step(choice)
-                    if proc:
-                        continue
-                    break
-
-                # Else give up on something named by Shorthand
-
-                raise NotImplementedError(type(v), v)
+                shorthand = proc
+                proc = self.shorthand_single_step(shorthand)
+                if proc:
+                    continue
+                break
 
             # Make a choice
 
@@ -594,6 +526,74 @@ class CodeTalker:
         assert not proc, (proc,)
         if proc is not False:
             print("STOP")
+
+    def shorthand_single_step(self, shorthand: Shorthand) -> object:
+        """Walk through the Events of 1 Named Shorthand"""
+
+        cw = self.code_wrangler
+        sys_globals = cw.sys_globals
+
+        items = list(shorthand.items())
+        assert len(items) == 1, (len(items), items)
+
+        item = items[-1]
+        k = item[0]
+        v = item[-1]
+
+        if k in sys_globals.keys():
+            eprint(f"Warning: Redefining Global Proc {k!r}")
+
+        sys_globals[k] = v
+
+        # Walk through a Sequence named by Shorthand
+
+        if isinstance(v, Sequence):
+            seq = v
+            proc = self.seq_single_step(seq)
+            return proc
+
+        # Walk through a Choice named by Shorthand of Shorthand
+
+        if isinstance(v, Choice):
+            choice = v
+            proc = self.choice_single_step(choice)
+            return proc
+
+        # Dive into Shorthand named by Shorthand
+
+        if isinstance(v, Shorthand):
+
+            v_items = list(v.items())
+            assert len(v_items) == 1, (len(v_items), v_items)
+
+            v_item = v_items[-1]
+            v_k = v_item[0]
+            v_v = v_item[-1]
+
+            if v_k in sys_globals.keys():
+                eprint(f"Warning: Redefining Global Proc {v_k!r}")
+
+            sys_globals[v_k] = v_v
+
+            # Walk through a Sequence named by Shorthand of Shorthand
+
+            if isinstance(v_v, Sequence):
+                seq = v_v
+
+                proc = self.seq_single_step(seq)
+                return proc
+
+            # Walk through a Choice named by Shorthand of Shorthand
+
+            assert isinstance(v_v, Choice), (type(v_v), v_v)
+            choice = v_v
+
+            proc = self.choice_single_step(choice)
+            return proc
+
+        # Else give up on something named by Shorthand
+
+        raise NotImplementedError(type(v), v)
 
     def seq_single_step(self, seq: Sequence) -> object:
         """Single Step through the Csp Code of 1 Sequence"""
@@ -633,7 +633,7 @@ class CodeTalker:
         return proc
 
     def take_name(self, names: list[str], default: str) -> str:
-        """Prompt with an Event Name, and take the same."""
+        """Prompt with one or more Event Names, and take one."""
 
         assert default, (default,)
         assert default in names, (default, names)
