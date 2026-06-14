@@ -144,6 +144,234 @@ def arg_doc_to_parser(doc: str) -> ArgDocParser:
 # ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
 
 
+#
+# Update:  git diff csp/cspbook-py-readme.md
+#
+
+
+class CodeSketcher:
+    """Update:  git diff csp/cspbook-py-readme.md"""
+
+    code_talker: CodeTalker
+
+    def __init__(self, code_talker: CodeTalker) -> None:
+        self.code_talker = code_talker
+
+    def update_md(self) -> None:
+        """Update:  git diff csp/cspbook-py-readme.md"""
+
+        pathname = sys.argv[0]
+        str_version = pathname_read_hash_ymd_version(pathname)  # '0.4.39 (main, 2026-05-24)'
+
+        #
+
+        _dir_ = os.path.dirname(__file__)
+        iopathname = os.path.join(_dir_, "cspbook-py-readme.md")
+        iopath = pathlib.Path(iopathname)
+
+        itext = iopath.read_text()
+        ilines = itext.splitlines()
+
+        #
+
+        dent = 4 * " "
+        olines = list()
+
+        i = 0
+        n = 1
+        while i < len(ilines):
+            iline = ilines[i]
+            i += 1
+
+            olines.append(iline)
+
+            # Number the demos
+
+            if re.fullmatch(r"[0-9]+", string=iline):
+                olines[-1] = str(n)
+                n += 1
+                continue
+
+            # Add version trace
+
+            dedented = iline.removeprefix(dent)
+            if dedented == "% ./csp/cspbook.py --":
+                jlines = self.drop_lines(ilines, i=i)
+                i += len(jlines)
+
+                olines.append(dent + f"Csp Python {str_version}")
+                olines.append(dent + "csp> ".rstrip())
+                olines.append(dent + "csp> ^D")  # '⌃' != '^'
+                olines.append(dent + "% ".rstrip())
+                olines.append("")
+
+                continue
+
+            # Add source & exec trace
+
+            eline = dedented.removeprefix("csp> ")
+            if eline != dedented:
+                verb = eline.removesuffix("??")
+                if verb != eline:
+                    i = self.make_one_test(olines, ilines=ilines, i=i, verb=verb)
+
+                    continue
+
+        #
+
+        otext = "\n".join(olines) + "\n"
+        iopath.write_text(otext)
+
+        return  # success
+
+    def make_one_test(self, olines: list[str], ilines: list[str], i: int, verb: str) -> int:
+        """Make one Test Result from one Verb"""
+
+        ct = self.code_talker
+
+        proc = ct.to_proc_from_name(procname=verb)
+        n = self.count_stops(proc)
+        execs = max(1, n)
+
+        jlines = self.drop_lines(ilines, i=i)
+        j = i + len(jlines)
+
+        self.add_source_trace(olines=olines, verb=verb)
+        for choice in Choice.selves:
+            choice.eventnames.clear()
+
+        for _ in range(execs):
+            self.add_exec_trace(olines=olines, verb=verb, jlines=jlines)
+
+        return j
+
+    def count_stops(self, pj: object) -> int:
+        """Count the STOP's in a Proc"""
+
+        if isinstance(pj, dict):
+            return sum(self.count_stops(_) for _ in pj.values())
+        if isinstance(pj, list):
+            return sum(self.count_stops(_) for _ in pj)
+        if isinstance(pj, str):
+            if pj == "STOP":
+                return 1
+
+        return 0
+
+    def drop_lines(self, ilines: list[str], i: int) -> list[str]:
+        """Drop the Lines of dented Grafs till next undented Graf"""
+
+        assert i, (i,)
+
+        iline = ilines[i - 1]
+        ident = len(iline) - len(iline.lstrip())
+
+        j = i
+
+        jlines = list()
+        while j < len(ilines):
+            jline = ilines[j]
+            j += 1
+
+            jdent = len(jline) - len(jline.lstrip())
+            if jline:
+                if not jdent:
+                    assert j > i, (i, j, jdent, ident, jline, iline)
+                    break
+
+            jlines.append(jline)
+
+            ji = j - i
+            assert ji < 100, (i, j, ji)
+
+            assert j < len(ilines), (j, len(ilines), i)
+
+        return jlines
+
+    def add_source_trace(self, olines: list[str], verb: str) -> None:
+        """Add one Trace of Prints of Source"""
+
+        ct = self.code_talker
+
+        dent = 4 * " "
+
+        proc = ct.to_proc_from_name(procname=verb)
+        plines = json.dumps(proc).splitlines()
+        olines.extend((dent + _) for _ in plines)
+        olines.append(dent + "csp> ".rstrip())
+        olines.append("")
+
+    def add_exec_trace(self, olines: list[str], verb: str, jlines: list[str]) -> None:
+        """Add one Trace of Prints of Exec"""
+
+        ct = self.code_talker
+
+        # Count nonblank lines after the first Graf
+
+        inputs = -1
+
+        cancelling = False
+
+        grafs = 0
+        for jline in jlines:
+            if not jline:
+                grafs += 1
+            elif grafs >= 1:
+                lstrip = jline.lstrip()
+                if lstrip:
+                    if lstrip.startswith("csp>"):
+                        pass
+                    elif lstrip == "> ^C":  # '⌃' != '^'
+                        cancelling = True
+                    else:
+                        inputs += 1
+
+        assert inputs >= 0, (inputs, jlines, verb)
+
+        itext = 123 * "\n"  # todo: arbitrarily large enough, maybe
+        if cancelling:
+            itext = inputs * "\n"
+            itext += "\x03"  # emulates raising KeyboardInterrupt at ^C
+
+        # Say how to collect outputs
+
+        tprints = list()
+
+        def _tprint_(text: str = "", end: str = "\n") -> None:
+            tprints.append(text + end)
+
+        # Start collecting outputs
+
+        with_stdin = sys.stdin
+        with_eprint = eprint
+
+        module = sys.modules[__name__]
+        assert not hasattr(module, "print")
+        assert getattr(module, "eprint") is with_eprint
+
+        sys.stdin = io.StringIO(itext)
+        setattr(module, "print", _tprint_)
+        setattr(module, "eprint", _tprint_)
+        try:
+            ct.sys_exec(verb)
+        finally:
+            sys.stdin = with_stdin
+            delattr(module, "print")
+            setattr(module, "eprint", with_eprint)
+
+        dent = 4 * " "
+
+        olines.append(dent + f"csp> {verb}")
+
+        kprints = list(_ for _ in tprints if "\n" in _)
+        ktext = "".join(kprints)
+        klines = ktext.splitlines()
+        olines.extend(((dent + _).rstrip()) for _ in klines)
+
+        olines.append(dent + "csp> ".rstrip())
+        olines.append("")
+
+
 class CodeTalker:
     """Run Code and walk through Code"""
 
@@ -738,234 +966,6 @@ class Event(str):
 
 class Mention(str):
     """A Mention is the Name of a Shorthand"""
-
-
-#
-# Update:  git diff csp/cspbook-py-readme.md
-#
-
-
-class CodeSketcher:
-    """Update:  git diff csp/cspbook-py-readme.md"""
-
-    code_talker: CodeTalker
-
-    def __init__(self, code_talker: CodeTalker) -> None:
-        self.code_talker = code_talker
-
-    def update_md(self) -> None:
-        """Update:  git diff csp/cspbook-py-readme.md"""
-
-        pathname = sys.argv[0]
-        str_version = pathname_read_hash_ymd_version(pathname)  # '0.4.39 (main, 2026-05-24)'
-
-        #
-
-        _dir_ = os.path.dirname(__file__)
-        iopathname = os.path.join(_dir_, "cspbook-py-readme.md")
-        iopath = pathlib.Path(iopathname)
-
-        itext = iopath.read_text()
-        ilines = itext.splitlines()
-
-        #
-
-        dent = 4 * " "
-        olines = list()
-
-        i = 0
-        n = 1
-        while i < len(ilines):
-            iline = ilines[i]
-            i += 1
-
-            olines.append(iline)
-
-            # Number the demos
-
-            if re.fullmatch(r"[0-9]+", string=iline):
-                olines[-1] = str(n)
-                n += 1
-                continue
-
-            # Add version trace
-
-            dedented = iline.removeprefix(dent)
-            if dedented == "% ./csp/cspbook.py --":
-                jlines = self.drop_lines(ilines, i=i)
-                i += len(jlines)
-
-                olines.append(dent + f"Csp Python {str_version}")
-                olines.append(dent + "csp> ".rstrip())
-                olines.append(dent + "csp> ^D")  # '⌃' != '^'
-                olines.append(dent + "% ".rstrip())
-                olines.append("")
-
-                continue
-
-            # Add source & exec trace
-
-            eline = dedented.removeprefix("csp> ")
-            if eline != dedented:
-                verb = eline.removesuffix("??")
-                if verb != eline:
-                    i = self.make_one_test(olines, ilines=ilines, i=i, verb=verb)
-
-                    continue
-
-        #
-
-        otext = "\n".join(olines) + "\n"
-        iopath.write_text(otext)
-
-        return  # success
-
-    def make_one_test(self, olines: list[str], ilines: list[str], i: int, verb: str) -> int:
-        """Make one Test Result from one Verb"""
-
-        ct = self.code_talker
-
-        proc = ct.to_proc_from_name(procname=verb)
-        n = self.count_stops(proc)
-        execs = max(1, n)
-
-        jlines = self.drop_lines(ilines, i=i)
-        j = i + len(jlines)
-
-        self.add_source_trace(olines=olines, verb=verb)
-        for choice in Choice.selves:
-            choice.eventnames.clear()
-
-        for _ in range(execs):
-            self.add_exec_trace(olines=olines, verb=verb, jlines=jlines)
-
-        return j
-
-    def count_stops(self, pj: object) -> int:
-        """Count the STOP's in a Proc"""
-
-        if isinstance(pj, dict):
-            return sum(self.count_stops(_) for _ in pj.values())
-        if isinstance(pj, list):
-            return sum(self.count_stops(_) for _ in pj)
-        if isinstance(pj, str):
-            if pj == "STOP":
-                return 1
-
-        return 0
-
-    def drop_lines(self, ilines: list[str], i: int) -> list[str]:
-        """Drop the Lines of dented Grafs till next undented Graf"""
-
-        assert i, (i,)
-
-        iline = ilines[i - 1]
-        ident = len(iline) - len(iline.lstrip())
-
-        j = i
-
-        jlines = list()
-        while j < len(ilines):
-            jline = ilines[j]
-            j += 1
-
-            jdent = len(jline) - len(jline.lstrip())
-            if jline:
-                if not jdent:
-                    assert j > i, (i, j, jdent, ident, jline, iline)
-                    break
-
-            jlines.append(jline)
-
-            ji = j - i
-            assert ji < 100, (i, j, ji)
-
-            assert j < len(ilines), (j, len(ilines), i)
-
-        return jlines
-
-    def add_source_trace(self, olines: list[str], verb: str) -> None:
-        """Add one Trace of Prints of Source"""
-
-        ct = self.code_talker
-
-        dent = 4 * " "
-
-        proc = ct.to_proc_from_name(procname=verb)
-        plines = json.dumps(proc).splitlines()
-        olines.extend((dent + _) for _ in plines)
-        olines.append(dent + "csp> ".rstrip())
-        olines.append("")
-
-    def add_exec_trace(self, olines: list[str], verb: str, jlines: list[str]) -> None:
-        """Add one Trace of Prints of Exec"""
-
-        ct = self.code_talker
-
-        # Count nonblank lines after the first Graf
-
-        inputs = -1
-
-        cancelling = False
-
-        grafs = 0
-        for jline in jlines:
-            if not jline:
-                grafs += 1
-            elif grafs >= 1:
-                lstrip = jline.lstrip()
-                if lstrip:
-                    if lstrip.startswith("csp>"):
-                        pass
-                    elif lstrip == "> ^C":  # '⌃' != '^'
-                        cancelling = True
-                    else:
-                        inputs += 1
-
-        assert inputs >= 0, (inputs, jlines, verb)
-
-        itext = 123 * "\n"  # todo: arbitrarily large enough, maybe
-        if cancelling:
-            itext = inputs * "\n"
-            itext += "\x03"  # emulates raising KeyboardInterrupt at ^C
-
-        # Say how to collect outputs
-
-        tprints = list()
-
-        def _tprint_(text: str = "", end: str = "\n") -> None:
-            tprints.append(text + end)
-
-        # Start collecting outputs
-
-        with_stdin = sys.stdin
-        with_eprint = eprint
-
-        module = sys.modules[__name__]
-        assert not hasattr(module, "print")
-        assert getattr(module, "eprint") is with_eprint
-
-        sys.stdin = io.StringIO(itext)
-        setattr(module, "print", _tprint_)
-        setattr(module, "eprint", _tprint_)
-        try:
-            ct.sys_exec(verb)
-        finally:
-            sys.stdin = with_stdin
-            delattr(module, "print")
-            setattr(module, "eprint", with_eprint)
-
-        dent = 4 * " "
-
-        olines.append(dent + f"csp> {verb}")
-
-        kprints = list(_ for _ in tprints if "\n" in _)
-        ktext = "".join(kprints)
-        klines = ktext.splitlines()
-        olines.extend(((dent + _).rstrip()) for _ in klines)
-
-        olines.append(dent + "csp> ".rstrip())
-        olines.append("")
 
 
 # ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
