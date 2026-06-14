@@ -14,8 +14,8 @@ Ask what you can do.
 
     cspbook.py -i
     cspbook.py -c CTR
-    cspbook.py -c CLOCK.B
-    cspbook.py -c CH5B
+    cspbook.py -c CLOCK
+    cspbook.py -c VMC
 
     %
 
@@ -56,7 +56,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.2.145 (main, 2026-06-14)
+    Csp Python 0.8.60 (main, 2026-06-14)
     csp>
     csp> ^D
     %

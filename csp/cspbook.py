@@ -23,8 +23,8 @@ quirks:
 examples:
   cspbook.py -i
   cspbook.py -c CTR
-  cspbook.py -c CLOCK.B
-  cspbook.py -c CH5B
+  cspbook.py -c CLOCK
+  cspbook.py -c VMC
 """
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -204,7 +204,7 @@ class CodeTalker:
         sys_modules = cw.sys_modules
         sys_builtins = sys_modules["builtins"]
 
-        sys_globals.clear()  # todo1: Disentangle the Scopes of one Proc Def and the next
+        sys_globals.clear()  # todo2: Disentangle the Scopes of one Proc Def and the next
 
         sys_locals = sys_globals
         sys_locals["__builtins__"] = sys_globals
@@ -252,7 +252,7 @@ class CodeTalker:
         procname = strip
         self.procname_single_step(procname)
 
-    def procname_single_step(self, procname: str) -> None:  # todo0:  # noqa C901 complex (16)
+    def procname_single_step(self, procname: str) -> None:  # todo0:  # noqa C901 complex (19)
         """Walk through the Events of 1 Named Process"""
 
         cw = self.code_wrangler
@@ -422,11 +422,11 @@ class CodeTalker:
                 return ""
 
             if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
-                eprint("> ^C")
+                eprint("> ^C")  # '⌃' != '^'
                 return ""
 
             if not ack:
-                eprint("^D")
+                eprint("^D")  # '⌃' != '^'
                 return ""
 
             eprint("\r" "\033[A" "\033[K", end="")
@@ -488,7 +488,7 @@ class CodeTalker:
 
         _builtins_ = sys_modules["builtins"]
 
-        if procname in sys_globals.keys():  # todo2: pick apart _locals_ vs _globals_
+        if procname in sys_globals.keys():  # todo2: pick apart sys_locals vs sys_globals
             proc = sys_globals[procname]
         elif procname in _builtins_.keys():
             proc = _builtins_[procname]
@@ -1398,11 +1398,11 @@ class TerminalIO:
             b = self.read_one_byte()
 
             if b == b"\x03":
-                eprint("^C", end="")
+                eprint("^C", end="")  # '⌃' != '^'
                 raise KeyboardInterrupt()
 
             if b == b"\x04":
-                eprint("^D", end="")
+                eprint("^D", end="")  # '⌃' != '^'
                 return ""
 
             if b == b"\x0d" == b"\r":
@@ -1433,9 +1433,12 @@ if __name__ == "__main__":
     main()
 
 
-# todo0: find more todo0
+# todo: find more todo0:
 
-# todo1: think more through when to clear history of walking Choice's at return to top-level
+# todo1: when TerminalIO owned, adopt ⌃ U+2303 Up Arrowhead in place of ^ U+005E Circumflex Accent
+
+# todo2: dream up how to run through, not step through, all the traces of VMC etc
+# todo2: think more through when to clear history of walking Choice's at return to top-level
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
