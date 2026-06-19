@@ -5923,6 +5923,8 @@ class KeyByteFrame:
 
         return ""
 
+        # todo: compare Endswiths vs Python 3 encodings.utf_8.IncrementalDecoder
+
     #
     # for b"\xc2", b"\xed", b"\xe0", b"\xf4", b"\xf0", & friends
     # because =>

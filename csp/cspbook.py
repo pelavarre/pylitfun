@@ -35,10 +35,12 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 import __main__
 import argparse
 import bdb
+import codecs
 import collections.abc
 import dataclasses
 import datetime as dt
 import difflib
+import encodings
 import hashlib
 import io
 import json
@@ -54,6 +56,7 @@ import traceback
 import tty
 import types
 import typing
+import unicodedata
 import zoneinfo
 
 # _: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
@@ -654,10 +657,13 @@ class CodeTalker:
                 return ""
 
             if not ack:
-                eprint("^D")  # '⌃' != '^'
+                eprint("^D")  # '⌃' != '^'  # unneeded at macOS
                 return ""
 
-            eprint("\r" "\033[A" "\033[K", end="")
+            if ack.endswith("\n"):
+                eprint("\r" "\033[A" "\033[K", end="")
+            else:
+                eprint("\r" "\033[K", end="")  # like via ...^D^D
 
             strip = ack.strip()
             if (ack == "\n") or (strip == default):
@@ -1393,23 +1399,56 @@ class TerminalIO:
     def readline(self) -> str:
         """Read one Line, from fresh Keyboard Entry or Keyboard Editing of History"""
 
+        text = ""
+        t1 = ""
         while True:
+            t0 = t1
+            t1 = self.read_one_char()
 
-            b = self.read_one_byte()
-
-            if b == b"\x03":
+            if t1 == "\003":
                 eprint("^C", end="")  # '⌃' != '^'
                 raise KeyboardInterrupt()
 
-            if b == b"\x04":
-                eprint("^D", end="")  # '⌃' != '^'
-                return ""
+            if t1 == "\004":
+                if (not text) or (t0 == "\004"):
+                    eprint("^D\b\b", end="")  # '⌃' != '^'
+                    return text
 
-            if b == b"\x0d" == b"\r":
+            if t1 == "\015" == "\r":
                 eprint("", end="\r\n")
-                return "\n"
+                text_plus = text + "\n"
+                return text_plus
 
+            if t1.isprintable():
+                text += t1
+                eprint(t1, end="")
+
+            # w = self.char_to_width(t)
             # eprint(repr(b), end="\r\n")
+
+    def char_to_width(self, t: str) -> int:
+        """Guess the Print Width of one Char"""
+
+        eaw = unicodedata.east_asian_width(t)
+        if eaw in ("Fullwidth"[0], "Wide"[0]):
+            return 2
+
+        return 1
+
+        # todo: print the Char to ask the Terminal how wide it is here, despite Google Shell bugs
+
+    def read_one_char(self) -> str:
+        """Read one Char"""
+
+        decoder: encodings.utf_8.IncrementalDecoder
+        decoder = codecs.getincrementaldecoder("utf-8")()
+
+        while True:
+            b = self.read_one_byte()
+            t: str = decoder.decode(b)  # may raise UnicodeDecodeError
+            if t:
+                assert len(t) == 1, (len(t), t)
+                return t
 
     def read_one_byte(self) -> bytes:
         """Read one Byte"""
