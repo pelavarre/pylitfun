@@ -645,9 +645,11 @@ class CodeTalker:
 
         while True:
 
-            eprint("> ", end="")
             try:
-                ack = _sys_sydin_readline_()  # echoes to stdout
+                ack = _sys_sydin_readline_("> ")  # echoes to stdout
+                # eprint()
+                # eprint(repr(ack))
+                # sys.exit(2)
             except KeyboardInterrupt:
                 eprint()
                 return ""
@@ -1333,16 +1335,17 @@ def excepthook(  # last modified on 2026-05-14 or later
 #
 
 
-def _sys_sydin_readline_() -> str:
+def _sys_sydin_readline_(prompt: str) -> str:
     """Read one Line from Stdin without echo if not Tty, else from Terminal with echo"""
 
     isatty = sys.stdin.isatty()
     if not isatty:
+        eprint(prompt, end="")
         readline = sys.stdin.readline()
         return readline
 
     with TerminalIO() as tty:
-        readline = tty.readline()
+        readline = tty.readline(prompt)
         return readline
 
 
@@ -1396,8 +1399,10 @@ class TerminalIO:
 
         self.tcgetattr = list()  # replaces
 
-    def readline(self) -> str:
+    def readline(self, prompt: str) -> str:
         """Read one Line, from fresh Keyboard Entry or Keyboard Editing of History"""
+
+        eprint(prompt, end="")
 
         text = ""
         t1 = ""
@@ -1405,23 +1410,53 @@ class TerminalIO:
             t0 = t1
             t1 = self.read_one_char()
 
-            if t1 == "\003":
+            # Quit
+
+            if t1 == "\003":  # ⌃C
                 eprint("^C", end="")  # '⌃' != '^'
                 raise KeyboardInterrupt()
 
-            if t1 == "\004":
+            # Decline to end the Input Line
+
+            if t1 == "\004":  # ⌃D
                 if (not text) or (t0 == "\004"):
                     eprint("^D\b\b", end="")  # '⌃' != '^'
                     return text
 
-            if t1 == "\015" == "\r":
+            # Agree to end the Input Line
+
+            if t1 == "\015" == "\r":  # ⌃M Return
                 eprint("", end="\r\n")
                 text_plus = text + "\n"
                 return text_plus
 
+            # Add 1 Printable Char
+
             if t1.isprintable():
                 text += t1
                 eprint(t1, end="")
+                continue
+
+            # Undo adding 1 Printable Char
+
+            if (t1 == "\177") or (t1 == "\010" == "\b"):  # ⌃? Delete  # ⌃H
+                if text:
+                    t2 = text[-1]
+                    text = text[:-1]
+
+                    w2 = self.char_to_width(t2)
+                    undo = (w2 * "\b") + (w2 * " ") + (w2 * "\b")
+                    eprint(undo, end="")
+
+                    continue
+
+            # Show 1 Char Dropped
+
+            t2 = "¤"  # U+00A4 Currency Symbol
+            text += t2
+            eprint(t2, end="")
+
+            continue
 
             # w = self.char_to_width(t)
             # eprint(repr(b), end="\r\n")
@@ -1474,17 +1509,12 @@ if __name__ == "__main__":
 
 # todo: find more todo0:
 
-# todo1: TerminalIO: ¤ U+00A4 Currency Sign for unbound chars
-# todo1: TerminalIO: read & echo & Return text
-
-# todo1: TerminalIO: ⌃? backspace text
-# todo1: TerminalIO: ⌃? backspace text vs native ⌃C ⌃D ⌃? especially when wrapped after Space
-# todo1: TerminalIO: ⌃U restart text, from stty -a
-# todo1: TerminalIO: ⌃W backspace over last word - differs over _ - inside Python vs stty/sh
-# todo1: TerminalIO: ⌃R reprint, from stty -a
-# todo1: TerminalIO: ⌃V quote char, from stty -a
-# todo1: TerminalIO: ⌃Z suspend process, from stty -a
-# todo1: TerminalIO: ⌃\ quit process, from stty -a
+# todo2: TerminalIO: ⌃? backspace text vs native ⌃C ⌃D ⌃? especially when wrapped after Space
+# todo2: TerminalIO: ⌃W backspace over last word - differs over _ - inside Python vs stty/sh
+# todo2: TerminalIO: ⌃R reprint, from stty -a
+# todo2: TerminalIO: ⌃V quote char, from stty -a
+# todo2: TerminalIO: ⌃Z suspend process, from stty -a
+# todo2: TerminalIO: ⌃\ quit process, from stty -a
 
 # todo2: when TerminalIO owned, adopt ⌃ U+2303 Up Arrowhead in place of ^ U+005E Circumflex Accent
 
