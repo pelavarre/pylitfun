@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 
 r"""
-usage: cspbook.py [-h] [-i] [-c CODELINE] [--make-tests]
+usage: cspbook.py [-h] [-V] [-i] [-c CODELINE] [--make-tests]
 
 exec some lines of csp code
 
 options:
-  -h, --help    show this help message and exit
-  -i            prompt and reply, loop loop till quit
-  -c CODELINE   one line of csp code to exec
-  --make-tests  update:  git diff csp/cspbook-py-readme.md
+  -h, --help     show this help message and exit
+  -V, --version  print the version and exit
+  -i             prompt and reply, loop loop till quit
+  -c CODELINE    one line of csp code to exec
+  --make-tests   update:  git diff csp/cspbook-py-readme.md
 
 quirks:
   trusts you to press Return to continue, ⌃C to cancel, ⌃D to quit
@@ -98,6 +99,9 @@ def try_main() -> None:
 
     parser = arg_doc_to_parser(doc)
     ns = parser.parse_args_if(sys.argv[1:])
+    if not any(vars(ns).values()):  # if launched as 'cspbook.py --'
+        ns.version = 1
+        ns.i = 1
 
     ct = CodeTalker()
     cw = ct.code_wrangler
@@ -110,19 +114,14 @@ def try_main() -> None:
     if ns.make_tests:
         cs.update_md()
 
-    if (not ns.c) and (not ns.i):
-        if not ns.make_tests:  # if banner for '--'
-            eprint(f"Csp Python {str_version}")
+    if ns.version:
+        eprint(f"Csp Python {str_version}")
 
     if ns.c:
         codeline = ns.c
         ct.sys_exec(codeline)  # may raise SystemExit
 
     if ns.i:
-        ct.sys_chat()
-    elif ns.make_tests:
-        pass
-    else:  # if chat for '--'
         ct.sys_chat()
 
 
@@ -131,10 +130,12 @@ def arg_doc_to_parser(doc: str) -> ArgDocParser:
 
     parser = ArgDocParser(doc, add_help=True)
 
+    version_help = "print the version and exit"
     i_help = "prompt and reply, loop loop till quit"
     c_help = "one line of csp code to exec"
     make_tests_help = "update:  git diff csp/cspbook-py-readme.md"
 
+    parser.add_argument("-V", "--version", action="count", help=version_help)
     parser.add_argument("-i", action="count", help=i_help)
     parser.add_argument("-c", metavar="CODELINE", help=c_help)
     parser.add_argument("--make-tests", action="count", help=make_tests_help)
