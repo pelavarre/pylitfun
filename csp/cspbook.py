@@ -17,12 +17,16 @@ quirks:
   trusts your Terminal Shell tab to understand ⎋[⇧A ⎋[⇧K
   works like Python works:
     cspbook.py --help
-    cspbook.py --
     cspbook.py -i -c ''
-      dir()
+    cspbook.py --
 
 examples:
+
   cspbook.py -i
+    dir()
+    dir(__builtins__)
+    __builtins__.__doc__
+
   cspbook.py -c CTR
   cspbook.py -c CLOCK
   cspbook.py -c VMC
@@ -115,7 +119,9 @@ def try_main() -> None:
         cs.update_md()
 
     if ns.version:
-        eprint(f"Csp Python {str_version}")
+        oprint(f"Csp Python {str_version}")
+
+    # with TerminalIO():
 
     if ns.c:
         codeline = ns.c
@@ -341,8 +347,9 @@ class CodeSketcher:
 
         tprints = list()
 
-        def _tprint_(text: str = "", end: str = "\n") -> None:
+        def _tprint_(text: str = "", end: str = "\n", file: typing.TextIO | None = None) -> None:
             tprints.append(text + end)
+            pass  # ignore .file
 
         # Start collecting outputs
 
@@ -395,17 +402,15 @@ class CodeTalker:
 
         while True:
 
-            eprint("csp> ", end="")
-
             try:
-                csp = sys.stdin.readline()  # reads and echoes
+                csp = _sys_stdin_readline_("csp> ")  # reads and echoes
             except KeyboardInterrupt:
-                print()
-                print("KeyboardInterrupt")
+                oprint()
+                oprint("KeyboardInterrupt")
                 continue
 
             if not csp:
-                print()
+                oprint()
                 sys.stdout.flush()
                 break
 
@@ -414,9 +419,12 @@ class CodeTalker:
 
             try:
                 self.sys_exec(csp)  # may raise SystemExit
+            except Exception as exc:
+                texts = traceback.format_exception(exc, limit=0)  # colorize=sys.stderr.isatty()
+                oprint(texts[0].rstrip())
             except KeyboardInterrupt:
-                print()
-                print("KeyboardInterrupt")
+                oprint()
+                oprint("KeyboardInterrupt")
                 continue
 
             continue
@@ -454,16 +462,16 @@ class CodeTalker:
 
         if join == "dir()":
             procnames = list(sys_locals)  # 'better copied than aliased'
-            print(procnames)
+            oprint(procnames)
             return
 
         if join == "dir(__builtins__)":
             procnames = list(sys_builtins)  # 'better copied than aliased'
-            print(procnames)
+            oprint(procnames)
             return
 
         if join == "__builtins__.__doc__":
-            print(repr(sys_builtins["__doc__"]))
+            oprint(repr(sys_builtins["__doc__"]))
             return
 
         # Take suffix or prefix '??' as a meta-instruction
@@ -472,7 +480,7 @@ class CodeTalker:
 
             procname = strip.strip(" ?")
             proc = self.to_proc_from_name(procname)
-            print(json.dumps(proc))
+            oprint(json.dumps(proc))
 
             for choice in Choice.selves:
                 choice.eventnames.clear()
@@ -529,7 +537,7 @@ class CodeTalker:
 
         assert not proc, (proc,)
         if proc is not False:
-            print("STOP")
+            oprint("STOP")
 
     def shorthand_single_step(self, shorthand: Shorthand) -> object:
         """Walk through the Events of 1 Named Shorthand"""
@@ -621,7 +629,7 @@ class CodeTalker:
                 procname = ward
                 proc = self.to_proc_from_name(procname)
                 if proc:
-                    print()
+                    oprint()
                 break
 
             if isinstance(ward, Choice):
@@ -647,7 +655,7 @@ class CodeTalker:
         while True:
 
             try:
-                ack = _sys_sydin_readline_("> ")  # echoes to stdout
+                ack = _sys_stdin_readline_("> ")  # echoes to stdout
                 # eprint()
                 # eprint(repr(ack))
                 # sys.exit(2)
@@ -711,7 +719,7 @@ class CodeTalker:
             procname = chosen
             proc = self.to_proc_from_name(procname)
             if proc:
-                print()
+                oprint()
                 return proc
 
             return proc
@@ -1259,12 +1267,20 @@ def pathname_read_version(pathname: str) -> str:
 #
 
 
-def eprint(*args: object, end: str = "\n") -> None:
+def eprint(*args: object, end: str = "\r\n") -> None:
     """Print to Stderr without disordering Stdout"""
 
-    sys.stdout.flush()  # especially when file is not sys.stdout
+    sys.stdout.flush()
     print(*args, end=end, file=sys.stderr)
     sys.stderr.flush()
+
+
+def oprint(*args: object, end: str = "\r\n") -> None:
+    """Print to Stderr without disordering Stdout"""
+
+    sys.stderr.flush()
+    print(*args, end=end, file=sys.stdout)
+    sys.stdout.flush()
 
 
 #
@@ -1336,7 +1352,7 @@ def excepthook(  # last modified on 2026-05-14 or later
 #
 
 
-def _sys_sydin_readline_(prompt: str) -> str:
+def _sys_stdin_readline_(prompt: str) -> str:
     """Read one Line from Stdin without echo if not Tty, else from Terminal with echo"""
 
     isatty = sys.stdin.isatty()
@@ -1345,6 +1361,7 @@ def _sys_sydin_readline_(prompt: str) -> str:
         readline = sys.stdin.readline()
         return readline
 
+    # tty = TerminalIO.selves[-1]
     with TerminalIO() as tty:
         readline = tty.readline(prompt)
         return readline
@@ -1352,11 +1369,15 @@ def _sys_sydin_readline_(prompt: str) -> str:
 
 class TerminalIO:
 
+    selves: list[TerminalIO] = list()
+
     stdio: typing.TextIO  # sys.__stderr__
     fileno: int  # 2
     tcgetattr: list[int | list[bytes | int]]  # replaced by .__enter__ and by .__exit__
 
     def __init__(self) -> None:
+
+        TerminalIO.selves.append(self)
 
         assert sys.__stderr__, (sys.__stderr__,)
 
@@ -1459,8 +1480,10 @@ class TerminalIO:
 
             continue
 
-            # w = self.char_to_width(t)
-            # eprint(repr(b), end="\r\n")
+        # comparable to sys.stdin.readline()
+        # but accepts ⌃H in place of ⌃? Delete
+        # and shows every dropped Char as ¤
+        # and could soon learn '⌃' != '^'
 
     def char_to_width(self, t: str) -> int:
         """Guess the Print Width of one Char"""
@@ -1508,19 +1531,26 @@ if __name__ == "__main__":
     main()
 
 
-# todo: find more todo0:
+# todo: Find more todo0:
 
-# todo2: TerminalIO: ⌃? backspace text vs native ⌃C ⌃D ⌃? especially when wrapped after Space
-# todo2: TerminalIO: ⌃W backspace over last word - differs over _ - inside Python vs stty/sh
-# todo2: TerminalIO: ⌃R reprint, from stty -a
-# todo2: TerminalIO: ⌃V quote char, from stty -a
-# todo2: TerminalIO: ⌃Z suspend process, from stty -a
-# todo2: TerminalIO: ⌃\ quit process, from stty -a
 
-# todo2: when TerminalIO owned, adopt ⌃ U+2303 Up Arrowhead in place of ^ U+005E Circumflex Accent
+# todo2: When TerminalIO wholly adopted, ⌃ U+2303 Up Arrowhead over ^ U+005E Circumflex Accent
+# todo2: Solve ⇧⌘↑ selection of Transcript Lines vs Input at some and not all Rows
+# todo2: Dream up how to run through, not step through, all the traces of VMC etc
+# todo2: Think more through when to clear history of walking Choice's at return to top-level
 
-# todo3: dream up how to run through, not step through, all the traces of VMC etc
-# todo3: think more through when to clear history of walking Choice's at return to top-level
+
+# todo9: ↑ ↓ history to pick a line to take or edit for ⌃C or ⌃D or ⌃M to dispatch
+# todo9: init ↑ ↓ history at 'csp> ' to "dir()\ndir(__builtins__)\n__builtins__.__doc__\n"
+# todo9: persist ↑ ↓ history at ~/.pylitfun/csp/readline.txt
+
+# todo9: TerminalIO: ⌃? backspace text vs native ⌃C ⌃D ⌃? especially when wrapped after Space
+# todo9: TerminalIO: ⌃D conventions beyond ending input with ⌃D or with ⌃D⌃D
+# todo9: TerminalIO: ⌃W backspace over last word - differs over _ - inside Python vs stty/sh
+# todo9: TerminalIO: ⌃R reprint, from stty -a
+# todo9: TerminalIO: ⌃V quote char, from stty -a
+# todo9: TerminalIO: ⌃Z suspend process, from stty -a
+# todo9: TerminalIO: ⌃\ quit process, from stty -a
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
