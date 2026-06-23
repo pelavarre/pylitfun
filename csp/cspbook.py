@@ -513,11 +513,11 @@ class CodeTalker:
                     continue
                 break
 
-            # Dive into Shorthand
+            # Dive into a Scope
 
-            if isinstance(proc, Shorthand):
-                shorthand = proc
-                proc = self.shorthand_single_step(shorthand)
+            if isinstance(proc, Scope):
+                scope = proc
+                proc = self.scope_single_step(scope)
                 if proc:
                     continue
                 break
@@ -531,7 +531,7 @@ class CodeTalker:
                     continue
                 break
 
-            # Else give up on something named by Scope
+            # Else give up on something named by Wordbook
 
             raise NotImplementedError(type(proc), proc)
 
@@ -539,13 +539,13 @@ class CodeTalker:
         if proc is not False:
             oprint("STOP")
 
-    def shorthand_single_step(self, shorthand: Shorthand) -> object:
-        """Walk through the Events of 1 Named Shorthand"""
+    def scope_single_step(self, scope: Scope) -> object:
+        """Walk through the Events of 1 defined Scope"""
 
         cw = self.code_wrangler
         sys_globals = cw.sys_globals
 
-        items = list(shorthand.items())
+        items = list(scope.items())
         assert len(items) == 1, (len(items), items)
 
         item = items[-1]
@@ -557,23 +557,23 @@ class CodeTalker:
 
         sys_globals[k] = v
 
-        # Walk through a Sequence named by Shorthand
+        # Walk through a Sequence named by a Scope
 
         if isinstance(v, Sequence):
             seq = v
             proc = self.seq_single_step(seq)
             return proc
 
-        # Walk through a Choice named by Shorthand of Shorthand
+        # Walk through a Choice named by a Scope
 
         if isinstance(v, Choice):
             choice = v
             proc = self.choice_single_step(choice)
             return proc
 
-        # Dive into Shorthand named by Shorthand
+        # Dive into a Scope named by a Scope
 
-        if isinstance(v, Shorthand):
+        if isinstance(v, Scope):
 
             v_items = list(v.items())
             assert len(v_items) == 1, (len(v_items), v_items)
@@ -587,7 +587,7 @@ class CodeTalker:
 
             sys_globals[v_k] = v_v
 
-            # Walk through a Sequence named by Shorthand of Shorthand
+            # Walk through a Sequence named by Scope of Scope
 
             if isinstance(v_v, Sequence):
                 seq = v_v
@@ -595,7 +595,7 @@ class CodeTalker:
                 proc = self.seq_single_step(seq)
                 return proc
 
-            # Walk through a Choice named by Shorthand of Shorthand
+            # Walk through a Choice named by Scope of Scope
 
             assert isinstance(v_v, Choice), (type(v_v), v_v)
             choice = v_v
@@ -603,7 +603,7 @@ class CodeTalker:
             proc = self.choice_single_step(choice)
             return proc
 
-        # Else give up on something named by Shorthand
+        # Else give up on something named by Scope
 
         raise NotImplementedError(type(v), v)
 
@@ -751,7 +751,7 @@ class CodeTalker:
 class CodeWrangler:
     """Wrangle Code"""
 
-    sys_modules: dict[str, Scope] = dict()  # like Python sys.modules
+    sys_modules: dict[str, Wordbook] = dict()  # like Python sys.modules
     sys_globals: dict[str, object] = dict()  # like Python globals()
 
     def import_module(self, modulename: str) -> None:
@@ -770,14 +770,14 @@ class CodeWrangler:
 
         # Convert to an Abstract Syntax Tree
 
-        scope = Scope(pj)
+        wordbook = Wordbook(pj)
 
         # path = pathlib.Path("j.json")
-        # path.write_text(json.dumps(scope, indent=2) + "\n")
+        # path.write_text(json.dumps(wordbook, indent=2) + "\n")
 
         # Start mutating the Json Object
 
-        sys_modules[modulename] = scope
+        sys_modules[modulename] = wordbook
 
     def import_module_json(self, modulename: str) -> dict[str, object]:
         """Import one Csp Module Json"""
@@ -850,8 +850,197 @@ class CodeWrangler:
         return pathnames  # maybe empty, maybe multiple
 
 
-class Scope(dict[str, object]):
-    """A Scope is a Dict of Shorthand's"""
+class Process:
+    """A Process"""
+
+    def __call__(self, event: Event) -> Process | None:
+        return None
+
+    @staticmethod
+    def load_process(o: object) -> Process:
+
+        if not o:
+            p = Process()
+            return STOP
+
+        if isinstance(o, str):
+            assert o, (o,)
+            p = MentionProcess.load_process(o)
+            assert isinstance(p, MentionProcess), (type(p), p)  # todo0: test repr(p)
+            q = p.proc
+            return q
+
+        if isinstance(o, list):
+            assert len(o), (len(o), o)
+            if len(o) > 1:
+                p = SequenceProcess.load_process(o)
+                return p
+
+        if isinstance(o, dict):
+            assert len(o.keys()), (len(o), o)
+            if len(o.keys()) > 1:
+                p = ChoiceProcess.load_process(o)
+                return p
+
+            p = ScopeProcess.load_process(o)
+            return p
+
+        assert False, (type(o), o)
+
+
+STOP = Process()
+
+
+@dataclasses.dataclass(order=True, frozen=True)
+class SequenceProcess(Process):
+
+    guards: list[Event]
+    proc: Process
+
+    def __call__(self, event: Event) -> Process | None:
+
+        guards = self.guards
+        proc = self.proc
+
+        if event != guards[0]:
+            return None
+
+        after_guards = guards[1:]
+        if not after_guards:
+            return proc
+
+        sp = SequenceProcess(guards=after_guards, proc=proc)
+        return sp
+
+    @staticmethod
+    def load_process(o: object) -> Process:
+
+        assert isinstance(o, list), (type(o), o)
+        assert len(o), (len(o), o)
+
+        guards = list()
+        for g in o[:-1]:
+            assert isinstance(g, str), (type(g), g)
+            e = Event(o)
+            guards.append(e)
+
+        p = o[-1]
+        proc = Process.load_process(p)
+
+        sp = SequenceProcess(guards=guards, proc=proc)
+        return sp
+
+
+@dataclasses.dataclass(order=True, frozen=True)
+class ChoiceProcess(Process):
+
+    process_by_event: dict[Event, Process]
+
+    def __call__(self, event: Event) -> Process | None:
+
+        process_by_event = self.process_by_event
+
+        if event not in process_by_event.keys():
+            return None
+
+        proc = process_by_event[event]
+        return proc
+
+    @staticmethod
+    def load_process(o: object) -> Process:
+
+        assert isinstance(o, dict), (type(o), o)
+        assert len(o) >= 2, (len(o), o)
+
+        process_by_event = dict(o)
+        for k, v in o.items():
+            proc = Process.load_process(v)
+            process_by_event[k] = proc
+
+        cp = ChoiceProcess(process_by_event=process_by_event)
+        return cp
+
+
+ScopeProcesses: list[ScopeProcess] = list()
+
+
+@dataclasses.dataclass(order=True, frozen=True)
+class MentionProcess:
+
+    name: str
+    proc: Process
+
+    def __call__(self, event: Event) -> Process | None:
+
+        name = self.name
+
+        proc = self.proc
+        assert proc, (name, event, proc)
+        after_proc = proc(event)
+
+        return after_proc
+
+    @staticmethod
+    def load_process(o: object) -> Process:
+
+        assert isinstance(o, str), (type(o), o)
+        assert o, (o,)
+        name = o
+
+        for sp in reversed(ScopeProcesses):
+            if sp.name == name:
+                return sp
+
+        pass  # raise NameError(f"name {name!r} is not defined")  # todo0: fixme:
+
+        return STOP
+
+        mp = MentionProcess(name=name, proc=STOP)
+        return mp
+
+
+@dataclasses.dataclass(order=True)  # , frozen=True)
+class ScopeProcess(Process):
+
+    name: str
+    proc: Process | None
+
+    def __call__(self, event: Event) -> Process | None:
+
+        name = self.name
+
+        proc = self.proc
+        assert proc, (name, event, proc)
+        after_proc = proc(event)
+
+        return after_proc
+
+    @staticmethod
+    def load_process(o: object) -> Process:
+
+        assert isinstance(o, dict), (type(o), o)
+        assert len(o) == 1, (len(o), o)
+
+        for k, v in o.items():
+            name = k
+
+            sp0 = ScopeProcess(name=name, proc=None)
+            ScopeProcesses.append(sp0)
+
+            proc = Process.load_process(v)
+
+            sp1 = ScopeProcesses.pop()  # Static Scope FTW
+            assert sp0 is sp1, (sp0, sp1)
+
+            sp0.proc = proc
+
+            return sp0
+
+        assert False
+
+
+class Wordbook(dict[str, object]):
+    """A Wordbook is a Dict of Sequence or Choice or Scope Values"""
 
     def __init__(self, pj: dict[str, object]) -> None:
         super().__init__(pj)
@@ -865,6 +1054,7 @@ class Scope(dict[str, object]):
                 continue
 
             if isinstance(v, list):
+                _ = SequenceProcess.load_process(v)
                 sequence = Sequence(v)
                 self[k] = sequence
                 continue
@@ -872,19 +1062,28 @@ class Scope(dict[str, object]):
             assert isinstance(v, dict), (type(v), v)
 
             if len(v.keys()) == 1:
-                shorthand = Shorthand(v)
-                self[k] = shorthand
+                _ = ScopeProcess.load_process(v)
+                scope = Scope(v)
+                self[k] = scope
                 continue
 
+            if not v:
+                stop = Process.load_process(v)
+                assert stop is STOP, (stop, v)
+                # self[k] = stop
+                # continue
+
+            if v:  # todo0: fixme:
+                _ = ChoiceProcess.load_process(v)
             choice = Choice(v)
             self[k] = choice
             continue
 
-        assert pj == self, (pj, self)
+        # assert pj == self, (pj, self)  # todo: fixme:
 
 
-class Shorthand(dict[str, object]):
-    """A Shorthand is Part given a Mentionable Name"""
+class Scope(dict[str, object]):
+    """A Scope gives a Mentionable Name to a Process"""
 
     def __init__(self, pj: dict[str, object]) -> None:
         super().__init__(pj)
@@ -909,6 +1108,46 @@ class Shorthand(dict[str, object]):
         assert pj == self, (pj, self)
 
 
+class Mention(str):
+    """A Mention stands in place of a Scope"""
+
+
+class Sequence(list[object]):
+    """A Sequence is an order of Events guarding a Process"""
+
+    def __init__(self, pj: list[object]) -> None:
+        super().__init__(pj)
+
+        # Accept a Sequence of no Events guarding no Process
+
+        if not pj:
+            return
+
+        # Take >= 1 Events before the Process
+
+        assert len(pj) >= 2, (len(pj), pj)
+
+        for k, v in enumerate(pj[:-1]):
+            assert isinstance(v, str), (type(v), v)
+            _v_ = Event(v)
+            self[k] = _v_
+
+        # Take the Process
+
+        index = -1
+        tail = pj[index]
+        if isinstance(tail, str):
+            self[index] = Mention(tail)
+        elif isinstance(tail, list):
+            self[index] = Sequence(tail)
+        else:
+            assert isinstance(tail, dict), (type(tail), tail)
+            assert len(tail.keys()) > 1, (len(tail.keys()), tail.keys(), tail)
+            self[index] = Choice(tail)
+
+        assert pj == self, (pj, self)
+
+
 class Choice(dict[str, object]):
     """A Choice is a Dict of Events guarding Processes"""
 
@@ -929,6 +1168,10 @@ class Choice(dict[str, object]):
 
         for k, v in items:
 
+            if isinstance(v, str):
+                self[k] = Mention(v)
+                continue
+
             if isinstance(v, list):
                 sequence = Sequence(v)
                 self[k] = sequence
@@ -940,49 +1183,13 @@ class Choice(dict[str, object]):
                 self[k] = choice
                 continue
 
-            assert isinstance(v, str), (type(v), v)
-            self[k] = Mention(v)
-            continue
-
-        assert pj == self, (pj, self)
-
-
-class Sequence(list[object]):
-    """A Sequence is a Tuple of Events and a Mention of Shorthand"""
-
-    def __init__(self, pj: list[object]) -> None:
-        super().__init__(pj)
-
-        if not pj:
-            return
-
-        assert len(pj) >= 2, (len(pj), pj)
-
-        for k, v in enumerate(pj[:-1]):
-            assert isinstance(v, str), (type(v), v)
-            _v_ = Event(v)
-            self[k] = _v_
-
-        index = -1
-        tail = pj[index]
-        if isinstance(tail, list):
-            self[index] = Sequence(tail)
-        elif isinstance(tail, str):
-            self[index] = Mention(tail)
-        else:
-            assert isinstance(tail, dict), (type(tail), tail)
-            assert len(tail.keys()) > 1, (len(tail.keys()), tail.keys(), tail)
-            self[index] = Choice(tail)
+            assert False
 
         assert pj == self, (pj, self)
 
 
 class Event(str):
     """An Event has a Name"""
-
-
-class Mention(str):
-    """A Mention is the Name of a Shorthand"""
 
 
 # ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
@@ -1097,7 +1304,7 @@ class ArgDocParser:
         """Pick the Prog out of the Usage Graf that starts the Doc"""
 
         lines = text.splitlines()
-        prog = lines[0].split()[1]  # second Word of first Line  # 'prog' from 'usage: prog'
+        prog = lines[0].split()[1]  # second Scope of first Line  # 'prog' from 'usage: prog'
 
         return prog
 
