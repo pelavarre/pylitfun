@@ -56,7 +56,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.3.167 (main, 2026-06-24)
+    Csp Python 0.4.196 (main, 2026-06-24)
     csp>
     csp> ^D
     %

@@ -171,12 +171,13 @@
       ]
     }
   },
-  "# 1.1.3 X8": "gives us nothing to put here",
-  "# 1.1.4": "Mutual recursion",
-  "__todo__": [
-    "todo1: define X1 and CLOCK as last redefined but more abstractly, less concretely",
-    "todo1: don't add X1.A till just before X1.B"
+  "RUN": [
+    "x",
+    "RUN"
   ],
+  "__todo__": {
+    "todo1: # 1.1.4": "Mutual recursion"
+  },
   "__farewell__": [
     "posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/builtins.json",
     "copied from:  git clone https://github.com/pelavarre/litpython.git"

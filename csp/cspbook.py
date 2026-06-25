@@ -1581,6 +1581,9 @@ if __name__ == "__main__":
 # todo: Find more todo0:
 
 
+# todo1: Decline to load "LOAD-FOREVER": { "X": { "Y": "X" } },
+# todo1: Decline to load "STEP-FOREVER": { "X": "X" },
+
 # todo1: First load the "CLOCK.A" as "CLOCK", replace it with "CLOCK.B" first loaded as "CLOCK", etc
 # todo1: Write a .json into Memory to test Duplicate Keys replace old with new
 
