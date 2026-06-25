@@ -851,7 +851,7 @@ class CodeWrangler:
 
 
 class Process:
-    """A Process is a thing that gives back a next Process, when given an Event"""
+    """Each Process is a thing that takes an Event and gives back a Process, else None"""
 
     def __call__(self, event: Event) -> Process | None:
         return None
@@ -860,22 +860,13 @@ class Process:
     def load_process(o: object) -> Process:
 
         if not o:
-            p = Process()
             return STOP
 
         if isinstance(o, str):
             assert o, (o,)
-
             p = MentionProcess.load_process(o)
-            if p is STOP:
-                return p
-
-            if isinstance(p, ScopeProcess):
-                return p
-
             assert isinstance(p, MentionProcess), (type(p), p)
-            q = p.proc
-            return q
+            return p
 
         if isinstance(o, list):
             assert len(o), (len(o), o)
@@ -897,25 +888,27 @@ class Process:
     # fixme: todo0: test repr(p) for various kinds of Process
 
 
-STOP = Process()
+class StopProcess(dict[object, object], Process):
+    """The Stop Process takes no Events"""
 
 
-@dataclasses.dataclass(order=True, frozen=True)
-class PrefixProcess(Process):
-    """A Prefix Process takes 1 particular Event, before running on"""
+STOP = StopProcess()
 
-    guard: Event
-    proc: Process
+
+class PrefixProcess(list[object], Process):
+    """Each Prefix Process takes 1 particular Event, and then runs on"""
+
+    after: Process
 
     def __call__(self, event: Event) -> Process | None:
 
-        guard = self.guard
-        proc = self.proc
+        guard = self[0]
+        after = self.after
 
         if event != guard:
             return None
 
-        return proc
+        return after
 
     @staticmethod
     def load_process(o: object) -> Process:
@@ -924,31 +917,33 @@ class PrefixProcess(Process):
         assert len(o) >= 2, (len(o), o)
 
         p = o[-1]
-        proc = Process.load_process(p)
+        after = Process.load_process(p)
 
-        for g in reversed(o[:-1]):
-            assert isinstance(g, str), (type(g), g)
-            guard = Event(g)
-            pp = PrefixProcess(guard=guard, proc=proc)
-            proc = pp
+        guards = list(Event(_) for _ in o[:-1])
+        get = after
 
-        return proc
+        for i in reversed(range(len(guards))):
+            objects = guards[i:] + [after]
+            proc = PrefixProcess(objects)
+            proc.after = get
+
+            get = proc
+
+        return get
 
 
-@dataclasses.dataclass(order=True, frozen=True)
-class ChoiceProcess(Process):
-
-    process_by_event: dict[Event, Process]
+class ChoiceProcess(dict[object, object], Process):
+    """A Choice Process chooses how to run on by Event"""
 
     def __call__(self, event: Event) -> Process | None:
 
-        process_by_event = self.process_by_event
-
-        if event not in process_by_event.keys():
+        if event not in self.keys():
             return None
 
-        proc = process_by_event[event]
-        return proc
+        get = self[event]
+        assert isinstance(get, Process), (type(get), get)
+
+        return get
 
     @staticmethod
     def load_process(o: object) -> Process:
@@ -956,57 +951,74 @@ class ChoiceProcess(Process):
         assert isinstance(o, dict), (type(o), o)
         assert len(o) >= 2, (len(o), o)
 
-        process_by_event = dict(o)
-        for k, v in o.items():
-            proc = Process.load_process(v)
-            process_by_event[k] = proc
+        proc = ChoiceProcess()
 
-        cp = ChoiceProcess(process_by_event=process_by_event)
-        return cp
+        by_object = dict(o)
+        for k, v in by_object.items():
+            guard = Event(k)
+            after = Process.load_process(v)
+            proc[guard] = after
+
+        return proc
 
 
-ScopeProcesses: list[ScopeProcess] = list()
+scope_processes: list[ScopeProcess] = list()
 
 
-@dataclasses.dataclass(order=True, frozen=True)
-class MentionProcess(Process):
+class MentionProcess(str, Process):
+    """Each Mention of a Process runs like the Process runs"""
 
-    name: str
-    proc: Process
+    proc: Process | None = None
 
     def __call__(self, event: Event) -> Process | None:
 
-        name = self.name
-
+        name = self
         proc = self.proc
-        assert proc, (name, event, proc)
-        after_proc = proc(event)
 
-        return after_proc
+        assert proc is not None, (name, event, proc)
+        after = proc(event)
+
+        return after
 
     @staticmethod
     def load_process(o: object) -> Process:
+
+        wordbook = wordbooks[-1]
 
         assert isinstance(o, str), (type(o), o)
         assert o, (o,)
         name = o
 
-        for sp in reversed(ScopeProcesses):
-            if sp.name == name:
-                return sp
+        mp = MentionProcess(name)
+
+        for sp in reversed(scope_processes):
+
+            keys = list(sp.keys())
+            assert len(keys) == 1, (len(keys), keys)
+            sp_name = keys[-1]
+
+            if name == sp_name:
+                mp.proc = sp
+                return mp
+
+        if name in wordbook.keys():
+            # proc = wordbook[name]
+            mp.proc = STOP  # fixme: todo0: proc = wordbook[name]
+            return mp
 
         if name == "STOP":
-            return STOP
+            mp.proc = STOP  # fixme: todo0: proc = wordbook[name]
+            return mp
 
         # todo0: fixme: look up mentions in the Wordbook
-        # raise NameError(f"name {name!r} is not defined")
+        raise NameError(f"name {name!r} is not defined")
 
-        mp = MentionProcess(name=name, proc=STOP)
-        return mp
+        # mp = MentionProcess(name)
+        # mp.proc = STOP  # fixme: todo0: proc = wordbook[name]
+        # return mp
 
 
-@dataclasses.dataclass(order=True)  # , frozen=True)
-class ScopeProcess(Process):
+class ScopeProcess(dict[object, object], Process):
 
     name: str
     proc: Process | None
@@ -1016,7 +1028,7 @@ class ScopeProcess(Process):
         name = self.name
 
         proc = self.proc
-        assert proc, (name, event, proc)
+        assert proc is not None, (name, event, proc)
         after_proc = proc(event)
 
         return after_proc
@@ -1030,19 +1042,23 @@ class ScopeProcess(Process):
         for k, v in o.items():
             name = k
 
-            sp0 = ScopeProcess(name=name, proc=None)
-            ScopeProcesses.append(sp0)
+            sp0 = ScopeProcess()
+            sp0[name] = None
+            scope_processes.append(sp0)
 
             proc = Process.load_process(v)
 
-            sp1 = ScopeProcesses.pop()  # Static Scope FTW
+            sp1 = scope_processes.pop()  # Static Scope FTW
             assert sp0 is sp1, (sp0, sp1)
 
-            sp0.proc = proc
+            sp0[name] = proc
 
             return sp0
 
         assert False
+
+
+wordbooks: list[Wordbook] = list()
 
 
 class Wordbook(dict[str, object]):
@@ -1051,16 +1067,23 @@ class Wordbook(dict[str, object]):
     def __init__(self, pj: dict[str, object]) -> None:
         super().__init__(pj)
 
+        wordbooks.append(self)
+
+        d: dict[str, Process] = dict()
+
         items = list(self.items())
         for item in items:
             k, v = item
 
             if k == "__doc__":
                 assert isinstance(v, str), (type(v), v)
+                # d[k] = v
+                assert self[k] == v, (self[k], v)
                 continue
 
             if isinstance(v, list):
-                _ = PrefixProcess.load_process(v)
+                p = PrefixProcess.load_process(v)
+                d[k] = p
                 sequence = Sequence(v)
                 self[k] = sequence
                 continue
@@ -1068,7 +1091,8 @@ class Wordbook(dict[str, object]):
             assert isinstance(v, dict), (type(v), v)
 
             if len(v.keys()) == 1:
-                _ = ScopeProcess.load_process(v)
+                p = ScopeProcess.load_process(v)
+                d[k] = p
                 scope = Scope(v)
                 self[k] = scope
                 continue
@@ -1076,16 +1100,21 @@ class Wordbook(dict[str, object]):
             if not v:
                 stop = Process.load_process(v)
                 assert stop is STOP, (stop, v)
-                # self[k] = stop
-                # continue
+                d[k] = STOP
+                choice = Choice(v)
+                self[k] = choice
+                continue
 
-            if v:  # todo0: fixme: Json Load of custom Classes (not builtin)
-                _ = ChoiceProcess.load_process(v)
+            p = ChoiceProcess.load_process(v)
+            d[k] = p
             choice = Choice(v)
             self[k] = choice
             continue
 
         assert pj == self, (pj, self)
+
+        # path = pathlib.Path("j.json")  # fixme: todo0: stop dumping Json
+        # path.write_text(json.dumps(d, indent=2) + "\n")
 
 
 class Scope(dict[str, object]):
