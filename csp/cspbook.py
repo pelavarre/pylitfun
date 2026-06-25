@@ -851,7 +851,7 @@ class CodeWrangler:
 
 
 class Process:
-    """A Process"""
+    """A Process is a thing that gives back a next Process, when given an Event"""
 
     def __call__(self, event: Event) -> Process | None:
         return None
@@ -865,15 +865,22 @@ class Process:
 
         if isinstance(o, str):
             assert o, (o,)
+
             p = MentionProcess.load_process(o)
-            assert isinstance(p, MentionProcess), (type(p), p)  # todo0: test repr(p)
+            if p is STOP:
+                return p
+
+            if isinstance(p, ScopeProcess):
+                return p
+
+            assert isinstance(p, MentionProcess), (type(p), p)
             q = p.proc
             return q
 
         if isinstance(o, list):
             assert len(o), (len(o), o)
             if len(o) > 1:
-                p = SequenceProcess.load_process(o)
+                p = PrefixProcess.load_process(o)
                 return p
 
         if isinstance(o, dict):
@@ -887,48 +894,45 @@ class Process:
 
         assert False, (type(o), o)
 
+    # fixme: todo0: test repr(p) for various kinds of Process
+
 
 STOP = Process()
 
 
 @dataclasses.dataclass(order=True, frozen=True)
-class SequenceProcess(Process):
+class PrefixProcess(Process):
+    """A Prefix Process takes 1 particular Event, before running on"""
 
-    guards: list[Event]
+    guard: Event
     proc: Process
 
     def __call__(self, event: Event) -> Process | None:
 
-        guards = self.guards
+        guard = self.guard
         proc = self.proc
 
-        if event != guards[0]:
+        if event != guard:
             return None
 
-        after_guards = guards[1:]
-        if not after_guards:
-            return proc
-
-        sp = SequenceProcess(guards=after_guards, proc=proc)
-        return sp
+        return proc
 
     @staticmethod
     def load_process(o: object) -> Process:
 
         assert isinstance(o, list), (type(o), o)
-        assert len(o), (len(o), o)
-
-        guards = list()
-        for g in o[:-1]:
-            assert isinstance(g, str), (type(g), g)
-            e = Event(o)
-            guards.append(e)
+        assert len(o) >= 2, (len(o), o)
 
         p = o[-1]
         proc = Process.load_process(p)
 
-        sp = SequenceProcess(guards=guards, proc=proc)
-        return sp
+        for g in reversed(o[:-1]):
+            assert isinstance(g, str), (type(g), g)
+            guard = Event(g)
+            pp = PrefixProcess(guard=guard, proc=proc)
+            proc = pp
+
+        return proc
 
 
 @dataclasses.dataclass(order=True, frozen=True)
@@ -965,7 +969,7 @@ ScopeProcesses: list[ScopeProcess] = list()
 
 
 @dataclasses.dataclass(order=True, frozen=True)
-class MentionProcess:
+class MentionProcess(Process):
 
     name: str
     proc: Process
@@ -991,9 +995,11 @@ class MentionProcess:
             if sp.name == name:
                 return sp
 
-        pass  # raise NameError(f"name {name!r} is not defined")  # todo0: fixme:
+        if name == "STOP":
+            return STOP
 
-        return STOP
+        # todo0: fixme: look up mentions in the Wordbook
+        # raise NameError(f"name {name!r} is not defined")
 
         mp = MentionProcess(name=name, proc=STOP)
         return mp
@@ -1054,7 +1060,7 @@ class Wordbook(dict[str, object]):
                 continue
 
             if isinstance(v, list):
-                _ = SequenceProcess.load_process(v)
+                _ = PrefixProcess.load_process(v)
                 sequence = Sequence(v)
                 self[k] = sequence
                 continue
@@ -1073,13 +1079,13 @@ class Wordbook(dict[str, object]):
                 # self[k] = stop
                 # continue
 
-            if v:  # todo0: fixme:
+            if v:  # todo0: fixme: Json Load of custom Classes (not builtin)
                 _ = ChoiceProcess.load_process(v)
             choice = Choice(v)
             self[k] = choice
             continue
 
-        # assert pj == self, (pj, self)  # todo: fixme:
+        assert pj == self, (pj, self)
 
 
 class Scope(dict[str, object]):
