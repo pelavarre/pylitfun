@@ -247,8 +247,6 @@ class CodeSketcher:
         j = i + len(jlines)
 
         self.add_source_trace(olines=olines, verb=verb)
-        for choice in Choice.selves:
-            choice.eventnames.clear()
 
         for _ in range(execs):
             self.add_exec_trace(olines=olines, verb=verb, jlines=jlines)
@@ -263,7 +261,7 @@ class CodeSketcher:
         if isinstance(pj, list):
             return sum(self.count_stops(_) for _ in pj)
         if isinstance(pj, str):
-            if pj == "STOP":
+            if pj == "STOP":  # todo1: check for 'is STOP'
                 return 1
 
         return 0
@@ -388,10 +386,16 @@ class CodeTalker:
 
     code_wrangler: CodeWrangler
 
+    process_list: list[Process]
+    events_by_process_index: list[list[Event]]
+
     def __init__(self) -> None:
 
         cw = CodeWrangler()
         self.code_wrangler = cw
+
+        self.process_list = list()
+        self.events_by_process_index = list()
 
     #
     # Prompt and reply, loop loop till quit
@@ -440,14 +444,11 @@ class CodeTalker:
         join = "".join(codeline.split())
 
         cw = self.code_wrangler
-        sys_globals = cw.sys_globals
         sys_modules = cw.sys_modules
         sys_builtins = sys_modules["builtins"]
 
-        sys_globals.clear()  # todo3: Disentangle the Scopes of one Proc Def and the next
-
-        sys_locals = sys_globals
-        sys_locals["__builtins__"] = sys_globals
+        sys_locals: dict[str, object | None] = dict()  # todo3: pick apart sys_locals vs sys_globals
+        sys_locals["__builtins__"] = sys_builtins
         sys_locals["__doc__"] = None
 
         # Take 'quit()' etc as a meta-instruction
@@ -461,7 +462,7 @@ class CodeTalker:
             return
 
         if join == "dir()":
-            procnames = list(sys_locals)  # 'better copied than aliased'
+            procnames = list(sys_locals.keys())  # 'better copied than aliased'
             oprint(procnames)
             return
 
@@ -482,169 +483,100 @@ class CodeTalker:
             proc = self.to_proc_from_name(procname)
             oprint(json.dumps(proc))
 
-            for choice in Choice.selves:
-                choice.eventnames.clear()
-
             return
 
         # Single Step through the Csp Code of 1 Proc Def
 
         procname = strip
-        self.procname_single_step(procname)
-
-    def procname_single_step(self, procname: str) -> None:
-        """Walk through the Events of 1 Named Process"""
-
         proc = self.to_proc_from_name(procname)
+        self.proc_single_step(proc)
 
-        while True:
-
-            # Complete an Empty Proc
-
-            if not proc:
-                break
-
-            # Walk through a named Sequence
-
-            if isinstance(proc, Sequence):
-                seq = proc
-                proc = self.seq_single_step(seq)
-                if proc:
-                    continue
-                break
-
-            # Dive into a Scope
-
-            if isinstance(proc, Scope):
-                scope = proc
-                proc = self.scope_single_step(scope)
-                if proc:
-                    continue
-                break
-
-            # Make a choice
-
-            if isinstance(proc, Choice):
-                choice = proc
-                proc = self.choice_single_step(choice)
-                if proc:
-                    continue
-                break
-
-            # Else give up on something named by Wordbook
-
-            raise NotImplementedError(type(proc), proc)
-
-        assert not proc, (proc,)
-        if proc is not False:
-            oprint("STOP")
-
-    def scope_single_step(self, scope: Scope) -> object:
-        """Walk through the Events of 1 defined Scope"""
+    def to_proc_from_name(self, procname: str) -> Process:
+        """Fetch the Body of a Proc Def"""
 
         cw = self.code_wrangler
-        sys_globals = cw.sys_globals
+        sys_modules = cw.sys_modules
 
-        items = list(scope.items())
-        assert len(items) == 1, (len(items), items)
+        _builtins_ = sys_modules["builtins"]
 
-        item = items[-1]
-        k = item[0]
-        v = item[-1]
-
-        if k in sys_globals.keys():
-            eprint(f"Warning: Redefining Global Proc {k!r}")
-
-        sys_globals[k] = v
-
-        # Walk through a Sequence named by a Scope
-
-        if isinstance(v, Sequence):
-            seq = v
-            proc = self.seq_single_step(seq)
+        if procname in _builtins_.keys():  # todo3: pick apart __doc__ from Process Names
+            proc = _builtins_[procname]
+            assert isinstance(proc, Process), (type(proc), proc)
             return proc
 
-        # Walk through a Choice named by a Scope
+        raise NameError(f"name {procname!r} is not defined")
 
-        if isinstance(v, Choice):
-            choice = v
-            proc = self.choice_single_step(choice)
-            return proc
+    def proc_single_step(self, proc: Process) -> None:
+        """Walk through the Events of 1 Named Process"""
 
-        # Dive into a Scope named by a Scope
-
-        if isinstance(v, Scope):
-
-            v_items = list(v.items())
-            assert len(v_items) == 1, (len(v_items), v_items)
-
-            v_item = v_items[-1]
-            v_k = v_item[0]
-            v_v = v_item[-1]
-
-            if v_k in sys_globals.keys():
-                eprint(f"Warning: Redefining Global Proc {v_k!r}")
-
-            sys_globals[v_k] = v_v
-
-            # Walk through a Sequence named by Scope of Scope
-
-            if isinstance(v_v, Sequence):
-                seq = v_v
-
-                proc = self.seq_single_step(seq)
-                return proc
-
-            # Walk through a Choice named by Scope of Scope
-
-            assert isinstance(v_v, Choice), (type(v_v), v_v)
-            choice = v_v
-
-            proc = self.choice_single_step(choice)
-            return proc
-
-        # Else give up on something named by Scope
-
-        raise NotImplementedError(type(v), v)
-
-    def seq_single_step(self, seq: Sequence) -> object:
-        """Single Step through the Csp Code of 1 Sequence"""
-
-        # Step into the Seq
+        process_list = self.process_list
+        events_by_process_index = self.events_by_process_index
 
         while True:
 
-            assert seq[1:], (seq,)
-            guards = seq[:-1]
-            ward = seq[-1]
+            separating = False
+            while isinstance(proc, MentionProcess):
+                mp: MentionProcess = proc
+                assert mp.proc is not None, (mp.proc,)
+                proc = mp.proc
+                if proc is not STOP:
+                    separating = True
 
-            for guard in guards:  # todo9: choices=choices to skip ahead
-                assert isinstance(guard, str), (type(guard), guard)
+            if separating:
+                oprint()
 
-                eventname = self.take_name(names=[guard], default=guard)
-                if not eventname:
-                    return False
+            events = proc.invite_events()
 
-            if isinstance(ward, Mention):
-                procname = ward
-                proc = self.to_proc_from_name(procname)
-                if proc:
-                    oprint()
-                break
+            if not events:
+                oprint("STOP")
+                return
 
-            if isinstance(ward, Choice):
-                choice = ward
-                proc = self.choice_single_step(choice)
-                break
+            #
 
-            assert isinstance(ward, Sequence), (type(ward), ward)
-            seq = ward
+            defaults = list(events)
+            if not events[1:]:
 
-            continue
+                default = defaults[0]
+                event = self.take_event(events, default=default)
+                if event is None:
+                    break
 
-        return proc
+            else:
 
-    def take_name(self, names: list[str], default: str) -> str:
+                index = -1
+                for i, p in enumerate(process_list):
+                    if p is proc:
+                        index = i
+                        break
+
+                if index < 0:
+                    index = len(process_list)
+                    process_list.append(proc)
+                    events_by_process_index.append(list())
+
+                bygones = events_by_process_index[index]
+                for bygone in bygones:
+                    defaults.remove(bygone)
+
+                if not defaults:
+                    bygones.clear()
+                    defaults = list(events)
+
+                default = defaults[0]
+                event = self.take_event(events, default=default)
+                if event is None:
+                    break
+
+                bygones.append(event)
+
+            #
+
+            after = proc(event)
+            assert after is not None, (after, event, proc)
+
+            proc = after
+
+    def take_event(self, names: tuple[Event, ...], default: Event) -> Event | None:
         """Prompt with one or more Event Names, and take one."""
 
         assert default, (default,)
@@ -661,15 +593,15 @@ class CodeTalker:
                 # sys.exit(2)
             except KeyboardInterrupt:
                 eprint()
-                return ""
+                return None
 
             if ack == "\x03":  # emulates raising KeyboardInterrupt at ^C
                 eprint("> ^C")  # '⌃' != '^'
-                return ""
+                return None
 
             if not ack:
                 eprint("^D")  # '⌃' != '^'  # unneeded at macOS
-                return ""
+                return None
 
             if ack.endswith("\n"):
                 eprint("\r" "\033[A" "\033[K", end="")
@@ -681,66 +613,19 @@ class CodeTalker:
                 return default
 
             if strip in names:
+                i = names.index(strip)
+                name = names[i]
+
                 eprint("\r" "\033[A" "\033[K", end="")
-                eprint(strip)
-                return strip
+                eprint(name)
+
+                return name
 
             continue
 
         # \r Carriage Return (CR)
         # ⎋[A Cursor Up (CUP)
         # ⎋[K Erase in Line (EL)
-
-    def choice_single_step(self, choice: Choice) -> object:
-        """Single Step through the Csp Code of 1 Choice"""
-
-        while True:
-            names = list(choice.keys())
-
-            eventnames = choice.eventnames
-            if not eventnames:
-                eventnames.extend(names)
-
-            default = eventnames.pop(0)
-            eventname = self.take_name(names=names, default=default)
-            if not eventname:
-                return False
-
-            chosen = choice[eventname]
-            if isinstance(chosen, Sequence):
-                proc = chosen
-                return proc
-
-            if isinstance(chosen, Choice):
-                choice = chosen
-                continue
-
-            assert isinstance(chosen, Mention), (type(chosen), chosen)
-            procname = chosen
-            proc = self.to_proc_from_name(procname)
-            if proc:
-                oprint()
-                return proc
-
-            return proc
-
-    def to_proc_from_name(self, procname: str) -> typing.Any:
-        """Fetch the Body of a Proc Def"""
-
-        cw = self.code_wrangler
-        sys_globals = cw.sys_globals
-        sys_modules = cw.sys_modules
-
-        _builtins_ = sys_modules["builtins"]
-
-        if procname in sys_globals.keys():  # todo3: pick apart sys_locals vs sys_globals
-            proc = sys_globals[procname]
-        elif procname in _builtins_.keys():
-            proc = _builtins_[procname]
-        else:
-            raise NameError(f"name {procname!r} is not defined")
-
-        return proc
 
 
 #
@@ -752,7 +637,6 @@ class CodeWrangler:
     """Wrangle Code"""
 
     sys_modules: dict[str, Wordbook] = dict()  # like Python sys.modules
-    sys_globals: dict[str, object] = dict()  # like Python globals()
 
     def import_module(self, modulename: str) -> None:
         """Import one Csp Module at most once per Linux Process"""
@@ -770,7 +654,7 @@ class CodeWrangler:
 
         # Convert to an Abstract Syntax Tree
 
-        wordbook = Wordbook(pj)
+        wordbook = Wordbook.json_loads(pj)
 
         # path = pathlib.Path("j.json")
         # path.write_text(json.dumps(wordbook, indent=2) + "\n")
@@ -853,6 +737,9 @@ class CodeWrangler:
 class Process:
     """Each Process is a thing that takes an Event and gives back a Process, else None"""
 
+    def invite_events(self) -> tuple[Event, ...]:
+        return tuple()
+
     def __call__(self, event: Event) -> Process | None:
         return None
 
@@ -885,8 +772,6 @@ class Process:
 
         assert False, (type(o), o)
 
-    # fixme: todo0: test repr(p) for various kinds of Process
-
 
 class StopProcess(dict[object, object], Process):
     """The Stop Process takes no Events"""
@@ -899,6 +784,13 @@ class PrefixProcess(list[object], Process):
     """Each Prefix Process takes 1 particular Event, and then runs on"""
 
     after: Process
+
+    def invite_events(self) -> tuple[Event, ...]:
+
+        guard = self[0]
+        assert isinstance(guard, Event), (type(guard), guard)
+
+        return (guard,)
 
     def __call__(self, event: Event) -> Process | None:
 
@@ -935,6 +827,15 @@ class PrefixProcess(list[object], Process):
 class ChoiceProcess(dict[object, object], Process):
     """A Choice Process chooses how to run on by Event"""
 
+    def invite_events(self) -> tuple[Event, ...]:
+
+        guards: list[Event] = list()
+        for g in self.keys():
+            assert isinstance(g, Event), (type(g), g)
+            guards.append(g)
+
+        return tuple(guards)
+
     def __call__(self, event: Event) -> Process | None:
 
         if event not in self.keys():
@@ -970,12 +871,21 @@ class MentionProcess(str, Process):
 
     proc: Process | None = None
 
+    def invite_events(self) -> tuple[Event, ...]:
+
+        name = self
+        proc = self.proc
+
+        assert proc is not None, (proc, name)
+        guards = proc.invite_events()
+        return guards
+
     def __call__(self, event: Event) -> Process | None:
 
         name = self
         proc = self.proc
 
-        assert proc is not None, (name, event, proc)
+        assert proc is not None, (proc, name, event)
         after = proc(event)
 
         return after
@@ -1002,39 +912,41 @@ class MentionProcess(str, Process):
                 return mp
 
         if name in wordbook.keys():
-            # proc = wordbook[name]
-            mp.proc = STOP  # fixme: todo0: proc = wordbook[name]
+            p = wordbook[name]
+            assert isinstance(p, Process), (type(p), p)  # not str
+            mp.proc = p
             return mp
 
-        if name == "STOP":
-            mp.proc = STOP  # fixme: todo0: proc = wordbook[name]
-            return mp
-
-        # todo0: fixme: look up mentions in the Wordbook
         raise NameError(f"name {name!r} is not defined")
-
-        # mp = MentionProcess(name)
-        # mp.proc = STOP  # fixme: todo0: proc = wordbook[name]
-        # return mp
 
 
 class ScopeProcess(dict[object, object], Process):
 
-    name: str
-    proc: Process | None
+    def invite_events(self) -> tuple[Event, ...]:
+
+        items = list(self.items())
+        assert len(items) == 1, (items, self)
+
+        name, proc = items[-1]
+        assert isinstance(proc, Process), (type(proc), proc, name)
+
+        guards = proc.invite_events()
+        return guards
 
     def __call__(self, event: Event) -> Process | None:
 
-        name = self.name
+        items = list(self.items())
+        assert len(items) == 1, (items, self)
 
-        proc = self.proc
-        assert proc is not None, (name, event, proc)
+        name, proc = items[-1]
+        assert isinstance(proc, Process), (type(proc), proc, name)
+
         after_proc = proc(event)
 
         return after_proc
 
     @staticmethod
-    def load_process(o: object) -> Process:
+    def load_into_process(o: object, sp: ScopeProcess) -> None:
 
         assert isinstance(o, dict), (type(o), o)
         assert len(o) == 1, (len(o), o)
@@ -1042,18 +954,17 @@ class ScopeProcess(dict[object, object], Process):
         for k, v in o.items():
             name = k
 
-            sp0 = ScopeProcess()
-            sp0[name] = None
-            scope_processes.append(sp0)
+            sp[name] = None
+            scope_processes.append(sp)
 
             proc = Process.load_process(v)
 
-            sp1 = scope_processes.pop()  # Static Scope FTW
-            assert sp0 is sp1, (sp0, sp1)
+            pop = scope_processes.pop()  # Static Scope FTW
+            assert sp is pop, (sp, pop)
 
-            sp0[name] = proc
+            sp[name] = proc
 
-            return sp0
+            return
 
         assert False
 
@@ -1064,163 +975,57 @@ wordbooks: list[Wordbook] = list()
 class Wordbook(dict[str, object]):
     """A Wordbook is a Dict of Sequence or Choice or Scope Values"""
 
-    def __init__(self, pj: dict[str, object]) -> None:
-        super().__init__(pj)
+    @staticmethod
+    def json_loads(pj: dict[str, object]) -> Wordbook:
 
-        wordbooks.append(self)
+        wb = Wordbook()
+        wordbooks.append(wb)
 
-        d: dict[str, Process] = dict()
-
-        items = list(self.items())
+        items = list(pj.items())
         for item in items:
             k, v = item
 
+            #
+
             if k == "__doc__":
                 assert isinstance(v, str), (type(v), v)
-                # d[k] = v
-                assert self[k] == v, (self[k], v)
+                wb[k] = v
                 continue
+
+            #
+
+            mp = MentionProcess()
+            wb[k] = mp
 
             if isinstance(v, list):
                 p = PrefixProcess.load_process(v)
-                d[k] = p
-                sequence = Sequence(v)
-                self[k] = sequence
+                mp.proc = p
+                wb[k] = p
                 continue
 
             assert isinstance(v, dict), (type(v), v)
 
             if len(v.keys()) == 1:
-                p = ScopeProcess.load_process(v)
-                d[k] = p
-                scope = Scope(v)
-                self[k] = scope
+                sp = ScopeProcess()
+                mp.proc = sp
+                wb[k] = sp
+                ScopeProcess.load_into_process(v, sp=sp)
                 continue
 
             if not v:
                 stop = Process.load_process(v)
                 assert stop is STOP, (stop, v)
-                d[k] = STOP
-                choice = Choice(v)
-                self[k] = choice
+                mp.proc = STOP
+                wb[k] = STOP
                 continue
 
             p = ChoiceProcess.load_process(v)
-            d[k] = p
-            choice = Choice(v)
-            self[k] = choice
+            mp.proc = p
+            wb[k] = p
             continue
 
-        assert pj == self, (pj, self)
-
-        # path = pathlib.Path("j.json")  # fixme: todo0: stop dumping Json
-        # path.write_text(json.dumps(d, indent=2) + "\n")
-
-
-class Scope(dict[str, object]):
-    """A Scope gives a Mentionable Name to a Process"""
-
-    def __init__(self, pj: dict[str, object]) -> None:
-        super().__init__(pj)
-
-        assert isinstance(pj, dict), (type(pj), pj)
-
-        keys = list(pj.keys())
-        assert len(keys) == 1, (len(keys), keys, pj)
-
-        k = keys[-1]
-        v = pj[k]
-
-        if isinstance(v, list):
-            sequence = Sequence(v)
-            self[k] = sequence
-            return
-
-        assert isinstance(v, dict), (type(v), v)
-        choice = Choice(v)
-        self[k] = choice
-
-        assert pj == self, (pj, self)
-
-
-class Mention(str):
-    """A Mention stands in place of a Scope"""
-
-
-class Sequence(list[object]):
-    """A Sequence is an order of Events guarding a Process"""
-
-    def __init__(self, pj: list[object]) -> None:
-        super().__init__(pj)
-
-        # Accept a Sequence of no Events guarding no Process
-
-        if not pj:
-            return
-
-        # Take >= 1 Events before the Process
-
-        assert len(pj) >= 2, (len(pj), pj)
-
-        for k, v in enumerate(pj[:-1]):
-            assert isinstance(v, str), (type(v), v)
-            _v_ = Event(v)
-            self[k] = _v_
-
-        # Take the Process
-
-        index = -1
-        tail = pj[index]
-        if isinstance(tail, str):
-            self[index] = Mention(tail)
-        elif isinstance(tail, list):
-            self[index] = Sequence(tail)
-        else:
-            assert isinstance(tail, dict), (type(tail), tail)
-            assert len(tail.keys()) > 1, (len(tail.keys()), tail.keys(), tail)
-            self[index] = Choice(tail)
-
-        assert pj == self, (pj, self)
-
-
-class Choice(dict[str, object]):
-    """A Choice is a Dict of Events guarding Processes"""
-
-    selves: list[Choice] = list()
-
-    eventnames: list[str]
-
-    def __init__(self, pj: dict[str, object]) -> None:
-        super().__init__(pj)
-
-        Choice.selves.append(self)
-
-        self.eventnames = list()
-
-        items = list(pj.items())
-        if items:
-            assert len(items) >= 2, (len(items), pj.keys())
-
-        for k, v in items:
-
-            if isinstance(v, str):
-                self[k] = Mention(v)
-                continue
-
-            if isinstance(v, list):
-                sequence = Sequence(v)
-                self[k] = sequence
-                continue
-
-            if isinstance(v, dict):
-                assert len(v.keys()) >= 2, (len(v.keys()), v.keys())
-                choice = Choice(v)
-                self[k] = choice
-                continue
-
-            assert False
-
-        assert pj == self, (pj, self)
+        assert pj == wb, (pj, wb)
+        return wb
 
 
 class Event(str):
@@ -1774,6 +1579,15 @@ if __name__ == "__main__":
 
 
 # todo: Find more todo0:
+
+
+# todo1: First load the "CLOCK.A" as "CLOCK", replace it with "CLOCK.B" first loaded as "CLOCK", etc
+# todo1: Write a .json into Memory to test Duplicate Keys replace old with new
+
+# todo1: Add an Event.load_event that interns the Event to pass "is" tests, not only "==" tests
+# todo1: Show that we do only ever create one instance of STOP, else make it so
+
+# todo1: "# 1.1.4": "Mutual recursion",
 
 
 # todo2: When TerminalIO wholly adopted, ⌃ U+2303 Up Arrowhead over ^ U+005E Circumflex Accent

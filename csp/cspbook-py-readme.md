@@ -56,7 +56,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.9.156 (main, 2026-06-24)
+    Csp Python 0.3.167 (main, 2026-06-24)
     csp>
     csp> ^D
     %
@@ -71,7 +71,7 @@ Chat without showing the version, and look at the built-in globals, but then qui
     ['__builtins__', '__doc__']
     csp>
     csp> dir(__builtins__)
-    ['__doc__', 'STOP', 'X1', 'X1.A', 'X2', 'CTR', 'CLOCK', 'CLOCK.A', 'CLOCK.B', 'VMS.A', 'VMS.B', 'CH5A', 'CH5B', 'X1.B', 'CH5C', 'VMCT', 'VMC', 'VMCRED', 'VMS2', 'COPYBIT']
+    ['__doc__', 'STOP', 'X1', 'X1.A', 'X2', 'CTR', 'CLOCK', 'CLOCK.A', 'CLOCK.B', 'VMS', 'VMS.A', 'VMS.B', 'CH5A', 'CH5B', 'X1.B', 'CH5C', 'VMCT', 'VMC', 'VMCRED', 'VMS2', 'COPYBIT']
     csp>
     csp> __builtins__.__doc__
     'Built-in procs, and other objects.'
@@ -105,7 +105,7 @@ Run a Csp Process of 1 Event.
     % ./csp/cspbook.py -i -c ''
     csp>
     csp> dir(__builtins__)
-    ['__doc__', 'STOP', 'X1', 'X1.A', 'X2', 'CTR', 'CLOCK', 'CLOCK.A', 'CLOCK.B', 'VMS.A', 'VMS.B', 'CH5A', 'CH5B', 'X1.B', 'CH5C', 'VMCT', 'VMC', 'VMCRED', 'VMS2', 'COPYBIT']
+    ['__doc__', 'STOP', 'X1', 'X1.A', 'X2', 'CTR', 'CLOCK', 'CLOCK.A', 'CLOCK.B', 'VMS', 'VMS.A', 'VMS.B', 'CH5A', 'CH5B', 'X1.B', 'CH5C', 'VMCT', 'VMC', 'VMCRED', 'VMS2', 'COPYBIT']
     csp>
 
     csp> X1.A??

@@ -53,6 +53,15 @@
       "X"
     ]
   },
+  "VMS": {
+    "X": [
+      "coin",
+      [
+        "choc",
+        "X"
+      ]
+    ]
+  },
   "VMS.A": [
     "coin",
     [
@@ -165,8 +174,8 @@
   "# 1.1.3 X8": "gives us nothing to put here",
   "# 1.1.4": "Mutual recursion",
   "__todo__": [
-    "todo2: define X1 and CLOCK as last redefined but more abstractly, less concretely",
-    "todo2: don't add X1.A till just before X1.B"
+    "todo1: define X1 and CLOCK as last redefined but more abstractly, less concretely",
+    "todo1: don't add X1.A till just before X1.B"
   ],
   "__farewell__": [
     "posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/builtins.json",
