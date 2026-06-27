@@ -105,7 +105,8 @@ def try_main() -> None:
     ns = parser.parse_args_if(sys.argv[1:])
     if not any(vars(ns).values()):  # if launched as 'cspbook.py --'
         ns.version = 1
-        ns.i = 1
+        if ns.c is None:
+            ns.i = 1
 
     ct = CodeTalker()
     cw = ct.code_wrangler
@@ -723,7 +724,7 @@ class CodeWrangler:
 
         sys_modules[modulename] = wordbook
 
-    def import_module_json(self, modulename: str) -> dict[str, object]:
+    def import_module_json(self, modulename: str) -> list[dict[str, object]]:
         """Import one Csp Module Json"""
 
         # Require exactly one Source File found
@@ -744,29 +745,33 @@ class CodeWrangler:
         path = pathlib.Path(pathname)
         text = path.read_text()
 
-        pj = dict()
+        pj = list()
         if text:
             try:
-                pj = json.loads(text, object_pairs_hook=json_object_pairs_hook)
+                pj = json.loads(text, object_pairs_hook=json_loads_object_pairs_hook)
             except Exception as exc:
                 raise SyntaxError(f"name {modulename!r} at {pathname!r}") from exc
 
         # Take as 1 Json Object
 
-        keys = list(pj.keys())
-        for k in keys:
-            assert isinstance(k, str), (type(k), k)
+        assert isinstance(pj, list), (type(pj), pj)
+        for d in pj:
+            keys = list(d.keys())
+            for k in keys:
+                assert isinstance(k, str), (type(k), k)
 
-            if k == "__doc__":  # keeps the Docstring
-                continue
+                if k == "__doc__":  # keeps the Docstring
+                    continue
 
-            if k.startswith("__") and k.endswith("__"):  # drops any other Dunder Key
-                del pj[k]
-                continue
+                if k.startswith("__") and k.endswith("__"):  # drops any other Dunder Key
+                    del d[k]
+                    continue
 
-            if k.startswith("#"):  # drops each Comment
-                del pj[k]
-                continue
+                if k.startswith("#"):  # drops each Comment
+                    del d[k]
+                    continue
+
+            # todo: Write changes to Json without losing Comments, Dunder Keys, and duplicated Keys
 
         # Succeed
 
@@ -873,7 +878,7 @@ class PrefixProcess(list[object], Process):
 
     @staticmethod
     def load_prefix_process(o: list[object]) -> PrefixProcess:
-        """Compile a List of >= 2 Objects as a Prefix Process"""
+        """Compile a Truthy List of Events and then 1 Process as a Prefix Process"""
 
         assert isinstance(o, list), (type(o), o)
         assert len(o) >= 2, (len(o), o)
@@ -922,7 +927,7 @@ class ChoiceProcess(dict[object, object], Process):
 
     @staticmethod
     def load_choice_process(o: dict[object, object]) -> ChoiceProcess:
-        """Compile a Dict of >= 2 Keys as a Choice Process"""
+        """Compile a Dict of Process by >= 2 Events as a Choice Process"""
 
         assert isinstance(o, dict), (type(o), o)
         assert len(o) >= 2, (len(o), o)
@@ -996,7 +1001,7 @@ class MentionProcess(str, Process):
 
     @staticmethod
     def _load_mention_process_(o: str) -> MentionProcess:
-        """Compile a Str as a Mention Process"""
+        """Compile a Falsey or Truthy Str as a Mention Process"""
 
         assert isinstance(o, str), (type(o), o)
         name = o
@@ -1072,7 +1077,7 @@ class ScopeProcess(dict[object, object], Process):
         return after_proc
 
     def load_scope_process(self, o: dict[object, object]) -> None:
-        """Compile a Dict of 1 Key as a Scope Process"""
+        """Compile a Dict of 1 Process by its Name as a Scope Process"""
 
         assert isinstance(o, dict), (type(o), o)
         assert len(o) == 1, (len(o), o)
@@ -1099,47 +1104,52 @@ wordbooks: list[Wordbook] = list()
 
 
 class Wordbook(dict[str, object]):
-    """A Wordbook is a Dict of Sequence or Choice or Scope Values"""
+    """A Wordbook is a Dict of Named Processes"""
 
     @staticmethod
-    def load_wordbook(o: dict[str, object]) -> Wordbook:
-        """Compile a Dict as pairs of a Process Name with its Process"""
+    def load_wordbook(o: list[dict[str, object]]) -> Wordbook:
+        """Compile a List of Dict of Process by Process Name as a Wordbook"""
 
         wb = Wordbook()
         wordbooks.append(wb)
 
-        items = list(o.items())
-        for item in items:
-            k, v = item
+        assert isinstance(o, list), (type(o), o)
+        for da in o:
+            assert isinstance(da, dict), (type(da), da)
 
-            #
+            db: dict[str, Process | str] = dict()
+            for k, v in da.items():
 
-            if k == "__doc__":
-                assert isinstance(v, str), (type(v), v)
-                wb[k] = v
-                continue
+                #
 
-            #
+                if k == "__doc__":
+                    assert isinstance(v, str), (type(v), v)
+                    wb[k] = db[k] = v
+                    continue
 
-            mp = MentionProcess._load_mention_process_("")
-            wb[k] = mp
+                #
 
-            proc = Process.load_process(v)
-            mp.proc = proc  # completes .mp
+                mp = MentionProcess._load_mention_process_("")
+                wb[k] = db[k] = mp
 
-            wb[k] = proc  # orphans .mp unless .mp mentions itself
+                proc = Process.load_process(v)
+                mp.proc = proc  # completes .mp
 
-        staging = False
-        if staging:
+                wb[k] = db[k] = proc  # orphans .mp unless .mp mentions itself
 
-            a_path = pathlib.Path("a.json")
-            b_path = pathlib.Path("b.json")
-            a_path.write_text(json.dumps(o, indent=2))
-            b_path.write_text(json.dumps(wb, indent=2))
+            staging = False
+            if staging:
 
-        assert o == wb, (o, wb)
+                a_path = pathlib.Path("a.json")
+                b_path = pathlib.Path("b.json")
+                a_path.write_text(json.dumps(da, indent=2))
+                b_path.write_text(json.dumps(db, indent=2))
+
+            assert da == db, (da, db)
 
         return wb
+
+        # todo: serialize a WordBook fully despite duplicated Keys
 
 
 event_by_name: dict[str, Event] = dict()
@@ -1160,7 +1170,7 @@ class Event(str):
 
     @staticmethod
     def _load_event_(eventname: str) -> Event:
-        """Compile a Str as an Event"""
+        """Compile a Falsey or Truthy Str as an Event"""
 
         if eventname in event_by_name:
             event = event_by_name[eventname]
@@ -1457,7 +1467,7 @@ def pathname_read_version(pathname: str) -> str:
 #
 
 
-def json_object_pairs_hook(pairs: list[tuple[object, object]]) -> object | None:
+def json_loads_object_pairs_hook(pairs: list[tuple[object, object]]) -> object | None:
     """Shout out each same or different Value discarded by duplicates of a Key"""
 
     d = dict(pairs)

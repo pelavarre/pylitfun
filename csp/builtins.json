@@ -1,167 +1,169 @@
-{
-  "__doc__": "Built-in procs, and other objects.",
-  "# 1": "Processes",
-  "STOP": {},
-  "# 1.1": "Introduction",
-  "# 1.1.1": "Prefix",
-  "X1.A": [
-    "coin",
-    "STOP"
-  ],
-  "X2": [
-    "coin",
-    [
-      "choc",
+[
+  {
+    "__doc__": "Built-in procs, and other objects.",
+    "# 1": "Processes",
+    "STOP": {},
+    "# 1.1": "Introduction",
+    "# 1.1.1": "Prefix",
+    "X1.A": [
+      "coin",
+      "STOP"
+    ],
+    "X2": [
+      "coin",
       [
+        "choc",
+        [
+          "coin",
+          [
+            "choc",
+            "STOP"
+          ]
+        ]
+      ]
+    ],
+    "CTR": [
+      "right",
+      "up",
+      "right",
+      "right",
+      "STOP"
+    ],
+    "# 1.1.2": "Recursion",
+    "CLOCK.A": [
+      "tick",
+      "CLOCK.A"
+    ],
+    "CLOCK.B": {
+      "X": [
+        "tick",
+        "X"
+      ]
+    },
+    "CLOCK": "CLOCK.B",
+    "VMS.A": [
+      "coin",
+      [
+        "choc",
+        "VMS.A"
+      ]
+    ],
+    "VMS.B": {
+      "X": [
         "coin",
         [
           "choc",
-          "STOP"
+          "X"
         ]
       ]
-    ]
-  ],
-  "CTR": [
-    "right",
-    "up",
-    "right",
-    "right",
-    "STOP"
-  ],
-  "# 1.1.2": "Recursion",
-  "CLOCK.A": [
-    "tick",
-    "CLOCK.A"
-  ],
-  "CLOCK.B": {
-    "X": [
-      "tick",
-      "X"
-    ]
-  },
-  "CLOCK": "CLOCK.B",
-  "VMS.A": [
-    "coin",
-    [
-      "choc",
-      "VMS.A"
-    ]
-  ],
-  "VMS.B": {
-    "X": [
-      "coin",
-      [
-        "choc",
-        "X"
-      ]
-    ]
-  },
-  "VMS": "VMS.B",
-  "CH5A": [
-    "in5p",
-    "out2p",
-    "out1p",
-    "out2p",
-    "CH5A"
-  ],
-  "CH5B": [
-    "in5p",
-    "out1p",
-    "out1p",
-    "out1p",
-    "out2p",
-    "CH5B"
-  ],
-  "# 1.1.3": "Choice",
-  "X1.B": {
-    "up": "STOP",
-    "right": [
-      "right",
-      "up",
-      "STOP"
-    ]
-  },
-  "X1": "X1.B",
-  "CH5C": [
-    "in5p",
-    {
-      "out1p": [
-        "out1p",
-        "out1p",
-        "out2p",
-        "CH5C"
-      ],
-      "out2p": [
-        "out1p",
-        "out2p",
-        "CH5C"
-      ]
-    }
-  ],
-  "VMCT": {
-    "X": [
-      "coin",
-      {
-        "choc": "X",
-        "toffee": "X"
-      }
-    ]
-  },
-  "VMC": {
-    "in2p": {
-      "large": "VMC",
-      "small": [
-        "out1p",
-        "VMC"
+    },
+    "VMS": "VMS.B",
+    "CH5A": [
+      "in5p",
+      "out2p",
+      "out1p",
+      "out2p",
+      "CH5A"
+    ],
+    "CH5B": [
+      "in5p",
+      "out1p",
+      "out1p",
+      "out1p",
+      "out2p",
+      "CH5B"
+    ],
+    "# 1.1.3": "Choice",
+    "X1.B": {
+      "up": "STOP",
+      "right": [
+        "right",
+        "up",
+        "STOP"
       ]
     },
-    "in1p": {
-      "small": "VMC",
-      "in1p": {
-        "large": "VMC",
-        "in1p": "STOP"
+    "X1": "X1.B",
+    "CH5C": [
+      "in5p",
+      {
+        "out1p": [
+          "out1p",
+          "out1p",
+          "out2p",
+          "CH5C"
+        ],
+        "out2p": [
+          "out1p",
+          "out2p",
+          "CH5C"
+        ]
       }
-    }
-  },
-  "VMCRED": {
-    "X": {
-      "coin": [
-        "choc",
-        "X"
-      ],
-      "choc": [
+    ],
+    "VMCT": {
+      "X": [
         "coin",
-        "X"
+        {
+          "choc": "X",
+          "toffee": "X"
+        }
       ]
-    }
-  },
-  "VMS2": [
-    "coin",
-    "VMCRED"
-  ],
-  "COPYBIT": {
-    "X": {
-      "in.0": [
-        "out.0",
-        "X"
-      ],
-      "in.1": [
-        "out.1",
-        "X"
-      ]
-    }
-  },
-  "RUN": [
-    "x",
-    "RUN"
-  ],
-  "__todo__": [
-    "todo2: Make top-level a List of Dicts, at 1 Dict per Section, with X1.A = X1 after X1, etc",
-    "todo2: Add X1 CLOCK VMS when adding .A and replace with .B",
-    "todo2: # 1.1.4 Mutual recursion"
-  ],
-  "__farewell__": [
-    "posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/builtins.json",
-    "copied from:  git clone https://github.com/pelavarre/litpython.git"
-  ]
-}
+    },
+    "VMC": {
+      "in2p": {
+        "large": "VMC",
+        "small": [
+          "out1p",
+          "VMC"
+        ]
+      },
+      "in1p": {
+        "small": "VMC",
+        "in1p": {
+          "large": "VMC",
+          "in1p": "STOP"
+        }
+      }
+    },
+    "VMCRED": {
+      "X": {
+        "coin": [
+          "choc",
+          "X"
+        ],
+        "choc": [
+          "coin",
+          "X"
+        ]
+      }
+    },
+    "VMS2": [
+      "coin",
+      "VMCRED"
+    ],
+    "COPYBIT": {
+      "X": {
+        "in.0": [
+          "out.0",
+          "X"
+        ],
+        "in.1": [
+          "out.1",
+          "X"
+        ]
+      }
+    },
+    "RUN": [
+      "x",
+      "RUN"
+    ],
+    "__todo__": [
+      "todo2: Make top-level a List of Dicts, at 1 Dict per Section, with X1.A = X1 after X1, etc",
+      "todo2: Add X1 CLOCK VMS when adding .A and replace with .B",
+      "todo2: # 1.1.4 Mutual recursion"
+    ],
+    "__farewell__": [
+      "posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/builtins.json",
+      "copied from:  git clone https://github.com/pelavarre/litpython.git"
+    ]
+  }
+]

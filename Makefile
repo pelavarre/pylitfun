@@ -157,6 +157,7 @@ shellcheck:
 #
 
 tests:
+	csp/cspbook.py -c '' >/dev/null
 	csp/cspbook.py --make-tests
 
 
