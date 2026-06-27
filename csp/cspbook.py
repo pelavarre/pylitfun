@@ -527,7 +527,8 @@ class CodeTalker:
 
             mp = proc
             resolve = mp.resolve_process()
-            assert resolve, (resolve,)
+            if not resolve:  # if the MentionProcess emulation of the StopProcess
+                return StopProcess
 
             return resolve
 
@@ -814,24 +815,21 @@ class Process:
     def load_process(o: object) -> Process:
         """Compile an Object as a Process"""
 
-        if not o:
-            return StopProcess
-
         if isinstance(o, str):
-            assert o, (o,)
             mp = MentionProcess.load_mention_process(o)
             assert isinstance(mp, MentionProcess), (type(mp), mp)
             return mp
 
         if isinstance(o, list):
-            assert len(o), (len(o), o)
-            if len(o) > 1:
+            if len(o) != 1:
                 pp = PrefixProcess.load_prefix_process(o)
                 return pp
 
         if isinstance(o, dict):
-            assert len(o.keys()), (len(o), o)
-            if len(o.keys()) > 1:
+            if len(o.keys()) != 1:
+                if not o:
+                    stop = StopProcess
+                    return stop
                 cp = ChoiceProcess.load_choice_process(o)
                 return cp
 
@@ -839,7 +837,7 @@ class Process:
             sp.load_scope_process(o)
             return sp
 
-        assert False, (type(o), o)
+        assert False, (type(o), bool(o), o)
 
         # todo: regret that StopProcess.load_process etc exists
 
@@ -858,6 +856,9 @@ class PrefixProcess(list[object], Process):
 
     def suggest_events(self) -> tuple[Event, ...]:
         """Suggest Events to try next"""
+
+        if not self:  # if the PrefixProcess emulation of the StopProcess
+            return tuple()
 
         guard = self[0]
         assert isinstance(guard, Event), (type(guard), guard)
@@ -880,7 +881,11 @@ class PrefixProcess(list[object], Process):
         """Compile a Truthy List of Events and then 1 Process as a Prefix Process"""
 
         assert isinstance(o, list), (type(o), o)
-        assert len(o) >= 2, (len(o), o)
+
+        if not o:  # if the PrefixProcess emulation of the StopProcess
+            pp = PrefixProcess([])
+            pp.after = StopProcess
+            return pp
 
         after = Process.load_process(o[-1])
 
@@ -989,17 +994,6 @@ class MentionProcess(str, Process):
 
     @staticmethod
     def load_mention_process(o: str) -> MentionProcess:
-        """Compile a Truthy Str as a Mention Process"""
-
-        assert isinstance(o, str), (type(o), o)
-        assert o, (o,)
-
-        mp = MentionProcess._load_mention_process_(o)
-
-        return mp
-
-    @staticmethod
-    def _load_mention_process_(o: str) -> MentionProcess:
         """Compile a Falsey or Truthy Str as a Mention Process"""
 
         assert isinstance(o, str), (type(o), o)
@@ -1128,7 +1122,7 @@ class Wordbook(dict[str, object]):
 
                 #
 
-                mp = MentionProcess._load_mention_process_("")
+                mp = MentionProcess.load_mention_process("")
                 wb[k] = db[k] = mp
 
                 proc = Process.load_process(v)
