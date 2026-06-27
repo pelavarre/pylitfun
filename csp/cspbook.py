@@ -262,7 +262,10 @@ class CodeSketcher:
             return sum(self.count_stops(_) for _ in pj)
         if isinstance(pj, str):
             if pj == "STOP":
-                # assert pj is STOP, (id(pj), id(STOP), pj)  # todo0: check for 'is STOP'
+                assert isinstance(pj, MentionProcess), (type(pj), pj)
+                mp = pj
+                proc = mp.proc
+                assert proc is STOP, (id(proc), id(STOP), proc)
                 return 1
 
         return 0
@@ -873,9 +876,6 @@ class ChoiceProcess(dict[object, object], Process):
         return cp
 
 
-scope_processes: list[ScopeProcess] = list()
-
-
 class MentionProcess(str, Process):
     """Each Mention of a Process runs like the Process runs"""
 
@@ -930,6 +930,10 @@ class MentionProcess(str, Process):
 
         raise NameError(f"name {name!r} is not defined")
 
+    # todo: do return is-the-same MentionProcess when same Str & Process
+
+
+scope_processes: list[ScopeProcess] = list()
 
 class ScopeProcess(dict[object, object], Process):
 
@@ -1017,7 +1021,7 @@ class Wordbook(dict[str, object]):
         return wb
 
 
-event_by_eventname: dict[str, Event] = dict()
+event_by_name: dict[str, Event] = dict()
 
 
 class Event(str):
@@ -1026,12 +1030,12 @@ class Event(str):
     @staticmethod
     def load_event(eventname: str) -> Event:
 
-        if eventname in event_by_eventname:
-            event = event_by_eventname[eventname]
+        if eventname in event_by_name:
+            event = event_by_name[eventname]
             return event
 
         event = Event(eventname)
-        event_by_eventname[eventname] = event
+        event_by_name[eventname] = event
 
         return event
 
@@ -1583,8 +1587,6 @@ if __name__ == "__main__":
 
 
 # todo: Find more todo0:
-
-# todo0: Persuade us to never find more than one instance of STOP
 
 # todo1: stop looping/recursing indefinitely over unguarded self-mentions
 # todo1: "P": "P",
