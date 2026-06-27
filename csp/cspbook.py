@@ -15,14 +15,13 @@ options:
 quirks:
   trusts you to press Return to continue, ⌃C to cancel, ⌃D to quit
   trusts your Terminal Shell tab to understand ⎋[⇧A ⎋[⇧K
-  works like Python works:
+  lots works like Python works:
     cspbook.py --help
     cspbook.py -i -c ''
-    cspbook.py --
 
 examples:
 
-  cspbook.py -i
+  cspbook.py --
     dir()
     dir(__builtins__)
     __builtins__.__doc__
@@ -1753,8 +1752,9 @@ if __name__ == "__main__":
     main()
 
 
-# todo: Find more todo0:
+# todo: Find more todo0: todo1: todo2: todo3: todo9: etc
 
+# todo1: Load & dump [] or "" as intact as {}
 
 # todo3: When TerminalIO wholly adopted, ⌃ U+2303 Up Arrowhead over ^ U+005E Circumflex Accent
 # todo3: Solve ⇧⌘↑ selection of Transcript Lines vs Input at some and not all Rows

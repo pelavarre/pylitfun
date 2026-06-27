@@ -1,14 +1,19 @@
 [
   {
-    "__doc__": "Built-in procs, and other objects.",
+    "__doc__": "Built-in procs, and other objects."
+  },
+  {
     "# 1": "Processes",
-    "STOP": {},
     "# 1.1": "Introduction",
+    "STOP": {},
     "# 1.1.1": "Prefix",
-    "X1.A": [
+    "X1": [
       "coin",
       "STOP"
     ],
+    "X1.A": "X1"
+  },
+  {
     "X2": [
       "coin",
       [
@@ -30,25 +35,31 @@
       "STOP"
     ],
     "# 1.1.2": "Recursion",
+    "CLOCK": {},
     "CLOCK.A": [
       "tick",
       "CLOCK.A"
-    ],
-    "CLOCK.B": {
+    ]
+  },
+  {
+    "CLOCK": {
       "X": [
         "tick",
         "X"
       ]
     },
-    "CLOCK": "CLOCK.B",
+    "CLOCK.B": "CLOCK",
+    "VMS": {},
     "VMS.A": [
       "coin",
       [
         "choc",
         "VMS.A"
       ]
-    ],
-    "VMS.B": {
+    ]
+  },
+  {
+    "VMS": {
       "X": [
         "coin",
         [
@@ -57,7 +68,7 @@
         ]
       ]
     },
-    "VMS": "VMS.B",
+    "VMS.B": "VMS",
     "CH5A": [
       "in5p",
       "out2p",
@@ -74,7 +85,7 @@
       "CH5B"
     ],
     "# 1.1.3": "Choice",
-    "X1.B": {
+    "X1": {
       "up": "STOP",
       "right": [
         "right",
@@ -82,7 +93,7 @@
         "STOP"
       ]
     },
-    "X1": "X1.B",
+    "X1.B": "X1",
     "CH5C": [
       "in5p",
       {
@@ -157,9 +168,8 @@
       "RUN"
     ],
     "__todo__": [
-      "todo2: Make top-level a List of Dicts, at 1 Dict per Section, with X1.A = X1 after X1, etc",
-      "todo2: Add X1 CLOCK VMS when adding .A and replace with .B",
-      "todo2: # 1.1.4 Mutual recursion"
+      "todo2: # 1.1.4 Mutual recursion",
+      "todo3: Solve coding CLOCK.A as CLOCK, and VMS.A as VMS"
     ],
     "__farewell__": [
       "posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/builtins.json",
