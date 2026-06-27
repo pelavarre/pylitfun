@@ -39,6 +39,7 @@
       "X"
     ]
   },
+  "CLOCK": "CLOCK.B",
   "VMS.A": [
     "coin",
     [
@@ -55,6 +56,7 @@
       ]
     ]
   },
+  "VMS": "VMS.B",
   "CH5A": [
     "in5p",
     "out2p",
@@ -79,6 +81,7 @@
       "STOP"
     ]
   },
+  "X1": "X1.B",
   "CH5C": [
     "in5p",
     {
@@ -153,6 +156,7 @@
     "RUN"
   ],
   "__todo__": {
+    "todo2": "Make top-level a List of Dicts, at 1 Dict per Section, with X1.A = X1 after X1, etc",
     "todo2": "Add X1 CLOCK VMS when adding .A and replace with .B",
     "todo2: # 1.1.4": "Mutual recursion"
   },

@@ -521,7 +521,15 @@ class CodeTalker:
         if procname in _builtins_.keys():  # todo3: pick apart __doc__ from Process Names
             proc = _builtins_[procname]
             assert isinstance(proc, Process), (type(proc), proc)
-            return proc
+
+            if not isinstance(proc, MentionProcess):
+                return proc
+
+            mp = proc
+            resolve = mp.resolve_process()
+            assert resolve, (resolve,)
+
+            return resolve
 
         raise NameError(f"name {procname!r} is not defined")
 
@@ -739,7 +747,7 @@ class CodeWrangler:
         pj = dict()
         if text:
             try:
-                pj = json.loads(text)
+                pj = json.loads(text)  # todo: more test of Duplicate Dict Keys
             except Exception as exc:
                 raise SyntaxError(f"name {modulename!r} at {pathname!r}") from exc
 
@@ -1118,9 +1126,9 @@ class Wordbook(dict[str, object]):
             wb[k] = mp
 
             proc = Process.load_process(v)
-            mp.proc = proc
+            mp.proc = proc  # completes .mp
 
-            wb[k] = mp.proc  # orphans .mp unless .mp mentions itself
+            wb[k] = proc  # orphans .mp unless .mp mentions itself
 
         staging = False
         if staging:
@@ -1715,8 +1723,6 @@ if __name__ == "__main__":
 
 
 # todo: Find more todo0:
-
-# todo2: Write a .json into Memory to test Duplicate Keys replace old with new
 
 # todo3: "# 1.1.4": "Mutual recursion",
 # todo3: First load the "CLOCK.A" as "CLOCK", replace it with "CLOCK.B" first loaded as "CLOCK", etc
