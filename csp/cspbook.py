@@ -82,7 +82,7 @@ PacificLaunch = dt.datetime.now(Pacific)
 def main() -> None:
     """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
 
-    sys.excepthook = excepthook
+    sys.excepthook = sys_excepthook
 
     try:
 
@@ -92,7 +92,7 @@ def main() -> None:
 
         PacificQuit = dt.datetime.now(Pacific)
         print(PacificQuit, PacificQuit - PacificLaunch)
-        excepthook(*sys.exc_info())
+        sys_excepthook(*sys.exc_info())
 
 
 def try_main() -> None:
@@ -737,9 +737,9 @@ class CodeWrangler:
             n = len(pathnames)
             raise ModuleNotFoundError(f"name {modulename!r} has {n} definitions: {pathnames}")
 
-        # Take as 1 Json Object
-
         pathname = pathnames[-1]
+
+        # Take the Text of the File as 1 Json Object
 
         path = pathlib.Path(pathname)
         text = path.read_text()
@@ -747,14 +747,13 @@ class CodeWrangler:
         pj = dict()
         if text:
             try:
-                pj = json.loads(text)  # todo: more test of Duplicate Dict Keys
+                pj = json.loads(text, object_pairs_hook=json_object_pairs_hook)
             except Exception as exc:
                 raise SyntaxError(f"name {modulename!r} at {pathname!r}") from exc
 
-        keys = list(pj.keys())
-        for k in keys:
-            assert isinstance(k, str), (type(k), k)
+        # Take as 1 Json Object
 
+        keys = list(pj.keys())
         for k in keys:
             assert isinstance(k, str), (type(k), k)
 
@@ -1454,6 +1453,28 @@ def pathname_read_version(pathname: str) -> str:
 
 
 #
+# Amp up Import Json
+#
+
+
+def json_object_pairs_hook(pairs: list[tuple[object, object]]) -> object | None:
+    """Shout out each same or different Value discarded by duplicates of a Key"""
+
+    d = dict(pairs)
+
+    keys = list()
+    for k, v in pairs:
+        if d[k] != v:
+            keys.append(k)
+            eprint(f"KeyError: [{k!r}] = {v!r} for awhile")
+
+    for k in collections.Counter(keys):
+        eprint(f"KeyError: [{k!r}] = {d[k]!r} last of all")
+
+    return d
+
+
+#
 # Amp up Import Sys
 #
 
@@ -1486,7 +1507,7 @@ with_stderr = sys.stderr
 assert int(0x80 + signal.SIGINT) == 130  # discloses the Nonzero Exit Code for after ⌃C SigInt
 
 
-def excepthook(  # last modified on 2026-05-14 or later
+def sys_excepthook(
     exc_type: type[BaseException] | None,  # aka .type
     exc_value: BaseException | None,  # aka .exc_obj aka .value
     exc_traceback: types.TracebackType | None,  # aka .exc_tb aka .traceback aka .tb
@@ -1723,9 +1744,6 @@ if __name__ == "__main__":
 
 
 # todo: Find more todo0:
-
-# todo3: "# 1.1.4": "Mutual recursion",
-# todo3: First load the "CLOCK.A" as "CLOCK", replace it with "CLOCK.B" first loaded as "CLOCK", etc
 
 
 # todo3: When TerminalIO wholly adopted, ⌃ U+2303 Up Arrowhead over ^ U+005E Circumflex Accent

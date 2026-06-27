@@ -155,11 +155,11 @@
     "x",
     "RUN"
   ],
-  "__todo__": {
-    "todo2": "Make top-level a List of Dicts, at 1 Dict per Section, with X1.A = X1 after X1, etc",
-    "todo2": "Add X1 CLOCK VMS when adding .A and replace with .B",
-    "todo2: # 1.1.4": "Mutual recursion"
-  },
+  "__todo__": [
+    "todo2: Make top-level a List of Dicts, at 1 Dict per Section, with X1.A = X1 after X1, etc",
+    "todo2: Add X1 CLOCK VMS when adding .A and replace with .B",
+    "todo2: # 1.1.4 Mutual recursion"
+  ],
   "__farewell__": [
     "posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/builtins.json",
     "copied from:  git clone https://github.com/pelavarre/litpython.git"
