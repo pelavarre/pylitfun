@@ -4,14 +4,6 @@
   "STOP": {},
   "# 1.1": "Introduction",
   "# 1.1.1": "Prefix",
-  "X1": {
-    "up": "STOP",
-    "right": [
-      "right",
-      "up",
-      "STOP"
-    ]
-  },
   "X1.A": [
     "coin",
     "STOP"
@@ -37,12 +29,6 @@
     "STOP"
   ],
   "# 1.1.2": "Recursion",
-  "CLOCK": {
-    "X": [
-      "tick",
-      "X"
-    ]
-  },
   "CLOCK.A": [
     "tick",
     "CLOCK.A"
@@ -51,15 +37,6 @@
     "X": [
       "tick",
       "X"
-    ]
-  },
-  "VMS": {
-    "X": [
-      "coin",
-      [
-        "choc",
-        "X"
-      ]
     ]
   },
   "VMS.A": [
@@ -176,7 +153,8 @@
     "RUN"
   ],
   "__todo__": {
-    "todo1: # 1.1.4": "Mutual recursion"
+    "todo2": "Add X1 CLOCK VMS when adding .A and replace with .B",
+    "todo2: # 1.1.4": "Mutual recursion"
   },
   "__farewell__": [
     "posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/builtins.json",

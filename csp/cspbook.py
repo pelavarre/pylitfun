@@ -261,7 +261,8 @@ class CodeSketcher:
         if isinstance(pj, list):
             return sum(self.count_stops(_) for _ in pj)
         if isinstance(pj, str):
-            if pj == "STOP":  # todo1: check for 'is STOP'
+            if pj == "STOP":
+                # assert pj is STOP, (id(pj), id(STOP), pj)  # todo0: check for 'is STOP'
                 return 1
 
         return 0
@@ -363,6 +364,9 @@ class CodeSketcher:
         setattr(module, "eprint", _tprint_)
         try:
             ct.sys_exec(verb)
+        except Exception:
+            __builtins__.print(f"Exception raised by:  {verb}", file=sys.__stderr__)
+            raise
         finally:
             sys.stdin = with_stdin
             delattr(module, "print")
@@ -514,8 +518,12 @@ class CodeTalker:
 
         while True:
 
+            events = proc.invite_events()  # todo1: stop recursing indefinitely here
+
+            # Print a Paragraph-Break when jumping to the next Process by Process Name
+
             separating = False
-            while isinstance(proc, MentionProcess):
+            while isinstance(proc, MentionProcess):  # todo1: stop looping indefinitely here
                 mp: MentionProcess = proc
                 assert mp.proc is not None, (mp.proc,)
                 proc = mp.proc
@@ -525,7 +533,7 @@ class CodeTalker:
             if separating:
                 oprint()
 
-            events = proc.invite_events()
+            #
 
             if not events:
                 oprint("STOP")
@@ -588,9 +596,6 @@ class CodeTalker:
 
             try:
                 ack = _sys_stdin_readline_("> ")  # echoes to stdout
-                # eprint()
-                # eprint(repr(ack))
-                # sys.exit(2)
             except KeyboardInterrupt:
                 eprint()
                 return None
@@ -654,10 +659,7 @@ class CodeWrangler:
 
         # Convert to an Abstract Syntax Tree
 
-        wordbook = Wordbook.json_loads(pj)
-
-        # path = pathlib.Path("j.json")
-        # path.write_text(json.dumps(wordbook, indent=2) + "\n")
+        wordbook = Wordbook.load_wordbook(pj)
 
         # Start mutating the Json Object
 
@@ -745,32 +747,36 @@ class Process:
 
     @staticmethod
     def load_process(o: object) -> Process:
+        """Compile an Object as a Process"""
 
         if not o:
             return STOP
 
         if isinstance(o, str):
             assert o, (o,)
-            p = MentionProcess.load_process(o)
-            assert isinstance(p, MentionProcess), (type(p), p)
-            return p
+            mp = MentionProcess.load_mention_process(o)
+            assert isinstance(mp, MentionProcess), (type(mp), mp)
+            return mp
 
         if isinstance(o, list):
             assert len(o), (len(o), o)
             if len(o) > 1:
-                p = PrefixProcess.load_process(o)
-                return p
+                pp = PrefixProcess.load_prefix_process(o)
+                return pp
 
         if isinstance(o, dict):
             assert len(o.keys()), (len(o), o)
             if len(o.keys()) > 1:
-                p = ChoiceProcess.load_process(o)
-                return p
+                cp = ChoiceProcess.load_choice_process(o)
+                return cp
 
-            p = ScopeProcess.load_process(o)
-            return p
+            sp = ScopeProcess()
+            sp.load_scope_process(o)
+            return sp
 
         assert False, (type(o), o)
+
+        # todo: regret that StopProcess.load_process etc exists
 
 
 class StopProcess(dict[object, object], Process):
@@ -803,25 +809,28 @@ class PrefixProcess(list[object], Process):
         return after
 
     @staticmethod
-    def load_process(o: object) -> Process:
+    def load_prefix_process(o: list[object]) -> PrefixProcess:
+        """Compile a List of >= 2 Objects as a Prefix Process"""
 
         assert isinstance(o, list), (type(o), o)
         assert len(o) >= 2, (len(o), o)
 
-        p = o[-1]
-        after = Process.load_process(p)
+        after = Process.load_process(o[-1])
 
         guards = list(Event(_) for _ in o[:-1])
-        get = after
+        proc: Process = after
 
         for i in reversed(range(len(guards))):
             objects = guards[i:] + [after]
-            proc = PrefixProcess(objects)
-            proc.after = get
+            pp = PrefixProcess(objects)
+            pp.after = proc
 
-            get = proc
+            proc = pp
 
-        return get
+        assert isinstance(proc, PrefixProcess)  # because .guards truthy
+        pp = proc
+
+        return pp
 
 
 class ChoiceProcess(dict[object, object], Process):
@@ -847,20 +856,21 @@ class ChoiceProcess(dict[object, object], Process):
         return get
 
     @staticmethod
-    def load_process(o: object) -> Process:
+    def load_choice_process(o: dict[object, object]) -> ChoiceProcess:
+        """Compile a Dict of >= 2 Keys as a Choice Process"""
 
         assert isinstance(o, dict), (type(o), o)
         assert len(o) >= 2, (len(o), o)
 
-        proc = ChoiceProcess()
+        cp = ChoiceProcess()
 
         by_object = dict(o)
         for k, v in by_object.items():
             guard = Event(k)
             after = Process.load_process(v)
-            proc[guard] = after
+            cp[guard] = after
 
-        return proc
+        return cp
 
 
 scope_processes: list[ScopeProcess] = list()
@@ -891,7 +901,8 @@ class MentionProcess(str, Process):
         return after
 
     @staticmethod
-    def load_process(o: object) -> Process:
+    def load_mention_process(o: str) -> MentionProcess:
+        """Compile a Dict of >= 2 Keys as a Choice Process"""
 
         wordbook = wordbooks[-1]
 
@@ -912,9 +923,9 @@ class MentionProcess(str, Process):
                 return mp
 
         if name in wordbook.keys():
-            p = wordbook[name]
-            assert isinstance(p, Process), (type(p), p)  # not str
-            mp.proc = p
+            proc = wordbook[name]
+            assert isinstance(proc, Process), (type(proc), proc)  # not str
+            mp.proc = proc
             return mp
 
         raise NameError(f"name {name!r} is not defined")
@@ -945,8 +956,8 @@ class ScopeProcess(dict[object, object], Process):
 
         return after_proc
 
-    @staticmethod
-    def load_into_process(o: object, sp: ScopeProcess) -> None:
+    def load_scope_process(self, o: dict[object, object]) -> None:
+        """Compile a Dict of 1 Key as a Scope Process"""
 
         assert isinstance(o, dict), (type(o), o)
         assert len(o) == 1, (len(o), o)
@@ -954,15 +965,15 @@ class ScopeProcess(dict[object, object], Process):
         for k, v in o.items():
             name = k
 
-            sp[name] = None
-            scope_processes.append(sp)
+            self[name] = None
+            scope_processes.append(self)
 
             proc = Process.load_process(v)
 
             pop = scope_processes.pop()  # Static Scope FTW
-            assert sp is pop, (sp, pop)
+            assert self is pop, (self, pop)
 
-            sp[name] = proc
+            self[name] = proc
 
             return
 
@@ -976,7 +987,8 @@ class Wordbook(dict[str, object]):
     """A Wordbook is a Dict of Sequence or Choice or Scope Values"""
 
     @staticmethod
-    def json_loads(pj: dict[str, object]) -> Wordbook:
+    def load_wordbook(pj: dict[str, object]) -> Wordbook:
+        """Compile a Dict as pairs of a Process Name with its Process"""
 
         wb = Wordbook()
         wordbooks.append(wb)
@@ -997,39 +1009,31 @@ class Wordbook(dict[str, object]):
             mp = MentionProcess()
             wb[k] = mp
 
-            if isinstance(v, list):
-                p = PrefixProcess.load_process(v)
-                mp.proc = p
-                wb[k] = p
-                continue
-
-            assert isinstance(v, dict), (type(v), v)
-
-            if len(v.keys()) == 1:
-                sp = ScopeProcess()
-                mp.proc = sp
-                wb[k] = sp
-                ScopeProcess.load_into_process(v, sp=sp)
-                continue
-
-            if not v:
-                stop = Process.load_process(v)
-                assert stop is STOP, (stop, v)
-                mp.proc = STOP
-                wb[k] = STOP
-                continue
-
-            p = ChoiceProcess.load_process(v)
-            mp.proc = p
-            wb[k] = p
-            continue
+            proc = Process.load_process(v)
+            mp.proc = proc
+            wb[k] = proc
 
         assert pj == wb, (pj, wb)
         return wb
 
 
+event_by_eventname: dict[str, Event] = dict()
+
+
 class Event(str):
     """An Event has a Name"""
+
+    @staticmethod
+    def load_event(eventname: str) -> Event:
+
+        if eventname in event_by_eventname:
+            event = event_by_eventname[eventname]
+            return event
+
+        event = Event(eventname)
+        event_by_eventname[eventname] = event
+
+        return event
 
 
 # ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
@@ -1580,23 +1584,23 @@ if __name__ == "__main__":
 
 # todo: Find more todo0:
 
+# todo0: Persuade us to never find more than one instance of STOP
 
-# todo1: Decline to load "LOAD-FOREVER": { "X": { "Y": "X" } },
-# todo1: Decline to load "STEP-FOREVER": { "X": "X" },
+# todo1: stop looping/recursing indefinitely over unguarded self-mentions
+# todo1: "P": "P",
+# todo1: "PP": { "P": "P" },
+# todo1: "PQP": { "P": { "Q": "P" } },
 
-# todo1: First load the "CLOCK.A" as "CLOCK", replace it with "CLOCK.B" first loaded as "CLOCK", etc
-# todo1: Write a .json into Memory to test Duplicate Keys replace old with new
+# todo2: Write a .json into Memory to test Duplicate Keys replace old with new
 
-# todo1: Add an Event.load_event that interns the Event to pass "is" tests, not only "==" tests
-# todo1: Show that we do only ever create one instance of STOP, else make it so
-
-# todo1: "# 1.1.4": "Mutual recursion",
+# todo3: "# 1.1.4": "Mutual recursion",
+# todo3: First load the "CLOCK.A" as "CLOCK", replace it with "CLOCK.B" first loaded as "CLOCK", etc
 
 
-# todo2: When TerminalIO wholly adopted, ⌃ U+2303 Up Arrowhead over ^ U+005E Circumflex Accent
-# todo2: Solve ⇧⌘↑ selection of Transcript Lines vs Input at some and not all Rows
-# todo2: Dream up how to run through, not step through, all the traces of VMC etc
-# todo2: Think more through when to clear history of walking Choice's at return to top-level
+# todo3: When TerminalIO wholly adopted, ⌃ U+2303 Up Arrowhead over ^ U+005E Circumflex Accent
+# todo3: Solve ⇧⌘↑ selection of Transcript Lines vs Input at some and not all Rows
+# todo3: Dream up how to run through, not step through, all the traces of VMC etc
+# todo3: Think more through when to clear history of walking Choice's at return to top-level
 
 
 # todo9: ↑ ↓ history to pick a line to take or edit for ⌃C or ⌃D or ⌃M to dispatch
