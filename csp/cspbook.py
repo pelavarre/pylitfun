@@ -253,19 +253,31 @@ class CodeSketcher:
 
         return j
 
-    def count_stops(self, pj: object) -> int:
-        """Count the STOP's in a Proc"""
+    def count_stops(self, o: object) -> int:
+        """Count the STOP's in a Process"""
 
-        if isinstance(pj, dict):
-            return sum(self.count_stops(_) for _ in pj.values())
-        if isinstance(pj, list):
-            return sum(self.count_stops(_) for _ in pj)
-        if isinstance(pj, str):
-            if pj == "STOP":
-                assert isinstance(pj, MentionProcess), (type(pj), pj)
-                mp = pj
-                proc = mp.proc
-                assert proc is STOP, (id(proc), id(STOP), proc)
+        assert isinstance(o, Process), (type(o), o)
+
+        if isinstance(o, dict):
+            assert isinstance(o, StopProcessType | ScopeProcess | ChoiceProcess), (type(o), o)
+            return sum(self.count_stops(_) for _ in o.values())
+
+        if isinstance(o, list):
+            assert isinstance(o, PrefixProcess), (type(o), o)
+            after = o[-1]
+            return self.count_stops(after)
+
+        if isinstance(o, str):
+            assert isinstance(o, MentionProcess), (type(o), o)
+            mp = o
+            proc = mp.proc
+
+            if o != "STOP":
+                assert not isinstance(proc, StopProcessType), (type(proc), proc)
+            else:
+                assert isinstance(proc, StopProcessType), (type(proc), proc)
+                assert proc is StopProcess, (id(proc), id(StopProcess), proc)
+
                 return 1
 
         return 0
@@ -516,84 +528,119 @@ class CodeTalker:
     def proc_single_step(self, proc: Process) -> None:
         """Walk through the Events of 1 Named Process"""
 
-        process_list = self.process_list
-        events_by_process_index = self.events_by_process_index
-
+        before: Process = proc
         while True:
 
-            events = proc.invite_events()  # todo1: stop recursing indefinitely here
+            events = before.suggest_events()
 
             # Print a Paragraph-Break when jumping to the next Process by Process Name
 
-            separating = False
-            while isinstance(proc, MentionProcess):  # todo1: stop looping indefinitely here
-                mp: MentionProcess = proc
-                assert mp.proc is not None, (mp.proc,)
-                proc = mp.proc
-                if proc is not STOP:
-                    separating = True
+            now: Process | None = before
+            if isinstance(before, MentionProcess):
+                mp = before
 
-            if separating:
-                oprint()
+                now = mp.resolve_process()
 
-            #
+                if now:
+                    if now is not StopProcess:
+                        oprint()
+
+            # Stop when stopped
 
             if not events:
-                oprint("STOP")
+
+                if now is StopProcess:
+                    oprint("STOP")
+                    return
+
+                event = self.read_event(events, default=FalseyEvent)
+                if event is not None:
+                    eprint("Raising KeyboardInterrupt because Unguarded Indefinite Recursion")
+                    eprint("⌃C")
+
                 return
 
-            #
-
-            defaults = list(events)
-            if not events[1:]:
-
-                default = defaults[0]
-                event = self.take_event(events, default=default)
-                if event is None:
-                    break
-
-            else:
-
-                index = -1
-                for i, p in enumerate(process_list):
-                    if p is proc:
-                        index = i
-                        break
-
-                if index < 0:
-                    index = len(process_list)
-                    process_list.append(proc)
-                    events_by_process_index.append(list())
-
-                bygones = events_by_process_index[index]
-                for bygone in bygones:
-                    defaults.remove(bygone)
-
-                if not defaults:
-                    bygones.clear()
-                    defaults = list(events)
-
-                default = defaults[0]
-                event = self.take_event(events, default=default)
-                if event is None:
-                    break
-
-                bygones.append(event)
+            assert now, (now,)
 
             #
 
-            after = proc(event)
-            assert after is not None, (after, event, proc)
+            event = self.read_and_remember_event(proc=now, events=events)
+            if not event:
+                break
 
-            proc = after
+            # Commit the next Event
 
-    def take_event(self, names: tuple[Event, ...], default: Event) -> Event | None:
+            after = now(event)
+            assert after is not None, (after, event, now)
+
+            before = after
+
+    def read_and_remember_event(self, proc: Process, events: tuple[Event, ...]) -> Event | None:
         """Prompt with one or more Event Names, and take one."""
 
-        assert default, (default,)
-        assert default in names, (default, names)
+        assert proc, (proc,)
+        assert events, (events,)
 
-        eprint(default)
+        process_list = self.process_list
+        events_by_process_index = self.events_by_process_index
+
+        # Pick a next Event from 1 Choice
+
+        defaults = list(events)
+        if not events[1:]:
+
+            default = defaults[0]
+            event = self.read_event(events, default=default)
+            return event  # maybe None
+
+        # Index the Process
+
+        index = -1
+        for i, p in enumerate(process_list):
+            if p is proc:
+                index = i
+                break
+
+        if index < 0:
+            index = len(process_list)
+            process_list.append(proc)
+            events_by_process_index.append(list())
+
+        # Choose the next Event
+
+        bygones = events_by_process_index[index]
+        for bygone in bygones:
+            defaults.remove(bygone)
+
+        if not defaults:
+            bygones.clear()
+            defaults = list(events)
+
+        default = defaults[0]
+
+        # Prompt you for an Event and read your choice of Event
+
+        event = self.read_event(events, default=default)
+        if event is None:
+            return event
+
+        # Remember your choice made, when next prompting you
+
+        bygones.append(event)
+
+        # Succeed
+
+        return event
+
+    def read_event(self, events: tuple[Event, ...], default: Event) -> Event | None:
+        """Prompt you for an Event and read your choice of Event"""
+
+        if default is FalseyEvent:
+            assert not events, (events,)
+        else:
+            assert default, (default,)
+            assert default in events, (default, events)
+            eprint(default)
 
         while True:
 
@@ -620,14 +667,14 @@ class CodeTalker:
             if (ack == "\n") or (strip == default):
                 return default
 
-            if strip in names:
-                i = names.index(strip)
-                name = names[i]
+            if strip in events:
+                i = events.index(strip)
+                event = events[i]
 
                 eprint("\r" "\033[A" "\033[K", end="")
-                eprint(name)
+                eprint(event)
 
-                return name
+                return event
 
             continue
 
@@ -740,12 +787,16 @@ class CodeWrangler:
 
 
 class Process:
-    """Each Process is a thing that takes an Event and gives back a Process, else None"""
+    """Take an Event and give back a Process, else take no Event and give back None"""
 
-    def invite_events(self) -> tuple[Event, ...]:
-        return tuple()
+    def suggest_events(self) -> tuple[Event, ...]:
+        """Suggest Events to try next"""
+
+        return tuple()  # takes no events
 
     def __call__(self, event: Event) -> Process | None:
+        """Take an Event and give back a Process, else take no Event and give back None"""
+
         return None
 
     @staticmethod
@@ -753,7 +804,7 @@ class Process:
         """Compile an Object as a Process"""
 
         if not o:
-            return STOP
+            return StopProcess
 
         if isinstance(o, str):
             assert o, (o,)
@@ -782,11 +833,11 @@ class Process:
         # todo: regret that StopProcess.load_process etc exists
 
 
-class StopProcess(dict[object, object], Process):
-    """The Stop Process takes no Events"""
+class StopProcessType(dict[object, object], Process):
+    """Take no Event, always give back None"""
 
 
-STOP = StopProcess()
+StopProcess = StopProcessType()  # takes no Events
 
 
 class PrefixProcess(list[object], Process):
@@ -794,7 +845,8 @@ class PrefixProcess(list[object], Process):
 
     after: Process
 
-    def invite_events(self) -> tuple[Event, ...]:
+    def suggest_events(self) -> tuple[Event, ...]:
+        """Suggest Events to try next"""
 
         guard = self[0]
         assert isinstance(guard, Event), (type(guard), guard)
@@ -802,6 +854,7 @@ class PrefixProcess(list[object], Process):
         return (guard,)
 
     def __call__(self, event: Event) -> Process | None:
+        """Take an Event and give back a Process, else take no Event and give back None"""
 
         guard = self[0]
         after = self.after
@@ -820,7 +873,7 @@ class PrefixProcess(list[object], Process):
 
         after = Process.load_process(o[-1])
 
-        guards = list(Event(_) for _ in o[:-1])
+        guards = list(Event.load_event(_) for _ in o[:-1])
         proc: Process = after
 
         for i in reversed(range(len(guards))):
@@ -839,7 +892,8 @@ class PrefixProcess(list[object], Process):
 class ChoiceProcess(dict[object, object], Process):
     """A Choice Process chooses how to run on by Event"""
 
-    def invite_events(self) -> tuple[Event, ...]:
+    def suggest_events(self) -> tuple[Event, ...]:
+        """Suggest Events to try next"""
 
         guards: list[Event] = list()
         for g in self.keys():
@@ -849,6 +903,7 @@ class ChoiceProcess(dict[object, object], Process):
         return tuple(guards)
 
     def __call__(self, event: Event) -> Process | None:
+        """Take an Event and give back a Process, else take no Event and give back None"""
 
         if event not in self.keys():
             return None
@@ -869,7 +924,7 @@ class ChoiceProcess(dict[object, object], Process):
 
         by_object = dict(o)
         for k, v in by_object.items():
-            guard = Event(k)
+            guard = Event.load_event(k)
             after = Process.load_process(v)
             cp[guard] = after
 
@@ -881,16 +936,22 @@ class MentionProcess(str, Process):
 
     proc: Process | None = None
 
-    def invite_events(self) -> tuple[Event, ...]:
+    def suggest_events(self) -> tuple[Event, ...]:
+        """Suggest Events to try next"""
 
-        name = self
         proc = self.proc
 
-        assert proc is not None, (proc, name)
-        guards = proc.invite_events()
+        if proc is None:
+            return tuple()
+
+        self.proc = None  # blocks indefinite recursion
+        guards = proc.suggest_events()
+        self.proc = proc
+
         return guards
 
     def __call__(self, event: Event) -> Process | None:
+        """Take an Event and give back a Process, else take no Event and give back None"""
 
         name = self
         proc = self.proc
@@ -900,19 +961,51 @@ class MentionProcess(str, Process):
 
         return after
 
+    def resolve_process(self) -> Process | None:
+        """Walk through Mentions of Mentions til another type of Process found, or None"""
+
+        proc = self.proc
+
+        result: Process | None = proc
+        self.proc = None  # blocks indefinite recursion
+
+        while isinstance(result, MentionProcess):
+            result = result.proc
+
+        self.proc = proc
+
+        return result
+
     @staticmethod
     def load_mention_process(o: str) -> MentionProcess:
-        """Compile a Dict of >= 2 Keys as a Choice Process"""
-
-        wordbook = wordbooks[-1]
+        """Compile a Truthy Str as a Mention Process"""
 
         assert isinstance(o, str), (type(o), o)
         assert o, (o,)
+
+        mp = MentionProcess._load_mention_process_(o)
+
+        return mp
+
+    @staticmethod
+    def _load_mention_process_(o: str) -> MentionProcess:
+        """Compile a Str as a Mention Process"""
+
+        assert isinstance(o, str), (type(o), o)
         name = o
 
+        wordbook = wordbooks[-1]
+
+        # Load an incomplete Mention as a Falsey Empty Str Name of a None, not a Process
+
         mp = MentionProcess(name)
+        if not name:
+            return mp
+
+        # Load a Mention
 
         for sp in reversed(scope_processes):
+            assert isinstance(sp, ScopeProcess), (type(sp), sp)  # not None
 
             keys = list(sp.keys())
             assert len(keys) == 1, (len(keys), keys)
@@ -928,6 +1021,8 @@ class MentionProcess(str, Process):
             mp.proc = proc
             return mp
 
+        # Else refuse to load a Mention
+
         raise NameError(f"name {name!r} is not defined")
 
     # todo: do return is-the-same MentionProcess when same Str & Process
@@ -935,20 +1030,29 @@ class MentionProcess(str, Process):
 
 scope_processes: list[ScopeProcess] = list()
 
+
 class ScopeProcess(dict[object, object], Process):
 
-    def invite_events(self) -> tuple[Event, ...]:
+    def suggest_events(self) -> tuple[Event, ...]:
+        """Suggest Events to try next"""
 
         items = list(self.items())
         assert len(items) == 1, (items, self)
-
         name, proc = items[-1]
+
+        if proc is None:
+            return tuple()
+
         assert isinstance(proc, Process), (type(proc), proc, name)
 
-        guards = proc.invite_events()
+        self.proc = None  # blocks indefinite recursion
+        guards = proc.suggest_events()
+        self.proc = proc
+
         return guards
 
     def __call__(self, event: Event) -> Process | None:
+        """Take an Event and give back a Process, else take no Event and give back None"""
 
         items = list(self.items())
         assert len(items) == 1, (items, self)
@@ -991,13 +1095,13 @@ class Wordbook(dict[str, object]):
     """A Wordbook is a Dict of Sequence or Choice or Scope Values"""
 
     @staticmethod
-    def load_wordbook(pj: dict[str, object]) -> Wordbook:
+    def load_wordbook(o: dict[str, object]) -> Wordbook:
         """Compile a Dict as pairs of a Process Name with its Process"""
 
         wb = Wordbook()
         wordbooks.append(wb)
 
-        items = list(pj.items())
+        items = list(o.items())
         for item in items:
             k, v = item
 
@@ -1010,14 +1114,24 @@ class Wordbook(dict[str, object]):
 
             #
 
-            mp = MentionProcess()
+            mp = MentionProcess._load_mention_process_("")
             wb[k] = mp
 
             proc = Process.load_process(v)
             mp.proc = proc
-            wb[k] = proc
 
-        assert pj == wb, (pj, wb)
+            wb[k] = mp.proc  # orphans .mp unless .mp mentions itself
+
+        staging = False
+        if staging:
+
+            a_path = pathlib.Path("a.json")
+            b_path = pathlib.Path("b.json")
+            a_path.write_text(json.dumps(o, indent=2))
+            b_path.write_text(json.dumps(wb, indent=2))
+
+        assert o == wb, (o, wb)
+
         return wb
 
 
@@ -1028,7 +1142,18 @@ class Event(str):
     """An Event has a Name"""
 
     @staticmethod
-    def load_event(eventname: str) -> Event:
+    def load_event(eventname: object) -> Event:
+        """Compile a Truthy Str as an Event"""
+
+        assert isinstance(eventname, str), (type(eventname), eventname)
+        assert eventname, (eventname,)
+        event = Event._load_event_(eventname)
+
+        return event
+
+    @staticmethod
+    def _load_event_(eventname: str) -> Event:
+        """Compile a Str as an Event"""
 
         if eventname in event_by_name:
             event = event_by_name[eventname]
@@ -1038,6 +1163,9 @@ class Event(str):
         event_by_name[eventname] = event
 
         return event
+
+
+FalseyEvent = Event("")
 
 
 # ####### ####### ####### ####### ####### ####### ####### ####### ####### #######
@@ -1587,11 +1715,6 @@ if __name__ == "__main__":
 
 
 # todo: Find more todo0:
-
-# todo1: stop looping/recursing indefinitely over unguarded self-mentions
-# todo1: "P": "P",
-# todo1: "PP": { "P": "P" },
-# todo1: "PQP": { "P": { "Q": "P" } },
 
 # todo2: Write a .json into Memory to test Duplicate Keys replace old with new
 
