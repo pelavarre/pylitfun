@@ -520,19 +520,17 @@ class CodeTalker:
 
         if procname in _builtins_.keys():  # todo3: pick apart __doc__ from Process Names
             proc = _builtins_[procname]
-            assert isinstance(proc, Process), (type(proc), proc)
 
-            if not isinstance(proc, MentionProcess):
-                return proc
-
+            assert isinstance(proc, MentionProcess), (type(proc), proc)
             mp = proc
+
             resolve = mp.resolve_process()
             if not resolve:  # if the MentionProcess emulation of the StopProcess
                 return StopProcess
 
             return resolve
 
-        raise NameError(f"name {procname!r} is not defined")
+        raise NameError(f"name {procname!r} is not defined, at top-level")
 
     def proc_single_step(self, proc: Process) -> None:
         """Walk through the Events of 1 Named Process"""
@@ -651,6 +649,8 @@ class CodeTalker:
             assert default in events, (default, events)
             eprint(default)
 
+            # todo0: print all the acceptable events, not just the default
+
         while True:
 
             try:
@@ -732,7 +732,7 @@ class CodeWrangler:
         pathnames = self.which_module_json(modulename)
 
         if not pathnames:
-            raise ModuleNotFoundError(f"No module named {modulename!r}")  # in os.getcwd()
+            raise ModuleNotFoundError(f"no module named {modulename!r}")  # in os.getcwd()
 
         if pathnames[1:]:
             n = len(pathnames)
@@ -955,14 +955,28 @@ class MentionProcess(str, Process):
     def suggest_events(self) -> tuple[Event, ...]:
         """Suggest Events to try next"""
 
+        name = self
         proc = self.proc
 
+        wordbook = wordbooks[-1]
+
         if proc is None:
-            return tuple()
+
+            found: Process | None = None  # todo3: cut to O(1) from O(N)
+            for k, v in wordbook.items():
+                if k == name:
+                    assert isinstance(v, Process), (type(v), v)
+                    found = v
+                    break
+
+            if found is None:
+                raise NameError(f"name {name!r} is not defined, to suggest events")
+
+            proc = found
 
         self.proc = None  # blocks indefinite recursion
         guards = proc.suggest_events()
-        self.proc = proc
+        self.proc = proc  # restores, or resolves for the first time
 
         return guards
 
@@ -980,7 +994,10 @@ class MentionProcess(str, Process):
     def resolve_process(self) -> Process | None:
         """Walk through Mentions of Mentions til another type of Process found, or None"""
 
+        name = self
         proc = self.proc
+
+        wordbook = wordbooks[-1]
 
         result: Process | None = proc
         self.proc = None  # blocks indefinite recursion
@@ -988,9 +1005,22 @@ class MentionProcess(str, Process):
         while isinstance(result, MentionProcess):
             result = result.proc
 
-            # todo1: resolve None from Globals else BuiltIns
+        if result is None:
 
-        self.proc = proc
+            found: Process | None = None  # todo3: cut to O(1) from O(N)
+            for k, v in wordbook.items():
+                if k == name:
+                    assert isinstance(v, Process), (type(v), v)
+                    found = v
+                    break
+
+            if found is None:
+                raise NameError(f"name {name!r} is not defined, to walk through events")
+
+            proc = found
+            result = found
+
+        self.proc = proc  # restores, or resolves for the first time
 
         return result
 
@@ -1009,7 +1039,7 @@ class MentionProcess(str, Process):
         if not name:
             return mp
 
-        # Load a Mention
+        # Load a Mention from a Static Scope
 
         for sp in reversed(scope_processes):
             assert isinstance(sp, ScopeProcess), (type(sp), sp)  # not None
@@ -1022,17 +1052,18 @@ class MentionProcess(str, Process):
                 mp.proc = sp
                 return mp
 
+        # Load a Mention from a Dynamic Scope
+
         if name in wordbook.keys():
-            proc = wordbook[name]
-            assert isinstance(proc, Process), (type(proc), proc)  # not str
-            mp.proc = proc
-            return mp
+            wbmp = wordbook[name]
+            assert isinstance(wbmp, MentionProcess), (type(wbmp), wbmp)  # not str
+            return wbmp
 
-        # Else refuse to load a Mention
+        # Else add a new (and unresolved) Mention into a Dynamic Scope
 
-        raise NameError(f"name {name!r} is not defined")
+        wordbook[name] = mp
 
-        # todo1: add an unresolved MentionProcess to the present Wordbook
+        return mp
 
     # todo: do return is-the-same MentionProcess when same Str & Process
 
@@ -1101,11 +1132,11 @@ wordbooks: list[Wordbook] = list()
 
 
 class Wordbook(dict[str, object]):
-    """A Wordbook is a Dict of Named Processes"""
+    """A Wordbook is a Dict of Named MentionProcess'es"""
 
     @staticmethod
     def load_wordbook(o: list[dict[str, object]]) -> Wordbook:
-        """Compile a List of Dict of Process by Process Name as a Wordbook"""
+        """Compile a List of Dict of MentionProcess by Name as a Wordbook"""
 
         wb = Wordbook()
         wordbooks.append(wb)
@@ -1130,13 +1161,13 @@ class Wordbook(dict[str, object]):
 
                 #
 
-                mp = MentionProcess.load_mention_process("")
+                mp = MentionProcess(k)
                 wb[k] = db[k] = mp
 
                 proc = Process.load_process(v)
-                mp.proc = proc  # completes .mp
+                mp.proc = proc  # resolves .mp for the first time
 
-                wb[k] = db[k] = proc  # orphans .mp unless .mp mentions itself
+                db[k] = proc  # not quite what the .wb is
 
             staging = False
             if staging:
@@ -1756,9 +1787,9 @@ if __name__ == "__main__":
 
 # todo: Find more todo0: todo1: todo2: todo3: todo9: etc
 
-# todo1: same as Python & Lisp, work at run time to take mutated top-level definition
-# todo1: speak X1.A CLOCK.A VMS.A as such to keep visible later
-# todo1: stop pre-declaring O L wrongly to live forever inside DD O L
+# todo1: reach 3 kinds of NameError (or assert that some kinds unreached)
+# todo1: solve 'RecursionError: maximum recursion depth exceeded' at "VMS3": [ "coin", "VMS4" ],
+# todo1: take "X1.A": "X1" as a mention of the mutating top-level "X1"
 
 # todo3: When TerminalIO wholly adopted, ⌃ U+2303 Up Arrowhead over ^ U+005E Circumflex Accent
 # todo3: Solve ⇧⌘↑ selection of Transcript Lines vs Input at some and not all Rows

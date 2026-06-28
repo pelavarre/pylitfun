@@ -4,7 +4,15 @@ What should the CLI be for speaking with a CSP Program, when you've got Python o
 
 How about like this?
 
+todo1: table-of-contents
+
+## 1. Processes
+
+### 1.1 Introduction
+
 Twenty-two Demos.
+
+todo1: renumber these as 1.1.1 X3 etc
 
 1
 
@@ -56,7 +64,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.8.160 (main, 2026-06-28)
+    Csp Python 0.0.167 (main, 2026-06-28)
     csp>
     csp> ^D
     %
@@ -92,6 +100,8 @@ Run an empty Csp Process, and quit chatting.
 
     csp> ^D
     %
+
+#### 1.1.1 Prefix
 
 6
 
@@ -145,6 +155,8 @@ Run another Csp Process through 4 Events.
     right
     STOP
     csp>
+
+#### 1.1.2 Recursion
 
 9
 
@@ -257,6 +269,8 @@ Run another Csp Process that loops through four Events.
     out1p
     > ^C
     csp>
+
+#### 1.1.3 Choice
 
 15
 
@@ -431,6 +445,10 @@ Show how looping over a choice of two sequences copies one bit and another and a
     in.0
     > ^C
     csp>
+
+#### 1.1.4 Mutual recursion
+
+todo1: Tests of 1.1.4 Mutual recursion
 
 <!--
 
