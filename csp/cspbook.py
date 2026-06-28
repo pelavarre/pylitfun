@@ -649,7 +649,14 @@ class CodeTalker:
             assert default in events, (default, events)
             eprint(default)
 
-            # todo0: print all the acceptable events, not just the default
+            # eprint(default, "from", events)
+
+            # todo0: Revive prompting for every suggested Event, not just our default Event
+
+            # todo2: trace rejected inputs as '#' comments
+
+            # todo2: sequence to the right, not always down
+            # todo2: trace right sequence rejected inputs as '#' comments of next line
 
         while True:
 
