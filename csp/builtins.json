@@ -17,7 +17,10 @@
       "coin",
       "STOP"
     ],
-    "X1.A": "X1"
+    "X1.A": [
+      "coin",
+      "STOP"
+    ]
   },
   {
     "X2": [
@@ -45,7 +48,10 @@
       "tick",
       "CLOCK"
     ],
-    "CLOCK.A": "CLOCK"
+    "CLOCK.A": [
+      "tick",
+      "CLOCK.A"
+    ]
   },
   {
     "CLOCK": {
@@ -62,7 +68,13 @@
         "VMS"
       ]
     ],
-    "VMS.A": "VMS"
+    "VMS.A": [
+      "coin",
+      [
+        "choc",
+        "VMS.A"
+      ]
+    ]
   },
   {
     "VMS": {
@@ -172,12 +184,30 @@
     "RUN": [
       "x",
       "RUN"
-    ]
+    ],
+    "# 1.1.4": "Mutual recursion",
+    "O": "STOP",
+    "L": "STOP"
+  },
+  {
+    "DD": {
+      "setorange": "O",
+      "setlemon": "L"
+    },
+    "O": {
+      "orange": "O",
+      "setlemon": "L",
+      "setorange": "O"
+    },
+    "L": {
+      "lemon": "L",
+      "setorange": "O",
+      "setlemon": "L"
+    }
   },
   {
     "__todo__": [
-      "todo2: # 1.1.4 Mutual recursion",
-      "todo3: Solve coding CLOCK.A as CLOCK, and VMS.A as VMS"
+      "# todo: Find more todo0: todo1: todo2: todo3: todo9: etc"
     ],
     "__farewell__": [
       "posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/builtins.json",

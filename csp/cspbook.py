@@ -988,6 +988,8 @@ class MentionProcess(str, Process):
         while isinstance(result, MentionProcess):
             result = result.proc
 
+            # todo1: resolve None from Globals else BuiltIns
+
         self.proc = proc
 
         return result
@@ -1029,6 +1031,8 @@ class MentionProcess(str, Process):
         # Else refuse to load a Mention
 
         raise NameError(f"name {name!r} is not defined")
+
+        # todo1: add an unresolved MentionProcess to the present Wordbook
 
     # todo: do return is-the-same MentionProcess when same Str & Process
 
@@ -1751,6 +1755,10 @@ if __name__ == "__main__":
 
 
 # todo: Find more todo0: todo1: todo2: todo3: todo9: etc
+
+# todo1: same as Python & Lisp, work at run time to take mutated top-level definition
+# todo1: speak X1.A CLOCK.A VMS.A as such to keep visible later
+# todo1: stop pre-declaring O L wrongly to live forever inside DD O L
 
 # todo3: When TerminalIO wholly adopted, ⌃ U+2303 Up Arrowhead over ^ U+005E Circumflex Accent
 # todo3: Solve ⇧⌘↑ selection of Transcript Lines vs Input at some and not all Rows
