@@ -41,11 +41,11 @@
       "STOP"
     ],
     "# 1.1.2": "Recursion",
-    "CLOCK": {},
-    "CLOCK.A": [
+    "CLOCK": [
       "tick",
-      "CLOCK.A"
-    ]
+      "CLOCK"
+    ],
+    "CLOCK.A": "CLOCK"
   },
   {
     "CLOCK": {
@@ -55,14 +55,14 @@
       ]
     },
     "CLOCK.B": "CLOCK",
-    "VMS": {},
-    "VMS.A": [
+    "VMS": [
       "coin",
       [
         "choc",
-        "VMS.A"
+        "VMS"
       ]
-    ]
+    ],
+    "VMS.A": "VMS"
   },
   {
     "VMS": {
@@ -172,7 +172,9 @@
     "RUN": [
       "x",
       "RUN"
-    ],
+    ]
+  },
+  {
     "__todo__": [
       "todo2: # 1.1.4 Mutual recursion",
       "todo3: Solve coding CLOCK.A as CLOCK, and VMS.A as VMS"
