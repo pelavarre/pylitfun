@@ -1,20 +1,26 @@
+<!-- omit in toc -->
 # pylitfun / ... / cspbook-py-readme.md
 
 What should the CLI be for speaking with a CSP Program, when you've got Python on your desk in place of Lisp?
 
 How about like this?
 
-todo1: table-of-contents
+- [1. Processes](#1-processes)
+  - [1.1 Introduction](#11-introduction)
+    - [1.1.1 Prefix](#111-prefix)
+    - [1.1.2 Recursion](#112-recursion)
+    - [1.1.3 Choice](#113-choice)
+    - [1.1.4 Mutual recursion](#114-mutual-recursion)
 
 ## 1. Processes
 
 ### 1.1 Introduction
 
-Twenty-two Demos.
+Five examples.
 
-todo1: renumber these as 1.1.1 X3 etc
+<!-- The /cspbook.pdf has no numbered examples inside its '1.1 Introduction'. We have these. -->
 
-1
+**X1**
 
 Ask what you can do.
 
@@ -27,7 +33,7 @@ Ask what you can do.
 
     %
 
-2
+**X2**
 
 Ask for more of a man page.
 
@@ -59,17 +65,17 @@ Ask for more of a man page.
       cspbook.py -c CH5B
     %
 
-3
+**X3**
 
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.1.174 (main, 2026-06-29)
+    Csp Python 0.0.129 (main, 2026-06-30)
     csp>
     csp> ^D
     %
 
-4
+**X4**
 
 Chat without showing the version, and look at the built-in globals, but then quit.
 
@@ -86,7 +92,7 @@ Chat without showing the version, and look at the built-in globals, but then qui
     csp> ^D
     %
 
-5
+**X5**
 
 Run an empty Csp Process, and quit chatting.
 
@@ -103,7 +109,7 @@ Run an empty Csp Process, and quit chatting.
 
 #### 1.1.1 Prefix
 
-6
+**X1**
 
 Chat to show the source, and run the source.
 
@@ -124,7 +130,7 @@ Run a Csp Process of 1 Event.
     STOP
     csp>
 
-7
+**X2**
 
 Run a Csp Process through 4 Events.
 
@@ -140,7 +146,7 @@ Run a Csp Process through 4 Events.
     STOP
     csp>
 
-8
+**X3**
 
 Run another Csp Process through 4 Events.
 
@@ -158,7 +164,9 @@ Run another Csp Process through 4 Events.
 
 #### 1.1.2 Recursion
 
-9
+<!-- The /cspbook.pdf presents this example without numbering it, before its example numbered as 'X1'. -->
+
+**X0**
 
 Run a Csp Process that loops.
 
@@ -175,7 +183,7 @@ Run a Csp Process that loops.
     > ^C
     csp>
 
-10
+**X1**
 
 Run another Csp Process that loops, but defined in terms of a local name "X" for the Process.
 
@@ -192,7 +200,9 @@ Run another Csp Process that loops, but defined in terms of a local name "X" for
     > ^C
     csp>
 
-11
+**X2**
+
+<!-- The /cspbook.pdf presents these two examples as two parts of its 'X2'. -->
 
 Run a Csp Process that loops through more than one Event.
 
@@ -210,8 +220,6 @@ Run a Csp Process that loops through more than one Event.
     coin
     > ^C
     csp>
-
-12
 
 Run another Csp Process that loops through more than one Event, but while defined in terms of a local name "X" for the Process.
 
@@ -231,7 +239,7 @@ Run another Csp Process that loops through more than one Event, but while define
     > ^C
     csp>
 
-13
+**X3**
 
 Run a Csp Process that loops through four Events.
 
@@ -250,7 +258,7 @@ Run a Csp Process that loops through four Events.
     > ^C
     csp>
 
-14
+**X4**
 
 Run another Csp Process that loops through four Events.
 
@@ -272,19 +280,7 @@ Run another Csp Process that loops through four Events.
 
 #### 1.1.3 Choice
 
-15
-
-Speak of the empty Csp Process as a Choice between no Events.
-
-    csp> STOP??
-    {}
-    csp>
-
-    csp> STOP
-    STOP
-    csp>
-
-16
+**X1**
 
 Run a Csp Process that stops in a couple of different ways.
 
@@ -304,7 +300,7 @@ Run a Csp Process that stops in a couple of different ways.
     STOP
     csp>
 
-17
+**X2**
 
 Run a Csp Process that loops over a choice of a couple of sequences.
 
@@ -331,7 +327,7 @@ Run a Csp Process that loops over a choice of a couple of sequences.
     > ^C
     csp>
 
-18
+**X3**
 
 Run another Csp Process that loops through a choice of two sequences, but while defined in terms of a local name "X" for the Process.
 
@@ -350,7 +346,7 @@ Run another Csp Process that loops through a choice of two sequences, but while 
     > ^C
     csp>
 
-19
+**X4**
 
 Run a Csp Process that loops through choices and choices of many of sequences, indeed even a sequence that ends with a STOP process.`
 
@@ -389,7 +385,7 @@ Run a Csp Process that loops through choices and choices of many of sequences, i
     STOP
     csp>
 
-20
+**X5**
 
 Run a Csp Process that chooses up front between two sequences, again while defined in terms of a local name "X" for the Process.
 
@@ -408,7 +404,7 @@ Run a Csp Process that chooses up front between two sequences, again while defin
     > ^C
     csp>
 
-21
+**X6**
 
 Run a Csp Process that sets up another Csp Process.
 
@@ -427,7 +423,7 @@ Run a Csp Process that sets up another Csp Process.
     > ^C
     csp>
 
-22
+**X7**
 
 Show how looping over a choice of two sequences copies one bit and another and another.
 
@@ -444,6 +440,33 @@ Show how looping over a choice of two sequences copies one bit and another and a
 
     in.0
     > ^C
+    csp>
+
+**X8**
+
+Show again a Process walking through indefinitely many indistinguishable variations on an Event.
+
+    csp> RUN??
+    ["x", "RUN"]
+    csp>
+
+    csp> RUN
+    x
+
+    x
+
+    x
+    > ^C
+    csp>
+
+Speak of the empty Csp Process as a Choice between no Events.
+
+    csp> STOP??
+    {}
+    csp>
+
+    csp> STOP
+    STOP
     csp>
 
 #### 1.1.4 Mutual recursion

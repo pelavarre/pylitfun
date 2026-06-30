@@ -466,7 +466,7 @@ class CodeTalker:
         sys_modules = cw.sys_modules
         sys_builtins = sys_modules["builtins"]
 
-        sys_locals: dict[str, object | None] = dict()  # todo3: pick apart sys_locals vs sys_globals
+        sys_locals: dict[str, object | None] = dict()  # todo4: pick apart sys_locals vs sys_globals
         sys_locals["__builtins__"] = sys_builtins
         sys_locals["__doc__"] = None
 
@@ -477,7 +477,7 @@ class CodeTalker:
 
         # Take 'dir()' and 'dir(__builtins__)' as meta-instructions
 
-        if join == "__doc__":  # todo3: find "__doc__" in ._locals_ and quit before ._builtins_
+        if join == "__doc__":  # todo4: find "__doc__" in ._locals_ and quit before ._builtins_
             return
 
         if join == "dir()":
@@ -518,7 +518,7 @@ class CodeTalker:
 
         _builtins_ = sys_modules["builtins"]
 
-        if procname in _builtins_.keys():  # todo3: pick apart __doc__ from Process Names
+        if procname in _builtins_.keys():  # todo4: pick apart __doc__ from Process Names
             proc = _builtins_[procname]
 
             assert isinstance(proc, MentionProcess), (type(proc), proc)
@@ -653,12 +653,12 @@ class CodeTalker:
 
             # eprint(default, "from", events)
 
-            # todo0: Revive prompting for every suggested Event, not just our default Event
+            # todo2: Revive prompting for every suggested Event, not just our default Event
 
-            # todo2: trace rejected inputs as '#' comments
+            # todo3: trace rejected inputs as '#' comments
 
-            # todo2: sequence to the right, not always down
-            # todo2: trace right sequence rejected inputs as '#' comments of next line
+            # todo3: sequence to the right, not always down
+            # todo3: trace right sequence rejected inputs as '#' comments of next line
 
         while True:
 
@@ -972,7 +972,7 @@ class MentionProcess(str, Process):
 
         if proc is None:
 
-            found: Process | None = None  # todo3: cut to O(1) from O(N)
+            found: Process | None = None  # todo4: cut to O(1) from O(N)
             for k, v in wordbook.items():
                 if k == name:
                     assert isinstance(v, Process), (type(v), v)
@@ -1022,7 +1022,7 @@ class MentionProcess(str, Process):
 
         if result is None:
 
-            found: Process | None = None  # todo3: cut to O(1) from O(N)
+            found: Process | None = None  # todo4: cut to O(1) from O(N)
             for k, v in wordbook.items():
                 if k == name:
                     assert isinstance(v, Process), (type(v), v)
@@ -1806,14 +1806,16 @@ if __name__ == "__main__":
     main()
 
 
-# todo: Find more todo0: todo1: todo2: todo3: todo9: etc
+# todo: Find more todo0: todo1: todo3: todo4: todo9: etc
 
-# todo1: take "X1.A": "X1" as a mention of the mutating top-level "X1"
+# todo0: take "X1.A": "X1" as a mention of the mutating top-level "X1"
 
-# todo3: When TerminalIO wholly adopted, ⌃ U+2303 Up Arrowhead over ^ U+005E Circumflex Accent
-# todo3: Solve ⇧⌘↑ selection of Transcript Lines vs Input at some and not all Rows
-# todo3: Dream up how to run through, not step through, all the traces of VMC etc
-# todo3: Think more through when to clear history of walking Choice's at return to top-level
+# todo1: test the P?? separately from the P because paragraph break
+
+# todo4: When TerminalIO wholly adopted, ⌃ U+2303 Up Arrowhead over ^ U+005E Circumflex Accent
+# todo4: Solve ⇧⌘↑ selection of Transcript Lines vs Input at some and not all Rows
+# todo4: Dream up how to run through, not step through, all the traces of VMC etc
+# todo4: Think more through when to clear history of walking Choice's at return to top-level
 
 
 # todo9: ↑ ↓ history to pick a line to take or edit for ⌃C or ⌃D or ⌃M to dispatch
