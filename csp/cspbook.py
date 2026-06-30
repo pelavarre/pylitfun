@@ -532,6 +532,8 @@ class CodeTalker:
 
         raise NameError(f"name {procname!r} is not defined, at top-level")
 
+        # raises when asking a Global Name to run or print itself before defined
+
     def proc_single_step(self, proc: Process) -> None:
         """Walk through the Events of 1 Named Process"""
 
@@ -964,6 +966,7 @@ class MentionProcess(str, Process):
 
         name = self
         proc = self.proc
+        assert proc is not self, (id(proc), id(self))
 
         wordbook = wordbooks[-1]
 
@@ -976,14 +979,18 @@ class MentionProcess(str, Process):
                     found = v
                     break
 
-            if found is None:
+            if (found is None) or (found is self):
+                assert found, (found, name)
                 raise NameError(f"name {name!r} is not defined, to suggest events")
+
+                # raises when asking to run a MentionProcess of an undefined Global Name
 
             proc = found
 
         self.proc = None  # blocks indefinite recursion
         guards = proc.suggest_events()
         self.proc = proc  # restores, or resolves for the first time
+        assert proc is not self, (id(proc), id(self))
 
         return guards
 
@@ -1003,6 +1010,7 @@ class MentionProcess(str, Process):
 
         name = self
         proc = self.proc
+        assert proc is not self, (id(proc), id(self))
 
         wordbook = wordbooks[-1]
 
@@ -1021,13 +1029,17 @@ class MentionProcess(str, Process):
                     found = v
                     break
 
-            if found is None:
+            if (found is None) or (found is self):
+                assert found, (found, name)
                 raise NameError(f"name {name!r} is not defined, to walk through events")
+
+                # raises when asking to run or print a Global Name defined only as a MentionProcess
 
             proc = found
             result = found
 
         self.proc = proc  # restores, or resolves for the first time
+        assert proc is not self, (id(proc), id(self))
 
         return result
 
@@ -1086,6 +1098,7 @@ class ScopeProcess(dict[object, object], Process):
         items = list(self.items())
         assert len(items) == 1, (items, self)
         name, proc = items[-1]
+        assert proc is not self, (id(proc), id(self))
 
         if proc is None:
             return tuple()
@@ -1095,6 +1108,7 @@ class ScopeProcess(dict[object, object], Process):
         self.proc = None  # blocks indefinite recursion
         guards = proc.suggest_events()
         self.proc = proc
+        assert proc is not self, (id(proc), id(self))
 
         return guards
 
@@ -1794,8 +1808,6 @@ if __name__ == "__main__":
 
 # todo: Find more todo0: todo1: todo2: todo3: todo9: etc
 
-# todo1: reach 3 kinds of NameError (or assert that some kinds unreached)
-# todo1: solve 'RecursionError: maximum recursion depth exceeded' at "VMS3": [ "coin", "VMS4" ],
 # todo1: take "X1.A": "X1" as a mention of the mutating top-level "X1"
 
 # todo3: When TerminalIO wholly adopted, ⌃ U+2303 Up Arrowhead over ^ U+005E Circumflex Accent
