@@ -26,7 +26,11 @@ Ask what you can do.
 
     % ./csp/cspbook.py
 
-    cspbook.py -i
+    cspbook.py --
+      dir()
+      dir(__builtins__)
+      __builtins__.__doc__
+
     cspbook.py -c CTR
     cspbook.py -c CLOCK
     cspbook.py -c VMC
@@ -38,31 +42,34 @@ Ask what you can do.
 Ask for more of a man page.
 
     % ./csp/cspbook.py --help
-    usage: cspbook.py [-h] [-i] [-c CSP] [--make-tests]
+    usage: cspbook.py [-h] [-V] [-i] [-c CODELINE] [--make-tests]
 
     exec some lines of csp code
 
     options:
-    -h, --help    show this help message and exit
-    -i            prompt and reply, loop loop till quit
-    -c CSP        one line of csp code to exec
-    --make-tests  update:  git diff csp/cspbook-py-readme.md
+      -h, --help     show this help message and exit
+      -V, --version  print the version and exit
+      -i             prompt and reply, loop loop till quit
+      -c CODELINE    one line of csp code to exec
+      --make-tests   update:  git diff csp/cspbook-py-readme.md
 
     quirks:
       trusts you to press Return to continue, ⌃C to cancel, ⌃D to quit
       trusts your Terminal Shell tab to understand ⎋[⇧A ⎋[⇧K
-      works like Python works:
+      lots works like Python works:
         cspbook.py --help
-        cspbook.py --
         cspbook.py -i -c ''
-          dir()
 
     examples:
-      cspbook.py
-      cspbook.py --help
+
+      cspbook.py --
+        dir()
+        dir(__builtins__)
+        __builtins__.__doc__
+
       cspbook.py -c CTR
-      cspbook.py -c CLOCK.B
-      cspbook.py -c CH5B
+      cspbook.py -c CLOCK
+      cspbook.py -c VMC
     %
 
 **X3**
@@ -70,7 +77,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.0.129 (main, 2026-06-30)
+    Csp Python 0.12.28 (main, 2026-06-30)
     csp>
     csp> ^D
     %
@@ -84,6 +91,9 @@ Chat without showing the version, and look at the built-in globals, but then qui
     csp> dir()
     ['__builtins__', '__doc__']
     csp>
+    csp> dir(__builtins__)
+    ['__doc__', 'STOP', 'X1', 'X1.A', 'X2', 'CTR', 'CLOCK', 'CLOCK.A', 'CLOCK.B', 'VMS', 'VMS.A', 'VMS.B', 'CH5A', 'CH5B', 'X1.B', 'CH5C', 'VMCT', 'VMC', 'VMCRED', 'VMS2', 'COPYBIT', 'RUN', 'DD', 'O', 'L']
+    csp>
     csp> __builtins__.__doc__
     'Built-in procs, and other objects.'
     csp>
@@ -96,14 +106,14 @@ Chat without showing the version, and look at the built-in globals, but then qui
 
 Run an empty Csp Process, and quit chatting.
 
+    % ./csp/cspbook.py -i -c ''
+    csp>
     csp> STOP
     STOP
     csp>
-
     csp> ^C
     KeyboardInterrupt
     csp>
-
     csp> ^D
     %
 
@@ -114,12 +124,6 @@ Run an empty Csp Process, and quit chatting.
 Chat to show the source, and run the source.
 
 Run a Csp Process of 1 Event.
-
-    % ./csp/cspbook.py -i -c ''
-    csp>
-    csp> dir(__builtins__)
-    ['__doc__', 'STOP', 'X1', 'X1.A', 'X2', 'CTR', 'CLOCK', 'CLOCK.A', 'CLOCK.B', 'VMS', 'VMS.A', 'VMS.B', 'CH5A', 'CH5B', 'X1.B', 'CH5C', 'VMCT', 'VMC', 'VMCRED', 'VMS2', 'COPYBIT', 'RUN']
-    csp>
 
     csp> X1.A??
     ["coin", "STOP"]
@@ -235,7 +239,6 @@ Run another Csp Process that loops through more than one Event, but while define
     choc
 
     coin
-    choc
     > ^C
     csp>
 
@@ -255,6 +258,10 @@ Run a Csp Process that loops through four Events.
 
     in5p
     out2p
+    out1p
+    out2p
+
+    in5p
     > ^C
     csp>
 
@@ -275,6 +282,11 @@ Run another Csp Process that loops through four Events.
 
     in5p
     out1p
+    out1p
+    out1p
+    out2p
+
+    in5p
     > ^C
     csp>
 
@@ -321,9 +333,6 @@ Run a Csp Process that loops over a choice of a couple of sequences.
     out2p
 
     in5p
-    out1p
-    out1p
-    out1p
     > ^C
     csp>
 
@@ -336,6 +345,12 @@ Run another Csp Process that loops through a choice of two sequences, but while 
     csp>
 
     csp> VMCT
+    coin
+    choc
+
+    coin
+    toffee
+
     coin
     choc
 
@@ -401,6 +416,12 @@ Run a Csp Process that chooses up front between two sequences, again while defin
     coin
 
     coin
+    choc
+
+    choc
+    coin
+
+    coin
     > ^C
     csp>
 
@@ -415,11 +436,19 @@ Run a Csp Process that sets up another Csp Process.
     csp> VMS2
     coin
 
+    choc
+    coin
+
     coin
     choc
 
     choc
     coin
+
+    coin
+    choc
+
+    choc
     > ^C
     csp>
 
@@ -432,6 +461,12 @@ Show how looping over a choice of two sequences copies one bit and another and a
     csp>
 
     csp> COPYBIT
+    in.0
+    out.0
+
+    in.1
+    out.1
+
     in.0
     out.0
 

@@ -51,7 +51,7 @@ import json
 import os
 import pathlib
 import pdb
-import re
+import shlex
 import signal
 import sys
 import termios
@@ -170,10 +170,7 @@ class CodeSketcher:
     def update_md(self) -> None:
         """Update:  git diff csp/cspbook-py-readme.md"""
 
-        pathname = sys.argv[0]
-        str_version = pathname_read_hash_ymd_version(pathname)  # '0.4.39 (main, 2026-05-24)'
-
-        #
+        # Fetch the Md File
 
         _dir_ = os.path.dirname(__file__)
         iopathname = os.path.join(_dir_, "cspbook-py-readme.md")
@@ -182,222 +179,252 @@ class CodeSketcher:
         itext = iopath.read_text()
         ilines = itext.splitlines()
 
-        #
+        # Look at each Line
 
         dent = 4 * " "
         olines = list()
 
+        # Copy the Lines across, till the Dented Line after a Blank Line
+
         i = 0
-        n = 1
+        irstrip = ""
         while i < len(ilines):
+            above = irstrip
             iline = ilines[i]
             i += 1
 
-            olines.append(iline)
-
-            # Number the demos
-
-            if re.fullmatch(r"[0-9]+", string=iline):
-                olines[-1] = str(n)
-                n += 1
+            irstrip = iline.rstrip()
+            if above or not irstrip.startswith(dent):
+                olines.append(iline)
                 continue
 
-            # Add version trace
+            # Take the Lines till an empty Prompt before a Blank Line
 
-            dedented = iline.removeprefix(dent)
-            if dedented == "% ./csp/cspbook.py --":
-                jlines = self.drop_lines(ilines, i=i)
-                i += len(jlines)
+            top = irstrip.lstrip()
+            prompt = top.split()[0]
+            assert prompt in ("%", "csp>"), (prompt,)
+            start = i
 
-                olines.append(dent + f"Csp Python {str_version}")
-                olines.append(dent + "csp> ".rstrip())
-                olines.append(dent + "csp> ^D")  # '⌃' != '^'
-                olines.append(dent + "% ".rstrip())
-                olines.append("")
+            while i < len(ilines):
+                above = irstrip
+                iline = ilines[i]
+                i += 1
 
-                continue
-
-            # Add source & exec trace
-
-            eline = dedented.removeprefix("csp> ")
-            if eline != dedented:
-                verb = eline.removesuffix("??")
-                if verb != eline:
-                    i = self.make_one_test(olines, ilines=ilines, i=i, verb=verb)
-
+                irstrip = iline.rstrip()
+                if irstrip:
                     continue
 
-        #
+                if above == (dent + prompt):
+                    break
+
+            end = i
+            stale_lines = ilines[start:end]
+
+            # Replace the Taken Lines
+
+            if prompt == "%":
+                fresh_lines = self.top_to_fresh_zsh_olines(top, stale_lines)
+            else:
+                fresh_lines = self.top_to_fresh_csp_olines(top, stale_lines)
+
+            olines.extend((dent + _).rstrip() for _ in fresh_lines)
+
+        # Replace the Md File
 
         otext = "\n".join(olines) + "\n"
         iopath.write_text(otext)
 
-        return  # success
+        return
 
-    def make_one_test(self, olines: list[str], ilines: list[str], i: int, verb: str) -> int:
-        """Make one Test Result from one Verb"""
-
-        ct = self.code_talker
-
-        proc = ct.to_proc_from_name(procname=verb)
-        n = self.count_stops(proc)
-        execs = max(1, n)
-
-        jlines = self.drop_lines(ilines, i=i)
-        j = i + len(jlines)
-
-        self.add_source_trace(olines=olines, verb=verb)
-
-        for _ in range(execs):
-            self.add_exec_trace(olines=olines, verb=verb, jlines=jlines)
-
-        return j
-
-    def count_stops(self, o: object) -> int:
-        """Count the STOP's in a Process"""
-
-        assert isinstance(o, Process), (type(o), o)
-
-        if isinstance(o, dict):
-            assert isinstance(o, StopProcessType | ScopeProcess | ChoiceProcess), (type(o), o)
-            return sum(self.count_stops(_) for _ in o.values())
-
-        if isinstance(o, list):
-            assert isinstance(o, PrefixProcess), (type(o), o)
-            after = o[-1]
-            return self.count_stops(after)
-
-        if isinstance(o, str):
-            assert isinstance(o, MentionProcess), (type(o), o)
-            mp = o
-            proc = mp.proc
-
-            if o != "STOP":
-                assert not isinstance(proc, StopProcessType), (type(proc), proc)
-            else:
-                assert isinstance(proc, StopProcessType), (type(proc), proc)
-                assert proc is StopProcess, (id(proc), id(StopProcess), proc)
-
-                return 1
-
-        return 0
-
-    def drop_lines(self, ilines: list[str], i: int) -> list[str]:
-        """Drop the Lines of dented Grafs till next undented Graf"""
-
-        assert i, (i,)
-
-        iline = ilines[i - 1]
-        ident = len(iline) - len(iline.lstrip())
-
-        j = i
-
-        jlines = list()
-        while j < len(ilines):
-            jline = ilines[j]
-            j += 1
-
-            jdent = len(jline) - len(jline.lstrip())
-            if jline:
-                if not jdent:
-                    assert j > i, (i, j, jdent, ident, jline, iline)
-                    break
-
-            jlines.append(jline)
-
-            ji = j - i
-            assert ji < 100, (i, j, ji)
-
-            assert j < len(ilines), (j, len(ilines), i)
-
-        return jlines
-
-    def add_source_trace(self, olines: list[str], verb: str) -> None:
-        """Add one Trace of Prints of Source"""
+    def top_to_fresh_zsh_olines(self, top: str, stale_lines: list[str]) -> list[str]:
+        """Emulate calling this Python File as a main Script from Zsh"""
 
         ct = self.code_talker
+        cw = ct.code_wrangler
+        sys_modules = cw.sys_modules
+        sys_builtins = sys_modules["builtins"]
+
+        sys_locals: dict[str, object | None] = dict()  # todo4: pick apart sys_locals vs sys_globals
+        sys_locals["__builtins__"] = sys_builtins
+        sys_locals["__doc__"] = None
+
+        pathname = sys.argv[0]
+        str_version = pathname_read_hash_ymd_version(pathname)  # '0.4.39 (main, 2026-05-24)'
+
+        text = ""
+        text += top + "\n"
+
+        shline = top.removeprefix("% ")
+        argv = shlex.split(shline)
+
+        # Ask what version you're working with, and quit
+
+        if shline == "./csp/cspbook.py --":
+
+            text += f"Csp Python {str_version}\n"
+            text += "csp>\n"  # not "csp> \n"
+            text += "csp> ^D\n"
+            text += "%\n"  # not "% \n"
+            text += "\n"
+
+            fresh_lines = text.splitlines()
+            return fresh_lines
+
+        # Ask what you can do, or ask for more of a man page
+
+        if shline != "./csp/cspbook.py -i -c ''":
+
+            text += self.subprocess_check_output(argv)
+
+            text += "%\n"  # not "% \n"
+            text += "\n"
+
+            fresh_lines = text.splitlines()
+            return fresh_lines
+
+        # Take 'dir()' and 'dir(__builtins__)' as meta-instructions
 
         dent = 4 * " "
+        codelines = list(
+            _.strip().removeprefix("csp> ") for _ in stale_lines if _.startswith(dent + "csp> ")
+        )
 
-        proc = ct.to_proc_from_name(procname=verb)
-        plines = json.dumps(proc).splitlines()
-        olines.extend((dent + _) for _ in plines)
-        olines.append(dent + "csp> ".rstrip())
-        olines.append("")
+        for _codeline_ in codelines:
+            text += "csp>\n"  # not "csp> \n"
+            text += f"csp> {_codeline_}\n"
 
-    def add_exec_trace(self, olines: list[str], verb: str, jlines: list[str]) -> None:
-        """Add one Trace of Prints of Exec"""
+            if (
+                _codeline_ == "__doc__"
+            ):  # todo4: find "__doc__" in ._locals_ and quit before ._builtins_
+                continue
 
-        ct = self.code_talker
+            if _codeline_ == "dir()":
+                procnames = list(sys_locals.keys())  # 'better copied than aliased'
+                text += f"{procnames}\n"
+                continue
 
-        # Count nonblank lines after the first Graf
+            if _codeline_ == "dir(__builtins__)":
+                procnames = list(sys_builtins.keys())
+                text += f"{procnames}\n"
+                continue
 
-        inputs = -1
+            if _codeline_ == "__builtins__.__doc__":
+                text += f"{sys_builtins["__doc__"]!r}\n"
+                continue
 
-        cancelling = False
+            if _codeline_ == "STOP":
+                text += "STOP\n"
+                continue
 
-        grafs = 0
-        for jline in jlines:
-            if not jline:
-                grafs += 1
-            elif grafs >= 1:
-                lstrip = jline.lstrip()
-                if lstrip:
-                    if lstrip.startswith("csp>"):
-                        pass
-                    elif lstrip == "> ^C":  # '⌃' != '^'
-                        cancelling = True
-                    else:
-                        inputs += 1
+            if _codeline_ == "^C":
+                text += "KeyboardInterrupt\n"
+                continue
 
-        assert inputs >= 0, (inputs, jlines, verb)
+            if _codeline_ == "^D":
+                continue
 
-        itext = 123 * "\n"  # todo: arbitrarily large enough, maybe
-        if cancelling:
-            itext = inputs * "\n"
-            itext += "\x03"  # emulates raising KeyboardInterrupt at ^C
+            assert False, (_codeline_,)
 
-        # Say how to collect outputs
+        text += "%\n"  # not "% \n"
+        text += "\n"
 
-        tprints = list()
+        fresh_lines = text.splitlines()
+        return fresh_lines
 
-        def _tprint_(text: str = "", end: str = "\n", file: typing.TextIO | None = None) -> None:
-            tprints.append(text + end)
-            pass  # ignore .file
+        # todo4: merge 'def top_to_fresh_zsh_olines' with 'def sys_exec'
 
-        # Start collecting outputs
+    def subprocess_check_output(self, argv: list[str]) -> str:
+        """Capture the Stdout from calling Def Main"""
 
-        with_stdin = sys.stdin
-        with_eprint = eprint
+        stdin = io.StringIO()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
 
-        module = sys.modules[__name__]
-        assert not hasattr(module, "print")
-        assert getattr(module, "eprint") is with_eprint
+        with_sys_argv = sys.argv
+        with_sys_stdin = sys.stdin
+        with_sys_stdout = sys.stdout
+        with_sys_stderr = sys.stderr
 
-        sys.stdin = io.StringIO(itext)
-        setattr(module, "print", _tprint_)
-        setattr(module, "eprint", _tprint_)
+        sys.argv = argv
+        sys.stdin = stdin
+        sys.stdout = stdout
+        sys.stderr = stderr
+
         try:
-            ct.sys_exec(verb)
-        except Exception:
-            __builtins__.print(f"Exception raised by:  {verb}", file=sys.__stderr__)
-            raise
+
+            main()
+
+        except SystemExit as exc:
+
+            assert exc.code == 0, (exc.code, exc)
+
         finally:
-            sys.stdin = with_stdin
-            delattr(module, "print")
-            setattr(module, "eprint", with_eprint)
 
-        dent = 4 * " "
+            sys.argv = with_sys_argv
+            sys.stdin = with_sys_stdin
+            sys.stdout = with_sys_stdout
+            sys.stderr = with_sys_stderr
 
-        olines.append(dent + f"csp> {verb}")
+        etext = stderr.getvalue()
+        assert not etext, (etext,)
 
-        kprints = list(_ for _ in tprints if "\n" in _)
-        ktext = "".join(kprints)
-        klines = ktext.splitlines()
-        olines.extend(((dent + _).rstrip()) for _ in klines)
+        otext = stdout.getvalue()
+        return otext
 
-        olines.append(dent + "csp> ".rstrip())
-        olines.append("")
+    def top_to_fresh_csp_olines(self, top: str, stale_lines: list[str]) -> list[str]:
+        """Trace the chat after a Csp Top Line"""
+
+        ct = self.code_talker
+
+        text = ""
+        text += top + "\n"
+
+        codeline = top.removeprefix("csp> ")
+        procname = codeline.removesuffix("??")
+        proc = ct.to_proc_from_name(procname)
+
+        #
+
+        if codeline.endswith("??"):
+            text += json.dumps(proc) + "\n"
+
+            text += "csp>\n"  # not "csp> \n"
+            text += "\n"
+
+            fresh_lines = text.splitlines()
+            return fresh_lines
+
+        #
+
+        single_steps: list[Event | str | None] | None
+        single_steps = list()
+
+        ct.haltable = True
+        if procname == "VMC":
+            ct.haltable = False
+
+        with_single_steps = ct.single_steps
+        ct.single_steps = single_steps
+        try:
+            ct.proc_single_step(proc)
+        finally:
+            ct.single_steps = with_single_steps
+            ct.haltable = True
+
+        if single_steps[-2:] == ["", None]:
+            single_steps[-2:] = ["> ^C"]
+        elif single_steps[-1] is None:
+            single_steps[-1] = "> ^C"
+
+        #
+
+        text += "\n".join(str(_) for _ in single_steps) + "\n"
+
+        text += "csp>\n"  # not "csp> \n"
+        text += "\n"
+
+        fresh_lines = text.splitlines()
+        return fresh_lines
 
 
 class CodeTalker:
@@ -407,6 +434,9 @@ class CodeTalker:
 
     process_list: list[Process]
     events_by_process_index: list[list[Event]]
+    single_steps: list[Event | str | None] | None
+    halting: bool
+    haltable: bool
 
     def __init__(self) -> None:
 
@@ -415,6 +445,9 @@ class CodeTalker:
 
         self.process_list = list()
         self.events_by_process_index = list()
+        self.single_steps = None
+        self.halting = False
+        self.haltable = True
 
     #
     # Prompt and reply, loop loop till quit
@@ -460,7 +493,7 @@ class CodeTalker:
         """Exec one line of Csp code"""
 
         strip = codeline.strip()
-        join = "".join(codeline.split())
+        _codeline_ = "".join(codeline.split())
 
         cw = self.code_wrangler
         sys_modules = cw.sys_modules
@@ -472,25 +505,25 @@ class CodeTalker:
 
         # Take 'quit()' etc as a meta-instruction
 
-        if join in ("exit", "exit()", "quit", "quit()"):
+        if _codeline_ in ("exit", "exit()", "quit", "quit()"):
             sys.exit()
 
         # Take 'dir()' and 'dir(__builtins__)' as meta-instructions
 
-        if join == "__doc__":  # todo4: find "__doc__" in ._locals_ and quit before ._builtins_
+        if _codeline_ == "__doc__":  # todo4: find "__doc__" in ._locals_ and quit before ._builtins_
             return
 
-        if join == "dir()":
+        if _codeline_ == "dir()":
             procnames = list(sys_locals.keys())  # 'better copied than aliased'
             oprint(procnames)
             return
 
-        if join == "dir(__builtins__)":
-            procnames = list(sys_builtins)  # 'better copied than aliased'
+        if _codeline_ == "dir(__builtins__)":
+            procnames = list(sys_builtins.keys())
             oprint(procnames)
             return
 
-        if join == "__builtins__.__doc__":
+        if _codeline_ == "__builtins__.__doc__":
             oprint(repr(sys_builtins["__doc__"]))
             return
 
@@ -509,6 +542,8 @@ class CodeTalker:
         procname = strip
         proc = self.to_proc_from_name(procname)
         self.proc_single_step(proc)
+
+        # todo4: merge 'def sys_exec' with 'def top_to_fresh_zsh_olines'
 
     def to_proc_from_name(self, procname: str) -> Process:
         """Fetch the Body of a Proc Def"""
@@ -537,6 +572,10 @@ class CodeTalker:
     def proc_single_step(self, proc: Process) -> None:
         """Walk through the Events of 1 Named Process"""
 
+        single_steps = self.single_steps
+
+        self.halting = False
+
         before: Process = proc
         while True:
 
@@ -552,22 +591,29 @@ class CodeTalker:
 
                 if now:
                     if now is not StopProcess:
-                        oprint()
+                        if single_steps is None:
+                            oprint("")
+                        else:
+                            single_steps.append("")
 
             # Stop when stopped
 
             if not events:
 
                 if now is StopProcess:
-                    oprint("STOP")
-                    return
+                    if single_steps is None:
+                        oprint("STOP")
+                    else:
+                        single_steps.append("STOP")
+                    break
 
                 event = self.read_event(events, default=FalseyEvent)
                 if event is not None:
+                    assert single_steps is None, (single_steps,)
                     eprint("Raising KeyboardInterrupt because Unguarded Indefinite Recursion")
                     eprint("⌃C")
 
-                return
+                break
 
             assert now, (now,)
 
@@ -642,6 +688,17 @@ class CodeTalker:
         return event
 
     def read_event(self, events: tuple[Event, ...], default: Event) -> Event | None:
+        """Work with a Terminal, else don't"""
+
+        single_steps = self.single_steps
+        if single_steps is None:
+            event = self.read_next_event(events, default=default)
+        else:
+            event = self.read_default_event(events, default=default)
+
+        return event
+
+    def read_next_event(self, events: tuple[Event, ...], default: Event) -> Event | None:
         """Prompt you for an Event and read your choice of Event"""
 
         if default is FalseyEvent:
@@ -699,6 +756,63 @@ class CodeTalker:
         # \r Carriage Return (CR)
         # ⎋[A Cursor Up (CUP)
         # ⎋[K Erase in Line (EL)
+
+    def read_default_event(self, events: tuple[Event, ...], default: Event) -> Event | None:
+        """Print and return out choice of Event"""
+
+        halting = self.halting
+        haltable = self.haltable
+        single_steps = self.single_steps
+        assert single_steps is not None, (single_steps,)
+
+        if default == FalseyEvent:
+            assert False
+            single_steps.append(None)
+            # eprint("^C")
+            return None
+
+        if haltable and halting:
+            single_steps.append(None)
+            # eprint("^C")
+            return None
+
+        some_steps = list(single_steps)
+        more_steps = single_steps + [default]
+
+        some_steps = list(_ for _ in some_steps if _ not in ("", "STOP"))
+        more_steps = list(_ for _ in more_steps if _ not in ("", "STOP"))
+
+        halting = False
+
+        if more_steps[2:]:  # vs CLOCK.A
+            if more_steps[-3:] == 3 * some_steps[-1:][:1]:
+                if default in ("tick", "x"):  # not vs CH5C
+                    halting = True
+
+        if more_steps[4:]:  # vs VMS.A
+            if more_steps[-5:] == ((2 * some_steps[-2:]) + some_steps[-2:][:1]):
+                halting = True
+
+        if more_steps[8:]:  # vs CH5A
+            if more_steps[-9:] == ((2 * some_steps[-4:]) + some_steps[-4:][:1]):
+                halting = True
+
+        if more_steps[9:]:  # vs CH5C
+            if more_steps[-10:] == (some_steps[-9:] + some_steps[-9:][:1]):
+                halting = True
+
+        if more_steps[10:]:  # vs CH5B
+            if more_steps[-11:] == ((2 * some_steps[-5:]) + some_steps[-5:][:1]):
+                halting = True
+
+        self.halting = halting
+
+        # assert len(single_steps) < 30
+
+        single_steps.append(default)
+        # eprint(default)
+
+        return default
 
 
 #
