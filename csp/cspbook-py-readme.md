@@ -77,7 +77,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.12.28 (main, 2026-06-30)
+    Csp Python 0.10.100 (main, 2026-06-30)
     csp>
     csp> ^D
     %
@@ -506,7 +506,85 @@ Speak of the empty Csp Process as a Choice between no Events.
 
 #### 1.1.4 Mutual recursion
 
-todo1: Tests of 1.1.4 Mutual recursion
+Speak of Processes that do not exist alone, that form complete definitions only when taken together.
+
+    csp> DD??
+    {"setorange": "O", "setlemon": "L"}
+    csp>
+
+    csp> O??
+    {"orange": "O", "setlemon": "L", "setorange": "O"}
+    csp>
+
+    csp> L??
+    {"lemon": "L", "setorange": "O", "setlemon": "L"}
+    csp>
+
+    csp> DD
+    setorange
+
+    orange
+
+    setlemon
+
+    lemon
+
+    setorange
+
+    setorange
+
+    orange
+
+    setlemon
+
+    setlemon
+
+    lemon
+
+    setorange
+
+    setorange
+
+    orange
+
+    setlemon
+
+    setlemon
+
+    lemon
+    > ^C
+    csp>
+
+    csp> DD
+    setlemon
+
+    setorange
+
+    setorange
+
+    orange
+
+    setlemon
+
+    setlemon
+
+    lemon
+
+    setorange
+
+    setorange
+
+    orange
+
+    setlemon
+
+    setlemon
+
+    lemon
+
+    setorange
+    > ^C
+    csp>
 
 <!--
 

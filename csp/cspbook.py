@@ -763,18 +763,30 @@ class CodeTalker:
         halting = self.halting
         haltable = self.haltable
         single_steps = self.single_steps
+
         assert single_steps is not None, (single_steps,)
 
-        if default == FalseyEvent:
-            assert False
-            single_steps.append(None)
-            # eprint("^C")
-            return None
+        assert default != FalseyEvent, (default,)
 
         if haltable and halting:
             single_steps.append(None)
             # eprint("^C")
             return None
+
+        halting = self._calc_halting_(default)
+        self.halting = halting
+
+        single_steps.append(default)
+        # eprint(default)
+
+        return default
+
+    def _calc_halting_(self, default: Event) -> bool:
+        """Decide how much of an infinite space of Events is exploration enough"""
+
+        single_steps = self.single_steps
+
+        assert single_steps is not None, (single_steps,)
 
         some_steps = list(single_steps)
         more_steps = single_steps + [default]
@@ -805,14 +817,14 @@ class CodeTalker:
             if more_steps[-11:] == ((2 * some_steps[-5:]) + some_steps[-5:][:1]):
                 halting = True
 
-        self.halting = halting
+        if more_steps[12:]:  # vs DD
+            if more_steps[-13:] == ((2 * some_steps[-6:]) + some_steps[-6:][:1]):
+                if more_steps[-2] != more_steps[-1]:
+                    halting = True
 
-        # assert len(single_steps) < 30
+        # assert len(single_steps) < 50
 
-        single_steps.append(default)
-        # eprint(default)
-
-        return default
+        return halting
 
 
 #
