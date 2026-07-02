@@ -20,6 +20,8 @@ examples:
   ls ./def*.py
 """
 
+from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
+
 import argparse
 import collections.abc
 import dataclasses
