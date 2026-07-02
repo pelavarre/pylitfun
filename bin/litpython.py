@@ -63,14 +63,14 @@ UTC = zoneinfo.ZoneInfo("UTC")  # extends welcome into the Periphery (outside Sa
 def main() -> None:
     """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
 
-    sys.excepthook = excepthook
+    sys.excepthook = sys_excepthook
 
     try:
         try_main()
     except BaseException:  # KeyboardInterrupt  # SystemExit
         PacificQuit = dt.datetime.now(Pacific)
         print(PacificQuit, PacificQuit - PacificLaunch)
-        excepthook(*sys.exc_info())
+        sys_excepthook(*sys.exc_info())
 
 
 def try_main() -> None:
@@ -523,16 +523,15 @@ class ArgDocParser:
 assert sys.__stderr__ is not None  # refuses to run headless
 with_stderr = sys.stderr
 
-
 assert int(0x80 + signal.SIGINT) == 130  # discloses the Nonzero Exit Code for after ⌃C SigInt
 
 
-def excepthook(  # last modified on 2026-05-14 or later
+def sys_excepthook(  # last modified for py2def.py on 2026-07-02 or later
     exc_type: type[BaseException] | None,  # aka .type
     exc_value: BaseException | None,  # aka .exc_obj aka .value
     exc_traceback: types.TracebackType | None,  # aka .exc_tb aka .traceback aka .tb
 ) -> None:
-    """Run at Process Exit"""
+    """Launch the Post-Mortem Debugger 'pdb.pm' at Process Exit"""
 
     if exc_type is SystemExit:
         return
@@ -576,7 +575,7 @@ def excepthook(  # last modified on 2026-05-14 or later
             # todo: figure out when .last_traceback is and isn't initted for us
 
     print(">" ">" "> pdb.pm()", file=with_stderr)  # (3 * ">") spelled unlike a Git Conflict
-    pdb.pm()
+    pdb.pm()  # todo: say less for each ⌃C KeyboardInterrupt after process launch by 'python3 -i'
 
 
 #

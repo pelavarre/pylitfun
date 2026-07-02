@@ -18,7 +18,10 @@ examples:
   rm -fr ./def*.py
   ./sh/py2def.py exc.pthook
   ls ./def*.py
+  for F in def*.py; do echo $(ls $F) $(cat $F |tail -n +2 |md5sum); done
 """
+
+# todo: shrug off 'def ' as prefix at sys.argv[1] ?
 
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
 
