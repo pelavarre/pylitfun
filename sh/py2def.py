@@ -454,10 +454,14 @@ if __name__ == "__main__":
     main()
 
 
-# git grep posted.as |cut -d: -f1 |awk -F/ '{print $NF}' >a
-# git grep posted.as |awk -F/ '{print $NF}' >b
-# diff -brpu a b
+#
+# We might often remember to test if our 'posted as' marks correctly find themselves:
+#
+#   git grep 'p'osted.as |cut -d: -f1 |awk -F/ '{print $NF}' |uniq >a
+#   git grep 'p'osted.as |sed 's/",$//' |awk -F/ '{print $NF}' >b
+#   diff -brpu a b
+#
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/py2def.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/sh/py2def.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git
