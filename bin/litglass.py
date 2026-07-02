@@ -6246,7 +6246,7 @@ Inf = float("inf")  # implicitly also defines -Inf and +Inf
 NaN = float("nan")  # actually implies NaN != NaN
 
 
-def eng_clip(n: float) -> str:
+def eng_clip(n: float) -> str:  # last modified for py2def.py on 2026-07-01 or later
     """Format a Count for Engineers, with (Exp % 3) == 0 and no .00 and almost never round up"""
 
     if not n:
