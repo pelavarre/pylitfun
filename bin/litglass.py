@@ -6246,6 +6246,49 @@ Inf = float("inf")  # implicitly also defines -Inf and +Inf
 NaN = float("nan")  # actually implies NaN != NaN
 
 
+def eng_clip(n: float) -> str:
+    """Format a Count for Engineers, with (Exp % 3) == 0 and no .00 and almost never round up"""
+
+    if not n:
+        return "0"  # not '0e0'  # not '0.0'
+
+    exps = list(_ for _ in range(-99, 99, 3) if 10**_ < n) or [0]
+    exp = exps[-1]
+
+    s = f"{n / 10**exp:.99f}"[:4]  # todo: quantify the exact risk of rounding up here
+    s = s.rstrip("0").rstrip(".")
+    if exp:
+        s += f"e{exp}" if exp < 0 else f"e+{exp}"
+
+    if math.isnan(n):
+        return "NaN"  # not 'nan'
+
+    if math.isinf(n):
+        return "-Inf" if (n < 0) else "Inf"  # not '-inf'  # not 'inf'
+
+    return s
+
+    # '0', '15e-9', '4e-3', '17.5e+6'
+    # '-42'
+
+    # eng_clip(9_999_999_999_999_998 + 0e0) == '9.99e+15', not '10e+15'
+
+
+_ = """
+
+And nope. Still wrong. Sometimes fails tests of idempotency like these =>
+
+>>> eng_clip(15e-9)
+'14.9e-9'
+>>> eng_clip(14.9e-9)
+'14.8e-9'
+>>> eng_clip(14.8e-9)
+'14.7e-9'
+>>>
+
+"""
+
+
 _clips_by_str_f_ = {  # clip_metric, clip_float, clip_int, clip_bimetric
     #
     "-Inf": ["ValueError", "-Inf", "", ""],
