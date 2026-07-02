@@ -1935,6 +1935,8 @@ if __name__ == "__main__":
 # todo: Find more todo0: todo1: todo3: todo4: todo9: etc
 
 # todo0: take "X1.A": "X1" as a mention of the mutating top-level "X1"
+# todo0: no dot - go with "X1A", "X1B", etc in place of "X1.A", "X1.B", etc
+# todo0: shuffle up the Code of Class Wordbook
 
 # todo1: test the P?? separately from the P because paragraph break
 

@@ -77,7 +77,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.10.100 (main, 2026-06-30)
+    Csp Python 0.6.48 (main, 2026-06-30)
     csp>
     csp> ^D
     %
@@ -363,7 +363,7 @@ Run another Csp Process that loops through a choice of two sequences, but while 
 
 **X4**
 
-Run a Csp Process that loops through choices and choices of many of sequences, indeed even a sequence that ends with a STOP process.`
+Run a Csp Process that loops through choices of many sequences, indeed even a sequence that ends with a STOP process.`
 
     csp> VMC??
     {"in2p": {"large": "VMC", "small": ["out1p", "VMC"]}, "in1p": {"small": "VMC", "in1p": {"large": "VMC", "in1p": "STOP"}}}
