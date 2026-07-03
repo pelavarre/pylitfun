@@ -177,7 +177,7 @@ def write_one_file(opathname: str, path: pathlib.Path, lines: list[str], i: int)
         print(f"Skipping {pname} found by sh/py2def.py")
         return result
 
-    opname = shlex.quote(opathname)
+    opname = shlex.quote(opathname)  # todo: also show the md5sum, not just len olines
     print(f"Writing {len(olines)} lines into {opname} as found by sh/py2def.py")
     pathlib.Path(opathname).write_text(otext)
 

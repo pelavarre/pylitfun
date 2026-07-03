@@ -77,7 +77,7 @@ Ask for more of a man page.
 Ask what version you're working with, and quit.
 
     % ./csp/cspbook.py --
-    Csp Python 0.5.221 (main, 2026-07-02)
+    Csp Python 0.9.25 (main, 2026-07-02)
     csp>
     csp> ^D
     %
@@ -587,6 +587,8 @@ Speak of Processes that do not exist alone, that form complete definitions only 
     csp>
 
 <!--
+
+# todo: Find more todo0: todo1: todo3: todo4: todo9: etc
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/cspbook-py-readme.md
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git
