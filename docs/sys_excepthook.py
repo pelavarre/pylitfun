@@ -3,7 +3,7 @@
 """
 usage: sys_excepthook.py --
 
-slowly show much of how the macOS Copy-Paste Clipboard decodes and encodes bytes
+show how we can tell uncaught exceptions to launch the py repl, as if a breakpoint were at the raise
 
 examples:
   sys_excepthook.py
