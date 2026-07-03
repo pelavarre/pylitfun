@@ -44,9 +44,6 @@ if not __debug__:
     raise NotImplementedError([__debug__])  # 'better python3 without -O than with -O'
 
 
-assert int(0x80 + signal.SIGINT) == 130
-
-
 # Run from the Shell Command Line
 
 

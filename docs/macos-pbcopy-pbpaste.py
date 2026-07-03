@@ -4,7 +4,7 @@
 usage: macos-pbcopy-pbpaste.py --
 
 slowly show much of how the macOS Copy-Paste Clipboard decodes and encodes bytes
-"""
+"""  # FIXME: todo0: test this more, explain this more, doc run times
 
 import bdb
 import pdb
@@ -18,14 +18,14 @@ import unicodedata
 
 def main() -> None:
 
-    # sys.excepthook = sys_excepthook_func  # catches SystemExit, KeyboardInterrupt, etc
+    # sys.excepthook = sys_excepthook  # catches SystemExit, KeyboardInterrupt, etc
     # try_main()
 
     try:
         try_main()
     except Exception, KeyboardInterrupt:  # BrokenPipeError # never SystemExit
         # TerminalBoss.selves[-1].__exit__()  # todo6:
-        sys_excepthook_func(*sys.exc_info())
+        sys_excepthook(*sys.exc_info())
 
 
 def try_main() -> None:  # noqa  # C901 too complex
@@ -280,7 +280,7 @@ with_stderr = sys.stderr
 assert int(0x80 + signal.SIGINT) == 130  # discloses the Nonzero Exit Code for after ⌃C SigInt
 
 
-def sys_excepthook_func(  # last modified for py2def.py on 2026-07-03 or later
+def sys_excepthook(
     exc_type: type[BaseException] | None,  # aka .type
     exc_value: BaseException | None,  # aka .exc_obj aka .value
     exc_traceback: types.TracebackType | None,  # aka .exc_tb aka .traceback aka .tb
@@ -332,6 +332,8 @@ def sys_excepthook_func(  # last modified for py2def.py on 2026-07-03 or later
 
     print(">" ">" "> pdb.pm()", file=with_stderr)  # (3 * ">") spelled unlike a Git Conflict
     pdb.pm()  # launches the Py Repl of The Post-Mortem Debugger
+
+    # 'def sys_excepthook' last modified for py2def.py on 2026-07-03 or later
 
 
 main()

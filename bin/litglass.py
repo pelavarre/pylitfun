@@ -48,7 +48,6 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 # t0 = time.time()
 
 import argparse
-import ast
 import bdb
 import collections
 import collections.abc  # .collections.abc is not .abc & collections.abc.Callable is not typing.Callable
@@ -58,7 +57,6 @@ import difflib
 import functools
 import itertools
 import logging
-import math
 import os
 import pathlib
 import pdb
@@ -82,14 +80,13 @@ import unicodedata  # of a .unicodedata.unidata_version for friends of 웃 襾 �
 # print(t1 - t0)  # ~50ms for 30 Imports at 3/Jan/2026
 # sys.exit(2)
 
-
 _: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
 
 if not __debug__:
     raise NotImplementedError([__debug__])  # 'better python3 without -O than with -O'
 
 
-ImportStamp = dt.datetime.now().astimezone()
+ImportStamp = dt.datetime.now().astimezone()  # earlier than MainStamp
 
 
 AppleLogo = "\uf8ff"  # Apple  occupies U+F8FF = last of U+E000 .. U+F8FF Private Use Area (PUA)
@@ -213,14 +210,16 @@ def main() -> None:
 
     lg = LitGlass()
 
-    # sys.excepthook = sys_excepthook_func  # catches SystemExit, KeyboardInterrupt, etc
+    # sys.excepthook = sys_excepthook  # catches SystemExit, KeyboardInterrupt, etc
     # lg.try_main()
 
     try:
         lg.try_main()
     except Exception, KeyboardInterrupt:  # BrokenPipeError # never SystemExit
         # TerminalBoss.selves[-1].__exit__()  # todo6:
-        sys_excepthook_func(*sys.exc_info())
+        sys_excepthook(*sys.exc_info())
+    except SystemExit:
+        return  # because 'return' shouts less than 'sys.exit' does, when run as 'python3 -i'
 
 
 class LitGlass:
@@ -254,9 +253,8 @@ class LitGlass:
             sqg = SquaresGame(tb)
 
             now = dt.datetime.now().astimezone()
-            boss = (now - MainStamp).total_seconds()
-            boss_clip = clip_metric(boss)
-            logger.info("%s", f"and spent {boss_clip}s to launch TerminalBoss")
+            delta = datetime_timedelta_clip(now - MainStamp)
+            logger.info("%s", f"and spent {delta} to launch TerminalBoss")
 
             if flags.byteloop:
                 tb.tb_run_byteloop()
@@ -302,19 +300,19 @@ class LitGlass:
             # now = dt.datetime.now().astimezone()
 
             # _import_ = (ImportStamp - aware).total_seconds()
-            # import_clip = clip_metric(_import_)
+            # import_clip = total_seconds_clip(_import_)
 
             # _main_ = (MainStamp - aware).total_seconds()
-            # main_clip = clip_metric(_main_)
+            # main_clip = total_seconds_clip(_main_)
 
             # launch = (now - aware).total_seconds()
-            # launch_clip = clip_metric(launch)
+            # launch_clip = total_seconds_clip(launch)
 
-            t = time.time() - mtime
+            delta = datetime_timedelta_clip(dt.timedelta(seconds=time.time() - mtime))
 
             logger_print("")
             logger_print("")
-            logger_print(f"launched and spent {clip_metric(t)}s since {mtime=}")
+            logger_print(f"launched and spent {delta} since {mtime=}")
             # logger_print(f"{mtime=}")
             # logger_print(f"{globals().get("t0")=}")
             # logger_print(f"{import_clip=}")
@@ -492,8 +490,6 @@ class LitGlass:
 
         t0 = time.time()
 
-        _try_clip_()
-
         _try_keyboard_decoder_()
         _try_key_byte_frame_()
         _try_unicode_source_texts_()
@@ -501,7 +497,7 @@ class LitGlass:
         t1 = time.time()
         t1t0 = t1 - t0
         if t1t0 > 250e-6:
-            logger_print(f"spent {clip_metric(t1t0)}s on self-test")
+            logger_print(f"spent {datetime_timedelta_clip(dt.timedelta(seconds=t1t0))} on self-test")
 
 
 #
@@ -823,9 +819,8 @@ class KeycapsGame:
         # Run till Quit
 
         now = dt.datetime.now().astimezone()
-        kc = (now - MainStamp).total_seconds()
-        kc_clip = clip_metric(kc)
-        logger.info("%s", f"and spent {kc_clip}s to launch KeycapsGame")
+        delta = datetime_timedelta_clip(now - MainStamp)
+        logger.info("%s", f"and spent {delta} to launch KeycapsGame")
 
         while not tb.quitting:
 
@@ -3098,7 +3093,7 @@ class TerminalBoss:
             else:
                 joinables.append(text)
 
-        joinables.append(clip_metric(1000 * t1t0))
+        joinables.append(datetime_timedelta_clip(dt.timedelta(seconds=1000 * t1t0)))
 
         if alt_kseqs[1:]:
             joinables.append(alt_kseqs[1:])
@@ -6241,382 +6236,6 @@ class BytesBox:
 
 
 #
-# Amp up Import BuiltIns Int & Float
-#
-
-
-Inf = float("inf")  # implicitly also defines -Inf and +Inf
-NaN = float("nan")  # actually implies NaN != NaN
-
-
-def eng_clip(n: float) -> str:  # last modified for py2def.py on 2026-07-01 or later
-    """Format a Count for Engineers, with (Exp % 3) == 0 and no .00 and almost never round up"""
-
-    if not n:
-        return "0"  # not '0e0'  # not '0.0'
-
-    exps = list(_ for _ in range(-99, 99, 3) if 10**_ < n) or [0]
-    exp = exps[-1]
-
-    s = f"{n / 10**exp:.99f}"[:4]  # todo: quantify the exact risk of rounding up here
-    s = s.rstrip("0").rstrip(".")
-    if exp:
-        s += f"e{exp}" if exp < 0 else f"e+{exp}"
-
-    if math.isnan(n):
-        return "NaN"  # not 'nan'
-
-    if math.isinf(n):
-        return "-Inf" if (n < 0) else "Inf"  # not '-inf'  # not 'inf'
-
-    return s
-
-    # '0', '15e-9', '4e-3', '17.5e+6'
-    # '-42'
-
-    # eng_clip(9_999_999_999_999_998 + 0e0) == '9.99e+15', not '10e+15'
-
-
-_ = """
-
-And nope. Still wrong. Sometimes fails tests of idempotency like these =>
-
->>> eng_clip(15e-9)
-'14.9e-9'
->>> eng_clip(14.9e-9)
-'14.8e-9'
->>> eng_clip(14.8e-9)
-'14.7e-9'
->>>
-
-"""
-
-
-_clips_by_str_f_ = {  # clip_metric, clip_float, clip_int, clip_bimetric
-    #
-    "-Inf": ["ValueError", "-Inf", "", ""],
-    "-1e999": ["ValueError", "-Inf", "", ""],
-    "-1e309": ["ValueError", "-Inf", "", ""],
-    "-1e308": ["ValueError", "ValueError", "-100e306", ""],
-    "-1000e18": ["ValueError", "ValueError", "-1e21", ""],
-    #
-    "-999e21": ["ValueError", "ValueError", "-998e21", ""],
-    "-999e18": ["-999E", "-999e18", "-999e18", ""],
-    "-999e3": ["-999k", "-999e3", "-999e3", ""],
-    "-999": ["-999", "-999", "-999", ""],
-    "-1000": ["-1k", "-1e3", "-1e3", ""],
-    "-1": ["-1", "-1", "-1", ""],
-    #
-    "-1e-9": ["-1n", "-1e-9", "", ""],
-    "-0.001": ["-1m", "-1e-3", "", ""],
-    #
-    "-1e-999": ["-0", "-0e0", "0", "0"],
-    "-1e-324": ["-0", "-0e0", "0", "0"],
-    "-1e-323": ["ValueError", "ValueError", "", ""],
-    "-1e-27": ["ValueError", "ValueError", "", ""],
-    "-1e-24": ["ValueError", "ValueError", "", ""],
-    "-1e-21": ["ValueError", "ValueError", "", ""],
-    "-1e-18": ["ValueError", "ValueError", "", ""],
-    "-1e-15": ["ValueError", "ValueError", "", ""],
-    "-1e-12": ["-1p", "-1e-12", "", ""],
-    #
-    "-0e0": ["-0", "-0e0", "0", "0"],
-    "0": ["0", "0", "0", "0"],
-    "+0e0": ["0", "0", "0", "0"],
-    #
-    "+1e-12": ["1p", "1e-12", "", ""],
-    "+1e-15": ["ValueError", "ValueError", "", ""],
-    "+1e-21": ["ValueError", "ValueError", "", ""],
-    "+1e-24": ["ValueError", "ValueError", "", ""],
-    "+1e-27": ["ValueError", "ValueError", "", ""],
-    "+1e-323": ["ValueError", "ValueError", "", ""],
-    "+1e-324": ["0", "0", "0", "0"],
-    "+1e-999": ["0", "0", "0", "0"],
-    #
-    "1e-9": ["1n", "1e-9", "", ""],
-    "0.001": ["1m", "1e-3", "", ""],
-    #
-    "1": ["1", "1", "1", "1"],
-    "999": ["999", "999", "999", "999"],
-    "1000": ["1k", "1e3", "1e3", "1000"],
-    "1023": ["1.02k", "1.02e3", "1.02e3", "1023"],
-    "1024": ["1.02k", "1.02e3", "1.02e3", "1Ki"],
-    "10239": ["10.2k", "10.2e3", "10.2e3", "9.99Ki"],
-    "999e3": ["999k", "999e3", "999e3", "975Ki"],
-    "999e12": ["999T", "999e12", "999e12", "908Ti"],
-    #
-    "999e15": ["999P", "999e15", "999e15", "887Pi"],
-    "999e18": ["999E", "999e18", "999e18", "866Ei"],
-    "999999999999999999999": ["ValueError", "ValueError", "999e18", "867Ei"],
-    "1000*10**18": ["ValueError", "ValueError", "1e21", "867Ei"],
-    "999e21": ["ValueError", "ValueError", "998e21", "846Zi"],
-    "1267650600228229401496703205376": ["ValueError", "ValueError", "1.26e30", "1Qi"],
-    "1296806564033478677731127379099648": ["ValueError", "ValueError", "1.29e33", "1023Qi"],
-    "1298074214633706907132624082305023": ["ValueError", "ValueError", "1.29e33", "1023Qi"],
-    "1298074214633706907132624082305024": ["ValueError", "ValueError", "1.29e33", "ValueError"],
-    "999.876*10**30": ["ValueError", "ValueError", "999e30", "788Qi"],
-    "1000*10**30": ["ValueError", "ValueError", "1e33", "788Qi"],
-    "10**308": ["ValueError", "ValueError", "100e306", "ValueError"],
-    "10**309": ["ValueError", "Inf", "1e309", "ValueError"],
-    "10**999": ["ValueError", "Inf", "1e999", "ValueError"],
-    "Inf": ["ValueError", "Inf", "", ""],
-    #
-    "NaN": ["ValueError", "NaN", "", ""],
-    #
-}
-
-
-def _try_clip_() -> None:
-    """Try Def-Clip things"""
-
-    for literal, wants in _clips_by_str_f_.items():
-        f, i = _clip_literal_to_f_i_(literal)
-        gots = _clip_f_i_try_(f, i)
-        assert gots == wants, (gots, wants, literal)
-
-
-def _clip_literal_to_f_i_(literal: str) -> tuple[float, int | None]:
-    """Choose just a Float to try, or a Float and an Int to try"""
-
-    kvs = {"-Inf": -Inf, "Inf": Inf, "NaN": NaN}
-
-    if literal in kvs.keys():
-        i = None
-        f = kvs[literal]
-        return (f, i)
-
-    if "10**" in literal:
-
-        mag, sep, exp = literal.partition("10**")
-
-        i = 10 ** int(exp)
-        try:
-            f = float(i)
-            if i < 1e21:
-                assert f == i, (f, i, literal)
-        except OverflowError:
-            f = -float("Inf") if (i < 0) else float("Inf")
-
-        if mag:
-            assert mag.endswith("*"), (mag, sep, exp, literal)
-            f = float(mag.removesuffix("*")) * 10 ** int(exp)
-            i = int(f)
-            assert f == i, (f, i, literal)
-
-        return (f, i)
-
-    v = ast.literal_eval(literal)
-
-    f = float(v)
-
-    i = None
-    unreal = math.isnan(f) or math.isinf(f)
-    if isinstance(v, int):
-        i = v
-    elif not unreal:
-        if int(v) == v:
-            i = int(f)
-
-    return (f, i)
-
-
-def _clip_f_i_try_(f: float, i: int | None) -> list[str]:
-    """Try just a Float, or try a Float and an Int"""
-
-    try:
-        _metric_ = clip_metric(f)
-    except ValueError as exc:
-        _metric_ = type(exc).__name__
-
-    try:
-        _float_ = clip_float(f)
-    except ValueError as exc:
-        _float_ = type(exc).__name__
-
-    try:
-        _int_ = "" if (i is None) else clip_int(i)
-    except ValueError as exc:
-        _int_ = type(exc).__name__
-
-    try:
-        _bimetric_ = "" if ((i is None) or (i < 0)) else clip_bimetric(i)
-    except ValueError as exc:
-        _bimetric_ = type(exc).__name__
-
-    gots = [_metric_, _float_, _int_, _bimetric_]
-    return gots
-
-
-def clip_metric(f: float) -> str:
-    """Clip the Float but give it a Metric Prefix Multiplier, not an 'e' decimal exponent"""
-
-    metrics = "qryzafpnμm.kMGTPEZYRQ"  # https://en.wikipedia.org/wiki/Metric_prefix
-
-    fclip = clip_float(f)  # .clip_float often raises ValueError outside of +- 1e-27 .. 1e27
-
-    if math.isnan(f):  # todo: raise (f, fclip) in place of (f)?
-        raise ValueError(f)  # can't clip NaN
-    if math.isinf(f):
-        raise ValueError(f)  # can't clip Inf
-    if (not f) and (math.copysign(1, f) < 0):
-        return "-0"  # doesn't lose the minus sign, and doesn't speak of "e0"
-
-    fmag, _, fexp = fclip.partition("e")
-    if not fexp:
-        clip = fclip
-        return clip
-
-    exp = int(fexp if fexp else "0")
-
-    index = 10 + (exp // 3)
-    metric = metrics[index]
-
-    clip = f"{fmag}{metric}" if exp else fmag
-    return clip  # -120789 --> '-120k', etc
-
-    # raises ValueError for Floats that 2025 SI Metric Prefixes can't count out
-
-
-def clip_float(f: float) -> str:
-    """Find the nearest Float Literal, as small or smaller, with 1 or 2 or 3 Digits"""
-
-    # Clip -Inf and +Inf and NaN as themselves
-
-    if math.isnan(f):
-        return "NaN"  # unsigned, not positive and not negative
-
-    if math.isinf(f):
-        absclip = "Inf"
-        clip = ("-" + absclip) if (f < 0) else absclip
-        return clip
-
-    if (not f) and (math.copysign(1, f) < 0):
-        return "-0e0"  # doesn't lose the minus sign  # does speak of "e0"
-
-    # Raise ValueError if not countable by a 2022 SI Metric Prefix
-
-    if f:
-        if not (1e-27 <= abs(f) < 1000e27):  # 2022 ronto to ronna  # beyond 1991 yocto to yotta
-            raise ValueError(f)  # can't clip larger than ronna, or smaller than ronto
-
-        # "999e30": ["998Q", "998e30", "998e30", "788Qi"],  # wrong to say 998
-
-    # Clip as Int if equal to Int, or if >= 3 Digits at left of the Decimal Point
-
-    intf = int(f)
-    if -1e21 < f < 1e21:  # because str(int(999e21))[:3] == '998'  # not '999'
-        if (f == intf) or (abs(intf) >= 101):  # includes -0e0, excludes 100 == 99.999999999999999
-            clip = clip_int(intf)  # may raise ValueError, like at 1e21
-            assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(intf), intf, f)
-            return clip
-
-    # Raise ValueError if counting as Int might round down the first 3 Digits
-
-    assert (1000e12 + 1) != 1000e12
-    assert (10e15 + 1) == 10e15
-
-    if abs(f) < 1e-12:  # like to block 4.2e-15 -> '4e-15'
-        raise ValueError(f)  # can't clip smaller than 1e-12
-    if abs(f) >= 1e21:  # like to block 999e21 -> '998e21'
-        raise ValueError(f)  # can't clip larger than 1e21
-
-    # Clip as an Int multiplied by Metric Prefix below 1
-
-    fudge = -1e-21 if (f < 0) else +1e-21  # fudge so arbitrary you could c*pyright it
-    i = int((f + fudge) / 1e-15)  # 1e-12 -> '999e-15' without fudge
-
-    if not i:
-        clip = "0"  # never '-0'
-        return clip
-
-    iclip = clip_int(i)
-    imag, _, iexp = iclip.partition("e")
-    exp = int(iexp if iexp else "0") - 15
-
-    clip = f"{imag}e{exp}" if exp else imag
-
-    assert abs(float(clip)) <= abs(f), (abs(float(clip)), abs(f), f)
-    return clip  # -120.789 --> '-120', etc
-
-    # raises ValueError for Floats that 2025 SI Metric Prefixes can't count out
-
-
-def clip_int(i: int) -> str:
-    """Find the nearest Int Literal, as small or smaller, with 1 or 2 or 3 Digits"""
-
-    s = str(int(i))  # '-120789'
-
-    _, dash, digits = s.rpartition("-")  # ('', '-', '120789')
-    sci = len(digits) - 1  # 5  # scientific power of ten
-    eng = 3 * (sci // 3)  # 3  # engineering power of ten
-
-    assert eng in (sci, sci - 1, sci - 2), (eng, sci, digits, i)
-
-    if not eng:
-        clip = s
-        assert abs(int(float(clip))) <= abs(i), (abs(int(float(clip))), abs(i), i)
-        return clip  # drops 'e0'
-
-    assert len(digits) >= 4, (len(digits), eng, sci, digits, i)
-    assert 1 <= (len(digits) - eng) <= 3, (len(digits), eng, sci, digits, i)
-
-    precise = digits[:-eng] + "." + digits[-eng:]  # '120.789'  # significand, mantissa, multiplier
-    nearby = precise[:4]  # '120.'
-    worthy = nearby.rstrip("0").rstrip(".")  # '120'  # drops '.' or'.0' or '.00'
-
-    assert "." in nearby, (nearby, precise, eng, sci, digits, i)
-
-    clip = dash + worthy + "e" + str(eng)  # '-120e3'
-
-    if -1e21 < i < 1e21:
-        assert abs(int(float(clip))) <= abs(i), (abs(int(float(clip))), abs(i), i)
-
-    return clip  # -120789 --> '-120e3', etc
-
-
-def clip_bimetric(i: int) -> str:
-    """Find the nearest binary metric literal, as small or smaller, counting out 0..1023"""
-
-    uncountable = 0x400 * 2**100  # 1 Qi
-    if i < 0:
-        raise ValueError(i)  # can't count negatively many things
-    if i >= uncountable:
-        raise ValueError(i)  # can't count larger than quebi
-
-    metrics = "KMGTPEZYRQ"  # https://physics.nist.gov/cuu/Units/binary.html
-    bimetrics = [""] + list((_ + "i") for _ in metrics)
-
-    multiplier = 1
-    for bimetric in bimetrics:
-        above = multiplier * 0x400
-        if i >= above:
-            multiplier = above
-            continue
-
-        below = multiplier // 0x400
-        if not below:
-            fmag = i / multiplier
-        else:
-            qbelow = i // below
-            fmag = qbelow / 0x400
-
-        assert 0 <= fmag < 0x400, (fmag, multiplier, i)
-
-        if fmag >= 100:
-            mag = str(int(fmag))  # (1024 * 1024 - 1) -> '1023Ki'
-        else:
-            mag = str(fmag)[:4].rstrip("0").rstrip(".")  # 10230 -> '9.99Ki'
-
-        clip = f"{mag}{bimetric}"  # (1024 * 1024) -> '1Mi'
-
-        return clip  # 102399 --> '99.9Ki', etc
-
-    assert False, (i,)
-
-    # raises ValueError for Ints that 2025 SI Metric Binary Prefixes can't count out
-
-
-#
 # Amp up Import BuiltIns Str
 #
 
@@ -6641,6 +6260,63 @@ def str_removesuffix(text: str, suffix: str) -> str:
     return text
 
     # str.removesuffix exists since Oct/2020 Python 3.9
+
+
+#
+# Amp up Import Datetime
+#
+
+
+#
+# Amp up Import DateTime
+#
+
+
+def datetime_timedelta_clip(td: dt.timedelta, depth: int = 2) -> str:
+    """Give 'w d h m s ms us ms' to mean 'weeks=', 'days=', etc"""
+
+    # Pick Weeks out of Days, Minutes out of Seconds, and Millis out of Micros
+
+    w = td.days // 7
+    d = td.days % 7
+
+    h = td.seconds // 3600
+    h_s = td.seconds % 3600
+    m = h_s // 60
+    s = h_s % 60
+
+    ms = td.microseconds // 1000
+    us = td.microseconds % 1000
+
+    # Catenate Value-Key Pairs in order, but strip leading and trailing Zeroes,
+    # and choose one unit arbitrarily when speaking of any zeroed TimeDelta
+
+    keys = "w d h m s ms us".split()
+    values = (w, d, h, m, s, ms, us)
+    pairs = list(zip(keys, values))
+
+    chars = ""
+    count = 0
+    for index, (k, v) in enumerate(pairs):
+        if (chars or v) and any(values[index:]):
+            chars += "{}{}".format(v, k)
+            count += 1
+
+            if depth >= 1:
+                if count >= depth:  # truncates, does Not round up
+                    break
+
+    str_zero = "0s"
+    str_zeroes = list((str(0) + _) for _ in keys)
+    if not chars:
+        assert str_zero in str_zeroes, (str_zero, str_zeroes)
+        chars = str_zero
+
+    # Succeed
+
+    return chars  # '4m29s'
+
+    # 'def datetime_timedelta_clip' last modified for py2def.py on 2026-01-09 or later
 
 
 #
@@ -6682,7 +6358,7 @@ with_stderr = sys.stderr
 assert int(0x80 + signal.SIGINT) == 130  # discloses the Nonzero Exit Code for after ⌃C SigInt
 
 
-def sys_excepthook_func(  # last modified for py2def.py on 2026-07-03 or later
+def sys_excepthook(
     exc_type: type[BaseException] | None,  # aka .type
     exc_value: BaseException | None,  # aka .exc_obj aka .value
     exc_traceback: types.TracebackType | None,  # aka .exc_tb aka .traceback aka .tb
@@ -6734,6 +6410,8 @@ def sys_excepthook_func(  # last modified for py2def.py on 2026-07-03 or later
 
     print(">" ">" "> pdb.pm()", file=with_stderr)  # (3 * ">") spelled unlike a Git Conflict
     pdb.pm()  # launches the Py Repl of The Post-Mortem Debugger
+
+    # 'def sys_excepthook' last modified for py2def.py on 2026-07-03 or later
 
 
 #
@@ -7063,7 +6741,7 @@ _ = """  # more famous Python Imports to run in place of our Code here
 #
 
 
-MainStamp = dt.datetime.now().astimezone()
+MainStamp = dt.datetime.now().astimezone()  # later than ImportStamp
 
 if __name__ == "__main__":
     main()

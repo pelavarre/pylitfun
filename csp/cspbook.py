@@ -81,7 +81,7 @@ PacificLaunch = dt.datetime.now(Pacific)
 def main() -> None:
     """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
 
-    # sys.excepthook = sys_excepthook_func  # catches SystemExit, KeyboardInterrupt, etc
+    # sys.excepthook = sys_excepthook  # catches SystemExit, KeyboardInterrupt, etc
     # try_main()
 
     try:
@@ -92,7 +92,7 @@ def main() -> None:
 
         PacificQuit = dt.datetime.now(Pacific)
         print(PacificQuit, PacificQuit - PacificLaunch)
-        sys_excepthook_func(*sys.exc_info())
+        sys_excepthook(*sys.exc_info())
 
 
 def try_main() -> None:
@@ -1663,6 +1663,8 @@ def json_loads_object_pairs_hook(pairs: list[tuple[object, object]]) -> object |
 
     return d
 
+    # 'def json_loads_object_pairs_hook' last modified for py2def.py on 2026-06-27 or later
+
 
 #
 # Amp up Import Sys
@@ -1696,7 +1698,7 @@ with_stderr = sys.stderr
 assert int(0x80 + signal.SIGINT) == 130  # discloses the Nonzero Exit Code for after ⌃C SigInt
 
 
-def sys_excepthook_func(  # last modified for py2def.py on 2026-07-03 or later
+def sys_excepthook(
     exc_type: type[BaseException] | None,  # aka .type
     exc_value: BaseException | None,  # aka .exc_obj aka .value
     exc_traceback: types.TracebackType | None,  # aka .exc_tb aka .traceback aka .tb
@@ -1748,6 +1750,8 @@ def sys_excepthook_func(  # last modified for py2def.py on 2026-07-03 or later
 
     print(">" ">" "> pdb.pm()", file=with_stderr)  # (3 * ">") spelled unlike a Git Conflict
     pdb.pm()  # launches the Py Repl of The Post-Mortem Debugger
+
+    # 'def sys_excepthook' last modified for py2def.py on 2026-07-03 or later
 
 
 #

@@ -1205,6 +1205,8 @@ if __name__ == "__main__":
 
 _ = """  # todo's
 
+# todo0: less voluminous set-xe at:  gg xyz -- $(glf)
+
 # todo0: practice more gsis during --rebase and --cherry-pick
 
 # todo: redistribute ever more 'git-...' aliases coded as Scripts of the $PATH

@@ -701,7 +701,7 @@ Posted in Feb/2026 with Type Hints on the Monospaced Examples, because GitHub Md
 
 GitHub Md also gives Horizontal Scrolling to Portrait Displays of our ```python Examples, vs VsCode renders them wrapped
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/docs/clipped-numbers.md
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/docs/float-lies.md
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git
 
 -->

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 """
-usage: sys_excepthook.py --
+usage: litsys.py --
 
-show how we can tell uncaught exceptions to launch the py repl, as if a breakpoint were at the raise
+show how we tell uncaught exceptions to launch the py repl, as if a breakpoint were at the raise
 
 examples:
-  sys_excepthook.py
-  sys_excepthook.py --  # raises AssertionError except when given Shell Args
+  litsys.py
+  litsys.py --  # raises AssertionError except when given Shell Args
 """
 
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
@@ -23,6 +23,10 @@ import types
 
 # import zoneinfo
 
+if not __debug__:
+    raise NotImplementedError([__debug__])  # 'better python3 without -O than with -O'
+
+
 # Pacific = zoneinfo.ZoneInfo("America/Los_Angeles")
 # PacificLaunch = dt.datetime.now(Pacific)
 
@@ -32,14 +36,14 @@ Launch = dt.datetime.now()
 def main() -> None:
     """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
 
-    # sys.excepthook = sys_excepthook_func  # catches SystemExit, KeyboardInterrupt, etc
+    # sys.excepthook = sys_excepthook  # catches SystemExit, KeyboardInterrupt, etc
     # try_main()
 
     try:
 
         try_main()
 
-    except Exception, KeyboardInterrupt:  # BrokenPipeError # never SystemExit
+    except (Exception, KeyboardInterrupt):  # BrokenPipeError # never SystemExit
 
         # PacificQuit = dt.datetime.now(Pacific)
         # print(PacificQuit, PacificQuit - PacificLaunch)
@@ -47,7 +51,7 @@ def main() -> None:
         Quit = dt.datetime.now()
         print(Quit, Quit - Launch)
 
-        sys_excepthook_func(*sys.exc_info())  # launches pdb.pm()
+        sys_excepthook(*sys.exc_info())  # launches pdb.pm()
 
 
 def try_main() -> None:
@@ -63,13 +67,14 @@ def try_main() -> None:
 # Amp up Import Traceback
 #
 
+
 assert sys.__stderr__ is not None  # refuses to run headless
 with_stderr = sys.stderr
 
 assert int(0x80 + signal.SIGINT) == 130  # discloses the Nonzero Exit Code for after ⌃C SigInt
 
 
-def sys_excepthook_func(  # last modified for py2def.py on 2026-07-03 or later
+def sys_excepthook(
     exc_type: type[BaseException] | None,  # aka .type
     exc_value: BaseException | None,  # aka .exc_obj aka .value
     exc_traceback: types.TracebackType | None,  # aka .exc_tb aka .traceback aka .tb
@@ -122,10 +127,17 @@ def sys_excepthook_func(  # last modified for py2def.py on 2026-07-03 or later
     print(">" ">" "> pdb.pm()", file=with_stderr)  # (3 * ">") spelled unlike a Git Conflict
     pdb.pm()  # launches the Py Repl of The Post-Mortem Debugger
 
+    # 'def sys_excepthook' last modified for py2def.py on 2026-07-03 or later
+
+
+#
+# Run from the Shell Command Line, if not imported
+#
+
 
 if __name__ == "__main__":
     main()
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/docs/sys_excepthook.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/docs/litsys.py
 # copied from:  git clone https://github.com/pelavarre/litpython.git

@@ -108,6 +108,19 @@ smoke: sense
 sense: black flake8 mypy
 	:
 
+slow: black flake8 mypy
+	:
+	bin/litdatetime.py -- >/dev/null 2>/dev/null
+	bin/litdecimal.py -- >/dev/null 2>/dev/null
+	: bin/litgit.py -- >/dev/null 2>/dev/null
+	: bin/litglass.py -- >/dev/null 2>/dev/null
+	bin/litjson.py -- >/dev/null 2>/dev/null
+	bin/litmath.py -- >/dev/null 2>/dev/null
+	: bin/litpython.py -- >/dev/null 2>/dev/null
+	: bin/litshell.py -- >/dev/null 2>/dev/null
+	bin/litsys.py -- >/dev/null 2>/dev/null
+	:
+
 
 black:
 	~/.pyvenvs/black/bin/black \
