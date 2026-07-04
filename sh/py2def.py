@@ -12,7 +12,7 @@ options:
   -h, --help  show this help message and exit
 
 quirks:
-  does the 'grep -F -l "def $DEFNAME" $(find . |grep [.]py$)' part for you
+  does the 'grep -F -l "^[^#]*def $DEFNAME" $(find . |grep [.]py$)' part for you
 
 examples:
   rm -fr ./def*.py
@@ -77,7 +77,8 @@ def run_for_defname(defname: str) -> None:
 
     # Find the Files that contain this Def
 
-    pattern = re.escape("def " + defname)
+    text_pattern = r"\n[^#]*" + re.escape("def " + defname)  # misses Def on a 1st Line of File
+    line_pattern = r"^[^#]*" + re.escape("def " + defname)
 
     pypathnames = os_walk_ext(".py")
 
@@ -85,7 +86,7 @@ def run_for_defname(defname: str) -> None:
     for pathname in pypathnames:
         path = pathlib.Path(pathname)
         text = path.read_text()
-        if re.search(pattern, string=text):
+        if re.search(text_pattern, string=text):
             assert path not in text_by_path.keys(), (text_by_path,)
             text_by_path[path] = text
 
@@ -107,7 +108,7 @@ def run_for_defname(defname: str) -> None:
             i += 1
 
             rstrip = line.rstrip()
-            if re.search(pattern, string=rstrip):
+            if re.search(line_pattern, string=rstrip):
 
                 # Write a Revision taken from this File, or don't
 
