@@ -12,11 +12,11 @@ options:
   -h, --help  show this help message and exit
 
 quirks:
-  does the 'find . |grep [.]py$' part for you
+  does the 'grep -F -l "def $DEFNAME" $(find . |grep [.]py$)' part for you
 
 examples:
   rm -fr ./def*.py
-  ./sh/py2def.py exc.pthook
+  ./sh/py2def.py sys_excepthook
   ls ./def*.py
   for F in def*.py; do echo $(ls $F) $(cat $F |tail -n +2 |md5sum); done
 """
@@ -48,7 +48,8 @@ def main() -> None:
     ns = parser.parse_args_if(sys.argv[1:])  # often prints help & exits zero
 
     defname = ns.defname
-    run_for_defname(defname)
+    _defname_ = defname.removeprefix("def ")
+    run_for_defname(_defname_)
 
     print()
     print("Bye from sh/py2def.py")
@@ -67,11 +68,14 @@ def arg_doc_to_parser(doc: str) -> ArgDocParser:
 
 
 #
-# Save Lines of each Revisio of Def
+# Save Lines of each Revision of Def
 #
 
 
 def run_for_defname(defname: str) -> None:
+    """Save Lines of each Revision of Def"""
+
+    # Find the Files that contain this Def
 
     pattern = re.escape("def " + defname)
 
@@ -85,12 +89,16 @@ def run_for_defname(defname: str) -> None:
             assert path not in text_by_path.keys(), (text_by_path,)
             text_by_path[path] = text
 
+    # Visit each File
+
     n = 0
     for path, text in text_by_path.items():
         lines = text.splitlines()
 
         print()
         print("Fetched", len(lines), "lines from", path)
+
+        # Visit each Line
 
         i = 0
         while i < len(lines):
@@ -100,29 +108,26 @@ def run_for_defname(defname: str) -> None:
 
             rstrip = line.rstrip()
             if re.search(pattern, string=rstrip):
-                opathname = f"./def{n}.py"
-                skip = write_one_file(opathname, path=path, lines=lines, i=i_of_line)
-                i += skip - 1
 
-                line1 = lines[0]
-                if not line1.endswith("found by sh/py2def.py"):
+                # Write a Revision taken from this File, or don't
+
+                opathname = f"./def{n}.py"
+                finds = write_one_file_if(opathname, path=path, lines=lines, i=i_of_line)
+                if finds:
                     n += 1
 
-                # breakpoint()
-                # pass
 
+def write_one_file_if(opathname: str, path: pathlib.Path, lines: list[str], i: int) -> int:
+    """Write Lines of one Revision of Def and return Nonzero, else return Zero"""
 
-def write_one_file(opathname: str, path: pathlib.Path, lines: list[str], i: int) -> int:
-    """Save Lines of one Revisio of Def"""
-
-    #
+    # Write the First Lines
 
     lineno = 1 + i
     oline = f"# {path}:{lineno} found by sh/py2def.py"
 
     pass  # todo: add the obvious imports
 
-    #
+    # Copy Lines till a non-blank Line doesn't start with as much or more Indentation
 
     line = lines[i]
     rstrip = line.rstrip()
@@ -135,18 +140,20 @@ def write_one_file(opathname: str, path: pathlib.Path, lines: list[str], i: int)
     while j < len(lines):
         line = lines[j]
         rstrip = line.rstrip()
-        if (not rstrip) or rstrip.startswith(ldent):
+
+        breaking = True
+        if not rstrip:
+            breaking = False
+        elif rstrip.startswith(ldent):
             if rstrip[len(ldent) :][:1] in (" ", "#", ")", ""):
-                j += 1
-                continue
+                breaking = False
 
-        # print(repr(rstrip))
-        # breakpoint()
-        # pass
+        if breaking:
+            break
 
-        break
+        j += 1
 
-    #
+    # Drop the Blank Lines from the End
 
     deflines = lines[i:j]
     assert deflines, (deflines,)
@@ -155,7 +162,7 @@ def write_one_file(opathname: str, path: pathlib.Path, lines: list[str], i: int)
     for k in range(len(deflines) - 1, 0, -1):
         line = deflines[k]
         strip = line.strip()
-        if (not strip) or strip.startswith("#"):
+        if not strip:
             len_deflines -= 1
             continue
 
@@ -163,9 +170,9 @@ def write_one_file(opathname: str, path: pathlib.Path, lines: list[str], i: int)
 
     deflines[::] = deflines[:len_deflines]
 
-    result = len(deflines)
+    # Skip the Lines found again inside some File that we wrote awhile back
 
-    #
+    result = len(deflines)
 
     lineno = 1 + i
     olines = [oline] + deflines
@@ -175,13 +182,16 @@ def write_one_file(opathname: str, path: pathlib.Path, lines: list[str], i: int)
     if line1.endswith("found by sh/py2def.py"):  # todo: merge the 'found by's
         pname = shlex.quote(path.name)
         print(f"Skipping {pname} found by sh/py2def.py")
-        return result
+
+        return 0  # pretend we found No Lines, because we wrote No Lines
+
+    # Write the Lines
 
     opname = shlex.quote(opathname)  # todo: also show the md5sum, not just len olines
     print(f"Writing {len(olines)} lines into {opname} as found by sh/py2def.py")
     pathlib.Path(opathname).write_text(otext)
 
-    #
+    # Succeed
 
     return result
 
@@ -455,10 +465,10 @@ if __name__ == "__main__":
 
 
 #
-# We might often remember to test if our 'posted as' marks correctly find themselves:
+# We might often remember to test if our 'p''osted as' marks correctly find themselves:
 #
-#   git grep 'p'osted.as |cut -d: -f1 |awk -F/ '{print $NF}' |uniq >a
-#   git grep 'p'osted.as |sed 's/",$//' |awk -F/ '{print $NF}' >b
+#   git grep 'p''osted.as' |cut -d: -f1 |awk -F/ '{print $NF}' |uniq >a
+#   git grep 'p''osted.as' |sed 's/",$//' |awk -F/ '{print $NF}' >b
 #   diff -brpu a b
 #
 
