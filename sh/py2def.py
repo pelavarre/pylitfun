@@ -145,7 +145,7 @@ def write_one_file_if(opathname: str, path: pathlib.Path, lines: list[str], i: i
         if not rstrip:
             breaking = False
         elif rstrip.startswith(ldent):
-            if rstrip[len(ldent) :][:1] in (" ", "#", ")", ""):
+            if rstrip[len(ldent) :][:1] in (" ", ")"):
                 breaking = False
 
         if breaking:
