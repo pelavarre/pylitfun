@@ -71,7 +71,7 @@ No boss liked my work on our second project together, not till 2023. Here's the 
 
 I'm great at talking with machines. I'm not so great at talking with you. You say a lot without words. I almost don't hear it. Leave me to guess, and I'll guess wrong. Oops.
 
-My work on our first project will amaze you. It will amaze you because you did the hard part first. You told the other bosses what to get done, and when, and why. You did that well. That's how you got the money to hire me.
+My work on our first project will amaze you. It will amaze you because you did the hard part first. You told the other bosses what to get done, and when, and why. You did that plenty well. That's how you got the money to hire me.
 
 You told them first what I should do. You told me second. And then I amazed you. I delivered our first project before time, below cost, and better than spec. Then came the second project. And there we went wrong. Ouch. Why? Because you didn't show up early to do your part again. You can do your part fast without me, or slow with me. But you can't skip it. When you do your part early & well, then you've set me up for success. If you skip your part, you're asking for us to waste your time, which isn't a result you can afford to buy.
 
@@ -89,7 +89,11 @@ I've not been laid off since 2004. While I am happily employed, we can take more
 
 ### 2.3 Alignment
 
-Odds on, you care about quick & simple & good, in that order only, because you're a boss with staff and budget. Sure I can work with your attitude but no it doesn't come naturally to me. I show up caring about good & simple & quick, in that order only, until and unless you & I work hard enough to get me to see it your way.
+We're sure to find one old, ordinary conflict. A boss who likes to take charge vs a worker who loves the craft. That's you & me.
+
+It's ok. I want the work. I want it enough that I'm completely prepared to work your way. Your way is quick, then simple, then good. That's the boss in you. Mine is good, then simple, then quick. That's the craft in me.
+
+I can give you your order. It just won't come to me on its own. It takes you & me both, working on it together, to bring me round.
 
 You ok with this?
 
