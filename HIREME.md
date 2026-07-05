@@ -185,7 +185,7 @@ You know this MBA 2x2 plot?
 
 When you feel I've leant way over into making & keeping friends, then we can ask if you're blocking me from getting things done.
 
-Each real situation calls us to one point or another. Often the middle of it all works best. We can label the middle as.
+Each real situation calls us to one point or another. Often the middle of it all works best. We can label the middle as:
 
 5. Compromise = Get enough done, without hurting people.
 
@@ -229,7 +229,9 @@ Maybe you've got skills that build deep trust much faster? I've not seen it, as 
 
 That's from "Designing Interfaces", by Jenifer Tidwell Nov/2005, p. 7/331.
 
-As often as I give you too much credit -- calling you curious, patient, imaginative, and collegial while you're not feeling it -- I need you to tell me, out loud in words, so I stop hurting you by talking and talking, on and on and on.
+I can give you too much credit. I take you for curious, patient, imaginative, and collegial -- even when you're not feeling it. So I talk and talk, on and on and on. And that hurts you.
+
+As often as I do this, I need you to tell me, out loud in words, so I stop.
 
 
 ### 3.6 Reshuffling the points of the story
@@ -238,7 +240,7 @@ You'll often need to hear the "Bottom Line Up Front (BLUF)" = Recommendations, b
 
 When you feel that's not what you got from me, I need you to tell me your need, so I can meet it.
 
-You'll often need to hear Who, What, When, Where, Why, & How, in exactly that order. When you feel I've shuffled the order or dropped a point, I need you to tell me your need, so I can come meet it. Neither of these conventions come naturally me. But I can conform to custom on request.
+You'll often need to hear Who, What, When, Where, Why, & How, in exactly that order. When you feel I've shuffled the order or dropped a point, I need you to tell me your need, so I can come meet it. Neither of these conventions come naturally to me. But I can conform to custom on request, no problem.
 
 
 ### 3.7 Telling you how to do your own job
