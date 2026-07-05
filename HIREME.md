@@ -82,9 +82,11 @@ So come tell me. What do you need done? When? Why? Bet on me. That's my ask.
 
 I enjoy turning impossible into done.
 
-I've been doing it, as work for hire. I want to keep doing it, as work for hire. What I need is a slice of your budget. Spent on hiring me.
+And I am already placed where I can & do turn impossible into done. But to keep doing this, what I need from you is a slice of your budget. Spent on hiring me.
 
-I've not been laid off since 2004. While I am happily employed, we can take more risks to hunt out the kind of business that can win bigger by hiring me away. I'll be easier to hire later, after our AI boom goes bust and I get laid off. But I'm more profitable to hire now.
+I've not been laid off since 2004. Right now I'm happily employed. I'm not desperate. This is a chance for you & me to win big. We can get me to take the bigger risk of leaving before I'm told to leave, by showing me the bigger win of having me take the job with you now.
+
+Later, I'll be easier to hire, after our AI boom goes bust and I get laid off. I'm harder to hire now, but more profitable to hire now. I'm saying: sounds good, let's make this happen.
 
 
 ### 2.3 Alignment
