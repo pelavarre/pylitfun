@@ -98,7 +98,11 @@ You can hold up your side of the argument? Lead us well, to give your view enoug
 
 ### 2.4 Judgments
 
-Can you look at evidence, give a judgment, and know that you tilted your judgment one way or the other because of how you're feeling about me just now?
+You'll look at my work and judge it.
+
+Can you know how much you changed your judgment because of how you were feeling about me just then?
+
+Do you know this table? It shows the choices we make while working as judges. We the judges make a quality into a strength, or we make it into a fault, when we read the quality out of a person.
 
 | - | Them | You & Me |
 | --- | --- | --- |
@@ -113,7 +117,11 @@ Can you look at evidence, give a judgment, and know that you tilted your judgmen
 | 9 | Irrational | Insightful |
 | 10 | Show Off | Expert |
 
-This table comes from comedienne Sarah Cooper, remixing Merrill Wilson Reid.
+Our choice depends on whose side we put the person on. We feel we're still judging one of You & Me, or we feel we're now judging a Them. The table comes from comedienne Sarah Cooper, remixing Merrill Wilson Reid. She's laughing so she's not crying, over how often so many of us get this backwards, get this wrong.
+
+What I most want to avoid, as we work together, is having me become a Them. I want you & me to solve our every difficulty together.
+
+Do you feel you can hold back from making me into a Them, in your eyes? I need your support there.
 
 
 ### 2.5 Too many words
