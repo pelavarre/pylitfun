@@ -254,7 +254,7 @@ The fear I'm carrying is that you're feeling I'm talking AT you. But we agree th
 
 As we work together, you'll judge my performance, and I'll judge yours.
 
-I'll be too quick to misunderstand you, if it sounds to me like you're repeating some old foolish wrong that I saw other bosses repeat before you. I'll need you to lead me well out of my misimpression.
+I'll be too quick to misunderstand you. I misunderstand when I feel you sound like you're repeating an old foolish wrong that other bosses have repeated before you. I'll need you to lead me well out of my misimpression.
 
 
 ### 4.1 Nine ways bosses have bullied me out of getting things done
@@ -278,24 +278,24 @@ c. Never acknowledge, never discuss, that the work must continue while you are a
 d. Make me guess what normal is.<br>
 e. Speak much less than you feel.<br>
 
-I've seen these 9 wrongs and 5 myself, firsthand. I've seen ill treatment of my coworkers, and ill treatment of myself. But I only found words for these common wrongs by reading a book, the "Military Brats" book, by Mary Edwards Wertsch, 351 pages, 1991. That book is her sketch of how children grew up, when born 1952..1964 into the families of USA Cold War Military.
+I've seen these 9 wrongs and 5 myself, firsthand. I've seen ill treatment of my coworkers, and ill treatment of myself. But I only found words for these common wrongs in a book. It's the "Military Brats" book, by Mary Edwards Wertsch, 351 pages, 1991. Her book sketches how children grew up, born 1952..1964 into the families of USA Cold War Military.
 
-I'm younger than she, but still the US Navy gave me ten homes and ten schools by the tenth grade across the 1960s and 1970s. I knew that Cold War life.
+As for me, the US Navy gave me ten homes and ten schools by the tenth grade, across the 1960s and 1970s. I came to know that Cold War life, much the same, in the decade after hers.
 
 
 ### 4.3 Instructions you don't want to give me
 
-Sometimes I feel we've trapped me in a role for which I'm wildly overqualified.
+Sometimes I feel we've trapped me in a role I'm wildly overqualified for.
 
 Three wrong instructions I once received are:
 
 1. Do not get more done than expected, because we will punish that as Feature Creep.
 2. Do not help too many people working too far away from your own deliverables, because we will punish that as Lack of Focus.
-3. Do not move too much too quickly, out of what you believe must move now, because we will punish that as Over-Promise Under-Deliver. And we will punish that moving without enough Permission, we will not show up with Forgiveness.
+3. Do not move too much too quickly on what you believe must move now, because we will punish that as Over-Promise Under-Deliver. And we will punish moving without Permission, and we will never show up with Forgiveness.
 
-To hire me, you can catch me at a time when I'm feeling misled in this way, and promise me that you'll not wrong me like this yourself.
+To hire me, catch me when I'm feeling misled like this. Promise me you won't wrong me the same way.
 
-What I need is clearer direction from you, less punishment.
+What I need from you is clearer direction, less punishment.
 
 
 ### 4.4 One thing I won't do for you
@@ -333,7 +333,7 @@ In place of explanation, I sketch how I have begun to compensate for or correct 
 
 ### 5.3 Shove
 
-I don't take it personally. I cultivate a thicker skin. You have an enviable ability to shrug off criticism, move past negative comments, and ignore unwanted input. I can take casual feedback in the worst possible light, as a laser pinpointing my shortcomings. I can dwell on feedback, giving it much more consideration than any with which it was spoken. Yes I can, and no I shouldn't. I shouldn't waste my time in failing & failing to make sense of your incoherence.
+I don't take it personally. I cultivate a thicker skin. You have an enviable ability to shrug off criticism, move past negative comments, and ignore unwanted input. I can take casual feedback in the worst possible light, as a laser pinpointing my shortcomings. I can dwell on feedback, giving it more weight than it was meant to carry. Yes I can, and no I shouldn't. I shouldn't waste my time on failing & failing to make sense of your incoherence.
 
 I hold back from hearing your every word and listening for all of your possible meanings. I assume you are thinking only of the message: your words as you meant them.
 
@@ -351,7 +351,7 @@ When I think I'm losing it, I excuse myself or reschedule for a time when I'll f
 
 ### 5.6 Cheat
 
-There is more than one way to skin a cat. Rules are made to be broken. You're focusing on the shortest ways between two points. If there is a shorter, quicker, easier way to do something, you'll find it. I often have a hard time getting on board with this, as I am more rules and process oriented, so I might not automatically look for an alternate to the specified method.
+There is more than one way to skin a cat. Rules are made to be broken. You're focusing on the shortest ways between two points. If there is a shorter, quicker, easier way to do something, you'll find it. I often have a hard time getting on board with this, as I am more rules & process oriented. So I can forget to look for an alternate to our established method.
 
 I can feel you are cheating, and I shouldn't. Instead, I make the time to examine the opportunities, and I find agreement with you over if and how these opportunities can be leveraged.
 
