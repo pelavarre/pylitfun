@@ -65,17 +65,17 @@ Its self-referential irony -- acknowledging verbosity in §2.5 while writing 350
 
 ### 2.1 Costs
 
-We must ask, can you afford me. Really, can you?
+Can you afford me? Really?
 
-No boss had ever been happy with my work on our second project, until 2023. The road to happy turned out to be for the boss to invest a full half hour to talk with me every week. That's how we make time for the boss to say out loud in words what they really need.
+No boss liked my work on our second project together, not till 2023. Here's the fix. The boss gives me a half hour every other week, just to talk. That's when the boss says out loud what they really need.
 
-What I'm strongest at is talking with machines. Talking with you, I don't do that so very well. In particular, the many things you know and say without words, I don't entirely miss them, but I almost don't hear them. As often as you leave me guessing, you're inviting me to guess wrong. Oops.
+I'm great at talking with machines. I'm not so great at talking with you. You say a lot without words. I almost don't hear it. Leave me to guess, and I'll guess wrong. Oops.
 
-You will find my work on our first project astonishingly good. Astonishingly good exactly because you did put the work in up front. You had to tell the other bosses what we need to get done, when, and why. You showed up and did that well. That's how you got them to give you the money to hire me.
+My work on our first project will amaze you. It will amaze you because you did the hard part first. You told the other bosses what to get done, and when, and why. You did that well. That's how you got the money to hire me.
 
-You told them first, you told me second. I delivered our first project before time, below cost, and better than spec. But after the first project, in our second project, out there we go way wrong together, ouch. Unless you do show up early again, to do your part, again. You can do your part quickly without me, or slowly with me, but you can't just skip it because you've got no other bosses telling you to do it. You've got to get your part done well and early. Else we're wasting my time on being misled by you.
+You told them first what I should do. You told me second. And then I amazed you. I delivered our first project before time, below cost, and better than spec. Then came the second project. And there we went wrong. Ouch. Why? Because you didn't show up early to do your part again. You can do your part fast without me, or slow with me. But you can't skip it. When you do your part early & well, then you've set me up for success. If you skip your part, you're asking for us to waste your time, which isn't a result you can afford to buy.
 
-Come now, tell me what you need to get done, when, and why. Let's bet on me, that's what I'm asking of you.
+So come tell me. What do you need done? When? Why? Bet on me. That's my ask.
 
 
 ### 2.2 Profits
