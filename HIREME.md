@@ -171,7 +171,7 @@ You know this MBA 2x2 plot?
 
 This is the Eisenhower Matrix.
 
-Bosses find a lose/lose with me when they starve Point 2 for attention, like when they take offense at me not reflecting their fascination with Point 1 strongly enough to flatter their good judgment.
+Bosses find a lose/lose with me when they starve Point 2 for attention. Point 1 is the urgent fire, and it fascinates them. When I don't share that fascination loudly enough to reinforce their good judgment, they take offense.
 
 
 ### 3.2 Getting things done, vs making & keeping friends
@@ -203,20 +203,20 @@ Linda Berens has gone and trademarked her names for the four roles she finds peo
 3. Get Things Going ™ = Persuade, involve, and spark the rest of us to move early & often.
 4. Take Charge ™ = Drive results, take decisive action, make sure the goal gets done.
 
-You're a boss with staff and budget. So you probably cover role (4) well for us. I'd guess I'm most valuable when asked for (1), else for (2), else for (3).
+You're a boss with staff and budget. So you probably cover role (4) well for us. I'd guess I'm most valuable at (1), then (2), then (3).
 
-When we see me mostly paid to do (3) well, then we can guess we forgot to ask me for (2) and we didn't listen well when I volunteered (1).
+When I'm mostly paid to do (3), we can guess two things. We forgot to ask me for (2). And we didn't listen when I volunteered (1).
 
 
 ### 3.4 Forming, Storming, Norming, & Performing
 
-I'll be guessing our new team will take three years to reach full strength, unless you can show me faster work than I've seen. Because teams are born, and they live, and they die, just as if they were individual people. In 1965, Bruce Tuckman named the four stages of life of a team at work, and in 1977 he spoke of their deaths:
+I'll be guessing our new team takes three years to reach full strength. Unless you can show me faster work than I've seen. Teams are born, and they live, and they die, like people do. Back in 1965, Bruce Tuckman named the four stages of a team's life. Twelve years later, he came back and gave a name to how they die too. Like so:
 
-1. Forming = Team members meet, build trust, and define goals, often exhibiting **polite, anxious, and guarded behavior**.
-2. Storming = Conflict arises as **personalities emerge and members challenge ideas** or leadership, which is necessary for growth.
-3. Norming = The team **resolves conflicts**, builds cohesion, establishes team norms, and begins to work collaboratively.
-4. Performing = The team operates as a highly productive unit, **functioning with** high trust, shared goals, and **minimal supervision**.
-5. Adjourning (or Mourning) = The project concludes, and the team disbands. This stage involves transitioning roles and celebrating achievements.
+1. FORMING = Team members meet, build trust, and define goals, often exhibiting **polite, anxious, and guarded behavior**.
+2. STORMING = Conflict arises as **personalities emerge and members challenge ideas** or leadership, which is necessary for growth.
+3. NORMING = The team **resolves conflicts**, builds cohesion, establishes team norms, and begins to work collaboratively.
+4. PERFORMING = The team operates as a highly productive unit, **functioning with** high trust, shared goals, and **minimal supervision**.
+5. ADJOURNING (or MOURNING) = The project concludes, and the team disbands. This stage involves transitioning roles and celebrating achievements.
 
 These words come from the Google AI reply to Search > Tuckman's stages of development.
 
@@ -236,11 +236,9 @@ As often as I do this, I need you to tell me, out loud in words, so I stop.
 
 ### 3.6 Reshuffling the points of the story
 
-You'll often need to hear the "Bottom Line Up Front (BLUF)" = Recommendations, before Conclusions, before Opinions, before Facts.
+You'll often need to hear the "Bottom Line Up Front (BLUF)" = Recommendations, before Conclusions, before Opinions, before Facts. And you'll often need to hear Who, What, When, Where, Why, & How, in exactly that order.
 
-When you feel that's not what you got from me, I need you to tell me your need, so I can meet it.
-
-You'll often need to hear Who, What, When, Where, Why, & How, in exactly that order. When you feel I've shuffled the order or dropped a point, I need you to tell me your need, so I can come meet it. Neither of these conventions come naturally to me. But I can conform to custom on request, no problem.
+When you feel I've shuffled either order, or dropped a point, I need you to tell me your need, so I can come meet it. Neither of these conventions come naturally to me. But I can conform to custom on request, no problem.
 
 
 ### 3.7 Telling you how to do your own job
@@ -249,7 +247,7 @@ Sometimes you need me to tell us directly how I feel we should work.
 
 It's lots hard for me to really believe you want that. If you mean it, I need you to ask me more than once.
 
-I feel it's way easy for you to feel I'm talking AT you, while what we need is for me to talk WITH you. As often as you feel I am ducking the question, you can help us by asking if I'm feeling you need more floor time.
+The fear I'm carrying is that you're feeling I'm talking AT you. But we agree that what we need is for me to talk WITH you. When you do feel I'm ducking the question, then I immediately urgently need one particular tiny bit of help from you. I need you to tell me you feel I need to take more floor time.
 
 
 ## 4 Losing at work
