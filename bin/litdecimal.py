@@ -24,12 +24,9 @@ def main() -> None:
     # import litsys
     # sys.excepthook = litsys.sys_excepthook
 
-    int_chop_to_eng(0)  # 'better called without check than untested'
-    int_chop_to_eng(1)
-    int_chop_to_eng(1000)
-    int_chop_to_eng(9876)
-    int_chop_to_eng(98765)
-    int_chop_to_eng(987654)
+    for i, s in _decimal_int_chop_to_eng_i_o_:
+        _s_ = decimal_int_chop_to_eng(i)
+        assert _s_ == s, (_s_, s)
 
     print("litdecimal.py: passed supercalifragilistically", file=sys.stderr)
 
@@ -39,19 +36,32 @@ def main() -> None:
 #
 
 
-def int_chop_to_eng(n: int) -> str:
+def decimal_int_chop_to_eng(n: int) -> str:
     """Chop down to 3 Digits at a Multiple-of-Three Exponent"""
 
     ctx = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)  # the Towards-Zero kind of "Down"
     D = ctx.create_decimal
 
-    clip = D(n).to_eng_string().lower()
+    i = int(repr(n))  # raises ValueError when a Float breaks our ': int' contract
+    clip = D(i).to_eng_string().lower().replace("e+", "e")
 
-    return clip
+    return clip  # int(float(clip)) is equal to (n) or less than and near (n)
+    # '0'  # '1'  # '1.00e3'  # '987' # '9.87e3'  # '98.7e3'  # '987e3'
+    # as if repr of int, int, float, int, float, float, float  # and '987e3' can mean 0x9_87E3
 
-    # '0'  # '1'  # '1.00e+3'  # '987' # '9.87e+3'  # '98.7e+3'  # '987e+3'
+    # 'def decimal_int_chop_to_eng' last modified for py2def.py on 2026-07-05 or later
 
-    # 'def int_chop_to_eng' last modified for py2def.py on 2026-07-04 or later
+
+_decimal_int_chop_to_eng_i_o_: tuple[tuple[int, str], ...] = (
+    (0, "0"),
+    (1, "1"),
+    (42, "42"),
+    (999, "999"),
+    (1000, "1.00e3"),
+    (9876, "9.87e3"),
+    (98765, "98.7e3"),
+    (987654, "987e3"),
+)
 
 
 #
