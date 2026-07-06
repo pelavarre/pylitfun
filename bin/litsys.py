@@ -46,10 +46,11 @@ def main() -> None:
     except (Exception, KeyboardInterrupt):  # BrokenPipeError # never SystemExit
 
         # PacificQuit = dt.datetime.now(Pacific)
-        # print(PacificQuit, PacificQuit - PacificLaunch)
+        # launch, quit = PacificLaunch, PacificQuit
 
         Quit = dt.datetime.now()
-        print(Quit, Quit - Launch)
+        launch, _quit_ = Launch, Quit
+        print(str(_quit_ - launch), "Quit='" + str(_quit_) + "'", "launch='" + str(launch) + "'")
 
         sys_excepthook(*sys.exc_info())  # launches pdb.pm()
 
