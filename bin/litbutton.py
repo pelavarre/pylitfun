@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 r"""
-usage: litbutton.py [-h] [PY ...]
+usage: litbutton.py [-h]
 
 take python input lines begun by shell verbs as shell input lines
-
-positional arguments:
-  PY          one more line of python code to eval
 
 options:
   -h, --help  show this help message and exit
@@ -24,7 +21,6 @@ import os
 import shlex
 import subprocess
 import sys
-import textwrap
 import traceback
 
 if not __debug__:
@@ -42,15 +38,17 @@ def main() -> None:
 
     prompt = LitPs1Prompt(">>> ")
 
-    pytext = textwrap.dedent("\n".join(argv1)).strip()
-    if not pytext:
-        sys.ps1 = prompt
-        os.environ["PYTHONINSPECT"] = str(True)
-        return
+    sys.ps1 = prompt
+    os.environ["PYTHONINSPECT"] = str(True)
 
-    # Eval each Python Line in order
 
-    for pyline in pytext.splitlines():
+def _exec_(pytext: str) -> None:
+    """Eval each Python Line in order"""
+
+    prompt = LitPs1Prompt(">>> ")
+    pylines = pytext.splitlines()
+
+    for pyline in pylines:
         str(prompt)
         value = eval(pyline)
         repr(value)
