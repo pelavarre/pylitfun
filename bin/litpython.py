@@ -79,7 +79,6 @@ def main() -> None:
         pass  # because 'return' shouts less than 'sys.exit' does, when run by 'python3 -i'
 
 
-
 def try_main() -> None:
     """Run Python Code else a Python Chat"""
 
