@@ -74,4 +74,4 @@ if __name__ == "__main__":
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/docs/litdecimal.py
-# copied from:  git clone https://github.com/pelavarre/litpython.git
+# copied from:  git clone https://github.com/pelavarre/pylitfun.git

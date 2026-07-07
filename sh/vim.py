@@ -65,4 +65,4 @@ sys.exit(2)
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/sh/vim.py
-# copied from:  git clone https://github.com/pelavarre/byoverbs.git
+# copied from:  git clone https://github.com/pelavarre/pylitfun.git

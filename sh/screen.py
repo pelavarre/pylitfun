@@ -219,4 +219,4 @@ if __name__ == "__main__":
 
 
 # posted as:  https://github.com/pelavarre/byoverbs/blob/main/bin/screen.py
-# copied from:  git clone https://github.com/pelavarre/byoverbs.git
+# copied from:  git clone https://github.com/pelavarre/pylitfun.git

@@ -73,7 +73,6 @@ def main() -> None:
         print(PacificQuit, PacificQuit - PacificLaunch)
         sys_excepthook(*sys.exc_info())
 
-
 def try_main() -> None:
     """Run from the Shell Command Line"""
 
@@ -597,4 +596,4 @@ if __name__ == "__main__":
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/litpython.py
-# copied from:  git clone https://github.com/pelavarre/litpython.git
+# copied from:  git clone https://github.com/pelavarre/pylitfun.git

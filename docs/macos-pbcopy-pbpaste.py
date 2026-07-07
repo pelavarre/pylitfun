@@ -340,4 +340,4 @@ main()
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/docs/macos-pbcopy-pbpaste.py
-# copied from:  git clone https://github.com/pelavarre/litpython.git
+# copied from:  git clone https://github.com/pelavarre/pylitfun.git
