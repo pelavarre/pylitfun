@@ -50,31 +50,38 @@ if not __debug__:
     raise NotImplementedError([__debug__])  # 'better python3 without -O than with -O'
 
 
-Pacific = zoneinfo.ZoneInfo("America/Los_Angeles")
-PacificLaunch = dt.datetime.now(Pacific)
 UTC = zoneinfo.ZoneInfo("UTC")  # extends welcome into the Periphery (outside San Francisco)
 
 
-#
-# Run from the Shell Command Line
-#
+Pacific = zoneinfo.ZoneInfo("America/Los_Angeles")
+PacificLaunch = dt.datetime.now(Pacific)
 
 
 def main() -> None:
-    """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
+    """Run Python Code else a Python Chat, but tell uncaught Exceptions to launch the Py Repl"""
 
-    # sys.excepthook = sys_excepthook  # catches KeyboardInterrupt, SystemExit, etc
+    # sys.excepthook = sys_excepthook  # catches SystemExit, KeyboardInterrupt, etc
     # try_main()
 
     try:
+
         try_main()
-    except Exception, KeyboardInterrupt:  # BrokenPipeError # never SystemExit
+
+    except (Exception, KeyboardInterrupt):  # BrokenPipeError # never SystemExit
+
         PacificQuit = dt.datetime.now(Pacific)
-        print(PacificQuit, PacificQuit - PacificLaunch)
-        sys_excepthook(*sys.exc_info())
+        launch, _quit_ = PacificLaunch, PacificQuit
+        print(str(_quit_ - launch), "Quit='" + str(_quit_) + "'", "launch='" + str(launch) + "'")
+
+        sys_excepthook(*sys.exc_info())  # launches pdb.pm()
+
+    except SystemExit:
+        pass  # because 'return' shouts less than 'sys.exit' does, when run by 'python3 -i'
+
+
 
 def try_main() -> None:
-    """Run from the Shell Command Line"""
+    """Run Python Code else a Python Chat"""
 
     doc = __main__.__doc__
     assert doc, (doc,)
@@ -89,7 +96,7 @@ def try_main() -> None:
     _globals_add_lazy_imports_()
     _globals_add_eager_objects_()
 
-    # Run Python Code when given Python Code, else launch a chat with Python
+    # Run Python Code else a Python Chat
 
     if pytext:
         exec(pytext)

@@ -46,13 +46,16 @@ def main() -> None:
     except (Exception, KeyboardInterrupt):  # BrokenPipeError # never SystemExit
 
         # PacificQuit = dt.datetime.now(Pacific)
-        # launch, quit = PacificLaunch, PacificQuit
+        # launch, _quit_ = PacificLaunch, PacificQuit
 
         Quit = dt.datetime.now()
         launch, _quit_ = Launch, Quit
         print(str(_quit_ - launch), "Quit='" + str(_quit_) + "'", "launch='" + str(launch) + "'")
 
         sys_excepthook(*sys.exc_info())  # launches pdb.pm()
+
+    except SystemExit:
+        pass  # because 'return' shouts less than 'sys.exit' does, when run by 'python3 -i'
 
 
 def try_main() -> None:
@@ -62,6 +65,8 @@ def try_main() -> None:
     time.sleep(0.321)
 
     assert sys.argv[1:], (sys.argv,)
+
+    sys.exit()
 
 
 #
