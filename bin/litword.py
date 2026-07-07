@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 r"""
-usage: litbutton.py [-h]
+usage: litword.py [-h]
 
 take python input lines begun by shell verbs as shell input lines
 
@@ -9,7 +9,7 @@ options:
   -h, --help  show this help message and exit
 
 examples:
-  bin/litbutton.py --
+  bin/litword.py --
 """
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -28,24 +28,18 @@ if not __debug__:
 
 
 def main() -> None:
-    """Launch a Python Chat, or eval each Python Line in order"""
+    """Launch a Python Chat"""
 
-    argv1 = sys.argv[1:]
-    if argv1 and argv1[0] == "--":
-        argv1 = argv1[1:]
+    ps1 = LitWordSysPs1(">>> ")
 
-    # Launch a Python Chat
-
-    prompt = LitPs1Prompt(">>> ")
-
-    sys.ps1 = prompt
+    sys.ps1 = ps1
     os.environ["PYTHONINSPECT"] = str(True)
 
 
 def _exec_(pytext: str) -> None:
     """Eval each Python Line in order"""
 
-    prompt = LitPs1Prompt(">>> ")
+    prompt = LitWordSysPs1(">>> ")
     pylines = pytext.splitlines()
 
     for pyline in pylines:
@@ -60,7 +54,7 @@ def _exec_(pytext: str) -> None:
 #
 
 
-class LitButton:
+class LitWord:
     """Reconstruct a Shell Input Line from how Python calls its pieces after parsing it"""
 
     argv: list[str] = list()
@@ -73,14 +67,14 @@ class LitButton:
     # Catch a "-" or "+" Unary Operator as a Mark on the left of a Word
     #
 
-    def __pos__(self) -> LitButton:
-        marks = LitButton.marks
-        LitButton.marks = "+" + marks
+    def __pos__(self) -> LitWord:
+        marks = LitWord.marks
+        LitWord.marks = "+" + marks
         return self
 
-    def __neg__(self) -> LitButton:
-        marks = LitButton.marks
-        LitButton.marks = "-" + marks
+    def __neg__(self) -> LitWord:
+        marks = LitWord.marks
+        LitWord.marks = "-" + marks
         return self
 
     #
@@ -88,27 +82,27 @@ class LitButton:
     # Give a "+" Binary Operator as an empty "" Mark
     #
 
-    def __add__(self, other: object) -> LitButton:
+    def __add__(self, other: object) -> LitWord:
         self._binop_(mark="", other=other)  # mark="", not mark="+"
         return self
 
-    def __radd__(self, other: object) -> LitButton:
+    def __radd__(self, other: object) -> LitWord:
         return self
 
-    def __rsub__(self, other: object) -> LitButton:
+    def __rsub__(self, other: object) -> LitWord:
         return self
 
-    def __sub__(self, other: object) -> LitButton:
+    def __sub__(self, other: object) -> LitWord:
         self._binop_(mark="-", other=other)
         return self
 
     def _binop_(self, mark: str, other: object) -> None:
 
-        argv = LitButton.argv
+        argv = LitWord.argv
 
-        if isinstance(other, LitButton):
-            word = mark + LitButton.marks + other.name
-            LitButton.marks = ""
+        if isinstance(other, LitWord):
+            word = mark + LitWord.marks + other.name
+            LitWord.marks = ""
         else:
             word = mark + str(other)  # str.__str__, not str.__repr__, in particular
 
@@ -146,8 +140,8 @@ class LitButton:
 
         name = self.name
 
-        argv = LitButton.argv
-        marks = LitButton.marks
+        argv = LitWord.argv
+        marks = LitWord.marks
 
         # Form the Shell ArgV
 
@@ -183,15 +177,15 @@ class LitButton:
         return (_shline_, _argv_)
 
 
-class LitPs1Prompt:
+class LitWordSysPs1:
     """Restart the Shell Line when the Py Repl calls for $PS1"""
 
     def __init__(self, ps1: str) -> None:
         self.ps1 = ps1
 
     def __str__(self) -> str:
-        LitButton.argv.clear()
-        LitButton.marks = ""
+        LitWord.argv.clear()
+        LitWord.marks = ""
         return self.ps1
 
 
@@ -203,125 +197,125 @@ class LitPs1Prompt:
 MODULE = sys.modules[__name__]
 
 
-# awk = LitButton("awk")
-bash = LitButton("bash")
-cal = LitButton("cal")
-cat = LitButton("cat")
-clear = LitButton("clear")
-# cd = LitButton("cd")  # todo: build in verbs to call in place of subprocess.run
-cp = LitButton("cp")
-curl = LitButton("curl")
-date = LitButton("date")  # date +'+%H:%M:%S'
-# dd = LitButton("dd")
-df = LitButton("df")
-diff = LitButton("diff")
-echo = LitButton("echo")
-find = LitButton("find")
-# head = LitButton("head")
-hexdump = LitButton("hexdump")
-# jq = LitButton("jq")
-# less = LitButton("less")
-ls = LitButton("ls")
+# awk = LitWord("awk")
+bash = LitWord("bash")
+cal = LitWord("cal")
+cat = LitWord("cat")
+clear = LitWord("clear")
+# cd = LitWord("cd")  # todo: build in verbs to call in place of subprocess.run
+cp = LitWord("cp")
+curl = LitWord("curl")
+date = LitWord("date")  # date +'+%H:%M:%S'
+# dd = LitWord("dd")
+df = LitWord("df")
+diff = LitWord("diff")
+echo = LitWord("echo")
+find = LitWord("find")
+# head = LitWord("head")
+hexdump = LitWord("hexdump")
+# jq = LitWord("jq")
+# less = LitWord("less")
+ls = LitWord("ls")
 if sys.platform == "linux":
-    lsb_release = LitButton("lsb_release")
-man = LitButton("man")  # man +date
-md5sum = LitButton("md5sum")
-mkdir = LitButton("mkdir")
-mv = LitButton("mv")
-od = LitButton("od")
-_open_ = LitButton("open")
-pbpaste = LitButton("pbpaste")
-ps = LitButton("ps")
-pwd = LitButton("pwd")
-python = LitButton("python")
-python3 = LitButton("python3")
-screen = LitButton("screen")
-script = LitButton("script")
-sh = LitButton("sh")
-sleep = LitButton("sleep")
-sort = LitButton("sort")
-ssh = LitButton("ssh")
-stty = LitButton("stty")
-sudo = LitButton("sudo")
+    lsb_release = LitWord("lsb_release")
+man = LitWord("man")  # man +date
+md5sum = LitWord("md5sum")
+mkdir = LitWord("mkdir")
+mv = LitWord("mv")
+od = LitWord("od")
+_open_ = LitWord("open")
+pbpaste = LitWord("pbpaste")
+ps = LitWord("ps")
+pwd = LitWord("pwd")
+python = LitWord("python")
+python3 = LitWord("python3")
+screen = LitWord("screen")
+script = LitWord("script")
+sh = LitWord("sh")
+sleep = LitWord("sleep")
+sort = LitWord("sort")
+ssh = LitWord("ssh")
+stty = LitWord("stty")
+sudo = LitWord("sudo")
 if sys.platform == "darwin":
-    sw_vers = LitButton("sw_vers")
-tail = LitButton("tail")
-# time = LitButton("time")  # todo: vs Shell 'time'
-touch = LitButton("touch")
-tr = LitButton("tr")
-uptime = LitButton("uptime")
+    sw_vers = LitWord("sw_vers")
+tail = LitWord("tail")
+# time = LitWord("time")  # todo: vs Shell 'time'
+touch = LitWord("touch")
+tr = LitWord("tr")
+uptime = LitWord("uptime")
 # if sys.platform == "darwin":
-#     uptime = LitButton("uptime.py")  # todo: vs Shell 'uptime --pretty'
-# xargs = LitButton("xargs")
-zsh = LitButton("zsh")
+#     uptime = LitWord("uptime.py")  # todo: vs Shell 'uptime --pretty'
+# xargs = LitWord("xargs")
+zsh = LitWord("zsh")
 
 _ = _open_
 
 
-LSs = LitButton("LSs")  # curl -k -LSs +'http://example.com'
-bpru = LitButton("bpru")  # diff -bpru +a +b
-color = LitButton("color")  # ls --color
-hlAF = LitButton("hlAF")  # ls -hlAF -rt
-pretty = LitButton("pretty")  # uptime --pretty
-rt = LitButton("rt")  # bash -c +ls -d -hlAF -rt +'*'
-sane = LitButton("sane")  # stty +sane
-version = LitButton("version")  # python3 --version
+LSs = LitWord("LSs")  # curl -k -LSs +'http://example.com'
+bpru = LitWord("bpru")  # diff -bpru +a +b
+color = LitWord("color")  # ls --color
+hlAF = LitWord("hlAF")  # ls -hlAF -rt
+pretty = LitWord("pretty")  # uptime --pretty
+rt = LitWord("rt")  # bash -c +ls -d -hlAF -rt +'*'
+sane = LitWord("sane")  # stty +sane
+version = LitWord("version")  # python3 --version
 
 
-a = LitButton("a")
-b = LitButton("b")
-c = LitButton("c")
-d = LitButton("d")
-e = LitButton("e")
-f = LitButton("f")
-g = LitButton("g")
-h = LitButton("h")
-i = LitButton("i")
-j = LitButton("j")
-k = LitButton("k")
-setattr(MODULE, "l", LitButton("l"))
-m = LitButton("m")
-n = LitButton("n")
-o = LitButton("o")
-p = LitButton("p")
-q = LitButton("q")
-r = LitButton("r")
-s = LitButton("s")
-t = LitButton("t")
-u = LitButton("u")
-v = LitButton("v")
-w = LitButton("w")
-x = LitButton("x")
-y = LitButton("y")
-z = LitButton("z")
+a = LitWord("a")
+b = LitWord("b")
+c = LitWord("c")
+d = LitWord("d")
+e = LitWord("e")
+f = LitWord("f")
+g = LitWord("g")
+h = LitWord("h")
+i = LitWord("i")
+j = LitWord("j")
+k = LitWord("k")
+setattr(MODULE, "l", LitWord("l"))
+m = LitWord("m")
+n = LitWord("n")
+o = LitWord("o")
+p = LitWord("p")
+q = LitWord("q")
+r = LitWord("r")
+s = LitWord("s")
+t = LitWord("t")
+u = LitWord("u")
+v = LitWord("v")
+w = LitWord("w")
+x = LitWord("x")
+y = LitWord("y")
+z = LitWord("z")
 
 
-A = LitButton("A")
-B = LitButton("B")
-C = LitButton("C")
-D = LitButton("D")
-E = LitButton("E")
-F = LitButton("F")
-G = LitButton("G")
-H = LitButton("H")
-setattr(MODULE, "I", LitButton("I"))
-J = LitButton("J")
-K = LitButton("K")
-L = LitButton("L")
-M = LitButton("M")
-N = LitButton("N")
-setattr(MODULE, "O", LitButton("O"))
-P = LitButton("P")
-Q = LitButton("Q")
-R = LitButton("R")
-S = LitButton("S")
-T = LitButton("T")
-U = LitButton("U")
-V = LitButton("V")
-W = LitButton("W")
-X = LitButton("X")
-Y = LitButton("Y")
-Z = LitButton("Z")
+A = LitWord("A")
+B = LitWord("B")
+C = LitWord("C")
+D = LitWord("D")
+E = LitWord("E")
+F = LitWord("F")
+G = LitWord("G")
+H = LitWord("H")
+setattr(MODULE, "I", LitWord("I"))
+J = LitWord("J")
+K = LitWord("K")
+L = LitWord("L")
+M = LitWord("M")
+N = LitWord("N")
+setattr(MODULE, "O", LitWord("O"))
+P = LitWord("P")
+Q = LitWord("Q")
+R = LitWord("R")
+S = LitWord("S")
+T = LitWord("T")
+U = LitWord("U")
+V = LitWord("V")
+W = LitWord("W")
+X = LitWord("X")
+Y = LitWord("Y")
+Z = LitWord("Z")
 
 
 #
@@ -333,5 +327,5 @@ if __name__ == "__main__":
     main()
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/litbutton.py
-# copied from:  git clone https://github.com/pelavarre/litbutton.git
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/litword.py
+# copied from:  git clone https://github.com/pelavarre/pylitfun.git
