@@ -235,6 +235,7 @@ _open_ = LitButton("open")
 pbpaste = LitButton("pbpaste")
 ps = LitButton("ps")
 pwd = LitButton("pwd")
+python = LitButton("python")
 python3 = LitButton("python3")
 screen = LitButton("screen")
 script = LitButton("script")
@@ -261,10 +262,12 @@ _ = _open_
 
 LSs = LitButton("LSs")  # curl -k -LSs +'http://example.com'
 bpru = LitButton("bpru")  # diff -bpru +a +b
+color = LitButton("color")  # ls --color
 hlAF = LitButton("hlAF")  # ls -hlAF -rt
 pretty = LitButton("pretty")  # uptime --pretty
 rt = LitButton("rt")  # bash -c +ls -d -hlAF -rt +'*'
 sane = LitButton("sane")  # stty +sane
+version = LitButton("version")  # python3 --version
 
 
 a = LitButton("a")
