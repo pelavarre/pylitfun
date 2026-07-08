@@ -124,11 +124,22 @@ class LitWord:
         print("+", _shline_, file=sys.stderr)
         sys.stderr.flush()
 
-        try:
-            subprocess.run(_argv_)
-        except Exception as exc:
-            texts = traceback.format_exception(exc, limit=0)  # colorize=sys.stderr.isatty(
-            print(texts[0].rstrip())
+        _argv0_ = _argv_[0]
+        if _argv0_ == "cd":
+
+            try:
+                do_chdir(_argv_)
+            except Exception as exc:
+                texts = traceback.format_exception(exc, limit=0)  # colorize=stderr.isatty
+                print(texts[0].rstrip())
+
+        else:
+
+            try:
+                subprocess.run(_argv_)
+            except Exception as exc:
+                texts = traceback.format_exception(exc, limit=0)  # colorize=stderr.isatty
+                print(texts[0].rstrip())
 
         sys.stdout.flush()
         print("+", file=sys.stderr)
@@ -215,6 +226,25 @@ def sys_displayhook(value: object) -> None:
 
 
 #
+# Run in place of a Shell Command, when LitWord.__repr__ called
+#
+
+
+def do_chdir(argv: list[str]) -> None:
+    """Work like the 'cd' Command of a Shell"""
+
+    _argv_ = list(argv)
+    if len(argv) == 1:
+        _argv_.append("~/")
+
+    assert len(_argv_) == 2, (len(_argv_), _argv_)
+    argv1 = _argv_[1]
+
+    expanduser = os.path.expanduser(argv1)
+    os.chdir(expanduser)
+
+
+#
 # Define a Button for each ASCII Letter, plus some Shell Verbs
 #
 
@@ -227,7 +257,7 @@ bash = LitWord("bash")
 cal = LitWord("cal")
 cat = LitWord("cat")
 clear = LitWord("clear")
-# cd = LitWord("cd")  # todo: build in verbs to call in place of subprocess.run
+cd = LitWord("cd")
 cp = LitWord("cp")
 curl = LitWord("curl")
 date = LitWord("date")  # date +'+%H:%M:%S'
