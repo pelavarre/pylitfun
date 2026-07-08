@@ -19,6 +19,7 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 
 import builtins
 import os
+import pathlib
 import shlex
 import subprocess
 import sys
@@ -62,7 +63,9 @@ class LitWord:
     marks = ""
 
     def __init__(self, name: str) -> None:
-        self.name = name
+
+        self.name = name  # todo: when to declare instance fields
+        self.oldpwd = os.getcwd()  # Zsh always has a $OLDPWD  # Bash waits till first 'cd' passes
 
     #
     # Catch a "-" or "+" Unary Operator as a Mark on the left of a Word
@@ -127,22 +130,12 @@ class LitWord:
         print("+", _shline_, file=sys.stderr)
         sys.stderr.flush()
 
-        _argv0_ = _argv_[0]
-        if _argv0_ == "cd":
-
-            try:
-                do_chdir(_argv_)
-            except Exception as exc:
-                texts = traceback.format_exception(exc, limit=0)  # colorize=stderr.isatty
-                print(texts[0].rstrip())
-
-        else:
-
-            try:
-                subprocess.run(_argv_)
-            except Exception as exc:
-                texts = traceback.format_exception(exc, limit=0)  # colorize=stderr.isatty
-                print(texts[0].rstrip())
+        func = self.do_chdir if _argv_[0] == "cd" else subprocess.run
+        try:
+            func(_argv_)
+        except Exception as exc:
+            texts = traceback.format_exception(exc, limit=0)  # colorize=stderr.isatty
+            print(texts[0].rstrip())
 
         sys.stdout.flush()
         print("+", file=sys.stderr)
@@ -192,6 +185,57 @@ class LitWord:
 
         return (_shline_, _argv_)
 
+    #
+    # Run in place of a Shell Command, when LitWord.__repr__ called
+    #
+
+    def do_chdir(self, argv: list[str]) -> None:
+        """Work like the 'cd' Command of a Shell"""
+
+        # Parse
+
+        _argv_ = list(argv)
+        if len(argv) == 1:
+            _argv_.append("~/")
+
+        assert len(_argv_) == 2, (len(_argv_), _argv_)
+        argv1 = _argv_[1]
+
+        # Sample
+
+        oldpwd = self.oldpwd
+        getcwd = os.getcwd()
+
+        # Change and remember
+
+        if argv1 == "-":
+
+            os.chdir(oldpwd)
+
+            unexpanduser = self.unexpanduser(os.getcwd())
+            print(unexpanduser)
+
+        else:
+
+            expanduser = os.path.expanduser(argv1)
+            os.chdir(expanduser)
+
+        self.oldpwd = getcwd
+
+        # todo: learn the Zsh "cd $stale $fresh" move
+
+    def unexpanduser(self, pathname: str) -> str:
+        """Speak in terms of ~/ not in terms of $HOME/"""
+
+        path = pathlib.Path(pathname)
+        home = pathlib.Path.home()
+
+        try:
+            s = str(pathlib.Path("~") / path.relative_to(home))
+            return s
+        except ValueError:
+            return pathname
+
 
 class LitWordSysPs1:
     """Restart the Shell Line when the Py Repl calls for $PS1"""
@@ -226,25 +270,6 @@ def sys_displayhook(value: object) -> None:
         # note: __builtins__ vs builtins work differently for main script vs imported py files
 
     sys.__displayhook__(value)  # falls back to the Stock Py Repl for every other Value
-
-
-#
-# Run in place of a Shell Command, when LitWord.__repr__ called
-#
-
-
-def do_chdir(argv: list[str]) -> None:
-    """Work like the 'cd' Command of a Shell"""
-
-    _argv_ = list(argv)
-    if len(argv) == 1:
-        _argv_.append("~/")
-
-    assert len(_argv_) == 2, (len(_argv_), _argv_)
-    argv1 = _argv_[1]
-
-    expanduser = os.path.expanduser(argv1)
-    os.chdir(expanduser)
 
 
 #
