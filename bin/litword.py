@@ -17,6 +17,7 @@ examples:
 
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
 
+import builtins
 import os
 import shlex
 import subprocess
@@ -33,20 +34,20 @@ def main() -> None:
     ps1 = LitWordSysPs1(">>> ")
 
     sys.ps1 = ps1
+    sys.displayhook = sys_displayhook
     os.environ["PYTHONINSPECT"] = str(True)
 
 
 def _exec_(pytext: str) -> None:
-    """Eval each Python Line in order"""
+    """Read, Eval, Print Repr, Loop across the Lines of the Text in order"""
 
-    prompt = LitWordSysPs1(">>> ")
+    ps1 = LitWordSysPs1(">>> ")
+
     pylines = pytext.splitlines()
-
     for pyline in pylines:
-        str(prompt)
+        str(ps1)  # calls as if printing prompt before reading input
         value = eval(pyline)
-        repr(value)
-        print(file=sys.stderr)
+        repr(value)  # calls as if printing repr
 
 
 #
@@ -86,10 +87,10 @@ class LitWord:
         self._binop_(mark="", other=other)  # mark="", not mark="+"
         return self
 
-    def __radd__(self, other: object) -> LitWord:
+    def __radd__(self, _: object) -> LitWord:
         return self
 
-    def __rsub__(self, other: object) -> LitWord:
+    def __rsub__(self, _: object) -> LitWord:
         return self
 
     def __sub__(self, other: object) -> LitWord:
@@ -130,10 +131,11 @@ class LitWord:
             print(texts[0].rstrip())
 
         sys.stdout.flush()
-        print("+", end="", file=sys.stderr)
+        print("+", file=sys.stderr)
         sys.stderr.flush()
 
-        return ""
+        r = object.__repr__(self)
+        return r
 
     def _take_shline_argv_(self) -> tuple[str, list[str]]:
         """Reconstruct the Shell ArgV, after the Py Repl finishes parsing it & calling pieces"""
@@ -187,6 +189,29 @@ class LitWordSysPs1:
         LitWord.argv.clear()
         LitWord.marks = ""
         return self.ps1
+
+
+assert sys.displayhook is sys.__displayhook__, (sys.displayhook, sys.__displayhook__)
+
+
+def sys_displayhook(value: object) -> None:
+    """Run as a Sys DisplayHook but see None as the Repr of 1 or more LitWord's"""
+
+    hooking = False
+    if isinstance(value, LitWord):
+        hooking = True
+    elif isinstance(value, tuple):
+        if value and all(isinstance(v, LitWord) for v in value):
+            hooking = True
+
+    if hooking:
+        repr(value)  # calls as if printing repr
+        setattr(builtins, "_", value)  # stores as if running sys.__displayhook__
+        return
+
+        # note: __builtins__ vs builtins work differently for main script vs imported py files
+
+    sys.__displayhook__(value)  # falls back to the Stock Py Repl for every other Value
 
 
 #
