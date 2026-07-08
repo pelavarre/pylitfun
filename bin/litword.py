@@ -120,6 +120,9 @@ class LitWord:
         assert _shline_, (_shline_,)
         assert _argv_, (_argv_,)
 
+        LitWord.argv.clear()
+        LitWord.marks = ""
+
         sys.stdout.flush()
         print("+", _shline_, file=sys.stderr)
         sys.stderr.flush()
