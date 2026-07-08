@@ -16,8 +16,9 @@ quirks:
 
 examples:
   p  # and then no imports required, like you can just say:  dt.datetime.now().astimezone()
-  p 'p(t)' 'p(repr(t))'  # (p, t, logger, parser) defined for you as eager shorthand
+  p 'p(t)' 'p(repr(t))'  # speaking of (p, t, logger, parser, ...) already eagerly defined for you
   p 'print("".join(chr(_) for _ in range(0x20, 0x7E + 1)))'  # no interaction required
+  p '!pwd'  # shell or python, you choose
 """
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -37,6 +38,7 @@ import logging
 import os
 import pdb
 import signal
+import subprocess
 import sys
 import textwrap
 import traceback
@@ -60,12 +62,16 @@ PacificLaunch = dt.datetime.now(Pacific)
 def main() -> None:
     """Run Python Code else a Python Chat, but tell uncaught Exceptions to launch the Py Repl"""
 
-    # sys.excepthook = sys_excepthook  # catches SystemExit, KeyboardInterrupt, etc
+    # sys.excepthook = sys_excepthook_shell_else_pdb_pm  # catches SystemExit, KeyboardInterrupt, etc
     # try_main()
 
     try:
 
         try_main()
+
+    except SyntaxError:
+
+        sys_excepthook_shell_else_pdb_pm(*sys.exc_info())  # launches shell or pdb.pm()
 
     except (Exception, KeyboardInterrupt):  # BrokenPipeError # never SystemExit
 
@@ -73,9 +79,10 @@ def main() -> None:
         launch, _quit_ = PacificLaunch, PacificQuit
         print(str(_quit_ - launch), "Quit='" + str(_quit_) + "'", "launch='" + str(launch) + "'")
 
-        sys_excepthook(*sys.exc_info())  # launches pdb.pm()
+        sys_excepthook_shell_else_pdb_pm(*sys.exc_info())  # launches pdb.pm()
 
     except SystemExit:
+
         pass  # because 'return' shouts less than 'sys.exit' does, when run by 'python3 -i'
 
 
@@ -97,10 +104,12 @@ def try_main() -> None:
 
     # Run Python Code else a Python Chat
 
+    g = globals()
     if pytext:
-        exec(pytext)
+        exec(pytext, g)  # syntax 'exec(pytext, globals=g)' works only in later Python
     else:
         os.environ["PYTHONINSPECT"] = str(True)
+        sys.excepthook = sys_excepthook_shell_else_pdb_pm
 
         # t = dt.datetime.now(Pacific)
         # print(t - PacificLaunch)  # < 2ms lately at my desk
@@ -532,7 +541,40 @@ with_stderr = sys.stderr
 assert int(0x80 + signal.SIGINT) == 130  # discloses the Nonzero Exit Code for after ⌃C SigInt
 
 
-def sys_excepthook(
+def sys_excepthook_shell_else_pdb_pm(
+    exc_type: type[BaseException] | None,  # aka .type
+    exc_value: BaseException | None,  # aka .exc_obj aka .value
+    exc_traceback: types.TracebackType | None,  # aka .exc_tb aka .traceback aka .tb
+) -> None:
+    """Take a typed '!' Line as a Shell Input Line, else print the Exception as usual"""
+
+    if isinstance(exc_value, SyntaxError):
+        filename = exc_value.filename or ""
+        if filename.startswith("<python-input") or (filename in ("<stdin>", "<string>")):
+            text = exc_value.text or ""
+            rstrip = text.rstrip()
+            if rstrip.startswith("!"):
+                shline = rstrip.removeprefix("!")
+
+                default_eq_sh = "sh"
+                shpath = os.environ.get("SHELL", default_eq_sh)
+
+                sys.stdout.flush()
+                sys.stderr.flush()
+
+                subprocess.run(shline if shline else shpath, shell=True)
+
+                sys.stdout.flush()
+                sys.stderr.flush()
+
+                return
+
+    sys_excepthook_pdb_pm(exc_type, exc_value=exc_value, exc_traceback=exc_traceback)
+
+    # 'def sys_excepthook_shell_else_pdb_pm' last modified for py2def.py on 2026-07-10 or later
+
+
+def sys_excepthook_pdb_pm(
     exc_type: type[BaseException] | None,  # aka .type
     exc_value: BaseException | None,  # aka .exc_obj aka .value
     exc_traceback: types.TracebackType | None,  # aka .exc_tb aka .traceback aka .tb
@@ -585,7 +627,7 @@ def sys_excepthook(
     print(">" ">" "> pdb.pm()", file=with_stderr)  # (3 * ">") spelled unlike a Git Conflict
     pdb.pm()  # launches the Py Repl of The Post-Mortem Debugger
 
-    # 'def sys_excepthook' last modified for py2def.py on 2026-07-03 or later
+    # 'def sys_excepthook_pdb_pm' last modified for py2def.py on 2026-07-09 or later
 
 
 #
