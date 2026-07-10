@@ -22,7 +22,7 @@ def main() -> None:
     """Run from the Shell"""
 
     # import litsys
-    # sys.excepthook = litsys.sys_excepthook
+    # sys.excepthook = litsys.sys_excepthook_pdb_pm
 
     for i, s in _decimal_int_chop_to_eng_i_o_:
         _s_ = decimal_int_chop_to_eng(i)

@@ -35,7 +35,7 @@ Launch = dt.datetime.now()
 def main() -> None:
     """Run from the Shell, but tell uncaught Exceptions to launch the Py Repl"""
 
-    # sys.excepthook = sys_excepthook  # catches SystemExit, KeyboardInterrupt, etc
+    # sys.excepthook = sys_excepthook_pdb_pm  # catches SystemExit, KeyboardInterrupt, etc
     # try_main()
 
     pass  # FIXME: todo0: come meet our __main__.__doc__ spec

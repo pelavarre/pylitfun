@@ -562,10 +562,14 @@ def sys_excepthook_shell_else_pdb_pm(
                 sys.stdout.flush()
                 sys.stderr.flush()
 
-                subprocess.run(shline if shline else shpath, shell=True)
+                run = subprocess.run(shline if shline else shpath, shell=True)
 
                 sys.stdout.flush()
                 sys.stderr.flush()
+
+                if run.returncode:
+                    print(f"+ exit {run.returncode}", file=sys.stderr)
+                    sys.stderr.flush()
 
                 return
 

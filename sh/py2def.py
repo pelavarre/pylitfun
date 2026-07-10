@@ -16,7 +16,7 @@ quirks:
 
 examples:
   rm -fr ./def*.py
-  ./sh/py2def.py sys_excepthook
+  ./sh/py2def.py sys_excepthook_pdb_pm
   ls ./def*.py
   for F in def*.py; do echo $(ls $F) $(cat $F |tail -n +2 |md5sum); done
 """

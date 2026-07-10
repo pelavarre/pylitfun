@@ -23,7 +23,7 @@ def main() -> None:
     """Run from the Shell"""
 
     # import litsys
-    # sys.excepthook = litsys.sys_excepthook
+    # sys.excepthook = litsys.sys_excepthook_pdb_pm
 
     try_math_int_step_clips()
     try_math_float_int_clips()
