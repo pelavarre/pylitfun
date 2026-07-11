@@ -16,15 +16,14 @@ quirks:
   tunes to presume text, ignore case, and match >= 1 patterns (like for 2025, in place of 1973)
 
 examples:
-  cat bin/*.py |g -nw def print
-  cat bin/*.py |grep.py $HOME/bin/g -nw def print
-  cat bin/*.py |grep -ai -nw -e def -e print
+  cat bin/*.py |g -nw DEF PRINT
+  cat bin/*.py |grep.py $HOME/bin/g -nw DEF PRINT
+  cat bin/*.py |grep -ai -nw -e DEF -e PRINT
 """
 
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
 
 
-import __main__
 import os
 import shlex
 import signal
@@ -112,8 +111,10 @@ class GrepGopher:
     def exit_if_dash_dash_help(self) -> None:
         """Print the Doc and exit zero, if '--help' in the Shell Args"""
 
+        assert __doc__
+
         if "--help" in sys.argv[1:]:
-            print(__main__.__doc__, file=sys.stderr)
+            print(__doc__.strip(), file=sys.stderr)
             sys.exit(0)  # exits 0 after printing Help
 
     def _shargs_grep_expand_ai_e_(self, shargs: tuple[str, ...]) -> tuple[str, ...]:

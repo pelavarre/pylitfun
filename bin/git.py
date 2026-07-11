@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-usage: git.py [--help] [--make-bin] [SHFILE] [SHWORD ...]
+usage: git.py [--help] [--make-bin] SHFILE [SHWORD ...]
 
 abbreviate the subcommands to call Git, but do show them in full
 
@@ -133,7 +133,7 @@ class GitGopher:
 
         # Quit early for good reasons
 
-        usage = "usage: git.py [--help] [--make-bin] [SHFILE] [SHWORD ...]"
+        usage = "usage: git.py [--help] [--make-bin] SHFILE [SHWORD ...]"
 
         if not sys.argv[1:]:
             print(usage)
@@ -243,8 +243,10 @@ class GitGopher:
     def exit_if_dash_dash_help(self) -> None:
         """Print the Doc and exit zero, if '--help' in the Shell Args"""
 
+        assert __doc__
+
         if "--help" in sys.argv[1:]:
-            print(__doc__, file=sys.stderr)
+            print(__doc__.strip(), file=sys.stderr)
             sys.exit(0)  # exits 0 after printing Help
 
     def exit_if_dash_dash_make_bin(self) -> None:

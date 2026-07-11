@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 """
-usage: g.py ...
+usage: g.py ..., or |g.py ...
 
-call the colocated git.py in place of g.py, or call the |grep.py in place of |g.py
+run the colocated git.py in place of g.py, or run the |grep.py in place of |g.py
 
 quirks:
-  without pipelike stdin, calls git.py [--help] [--make-bin] [SHFILE] [SHWORD ...]
+  without pipelike stdin, calls git.py [--help] [--make-bin] SHFILE [SHWORD ...]
   with pipelike stdin, calls |grep.py SHFILE [SHWORD ...]
   test results found by calling with SHWORD but without a SHFILE of 'bin/g' don't much matter
 
