@@ -17,7 +17,7 @@ examples:
 
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
 
-import builtins  # differs from __builtins__ when imported
+import builtins  # (__builtins__ is vars(builtins)) or (__builtins__ is builtins)
 import os
 import pathlib
 import shlex
@@ -32,9 +32,6 @@ if not __debug__:
 def main() -> None:
     """Launch a Python Chat"""
 
-    ps1 = LitWordSysPs1(">>> ")
-
-    sys.ps1 = ps1
     sys.displayhook = sys_displayhook
     os.environ["PYTHONINSPECT"] = str(True)
 
@@ -42,11 +39,8 @@ def main() -> None:
 def _exec_(pytext: str) -> None:  # todo: add callers of 'def _exec_'
     """Read, Eval, Print Repr, Loop across the Lines of the Text in order"""
 
-    ps1 = LitWordSysPs1(">>> ")
-
     pylines = pytext.splitlines()
     for pyline in pylines:
-        str(ps1)  # calls as if printing prompt before reading input
         value = eval(pyline)
         repr(value)  # calls as if printing repr
 
@@ -59,79 +53,73 @@ def _exec_(pytext: str) -> None:  # todo: add callers of 'def _exec_'
 class LitWord:
     """Reconstruct a Shell Input Line from how Python calls its pieces after parsing it"""
 
-    argv: list[str] = list()
-    marks = ""
+    name: str
+    argv: list[str]
 
     def __init__(self, name: str) -> None:
 
-        self.name = name  # todo: when to declare instance fields
+        self.name = name
+        self.argv = list()
+
+    def __str__(self) -> str:
+        name = self.name
+        return name
+
+    def _mention_(self) -> LitWord:
+        """Say which ArgV to continue, else start a new LitWord with an ArgV of Self Name"""
+
+        argv = self.argv
+
+        if argv:
+            return self
+
+        word = LitWord(str(self))
+
+        argv = word.argv
+        argv.append(str(word))
+        word.argv = argv
+
+        return word
 
     #
-    # Catch a "-" or "+" Unary Operator as a Mark on the left of a Word
-    #
-
-    def __pos__(self) -> LitWord:
-        marks = LitWord.marks
-        LitWord.marks = "+" + marks
-        return self
-
-    def __neg__(self) -> LitWord:
-        marks = LitWord.marks
-        LitWord.marks = "-" + marks
-        return self
-
-    #
-    # Give a "-" Binary Operator as a second "-" Mark
-    # Give a "+" Binary Operator as an empty "" Mark
-    #
-
-    def __add__(self, other: object) -> LitWord:
-        self._binop_(mark="", other=other)  # mark="", not mark="+"
-        return self
-
-    def __radd__(self, _: object) -> LitWord:
-        return self
-
-    def __rsub__(self, _: object) -> LitWord:
-        return self
-
-    def __sub__(self, other: object) -> LitWord:
-        self._binop_(mark="-", other=other)
-        return self
-
-    def _binop_(self, mark: str, other: object) -> None:
-
-        argv = LitWord.argv
-
-        if isinstance(other, LitWord):
-            word = mark + LitWord.marks + other.name
-            LitWord.marks = ""
-        else:
-            word = mark + str(other)  # str.__str__, not str.__repr__, in particular
-
-        argv.append(word)
-
-    #
-    # Reconstruct & run the Shell Input Line, when the Py Repl calls Repr
+    # Define Python Repr to mean Subprocess Run
     #
 
     def __repr__(self) -> str:
-        """Reconstruct & run the Shell Input Line, when the Py Repl calls Repr"""
 
-        _shline_, _argv_ = self._take_shline_argv_()
-        assert _shline_, (_shline_,)
-        assert _argv_, (_argv_,)
+        word = self._mention_()
+        argv = word.argv
 
-        LitWord.argv.clear()
-        LitWord.marks = ""
+        _argv_ = list()
+        for i, arg in enumerate(argv):
+            if arg.startswith("---"):  # patches first ---..., likely from __sub__, back to -- -...
+                _argv_.append("--")
+                _argv_.append(arg.removeprefix("--"))
+                _argv_.extend(argv[i:][1:])
+                break
+            _argv_.append(arg)
+
+        argv[::] = _argv_
+        word._subprocess_run_()
+
+        r = object.__repr__(self)
+        return r
+
+    def _subprocess_run_(self) -> None:
+        """Trace & run the Shell Line"""
+
+        argv = self.argv
+        assert argv, (argv, self)
+
+        shline = " ".join(shlex.quote(_) for _ in argv)
 
         sys.stdout.flush()
-        print("+", _shline_, file=sys.stderr)
+        print("+", shline, file=sys.stderr)
         sys.stderr.flush()
 
-        func = self.do_chdir if _argv_[0] == "cd" else subprocess.run
+        func = self.do_chdir if argv[0] == "cd" else subprocess.run
         try:
-            func(_argv_)
+            func(argv)
         except Exception as exc:
             texts = traceback.format_exception(exc, limit=0)  # colorize=stderr.isatty
             print(texts[0].rstrip())
@@ -140,49 +128,47 @@ class LitWord:
         print("+", file=sys.stderr)
         sys.stderr.flush()
 
-        r = object.__repr__(self)
-        return r
+    #
+    # Define some Unary Python Operators
+    #
 
-    def _take_shline_argv_(self) -> tuple[str, list[str]]:
-        """Reconstruct the Shell ArgV, after the Py Repl finishes parsing it & calling pieces"""
+    def __pos__(self) -> LitWord:
+        word = self._mention_()
 
-        name = self.name
+        assert word.argv[0] == str(word), (word.argv[0], str(word))
+        word.name = "+" + str(word)
+        word.argv[0] = str(word)
 
-        argv = LitWord.argv
-        marks = LitWord.marks
+        return word
 
-        # Form the Shell ArgV
+    def __neg__(self) -> LitWord:
+        word = self._mention_()
 
-        _argv_ = list(argv)
+        assert word.argv[0] == str(word), (word.argv[0], str(word))
+        word.name = "-" + str(word)
+        word.argv[0] = str(word)
 
-        _argv_[0:0] = [name]
-        if marks:
-            _argv_ += [marks]  # warps marks on the Shell Verb out to the far end of line
+        return word
 
-        if _argv_[0][:1] in "-+":  # never tries to call a Shell Verb started by "+" or "-"
-            _argv_[0:0] = ["echo"]
+    #
+    # Define some Binary Python Operators
+    #
 
-        # Split a "---" Triple Dash that may have come from Python joining 3 "-" Single Dashes
+    def __add__(self, other: object) -> LitWord:
+        word = self._mention_()
 
-        for i, arg in enumerate(_argv_):
-            if i and arg.startswith("--"):
-                if arg == "--":  # stops searching when the Dash Options end
-                    break
-                if arg.startswith("---"):
-                    _argv_[i : i + 1] = ["--", arg.removeprefix("--")]
-                    break
+        argv = word.argv
+        argv.append(str(other))  # consciously not:  argv.append("+" + str(other))
 
-        # Form the Shell Line (like to trace it)
+        return word
 
-        _shline_ = ""
-        for arg in _argv_:
-            if _shline_:
-                _shline_ += " "
-            _shline_ += shlex.quote(arg)
+    def __sub__(self, other: object) -> LitWord:
+        word = self._mention_()
 
-        # Succeed
+        argv = word.argv
+        argv.append("-" + str(other))
 
-        return (_shline_, _argv_)
+        return word
 
     #
     # Run in place of a Shell Command, when LitWord.__repr__ called
@@ -256,23 +242,8 @@ class LitWord:
             return pathname
 
 
-class LitWordSysPs1:
-    """Restart the Shell Line when the Py Repl calls for $PS1"""
-
-    def __init__(self, ps1: str) -> None:
-        self.ps1 = ps1
-
-    def __str__(self) -> str:
-        LitWord.argv.clear()
-        LitWord.marks = ""
-        return self.ps1
-
-
-assert sys.displayhook is sys.__displayhook__, (sys.displayhook, sys.__displayhook__)
-
-
 def sys_displayhook(value: object) -> None:
-    """Run as a Sys DisplayHook but see None as the Repr of 1 or more LitWord's"""
+    """Run as a Sys DisplayHook but see None as the Repr of a LitWord, and of a Tuple[LitWord]"""
 
     hooking = False
     if isinstance(value, LitWord):
@@ -281,14 +252,20 @@ def sys_displayhook(value: object) -> None:
         if value and all(isinstance(v, LitWord) for v in value):
             hooking = True
 
+            # does hook a tuple of even just one LitWord
+
     if hooking:
         repr(value)  # calls as if printing repr
+        assert value is not None, (value,)
         setattr(builtins, "_", value)  # stores as if running sys.__displayhook__
         return
 
-        # note: __builtins__ vs builtins work differently for main script vs imported py files
+        # (__builtins__ is vars(builtins)) or (__builtins__ is builtins)
 
-    sys.__displayhook__(value)  # falls back to the Stock Py Repl for every other Value
+    sys.__displayhook__(value)
+
+
+assert sys.displayhook is sys.__displayhook__, (sys.displayhook, sys.__displayhook__)
 
 
 #
