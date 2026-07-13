@@ -321,7 +321,7 @@ class CodeSketcher:
                 continue
 
             if _codeline_ == "__builtins__.__doc__":
-                text += f"{sys_builtins["__doc__"]!r}\n"
+                text += f"{sys_builtins['__doc__']!r}\n"
                 continue
 
             if _codeline_ == "STOP":

@@ -17,7 +17,7 @@ examples:
 
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
 
-import builtins
+import builtins  # differs from __builtins__ when imported
 import os
 import pathlib
 import shlex
@@ -39,7 +39,7 @@ def main() -> None:
     os.environ["PYTHONINSPECT"] = str(True)
 
 
-def _exec_(pytext: str) -> None:
+def _exec_(pytext: str) -> None:  # todo: add callers of 'def _exec_'
     """Read, Eval, Print Repr, Loop across the Lines of the Text in order"""
 
     ps1 = LitWordSysPs1(">>> ")
@@ -65,7 +65,6 @@ class LitWord:
     def __init__(self, name: str) -> None:
 
         self.name = name  # todo: when to declare instance fields
-        self.oldpwd = os.getcwd()  # Zsh always has a $OLDPWD  # Bash waits till first 'cd' passes
 
     #
     # Catch a "-" or "+" Unary Operator as a Mark on the left of a Word
@@ -194,35 +193,55 @@ class LitWord:
 
         # Parse
 
+        assert len(argv) in (1, 2, 3), (len(argv), argv)
+
         _argv_ = list(argv)
         if len(argv) == 1:
             _argv_.append("~/")
 
-        assert len(_argv_) == 2, (len(_argv_), _argv_)
-        argv1 = _argv_[1]
-
         # Sample
 
-        oldpwd = self.oldpwd
         getcwd = os.getcwd()
+
+        default_eq_getcwd = getcwd
+        oldpwd = os.environ.get("OLDPWD", default_eq_getcwd)
+
+        # Choose where to go
+
+        newpwd = os.path.expanduser(_argv_[1])
+        verbose = False
+
+        if len(argv) in (1, 2):
+
+            if not _argv_[1]:
+                newpwd = getcwd  # comes here again for:  cd ''
+            elif _argv_[1] == "-":
+                newpwd = oldpwd  # goes back there for:  cd -
+                verbose = True
+
+        else:
+            assert len(argv) == 3, (len(argv), argv)
+
+            stale = _argv_[1]
+            fresh = _argv_[2]
+
+            if stale not in getcwd:
+                print(f"cd: string not in pwd: {stale}", file=sys.stderr)
+                return  # todo: exit code 1
+
+            default_eq_1 = 1  # steps nearby for:  cd stale fresh
+            newpwd = getcwd.replace(stale, fresh, default_eq_1)
+            verbose = True
 
         # Change and remember
 
-        if argv1 == "-":
+        os.chdir(newpwd)
 
-            os.chdir(oldpwd)
-
+        if verbose:
             unexpanduser = self.unexpanduser(os.getcwd())
             print(unexpanduser)
 
-        else:
-
-            expanduser = os.path.expanduser(argv1)
-            os.chdir(expanduser)
-
-        self.oldpwd = getcwd
-
-        # todo: learn the Zsh "cd $stale $fresh" move
+        os.environ["OLDPWD"] = getcwd  # adds or replaces
 
     def unexpanduser(self, pathname: str) -> str:
         """Speak in terms of ~/ not in terms of $HOME/"""
@@ -299,7 +318,7 @@ hexdump = LitWord("hexdump")
 # jq = LitWord("jq")
 # less = LitWord("less")
 ls = LitWord("ls")
-if sys.platform == "linux":
+if str(sys.platform) == "linux":  # mentions of 'lsb_release' raise NameError on other Platforms
     lsb_release = LitWord("lsb_release")
 man = LitWord("man")  # man +date
 md5sum = LitWord("md5sum")
@@ -320,10 +339,10 @@ sort = LitWord("sort")
 ssh = LitWord("ssh")
 stty = LitWord("stty")
 sudo = LitWord("sudo")
-if sys.platform == "darwin":
+if str(sys.platform) == "darwin":  # mentions of 'sw_vers' raise NameError on other Platforms
     sw_vers = LitWord("sw_vers")
 tail = LitWord("tail")
-# time = LitWord("time")  # todo: vs Shell 'time'
+# time = LitWord("time")  # todo: Python 'import time' vs Shell 'time'
 touch = LitWord("touch")
 tr = LitWord("tr")
 uptime = LitWord("uptime")
