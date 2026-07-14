@@ -111,15 +111,20 @@ class LitWord:
         argv = self.argv
         assert argv, (argv, self)
 
-        shline = " ".join(shlex.quote(_) for _ in argv)
+        piped = "|" in argv  # leaves the '|' Pipe unquoted, for the Shell to honor
+        shline = " ".join(_ if _ == "|" else shlex.quote(_) for _ in argv)
 
         sys.stdout.flush()
         print("+", shline, file=sys.stderr)
         sys.stderr.flush()
 
-        func = self.do_chdir if argv[0] == "cd" else subprocess.run
         try:
-            func(argv)
+            if argv[0] == "cd":
+                self.do_chdir(argv)
+            elif piped:
+                subprocess.run(shline, shell=True)  # honors the '|' Pipe via the Shell
+            else:
+                subprocess.run(argv)
         except Exception as exc:
             texts = traceback.format_exception(exc, limit=0)  # colorize=stderr.isatty
             print(texts[0].rstrip())
@@ -167,6 +172,20 @@ class LitWord:
 
         argv = word.argv
         argv.append("-" + str(other))
+
+        return word
+
+    def __or__(self, other: object) -> LitWord:
+        word = self._mention_()
+
+        argv = word.argv
+        argv.append("|")  # runs the Shell Line through a Shell, when LitWord.__repr__ called
+
+        if isinstance(other, LitWord):
+            other = other._mention_()
+            argv.extend(other.argv)
+        else:
+            argv.append(str(other))
 
         return word
 
@@ -319,6 +338,7 @@ sudo = LitWord("sudo")
 if str(sys.platform) == "darwin":  # mentions of 'sw_vers' raise NameError on other Platforms
     sw_vers = LitWord("sw_vers")
 tail = LitWord("tail")
+tee = LitWord("tee")
 # time = LitWord("time")  # todo: Python 'import time' vs Shell 'time'
 touch = LitWord("touch")
 tr = LitWord("tr")
