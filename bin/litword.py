@@ -18,9 +18,11 @@ examples:
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
 
 import builtins  # (__builtins__ is vars(builtins)) or (__builtins__ is builtins)
+import collections
 import os
 import pathlib
 import shlex
+import string
 import subprocess
 import sys
 import traceback
@@ -32,6 +34,15 @@ if not __debug__:
 def main() -> None:
     """Launch a Python Chat"""
 
+    cls: type
+    cls = LitShellWord
+    cls = LitStackWord
+    # last wins
+
+    if cls is LitStackWord:
+        LiteralTypes.append(object)  # includes type(None)
+
+    cls.load_words_into(globals())
     sys.displayhook = sys_displayhook
     os.environ["PYTHONINSPECT"] = str(True)
 
@@ -46,12 +57,67 @@ def _exec_(pytext: str) -> None:  # todo: add callers of 'def _exec_'
 
 
 #
-# Reconstruct a Shell Input Line from how Python calls its pieces after parsing it
+# Cut back the Python Sys DisplayHook to call the Repr of a Value but not print it
 #
 
 
-class LitWord:
-    """Reconstruct a Shell Input Line from how Python calls its pieces after parsing it"""
+LiteralTypes: list[type] = list()
+
+
+class IneffableWord:
+    """Cut back the Python Sys DisplayHook to call the Repr of a Value but not print it"""
+
+
+def sys_displayhook(value: object) -> None:
+    """Run as a Sys DisplayHook"""
+
+    # Hook an IneffableWord, or a Tuple of them, as is
+
+    hooking = False
+    if isinstance(value, IneffableWord):
+        hooking = True
+    elif isinstance(value, tuple):
+        if value and all(isinstance(v, IneffableWord) for v in value):
+            hooking = True  # even when a Tuple of just one IneffableWord
+
+    # Hook a Literal Value, as if it were an IneffableWord
+
+    reppable = value
+    if not hooking:
+        for _type_ in LiteralTypes:
+            if isinstance(value, _type_):
+                reppable = LitStackWord.make_literal(value)
+                hooking = True
+                break
+
+    # Run the Repr of what we hooked, for its side effect, and store it as '_'
+
+    if hooking:
+        assert reppable is not None, (reppable,)
+        repr(reppable)  # calls as if printing repr
+
+        setattr(builtins, "_", value)  # stores as if running sys.__displayhook__
+        return
+
+        # (__builtins__ is vars(builtins)) or (__builtins__ is builtins)
+        # todo: should we be saying _ = value, or _ = reppable ?
+
+    # Do this work for anything else
+
+    sys.__displayhook__(value)
+
+
+assert sys.displayhook is sys.__displayhook__, (sys.displayhook, sys.__displayhook__)
+
+
+#
+# Reconstruct a Shell Input Line,
+#   from how Python calls its pieces after parsing it.
+#
+
+
+class LitShellWord(IneffableWord):
+    """Reconstruct and run a Shell Input Line"""
 
     name: str
     argv: list[str]
@@ -65,15 +131,67 @@ class LitWord:
         name = self.name
         return name
 
-    def _mention_(self) -> LitWord:
-        """Say which ArgV to continue, else start a new LitWord with an ArgV of Self Name"""
+    #
+    # Define some Unary and Binary Python Operators
+    #
+
+    def __pos__(self) -> LitShellWord:
+        word = self._mention_()
+
+        assert word.argv[0] == str(word), (word.argv[0], str(word))
+        word.name = "+" + str(word)
+        word.argv[0] = str(word)
+
+        return word
+
+    def __neg__(self) -> LitShellWord:
+        word = self._mention_()
+
+        assert word.argv[0] == str(word), (word.argv[0], str(word))
+        word.name = "-" + str(word)
+        word.argv[0] = str(word)
+
+        return word
+
+    def __add__(self, other: object) -> LitShellWord:
+        word = self._mention_()
+
+        argv = word.argv
+        argv.append(str(other))  # consciously not:  argv.append("+" + str(other))
+
+        return word
+
+    def __sub__(self, other: object) -> LitShellWord:
+        word = self._mention_()
+
+        argv = word.argv
+        argv.append("-" + str(other))
+
+        return word
+
+    def __or__(self, other: object) -> LitShellWord:
+        word = self._mention_()
+
+        argv = word.argv
+        argv.append("|")  # runs the Shell Line through a Shell, when LitShellWord.__repr__ called
+
+        if isinstance(other, LitShellWord):
+            other = other._mention_()
+            argv.extend(other.argv)
+        else:
+            argv.append(str(other))
+
+        return word
+
+    def _mention_(self) -> LitShellWord:
+        """Say which ArgV to continue, else start a new LitShellWord with an ArgV of Self Name"""
 
         argv = self.argv
 
         if argv:
             return self
 
-        word = LitWord(str(self))
+        word = LitShellWord(str(self))
 
         argv = word.argv
         argv.append(str(word))
@@ -134,63 +252,97 @@ class LitWord:
         sys.stderr.flush()
 
     #
-    # Define some Unary Python Operators
+    # Add a builtin Vocabulary of Shell Verbs & Options & Option Permutations into the Globals
     #
 
-    def __pos__(self) -> LitWord:
-        word = self._mention_()
+    @staticmethod  # todo: when to write into __builtins__ module/ dict instead of globals?
+    def load_words_into(_globals_: dict[str, object]) -> None:
+        """Pile up a Word per Shell Verb & per ASCII Letter, then copy them into the Globals"""
 
-        assert word.argv[0] == str(word), (word.argv[0], str(word))
-        word.name = "+" + str(word)
-        word.argv[0] = str(word)
+        # Declare our most favoured Shell Verbs
 
-        return word
+        # awk = LitShellWord("awk")
+        bash = LitShellWord("bash")
+        cal = LitShellWord("cal")
+        cat = LitShellWord("cat")
+        clear = LitShellWord("clear")
+        cd = LitShellWord("cd")
+        cp = LitShellWord("cp")
+        curl = LitShellWord("curl")
+        date = LitShellWord("date")  # date +'+%H:%M:%S'
+        # dd = LitShellWord("dd")
+        df = LitShellWord("df")
+        diff = LitShellWord("diff")
+        echo = LitShellWord("echo")
+        find = LitShellWord("find")
+        # head = LitShellWord("head")
+        hexdump = LitShellWord("hexdump")
+        # jq = LitShellWord("jq")
+        # less = LitShellWord("less")
+        ls = LitShellWord("ls")
+        if str(sys.platform) == "linux":  # mentions of 'lsb_release' raise NameError elsewhere
+            lsb_release = LitShellWord("lsb_release")
+        man = LitShellWord("man")  # man +date
+        md5sum = LitShellWord("md5sum")
+        mkdir = LitShellWord("mkdir")
+        mv = LitShellWord("mv")
+        od = LitShellWord("od")
+        _open_ = LitShellWord("open")
+        pbpaste = LitShellWord("pbpaste")
+        ps = LitShellWord("ps")
+        pwd = LitShellWord("pwd")
+        python = LitShellWord("python")
+        python3 = LitShellWord("python3")
+        screen = LitShellWord("screen")
+        script = LitShellWord("script")
+        sh = LitShellWord("sh")
+        sleep = LitShellWord("sleep")
+        sort = LitShellWord("sort")
+        ssh = LitShellWord("ssh")
+        stty = LitShellWord("stty")
+        sudo = LitShellWord("sudo")
+        if str(sys.platform) == "darwin":  # mentions of 'sw_vers' raise NameError elsewhere
+            sw_vers = LitShellWord("sw_vers")
+        tail = LitShellWord("tail")
+        tee = LitShellWord("tee")
+        # time = LitShellWord("time")  # todo: Python 'import time' vs Shell 'time'
+        touch = LitShellWord("touch")
+        tr = LitShellWord("tr")
+        uptime = LitShellWord("uptime")
+        # if sys.platform == "darwin":
+        #     uptime = LitShellWord("uptime.py")  # todo: vs Shell 'uptime --pretty'
+        # xargs = LitShellWord("xargs")
+        zsh = LitShellWord("zsh")
 
-    def __neg__(self) -> LitWord:
-        word = self._mention_()
+        _ = _open_
 
-        assert word.argv[0] == str(word), (word.argv[0], str(word))
-        word.name = "-" + str(word)
-        word.argv[0] = str(word)
+        # Declare our most favoured Shell Option Permutations (not all possible Permutations)
 
-        return word
+        LSs = LitShellWord("LSs")  # curl -k -LSs +'http://example.com'
+        bpru = LitShellWord("bpru")  # diff -bpru +a +b
+        color = LitShellWord("color")  # ls --color
+        hlAF = LitShellWord("hlAF")  # ls -hlAF -rt
+        pretty = LitShellWord("pretty")  # uptime --pretty
+        rt = LitShellWord("rt")  # bash -c +ls -d -hlAF -rt +'*'
+        sane = LitShellWord("sane")  # stty +sane
+        version = LitShellWord("version")  # python3 --version
+
+        # Declare the US Ascii Letters, upper and lower case, as Shell Options
+
+        _locals_ = locals()  # sampled after last change, because Oct/2024 Python 3.13 PEP 667
+        for ch in string.ascii_letters:
+            _locals_[ch] = LitShellWord(ch)
+
+            # ducks Flake E741 = Variables named 'I', 'O', or 'l'
+
+        # Publish these Words that we have declared as something much like Locals here
+
+        for name, value in _locals_.items():
+            if isinstance(value, LitShellWord):
+                _globals_[name] = value
 
     #
-    # Define some Binary Python Operators
-    #
-
-    def __add__(self, other: object) -> LitWord:
-        word = self._mention_()
-
-        argv = word.argv
-        argv.append(str(other))  # consciously not:  argv.append("+" + str(other))
-
-        return word
-
-    def __sub__(self, other: object) -> LitWord:
-        word = self._mention_()
-
-        argv = word.argv
-        argv.append("-" + str(other))
-
-        return word
-
-    def __or__(self, other: object) -> LitWord:
-        word = self._mention_()
-
-        argv = word.argv
-        argv.append("|")  # runs the Shell Line through a Shell, when LitWord.__repr__ called
-
-        if isinstance(other, LitWord):
-            other = other._mention_()
-            argv.extend(other.argv)
-        else:
-            argv.append(str(other))
-
-        return word
-
-    #
-    # Run in place of a Shell Command, when LitWord.__repr__ called
+    # Run in place of a Shell Command, when LitShellWord.__repr__ called
     #
 
     def do_chdir(self, argv: list[str]) -> None:
@@ -261,160 +413,92 @@ class LitWord:
             return pathname
 
 
-def sys_displayhook(value: object) -> None:
-    """Run as a Sys DisplayHook but see None as the Repr of a LitWord, and of a Tuple[LitWord]"""
-
-    hooking = False
-    if isinstance(value, LitWord):
-        hooking = True
-    elif isinstance(value, tuple):
-        if value and all(isinstance(v, LitWord) for v in value):
-            hooking = True
-
-            # does hook a tuple of even just one LitWord
-
-    if hooking:
-        repr(value)  # calls as if printing repr
-        assert value is not None, (value,)
-        setattr(builtins, "_", value)  # stores as if running sys.__displayhook__
-        return
-
-        # (__builtins__ is vars(builtins)) or (__builtins__ is builtins)
-
-    sys.__displayhook__(value)
-
-
-assert sys.displayhook is sys.__displayhook__, (sys.displayhook, sys.__displayhook__)
-
-
 #
-# Define a Button for each ASCII Letter, plus some Shell Verbs
+# Reconstruct an RPN Stack Calculator Input Line,
+#   from how Python calls its pieces after parsing it.
 #
 
 
-MODULE = sys.modules[__name__]
+class LitStackWord(IneffableWord):
+    """Reconstruct and run an RPN Stack Calculator Input Line"""
 
+    stack: list[object] = list()
 
-# awk = LitWord("awk")
-bash = LitWord("bash")
-cal = LitWord("cal")
-cat = LitWord("cat")
-clear = LitWord("clear")
-cd = LitWord("cd")
-cp = LitWord("cp")
-curl = LitWord("curl")
-date = LitWord("date")  # date +'+%H:%M:%S'
-# dd = LitWord("dd")
-df = LitWord("df")
-diff = LitWord("diff")
-echo = LitWord("echo")
-find = LitWord("find")
-# head = LitWord("head")
-hexdump = LitWord("hexdump")
-# jq = LitWord("jq")
-# less = LitWord("less")
-ls = LitWord("ls")
-if str(sys.platform) == "linux":  # mentions of 'lsb_release' raise NameError on other Platforms
-    lsb_release = LitWord("lsb_release")
-man = LitWord("man")  # man +date
-md5sum = LitWord("md5sum")
-mkdir = LitWord("mkdir")
-mv = LitWord("mv")
-od = LitWord("od")
-_open_ = LitWord("open")
-pbpaste = LitWord("pbpaste")
-ps = LitWord("ps")
-pwd = LitWord("pwd")
-python = LitWord("python")
-python3 = LitWord("python3")
-screen = LitWord("screen")
-script = LitWord("script")
-sh = LitWord("sh")
-sleep = LitWord("sleep")
-sort = LitWord("sort")
-ssh = LitWord("ssh")
-stty = LitWord("stty")
-sudo = LitWord("sudo")
-if str(sys.platform) == "darwin":  # mentions of 'sw_vers' raise NameError on other Platforms
-    sw_vers = LitWord("sw_vers")
-tail = LitWord("tail")
-tee = LitWord("tee")
-# time = LitWord("time")  # todo: Python 'import time' vs Shell 'time'
-touch = LitWord("touch")
-tr = LitWord("tr")
-uptime = LitWord("uptime")
-# if sys.platform == "darwin":
-#     uptime = LitWord("uptime.py")  # todo: vs Shell 'uptime --pretty'
-# xargs = LitWord("xargs")
-zsh = LitWord("zsh")
+    action: collections.abc.Callable[[], None]
 
-_ = _open_
+    def __init__(self, action: collections.abc.Callable[[], None]) -> None:
+        self.action = action
 
+    def __str__(self) -> str:
+        action = self.action
+        _str_ = str(action)
+        return _str_
 
-LSs = LitWord("LSs")  # curl -k -LSs +'http://example.com'
-bpru = LitWord("bpru")  # diff -bpru +a +b
-color = LitWord("color")  # ls --color
-hlAF = LitWord("hlAF")  # ls -hlAF -rt
-pretty = LitWord("pretty")  # uptime --pretty
-rt = LitWord("rt")  # bash -c +ls -d -hlAF -rt +'*'
-sane = LitWord("sane")  # stty +sane
-version = LitWord("version")  # python3 --version
+    @staticmethod
+    def make_literal(value: object) -> IneffableWord:
 
+        def action(value: object) -> None:
+            LitStackWord.push_value(value)
 
-a = LitWord("a")
-b = LitWord("b")
-c = LitWord("c")
-d = LitWord("d")
-e = LitWord("e")
-f = LitWord("f")
-g = LitWord("g")
-h = LitWord("h")
-i = LitWord("i")
-j = LitWord("j")
-k = LitWord("k")
-setattr(MODULE, "l", LitWord("l"))
-m = LitWord("m")
-n = LitWord("n")
-o = LitWord("o")
-p = LitWord("p")
-q = LitWord("q")
-r = LitWord("r")
-s = LitWord("s")
-t = LitWord("t")
-u = LitWord("u")
-v = LitWord("v")
-w = LitWord("w")
-x = LitWord("x")
-y = LitWord("y")
-z = LitWord("z")
+        ineffable = LitStackWord(lambda: action(value))
+        return ineffable
 
+    #
+    # Define Python Repr to mean Press Calculator Button
+    #
 
-A = LitWord("A")
-B = LitWord("B")
-C = LitWord("C")
-D = LitWord("D")
-E = LitWord("E")
-F = LitWord("F")
-G = LitWord("G")
-H = LitWord("H")
-setattr(MODULE, "I", LitWord("I"))
-J = LitWord("J")
-K = LitWord("K")
-L = LitWord("L")
-M = LitWord("M")
-N = LitWord("N")
-setattr(MODULE, "O", LitWord("O"))
-P = LitWord("P")
-Q = LitWord("Q")
-R = LitWord("R")
-S = LitWord("S")
-T = LitWord("T")
-U = LitWord("U")
-V = LitWord("V")
-W = LitWord("W")
-X = LitWord("X")
-Y = LitWord("Y")
-Z = LitWord("Z")
+    def __repr__(self) -> str:
+        stack = LitStackWord.stack
+
+        self.action()
+        print(stack)
+
+        r = object.__repr__(self)
+        return r
+
+    #
+    # Add a builtin Vocabulary of Calculator Buttons to press
+    #
+
+    @staticmethod
+    def load_words_into(_globals_: dict[str, object]) -> None:
+        """Pile up this Class's own Words, then copy them into the Globals"""
+
+        chs = LitStackWord(LitStackWord.do_chs)
+        # todo0: clstk =, dup =, pop =, swap =
+
+        # Publish these Words that we have declared as something much like Locals here
+
+        _locals_ = locals()  # sampled after last change, because Oct/2024 Python 3.13 PEP 667
+        for name, value in _locals_.items():
+            if isinstance(value, LitStackWord):
+                _globals_[name] = value
+
+    #
+    # Press a Calculator Button
+    #
+
+    @staticmethod
+    def push_value(value: object) -> None:
+        stack = LitStackWord.stack
+        stack.append(value)
+
+    @staticmethod
+    def do_chs() -> None:
+        """Change Sign, else push -1"""
+
+        stack = LitStackWord.stack
+        x = stack.pop() if stack else 1  # 'chs' pushes -1 when given no X
+
+        assert isinstance(x, float | int | bool), (type(x), x)
+
+        nx = -x
+        stack.append(nx)
+
+    # todo0: clstk = ...  """Clear the Stack (drop all of its Values)"""
+    # todo0: dup = ...  """Push an Alias of X, else push one 0"""
+    # todo0: pop = ...  """Pop X, else silently do nothing"""
+    # todo0: swap = ...  """Swap X with Y, else silently do nothing"""
 
 
 #
