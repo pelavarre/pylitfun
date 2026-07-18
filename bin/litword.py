@@ -465,7 +465,10 @@ class LitStackWord(IneffableWord):
         """Pile up this Class's own Words, then copy them into the Globals"""
 
         chs = LitStackWord(LitStackWord.do_chs)
-        # todo0: clstk =, dup =, pop =, swap =
+        clstk = LitStackWord(LitStackWord.do_clstk)
+        dup = LitStackWord(LitStackWord.do_dup)
+        pop = LitStackWord(LitStackWord.do_pop)
+        swap = LitStackWord(LitStackWord.do_swap)
 
         # Publish these Words that we have declared as something much like Locals here
 
@@ -494,6 +497,41 @@ class LitStackWord(IneffableWord):
 
         nx = -x
         stack.append(nx)
+
+    @staticmethod
+    def do_clstk() -> None:
+        """Clear the Stack"""
+
+        stack = LitStackWord.stack
+        stack.clear()
+
+    @staticmethod
+    def do_dup() -> None:
+        """Duplicate X, else do nothing when given no X"""
+
+        stack = LitStackWord.stack
+        if stack:
+            x = stack[-1]
+            stack.append(x)
+
+    @staticmethod
+    def do_pop() -> None:
+        """Drop X, else do nothing when given no X"""
+
+        stack = LitStackWord.stack
+        if stack:
+            stack.pop()
+
+    @staticmethod
+    def do_swap() -> None:
+        """Swap X and Y, else do nothing when given fewer than two"""
+
+        stack = LitStackWord.stack
+        if len(stack) >= 2:
+            x = stack.pop()
+            y = stack.pop()
+            stack.append(x)
+            stack.append(y)
 
     # todo0: clstk = ...  """Clear the Stack (drop all of its Values)"""
     # todo0: dup = ...  """Push an Alias of X, else push one 0"""
