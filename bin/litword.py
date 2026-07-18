@@ -18,6 +18,7 @@ examples:
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
 
 import builtins  # (__builtins__ is vars(builtins)) or (__builtins__ is builtins)
+import codeop
 import collections
 import os
 import pathlib
@@ -26,6 +27,7 @@ import string
 import subprocess
 import sys
 import traceback
+import types
 
 if not __debug__:
     raise NotImplementedError([__debug__])  # 'better python3 without -O than with -O'
@@ -41,6 +43,7 @@ def main() -> None:
 
     if cls is LitStackWord:
         LiteralTypes.append(object)  # includes type(None)
+        sys.excepthook = LitStackWord.sys_excepthook  # takes '5 7' as if it were '5' then '7'
 
     cls.load_words_into(globals())
     sys.displayhook = sys_displayhook
@@ -86,7 +89,7 @@ def sys_displayhook(value: object) -> None:
     if not hooking:
         for _type_ in LiteralTypes:
             if isinstance(value, _type_):
-                reppable = LitStackWord.make_literal(value)
+                reppable = LitStackWord.make_literal_push(value)
                 hooking = True
                 break
 
@@ -252,12 +255,12 @@ class LitShellWord(IneffableWord):
         sys.stderr.flush()
 
     #
-    # Add a builtin Vocabulary of Shell Verbs & Options & Option Permutations into the Globals
+    # Add the Builtin Vocabulary of this Class into the Globals, via some Locals
     #
 
     @staticmethod  # todo: when to write into __builtins__ module/ dict instead of globals?
     def load_words_into(_globals_: dict[str, object]) -> None:
-        """Pile up a Word per Shell Verb & per ASCII Letter, then copy them into the Globals"""
+        """Add the Builtin Vocabulary of this Class into the Globals, via some Locals"""
 
         # Declare our most favoured Shell Verbs
 
@@ -423,25 +426,106 @@ class LitStackWord(IneffableWord):
     """Reconstruct and run an RPN Stack Calculator Input Line"""
 
     stack: list[object] = list()
+    operator_by_mark: dict[str, LitStackWord] = dict()
 
+    name: str
     action: collections.abc.Callable[[], None]
 
-    def __init__(self, action: collections.abc.Callable[[], None]) -> None:
+    def __init__(self, action: collections.abc.Callable[[], None], name: str | None = None) -> None:
         self.action = action
+        self.name = action.__name__ if name is None else name
 
     def __str__(self) -> str:
-        action = self.action
-        _str_ = str(action)
-        return _str_
+        name = self.name
+        return name
 
     @staticmethod
-    def make_literal(value: object) -> IneffableWord:
+    def make_literal_push(value: object) -> IneffableWord:
 
-        def action(value: object) -> None:
-            LitStackWord.push_value(value)
+        def do_literal_push() -> None:
+            LitStackWord._push_literal_value_(value)
 
-        ineffable = LitStackWord(lambda: action(value))
+        ineffable = LitStackWord(do_literal_push, name=shlex.quote(str(value)))
+
         return ineffable
+
+    #
+    # Duck the SyntaxErrors resolved by splitting one Repl Input into several
+    #
+
+    @staticmethod
+    def sys_excepthook(
+        exc_type: type[BaseException],
+        exc_value: BaseException,
+        exc_traceback: types.TracebackType | None,
+    ) -> None:
+        """Duck the SyntaxErrors resolved by splitting one Repl Input into several"""
+
+        if (not isinstance(exc_value, SyntaxError)) or (exc_value.text is None):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+
+        # Take as much as doesn't raise SyntaxError, again and again till no more remains
+
+        text = exc_value.text
+        rstrip = text.rstrip()
+
+        execables: list[types.CodeType] = list()
+        while rstrip:
+            execable, tail = LitStackWord.split_syntax_error(rstrip)
+            if execable is None:  # a bare Operator Mark, such as * or /, isn't Python
+                execable, tail = LitStackWord.split_operator_mark(rstrip)
+
+            assert rstrip.endswith(tail), (tail, rstrip)
+
+            # Fall back to default when taking less Input doesn't resolve a SyntaxError
+
+            if execable is None:
+                sys.__excepthook__(exc_type, exc_value, exc_traceback)
+                return
+
+            # Else take some now, and try for more
+
+            execables.append(execable)
+
+            assert tail == tail.rstrip(), (tail, tail.rstrip())  # because .endswith above
+            rstrip = tail
+
+        # Run each Input in order
+
+        main_vars = vars(sys.modules["__main__"])
+        for execable in execables:
+            exec(execable, main_vars)  # calls sys.displayhook because symbol="single"
+
+    @staticmethod
+    def split_syntax_error(line: str) -> tuple[types.CodeType | None, str]:
+        """Take as much as doesn't raise SyntaxError, and return the rest of the Line"""
+
+        for length in range(len(line), 0, -1):
+            head, tail = (line[:length], line[length:])
+
+            try:
+                execable = codeop.compile_command(head, filename="<repl>", symbol="single")
+                return (execable, tail)
+            except SyntaxError:
+                pass
+
+        return (None, line)
+
+    @staticmethod
+    def split_operator_mark(line: str) -> tuple[types.CodeType | None, str]:
+        """Take one Python Operator Mark, such as <= or *, and return the rest of the Line"""
+
+        lstrip = line.lstrip()
+        for mark in LitStackWord.operator_by_mark:
+            if lstrip.startswith(mark):
+                py = f"LitStackWord.operator_by_mark[{mark!r}]"
+                tail = lstrip[len(mark) :]
+
+                execable = codeop.compile_command(py, filename="<repl>", symbol="single")
+                return (execable, tail)
+
+        return (None, line)
 
     #
     # Define Python Repr to mean Press Calculator Button
@@ -457,12 +541,12 @@ class LitStackWord(IneffableWord):
         return r
 
     #
-    # Add a builtin Vocabulary of Calculator Buttons to press
+    # Add the Builtin Vocabulary of this Class into the Globals, via some Locals
     #
 
     @staticmethod
     def load_words_into(_globals_: dict[str, object]) -> None:
-        """Pile up this Class's own Words, then copy them into the Globals"""
+        """Add the Builtin Vocabulary of this Class into the Globals, via some Locals"""
 
         chs = LitStackWord(LitStackWord.do_chs)
         clstk = LitStackWord(LitStackWord.do_clstk)
@@ -477,12 +561,19 @@ class LitStackWord(IneffableWord):
             if isinstance(value, LitStackWord):
                 _globals_[name] = value
 
+        LitStackWord.operator_by_mark = {
+            "+": LitStackWord(LitStackWord.do_add, name="+"),
+            "-": LitStackWord(LitStackWord.do_sub, name="-"),
+            "*": LitStackWord(LitStackWord.do_mul, name="*"),
+            "/": LitStackWord(LitStackWord.do_div, name="/"),
+        }
+
     #
     # Press a Calculator Button
     #
 
     @staticmethod
-    def push_value(value: object) -> None:
+    def _push_literal_value_(value: object) -> None:
         stack = LitStackWord.stack
         stack.append(value)
 
@@ -491,12 +582,18 @@ class LitStackWord(IneffableWord):
         """Change Sign, else push -1"""
 
         stack = LitStackWord.stack
-        x = stack.pop() if stack else 1  # 'chs' pushes -1 when given no X
+        x = stack[-1] if stack else 1
 
-        assert isinstance(x, float | int | bool), (type(x), x)
+        assert isinstance(x, (float, int, bool)), (type(x), x)
+
+        if stack:
+            stack.pop()
 
         nx = -x
         stack.append(nx)
+
+        # todo: '5 - 7' comes through subtraction,
+        # astonishingly not the same as '5 7 chs', especially astonishing when input as '5 -7'
 
     @staticmethod
     def do_clstk() -> None:
@@ -528,10 +625,46 @@ class LitStackWord(IneffableWord):
 
         stack = LitStackWord.stack
         if len(stack) >= 2:
-            x = stack.pop()
-            y = stack.pop()
-            stack.append(x)
-            stack.append(y)
+            x = stack[-1]
+            y = stack[-2]
+            stack[-1] = y
+            stack[-2] = x
+
+    @staticmethod
+    def do_add() -> None:
+        """Add Y and X, else do nothing when given fewer than two"""
+        LitStackWord._do_binary_(lambda y, x: y + x)
+
+    @staticmethod
+    def do_sub() -> None:
+        """Subtract X from Y, else do nothing when given fewer than two"""
+        LitStackWord._do_binary_(lambda y, x: y - x)
+
+    @staticmethod
+    def do_mul() -> None:
+        """Multiply Y and X, else do nothing when given fewer than two"""
+        LitStackWord._do_binary_(lambda y, x: y * x)
+
+    @staticmethod
+    def do_div() -> None:
+        """Divide Y by X, else do nothing when given fewer than two"""
+        LitStackWord._do_binary_(lambda y, x: y / x)
+
+    @staticmethod
+    def _do_binary_(func: collections.abc.Callable[[float, float], float]) -> None:
+        stack = LitStackWord.stack
+        if len(stack) >= 2:
+            x = stack[-1]
+            y = stack[-2]
+
+            assert isinstance(x, (float, int, bool)), (type(x), x)
+            assert isinstance(y, (float, int, bool)), (type(y), y)
+
+            z = func(y, x)
+
+            stack.pop()
+            stack.pop()
+            stack.append(z)
 
     # todo0: clstk = ...  """Clear the Stack (drop all of its Values)"""
     # todo0: dup = ...  """Push an Alias of X, else push one 0"""
