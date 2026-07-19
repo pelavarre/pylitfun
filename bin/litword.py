@@ -669,7 +669,7 @@ class LitStackWord(IneffableWord):
         stack = LitStackWord.stack
 
         self.action()
-        print(stack)
+        print(len(stack), stack)
 
         r = object.__repr__(self)
         return r
