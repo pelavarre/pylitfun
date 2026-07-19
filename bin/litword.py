@@ -76,8 +76,14 @@ class IneffableWord:
     """Cut back the Python Sys DisplayHook to call the Repr of a Value but not print it"""
 
 
+class IneffableNotImplementedError(NotImplementedError):
+    """Set apart the NotImplementedError raised by 'def do_unimplemented'"""
+
+
 def sys_displayhook(value: object) -> None:
     """Run as a Sys DisplayHook"""
+
+    word_by_builtin = LitStackWord.word_by_builtin
 
     # Hook an IneffableWord, or a Tuple of them, as is
 
@@ -92,7 +98,7 @@ def sys_displayhook(value: object) -> None:
 
     reppable = value
     if not hooking:
-        for _builtin_, word in LitStackWord.word_by_builtin.items():
+        for _builtin_, word in word_by_builtin.items():
             if value is _builtin_:
                 reppable = word
                 hooking = True
@@ -111,7 +117,12 @@ def sys_displayhook(value: object) -> None:
 
     if hooking:
         assert reppable is not None, (reppable,)
-        repr(reppable)  # calls as if printing repr
+
+        try:
+            repr(reppable)  # calls as if standard Sys DisplayHook printing Repr
+        except IneffableNotImplementedError as exc:  # prints Exc without Traceback
+            print(f"NotImplementedError: {exc}", file=sys.stderr)  # names Superclass, not Exc Class
+            return
 
         setattr(builtins, "_", value)  # stores as if running sys.__displayhook__
         return
@@ -468,7 +479,8 @@ class LitStackWord(IneffableWord):
     def make_constant(name: str, value: object) -> LitStackWord:
 
         def do_constant() -> None:
-            LitStackWord.stack.append(value)
+            stack = LitStackWord.stack
+            stack.append(value)
 
         ineffable = LitStackWord(do_constant, name=name)
 
@@ -533,7 +545,7 @@ class LitStackWord(IneffableWord):
     def make_unimplemented(name: str) -> LitStackWord:
 
         def do_unimplemented() -> None:
-            raise NotImplementedError(name)
+            raise IneffableNotImplementedError(name)
 
         ineffable = LitStackWord(do_unimplemented, name=name)
 
@@ -627,8 +639,10 @@ class LitStackWord(IneffableWord):
     def split_operator_mark(line: str) -> tuple[types.CodeType | None, str]:
         """Take one Python Operator Mark, such as <= or *, and return the rest of the Line"""
 
+        operator_by_mark = LitStackWord.operator_by_mark
+
         lstrip = line.lstrip()
-        for mark in LitStackWord.operator_by_mark:
+        for mark in operator_by_mark:
             if lstrip.startswith(mark):
                 py = f"LitStackWord.operator_by_mark[{mark!r}]"
                 tail = lstrip[len(mark) :]
@@ -659,9 +673,11 @@ class LitStackWord(IneffableWord):
     def load_words_into(_globals_: dict[str, object]) -> None:
         """Add the Builtin Vocabulary of this Class into the Globals, via some Locals"""
 
+        word_by_builtin = LitStackWord.word_by_builtin
+
         def add_button(name: str, word: LitStackWord) -> None:
             if hasattr(builtins, name):  # our Sys DisplayHook resolves Button vs BuiltIns
-                LitStackWord.word_by_builtin[getattr(builtins, name)] = word
+                word_by_builtin[getattr(builtins, name)] = word
             else:
                 _globals_[name] = word
 
@@ -692,7 +708,7 @@ class LitStackWord(IneffableWord):
 
         # Adopt the 'math' Module Vocabulary, one Word per Name that doesn't start with '_'
 
-        unimplemented_math_names = ("dist", "frexp", "fsum", "modf", "prod", "sumprod")
+        unimplemented_math_names = ("dist", "frexp", "fsum", "modf", "pow", "prod", "sumprod")
         for math_name in dir(math):
             if math_name.startswith("_"):
                 continue
@@ -700,6 +716,15 @@ class LitStackWord(IneffableWord):
             if math_name in unimplemented_math_names:
                 add_button(math_name, word=LitStackWord.make_unimplemented(math_name))
                 continue
+
+                # def dist(sequence, sequence) -> float
+                # def frexp(float) -> tuple[float, int]
+                # def fsum(sequence) -> float
+                # def modf(float) -> tuple[float, float]
+                # def pow(number, number) -> number  # as builtins.pow, or as math.pow
+                # def pow(number, number, modulo) -> number  # only as builtins.pow
+                # def prod(sequence) -> number
+                # def sumprod(sequence, sequence) -> number
 
             math_value = getattr(math, math_name)
             if not callable(math_value):
@@ -928,7 +953,8 @@ class LitStackWord(IneffableWord):
     def do_shuffle() -> None:
         """Shuffle the whole Stack, changing nothing for fewer than two Values"""
 
-        random.shuffle(LitStackWord.stack)
+        stack = LitStackWord.stack
+        random.shuffle(stack)
 
     @staticmethod
     def do_sum() -> None:
@@ -957,6 +983,8 @@ class LitStackWord(IneffableWord):
         unary: collections.abc.Callable[..., object] | None = None,
         empty: int | None = None,
     ) -> None:
+        """Work with 2 args, else with 1 arg, else with 0 args"""
+
         stack = LitStackWord.stack
 
         if (not stack) and (empty is not None):
