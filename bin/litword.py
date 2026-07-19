@@ -20,6 +20,7 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 import builtins  # (__builtins__ is vars(builtins)) or (__builtins__ is builtins)
 import codeop
 import collections
+import functools
 import inspect
 import math
 import operator
@@ -664,6 +665,8 @@ class LitStackWord(IneffableWord):
             else:
                 _globals_[name] = word
 
+        _abs_ = LitStackWord.make_unary("abs", func=builtins.abs)
+
         chs = LitStackWord(LitStackWord.do_chs)
         clstk = LitStackWord(LitStackWord.do_clstk)
         dup = LitStackWord(LitStackWord.do_dup)
@@ -671,20 +674,21 @@ class LitStackWord(IneffableWord):
         over = LitStackWord(LitStackWord.do_over)
         pop = LitStackWord(LitStackWord.do_pop)
         randint = LitStackWord(LitStackWord.do_randint)
-        range = LitStackWord(LitStackWord.do_range)
+        _range_ = LitStackWord(LitStackWord.do_range)
         roll = LitStackWord(LitStackWord.do_roll)
         rot = LitStackWord(LitStackWord.do_rot)
         shuffle = LitStackWord(LitStackWord.do_shuffle)
+        _sum_ = LitStackWord(LitStackWord.do_sum)
         swap = LitStackWord(LitStackWord.do_swap)
-
-        abs = LitStackWord.make_unary("abs", func=builtins.abs)
 
         # Publish these Words that we have declared as something much like Locals here
 
         _locals_ = locals()  # sampled after last change, because Oct/2024 Python 3.13 PEP 667
+
         for name, value in _locals_.items():
             if isinstance(value, LitStackWord):
-                add_button(name, word=value)
+                strip = name.strip("_")
+                add_button(strip, word=value)
 
         # Adopt the 'math' Module Vocabulary, one Word per Name that doesn't start with '_'
 
@@ -927,6 +931,16 @@ class LitStackWord(IneffableWord):
         random.shuffle(LitStackWord.stack)
 
     @staticmethod
+    def do_sum() -> None:
+        """Replace the whole Stack with its sum, else push an int 0"""
+
+        stack = LitStackWord.stack  # reducing '+' from 0 ducks Mypy vs Sum List[Object]
+        _sum_ = functools.reduce(operator.add, stack, 0)
+
+        stack.clear()
+        stack.append(_sum_)
+
+    @staticmethod
     def do_swap() -> None:
         """Swap X and Y, else do nothing when given fewer than two"""
 
@@ -976,6 +990,10 @@ class LitStackWord(IneffableWord):
 
 if __name__ == "__main__":
     main()
+
+
+# todo: Solve >>> (1 2 +) 7 /
+# todo: Solve >>> 1 2 3 .
 
 
 # posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/litword.py
