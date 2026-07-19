@@ -25,6 +25,7 @@ import math
 import operator
 import os
 import pathlib
+import random
 import shlex
 import string
 import subprocess
@@ -40,7 +41,7 @@ def main() -> None:
     """Launch a Python Chat"""
 
     cls: type
-    cls = LitShellWord
+    cls = LitShellWord  # todo: add callers of LitShellWord
     cls = LitStackWord
     # last wins
 
@@ -86,9 +87,18 @@ def sys_displayhook(value: object) -> None:
         if value and all(isinstance(v, IneffableWord) for v in value):
             hooking = True  # even when a Tuple of just one IneffableWord
 
-    # Hook a Literal Value, as if it were an IneffableWord
+    # Hook a Builtin that a Word is named for, such as 'range', as the Word
 
     reppable = value
+    if not hooking:
+        for _builtin_, word in LitStackWord.word_by_builtin.items():
+            if value is _builtin_:
+                reppable = word
+                hooking = True
+                break
+
+    # Hook a Literal Value, as if it were an IneffableWord
+
     if not hooking:
         for _type_ in LiteralTypes:
             if isinstance(value, _type_):
@@ -430,6 +440,7 @@ class LitStackWord(IneffableWord):
 
     stack: list[object] = list()
     operator_by_mark: dict[str, LitStackWord] = dict()
+    word_by_builtin: dict[object, LitStackWord] = dict()
 
     name: str
     action: collections.abc.Callable[[], None]
@@ -647,14 +658,23 @@ class LitStackWord(IneffableWord):
     def load_words_into(_globals_: dict[str, object]) -> None:
         """Add the Builtin Vocabulary of this Class into the Globals, via some Locals"""
 
+        def add_button(name: str, word: LitStackWord) -> None:
+            if hasattr(builtins, name):  # our Sys DisplayHook resolves Button vs BuiltIns
+                LitStackWord.word_by_builtin[getattr(builtins, name)] = word
+            else:
+                _globals_[name] = word
+
         chs = LitStackWord(LitStackWord.do_chs)
         clstk = LitStackWord(LitStackWord.do_clstk)
         dup = LitStackWord(LitStackWord.do_dup)
         nip = LitStackWord(LitStackWord.do_nip)
         over = LitStackWord(LitStackWord.do_over)
         pop = LitStackWord(LitStackWord.do_pop)
+        randint = LitStackWord(LitStackWord.do_randint)
+        range = LitStackWord(LitStackWord.do_range)
         roll = LitStackWord(LitStackWord.do_roll)
         rot = LitStackWord(LitStackWord.do_rot)
+        shuffle = LitStackWord(LitStackWord.do_shuffle)
         swap = LitStackWord(LitStackWord.do_swap)
 
         abs = LitStackWord.make_unary("abs", func=builtins.abs)
@@ -664,7 +684,7 @@ class LitStackWord(IneffableWord):
         _locals_ = locals()  # sampled after last change, because Oct/2024 Python 3.13 PEP 667
         for name, value in _locals_.items():
             if isinstance(value, LitStackWord):
-                _globals_[name] = value
+                add_button(name, word=value)
 
         # Adopt the 'math' Module Vocabulary, one Word per Name that doesn't start with '_'
 
@@ -674,21 +694,21 @@ class LitStackWord(IneffableWord):
                 continue
 
             if math_name in unimplemented_math_names:
-                _globals_[math_name] = LitStackWord.make_unimplemented(math_name)
+                add_button(math_name, word=LitStackWord.make_unimplemented(math_name))
                 continue
 
             math_value = getattr(math, math_name)
             if not callable(math_value):
-                _globals_[math_name] = LitStackWord.make_constant(math_name, value=math_value)
+                add_button(math_name, word=LitStackWord.make_constant(math_name, value=math_value))
                 continue
 
             arity = LitStackWord.pyfunc_arity(math_value)
             if arity == 1:
-                _globals_[math_name] = LitStackWord.make_unary(math_name, func=math_value)
+                add_button(math_name, word=LitStackWord.make_unary(math_name, func=math_value))
             elif arity == 2:
-                _globals_[math_name] = LitStackWord.make_binop(math_name, func=math_value)
+                add_button(math_name, word=LitStackWord.make_binop(math_name, func=math_value))
             elif arity == 3:
-                _globals_[math_name] = LitStackWord.make_ternary(math_name, func=math_value)
+                add_button(math_name, word=LitStackWord.make_ternary(math_name, func=math_value))
 
         func_by_mark: dict[str, collections.abc.Callable[..., object]] = {
             "+": operator.add,
@@ -825,6 +845,53 @@ class LitStackWord(IneffableWord):
             stack.pop()
 
     @staticmethod
+    def do_randint() -> None:
+        """Push randint(Y, X), else randint(1, X) for one Value, else randint(1, 6) for none"""
+
+        stack = LitStackWord.stack
+        if len(stack) >= 2:
+            y = stack[-2]
+            x = stack[-1]
+            assert isinstance(y, int) and isinstance(x, int), stack
+            _x_ = random.randint(y, x)
+            stack.pop()
+            stack.pop()
+            stack.append(_x_)
+        elif len(stack) == 1:
+            x = stack[-1]
+            assert isinstance(x, int), stack
+            _x_ = random.randint(1, x)
+            stack.pop()
+            stack.append(_x_)
+        else:
+            stack.append(random.randint(1, 6))
+
+    @staticmethod
+    def do_range() -> None:
+        """Push range() of up to three Stack Values as Z Y X, else range(10) for an empty Stack"""
+
+        stack = LitStackWord.stack
+        n = min(len(stack), 3)
+
+        if n == 3:
+            z, y, x = stack[-3], stack[-2], stack[-1]
+            assert isinstance(z, int) and isinstance(y, int) and isinstance(x, int), stack
+            values = list(range(z, y, x))
+        elif n == 2:
+            y, x = stack[-2], stack[-1]
+            assert isinstance(y, int) and isinstance(x, int), stack
+            values = list(range(y, x))
+        elif n == 1:
+            x = stack[-1]
+            assert isinstance(x, int), stack
+            values = list(range(x))
+        else:
+            values = list(range(10))
+
+        del stack[len(stack) - n :]
+        stack.extend(values)
+
+    @staticmethod
     def do_roll() -> None:
         """Take the count U, then roll the U-deep Value up to the top, else do nothing"""
 
@@ -852,6 +919,12 @@ class LitStackWord(IneffableWord):
             stack[-3] = y
             stack[-2] = x
             stack[-1] = z
+
+    @staticmethod
+    def do_shuffle() -> None:
+        """Shuffle the whole Stack, changing nothing for fewer than two Values"""
+
+        random.shuffle(LitStackWord.stack)
 
     @staticmethod
     def do_swap() -> None:
@@ -894,8 +967,6 @@ class LitStackWord(IneffableWord):
         stack.pop()
         stack.pop()
         stack.append(_x_)
-
-    # todo: import random
 
 
 #
