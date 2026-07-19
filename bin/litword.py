@@ -20,6 +20,7 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 import builtins  # (__builtins__ is vars(builtins)) or (__builtins__ is builtins)
 import codeop
 import collections
+import inspect
 import math
 import operator
 import os
@@ -470,9 +471,9 @@ class LitStackWord(IneffableWord):
                 return
 
             x = stack[-1]
-            z = func(x)  # invites Func to raise an Exception before our first Stack-Pop Side-Effect
+            _x_ = func(x)  # invites Func to raise Exception before Stack-Pop Side-Effect
             stack.pop()
-            stack.append(z)
+            stack.append(_x_)
 
         ineffable = LitStackWord(do_unary, name=name)
 
@@ -492,6 +493,60 @@ class LitStackWord(IneffableWord):
         ineffable = LitStackWord(do_binop, name=mark)
 
         return ineffable
+
+    @staticmethod
+    def make_ternary(name: str, func: collections.abc.Callable[..., object]) -> LitStackWord:
+
+        def do_ternary() -> None:
+            stack = LitStackWord.stack
+            if len(stack) < 3:
+                return
+
+            z = stack[-3]
+            y = stack[-2]
+            x = stack[-1]
+
+            _x_ = func(z, y, x)  # invites Func to raise Exception before Stack-Pop Side-Effect
+
+            stack.pop()
+            stack.pop()
+            stack.pop()
+            stack.append(_x_)
+
+        ineffable = LitStackWord(do_ternary, name=name)
+
+        return ineffable
+
+    @staticmethod
+    def make_unimplemented(name: str) -> LitStackWord:
+
+        def do_unimplemented() -> None:
+            raise NotImplementedError(name)
+
+        ineffable = LitStackWord(do_unimplemented, name=name)
+
+        return ineffable
+
+    @staticmethod
+    def pyfunc_arity(func: collections.abc.Callable[..., object]) -> int:
+        """Count the Values a Python Func wants off the Stack: 1, 2, 3, else 0 to skip it"""
+
+        try:
+            params = list(inspect.signature(func).parameters.values())
+        except (ValueError, TypeError):
+            return 1  # e.g. math.log gives no signature, so take it as unary
+
+        if any(p.kind is p.VAR_POSITIONAL for p in params):
+            return 2  # e.g. math.gcd/hypot/lcm take *args, so take two off the Stack
+
+        required = [
+            p
+            for p in params
+            if (p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)) and (p.default is p.empty)
+        ]
+
+        n = len(required)
+        return n if n in (1, 2, 3) else 0  # 0 skips four-plus-arg Funcs and any zero-arg Func
 
     #
     # Duck the SyntaxErrors resolved by splitting one Repl Input into several
@@ -595,16 +650,14 @@ class LitStackWord(IneffableWord):
         chs = LitStackWord(LitStackWord.do_chs)
         clstk = LitStackWord(LitStackWord.do_clstk)
         dup = LitStackWord(LitStackWord.do_dup)
+        nip = LitStackWord(LitStackWord.do_nip)
         over = LitStackWord(LitStackWord.do_over)
         pop = LitStackWord(LitStackWord.do_pop)
+        roll = LitStackWord(LitStackWord.do_roll)
         rot = LitStackWord(LitStackWord.do_rot)
         swap = LitStackWord(LitStackWord.do_swap)
 
-        e = LitStackWord.make_constant("e", value=math.e)
-        pi = LitStackWord.make_constant("pi", value=math.pi)
-
         abs = LitStackWord.make_unary("abs", func=builtins.abs)
-        sqrt = LitStackWord.make_unary("sqrt", func=math.sqrt)
 
         # Publish these Words that we have declared as something much like Locals here
 
@@ -612,6 +665,30 @@ class LitStackWord(IneffableWord):
         for name, value in _locals_.items():
             if isinstance(value, LitStackWord):
                 _globals_[name] = value
+
+        # Adopt the 'math' Module Vocabulary, one Word per Name that doesn't start with '_'
+
+        unimplemented_math_names = ("dist", "frexp", "fsum", "modf", "prod", "sumprod")
+        for math_name in dir(math):
+            if math_name.startswith("_"):
+                continue
+
+            if math_name in unimplemented_math_names:
+                _globals_[math_name] = LitStackWord.make_unimplemented(math_name)
+                continue
+
+            math_value = getattr(math, math_name)
+            if not callable(math_value):
+                _globals_[math_name] = LitStackWord.make_constant(math_name, value=math_value)
+                continue
+
+            arity = LitStackWord.pyfunc_arity(math_value)
+            if arity == 1:
+                _globals_[math_name] = LitStackWord.make_unary(math_name, func=math_value)
+            elif arity == 2:
+                _globals_[math_name] = LitStackWord.make_binop(math_name, func=math_value)
+            elif arity == 3:
+                _globals_[math_name] = LitStackWord.make_ternary(math_name, func=math_value)
 
         func_by_mark: dict[str, collections.abc.Callable[..., object]] = {
             "+": operator.add,
@@ -701,8 +778,8 @@ class LitStackWord(IneffableWord):
         if stack:
             stack.pop()
 
-        nx = -x
-        stack.append(nx)
+        _x_ = -x
+        stack.append(_x_)
 
         # todo: '5 - 7' comes through subtraction,
         # astonishingly not the same as '5 7 chs', especially astonishing when input as '5 -7'
@@ -723,23 +800,12 @@ class LitStackWord(IneffableWord):
         stack.append(x)
 
     @staticmethod
-    def do_pop() -> None:
-        """Drop X, else do nothing when given no X"""
-
-        stack = LitStackWord.stack
-        if stack:
-            stack.pop()
-
-    @staticmethod
-    def do_swap() -> None:
-        """Swap X and Y, else do nothing when given fewer than two"""
+    def do_nip() -> None:
+        """Drop Y, else do nothing when given fewer than two"""
 
         stack = LitStackWord.stack
         if len(stack) >= 2:
-            x = stack[-1]
-            y = stack[-2]
-            stack[-1] = y
-            stack[-2] = x
+            del stack[-2]
 
     @staticmethod
     def do_over() -> None:
@@ -749,6 +815,30 @@ class LitStackWord(IneffableWord):
         if len(stack) >= 2:
             y = stack[-2]
             stack.append(y)
+
+    @staticmethod
+    def do_pop() -> None:
+        """Drop X, else do nothing when given no X"""
+
+        stack = LitStackWord.stack
+        if stack:
+            stack.pop()
+
+    @staticmethod
+    def do_roll() -> None:
+        """Take the count U, then roll the U-deep Value up to the top, else do nothing"""
+
+        stack = LitStackWord.stack
+        if not stack:
+            return
+
+        u = stack[-1]
+        if (not isinstance(u, int)) or (u < 0) or (len(stack) < u + 2):
+            return
+
+        stack.pop()
+        x = stack.pop(-(u + 1))
+        stack.append(x)
 
     @staticmethod
     def do_rot() -> None:
@@ -762,6 +852,17 @@ class LitStackWord(IneffableWord):
             stack[-3] = y
             stack[-2] = x
             stack[-1] = z
+
+    @staticmethod
+    def do_swap() -> None:
+        """Swap X and Y, else do nothing when given fewer than two"""
+
+        stack = LitStackWord.stack
+        if len(stack) >= 2:
+            x = stack[-1]
+            y = stack[-2]
+            stack[-1] = y
+            stack[-2] = x
 
     @staticmethod
     def _do_binop_(
@@ -788,11 +889,13 @@ class LitStackWord(IneffableWord):
         y = stack[-2]
         x = stack[-1]
 
-        z = func(y, x)  # invites Func to raise an Exception before our first Stack-Pop Side-Effect
+        _x_ = func(y, x)  # invites Func to raise Exception before Stack-Pop Side-Effect
 
         stack.pop()
         stack.pop()
-        stack.append(z)
+        stack.append(_x_)
+
+    # todo: import random
 
 
 #
