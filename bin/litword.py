@@ -20,6 +20,7 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 import builtins  # (__builtins__ is vars(builtins)) or (__builtins__ is builtins)
 import codeop
 import collections
+import collections.abc  # .collections.abc is not .abc import collections.abc collections.abc.Callable is not typing.Callable
 import functools
 import inspect
 import math
@@ -308,8 +309,6 @@ class LitShellWord(IneffableWord):
         # jq = LitShellWord("jq")
         # less = LitShellWord("less")
         ls = LitShellWord("ls")
-        if str(sys.platform) == "linux":  # mentions of 'lsb_release' raise NameError elsewhere
-            lsb_release = LitShellWord("lsb_release")
         man = LitShellWord("man")  # man +date
         md5sum = LitShellWord("md5sum")
         mkdir = LitShellWord("mkdir")
@@ -329,8 +328,6 @@ class LitShellWord(IneffableWord):
         ssh = LitShellWord("ssh")
         stty = LitShellWord("stty")
         sudo = LitShellWord("sudo")
-        if str(sys.platform) == "darwin":  # mentions of 'sw_vers' raise NameError elsewhere
-            sw_vers = LitShellWord("sw_vers")
         tail = LitShellWord("tail")
         tee = LitShellWord("tee")
         # time = LitShellWord("time")  # todo: Python 'import time' vs Shell 'time'
@@ -342,7 +339,17 @@ class LitShellWord(IneffableWord):
         # xargs = LitShellWord("xargs")
         zsh = LitShellWord("zsh")
 
-        _ = _open_
+        _ = bash, cal, cat, clear, cd, cp, curl, date, df, diff, echo, find, hexdump, ls
+        _ = man, md5sum, mkdir, mv, od, _open_, pbpaste, ps, pwd, python, python3
+        _ = screen, script, sh, sleep, sort, ssh, stty, sudo
+        _ = tail, tee, touch, tr, uptime, zsh
+
+        if str(sys.platform) == "linux":  # mentions of 'lsb_release' raise NameError elsewhere
+            lsb_release = LitShellWord("lsb_release")
+            _ = lsb_release
+        if str(sys.platform) == "darwin":  # mentions of 'sw_vers' raise NameError elsewhere
+            sw_vers = LitShellWord("sw_vers")
+            _ = sw_vers
 
         # Declare our most favoured Shell Option Permutations (not all possible Permutations)
 
@@ -354,6 +361,8 @@ class LitShellWord(IneffableWord):
         rt = LitShellWord("rt")  # bash -c +ls -d -hlAF -rt +'*'
         sane = LitShellWord("sane")  # stty +sane
         version = LitShellWord("version")  # python3 --version
+
+        _ = LSs, bpru, color, hlAF, pretty, rt, sane, version
 
         # Declare the US Ascii Letters, upper and lower case, as Shell Options
 
@@ -696,6 +705,9 @@ class LitStackWord(IneffableWord):
         shuffle = LitStackWord(LitStackWord.do_shuffle)
         _sum_ = LitStackWord(LitStackWord.do_sum)
         swap = LitStackWord(LitStackWord.do_swap)
+
+        _ = _abs_, _range_, _sum_
+        _ = chs, clstk, dup, nip, over, pop, randint, roll, rot, shuffle, swap
 
         # Publish these Words that we have declared as something much like Locals here
 

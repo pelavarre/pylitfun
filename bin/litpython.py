@@ -29,7 +29,7 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 import __main__
 import argparse
 import bdb
-import collections.abc
+import collections.abc  # .collections.abc is not .abc import collections.abc collections.abc.Callable is not typing.Callable
 import dataclasses
 import datetime as dt
 import difflib
