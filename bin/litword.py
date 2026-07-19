@@ -20,6 +20,7 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 import builtins  # (__builtins__ is vars(builtins)) or (__builtins__ is builtins)
 import codeop
 import collections
+import operator
 import os
 import pathlib
 import shlex
@@ -449,6 +450,21 @@ class LitStackWord(IneffableWord):
 
         return ineffable
 
+    @staticmethod
+    def make_binop(
+        mark: str,
+        func: collections.abc.Callable[..., object],
+        unary: collections.abc.Callable[..., object] | None = None,
+        empty: int | None = None,
+    ) -> LitStackWord:
+
+        def do_binop() -> None:
+            LitStackWord._do_binop_(func, unary=unary, empty=empty)
+
+        ineffable = LitStackWord(do_binop, name=mark)
+
+        return ineffable
+
     #
     # Duck the SyntaxErrors resolved by splitting one Repl Input into several
     #
@@ -561,11 +577,71 @@ class LitStackWord(IneffableWord):
             if isinstance(value, LitStackWord):
                 _globals_[name] = value
 
+        func_by_mark: dict[str, collections.abc.Callable[..., object]] = {
+            "+": operator.add,
+            "-": operator.sub,
+            "*": operator.mul,
+            "/": operator.truediv,
+            "//": operator.floordiv,
+            "%": operator.mod,
+            "**": operator.pow,
+            "@": operator.matmul,
+            "&": operator.and_,
+            "|": operator.or_,
+            "^": operator.xor,
+            "<<": operator.lshift,
+            ">>": operator.rshift,
+            "<": operator.lt,
+            "<=": operator.le,
+            ">": operator.gt,
+            ">=": operator.ge,
+            "==": operator.eq,
+            "!=": operator.ne,
+        }
+
+        unop_by_mark: dict[str, collections.abc.Callable[..., object]] = {
+            "+": operator.pos,
+            "-": operator.neg,
+            "*": lambda x: x * x,
+            "/": lambda x: 1 / x,
+            "//": lambda x: x // 1,
+            "%": lambda x: x % 1,
+            "**": lambda x: 10**x,
+            "^": lambda x: x ^ -1,
+            "<<": lambda x: 1 << x,
+            ">>": lambda x: x >> 1,
+            "<": lambda x: x < 0,
+            "<=": lambda x: x <= 0,
+            ">": lambda x: x > 0,
+            ">=": lambda x: x >= 0,
+            "==": lambda x: x == 0,
+            "!=": lambda x: x != 0,
+        }
+
+        empty_by_mark: dict[str, int] = {
+            "+": 0,
+            "-": 0,
+            "*": 1,
+            "/": 1,
+            "//": 1,
+            "**": 1,
+            "&": -1,
+            "|": 0,
+            "^": 0,
+            "<<": 0,
+            ">>": 0,
+        }
+
+        # Order by Mark length, longest first, so 'split_operator_mark' matches ** before *
+
         LitStackWord.operator_by_mark = {
-            "+": LitStackWord(LitStackWord.do_add, name="+"),
-            "-": LitStackWord(LitStackWord.do_sub, name="-"),
-            "*": LitStackWord(LitStackWord.do_mul, name="*"),
-            "/": LitStackWord(LitStackWord.do_div, name="/"),
+            mark: LitStackWord.make_binop(
+                mark,
+                func=func_by_mark[mark],
+                unary=unop_by_mark.get(mark),
+                empty=empty_by_mark.get(mark),
+            )
+            for mark in sorted(func_by_mark, key=len, reverse=True)
         }
 
     #
@@ -604,12 +680,11 @@ class LitStackWord(IneffableWord):
 
     @staticmethod
     def do_dup() -> None:
-        """Duplicate X, else do nothing when given no X"""
+        """Duplicate X, else push one 0"""
 
         stack = LitStackWord.stack
-        if stack:
-            x = stack[-1]
-            stack.append(x)
+        x = stack[-1] if stack else 0
+        stack.append(x)
 
     @staticmethod
     def do_pop() -> None:
@@ -631,45 +706,35 @@ class LitStackWord(IneffableWord):
             stack[-2] = x
 
     @staticmethod
-    def do_add() -> None:
-        """Add Y and X, else do nothing when given fewer than two"""
-        LitStackWord._do_binary_(lambda y, x: y + x)
-
-    @staticmethod
-    def do_sub() -> None:
-        """Subtract X from Y, else do nothing when given fewer than two"""
-        LitStackWord._do_binary_(lambda y, x: y - x)
-
-    @staticmethod
-    def do_mul() -> None:
-        """Multiply Y and X, else do nothing when given fewer than two"""
-        LitStackWord._do_binary_(lambda y, x: y * x)
-
-    @staticmethod
-    def do_div() -> None:
-        """Divide Y by X, else do nothing when given fewer than two"""
-        LitStackWord._do_binary_(lambda y, x: y / x)
-
-    @staticmethod
-    def _do_binary_(func: collections.abc.Callable[[float, float], float]) -> None:
+    def _do_binop_(
+        func: collections.abc.Callable[..., object],
+        unary: collections.abc.Callable[..., object] | None = None,
+        empty: int | None = None,
+    ) -> None:
         stack = LitStackWord.stack
-        if len(stack) >= 2:
+
+        if (not stack) and (empty is not None):
+            stack.append(empty)
+            return
+
+        if (len(stack) == 1) and (unary is not None):
             x = stack[-1]
-            y = stack[-2]
-
-            assert isinstance(x, (float, int, bool)), (type(x), x)
-            assert isinstance(y, (float, int, bool)), (type(y), y)
-
-            z = func(y, x)
-
-            stack.pop()
+            z = unary(x)
             stack.pop()
             stack.append(z)
+            return
 
-    # todo0: clstk = ...  """Clear the Stack (drop all of its Values)"""
-    # todo0: dup = ...  """Push an Alias of X, else push one 0"""
-    # todo0: pop = ...  """Pop X, else silently do nothing"""
-    # todo0: swap = ...  """Swap X with Y, else silently do nothing"""
+        if len(stack) < 2:
+            return
+
+        y = stack[-2]
+        x = stack[-1]
+
+        z = func(y, x)  # invites Func to raise an Exception before our first Stack-Pop Side-Effect
+
+        stack.pop()
+        stack.pop()
+        stack.append(z)
 
 
 #
