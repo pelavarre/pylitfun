@@ -3,13 +3,24 @@
 r"""
 usage: litword.py [-h]
 
-take python input lines begun by shell verbs as shell input lines
+take rpn calculator button names as if buttons pressed
 
 options:
   -h, --help  show this help message and exit
 
 examples:
-  bin/litword.py --
+  % bin/litword.py --
+  >>>
+  >>> 3 5 7 / *
+  1 [3]
+  2 [3, 5]
+  3 [3, 5, 7]
+  2 [3, 0.7142857142857143]
+  1 [2.142857142857143]
+  >>>
+  >>> clstk
+  0 []
+  >>>
 """
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -54,6 +65,8 @@ def main() -> None:
     cls.load_words_into(globals())
     sys.displayhook = sys_displayhook
     os.environ["PYTHONINSPECT"] = str(True)
+
+    # todo: help for:  take python input lines begun by shell verbs as shell input lines
 
 
 def _exec_(pytext: str) -> None:  # todo: add callers of 'def _exec_'
