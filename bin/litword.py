@@ -20,6 +20,7 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 import builtins  # (__builtins__ is vars(builtins)) or (__builtins__ is builtins)
 import codeop
 import collections
+import math
 import operator
 import os
 import pathlib
@@ -451,6 +452,33 @@ class LitStackWord(IneffableWord):
         return ineffable
 
     @staticmethod
+    def make_constant(name: str, value: object) -> LitStackWord:
+
+        def do_constant() -> None:
+            LitStackWord.stack.append(value)
+
+        ineffable = LitStackWord(do_constant, name=name)
+
+        return ineffable
+
+    @staticmethod
+    def make_unary(name: str, func: collections.abc.Callable[..., object]) -> LitStackWord:
+
+        def do_unary() -> None:
+            stack = LitStackWord.stack
+            if not stack:
+                return
+
+            x = stack[-1]
+            z = func(x)  # invites Func to raise an Exception before our first Stack-Pop Side-Effect
+            stack.pop()
+            stack.append(z)
+
+        ineffable = LitStackWord(do_unary, name=name)
+
+        return ineffable
+
+    @staticmethod
     def make_binop(
         mark: str,
         func: collections.abc.Callable[..., object],
@@ -567,8 +595,16 @@ class LitStackWord(IneffableWord):
         chs = LitStackWord(LitStackWord.do_chs)
         clstk = LitStackWord(LitStackWord.do_clstk)
         dup = LitStackWord(LitStackWord.do_dup)
+        over = LitStackWord(LitStackWord.do_over)
         pop = LitStackWord(LitStackWord.do_pop)
+        rot = LitStackWord(LitStackWord.do_rot)
         swap = LitStackWord(LitStackWord.do_swap)
+
+        e = LitStackWord.make_constant("e", value=math.e)
+        pi = LitStackWord.make_constant("pi", value=math.pi)
+
+        abs = LitStackWord.make_unary("abs", func=builtins.abs)
+        sqrt = LitStackWord.make_unary("sqrt", func=math.sqrt)
 
         # Publish these Words that we have declared as something much like Locals here
 
@@ -704,6 +740,28 @@ class LitStackWord(IneffableWord):
             y = stack[-2]
             stack[-1] = y
             stack[-2] = x
+
+    @staticmethod
+    def do_over() -> None:
+        """Push an Alias of Y, else do nothing when given fewer than two"""
+
+        stack = LitStackWord.stack
+        if len(stack) >= 2:
+            y = stack[-2]
+            stack.append(y)
+
+    @staticmethod
+    def do_rot() -> None:
+        """Rotate Z up above Y and X, else do nothing when given fewer than three"""
+
+        stack = LitStackWord.stack
+        if len(stack) >= 3:
+            z = stack[-3]
+            y = stack[-2]
+            x = stack[-1]
+            stack[-3] = y
+            stack[-2] = x
+            stack[-1] = z
 
     @staticmethod
     def _do_binop_(
