@@ -1,0 +1,4 @@
+# sh/.rm = Move away into ~/Desktop/.
+
+set -xe
+mv -i "$@" ~/Desktop/.

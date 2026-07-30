@@ -11,8 +11,8 @@ define __EPILOG__
 make  # shows a few examples and exits zero
 
 make help  # shows many help lines and exits zero
-make bin  # updates your Shell Path ~/bin/ Folder
-make pips  # installs/ updates Add-on's for Python from PyPi·Org
+make bin  # updates your Shell Path ~/bin/ Folder from our bin/ and sh/ and Makefile
+make pips  # installs/ updates Python add-on's from PyPi·Org
 make sense  # calls for Code Review from Black, Flake8, and MyPy Strict
 make tests  # updates:  git diff csp/cspbook-py-readme.md
 
@@ -25,12 +25,12 @@ usage: make TARGET
 help download, run, and give back changes
 
 positional arguments:
-  TARGET  which work to do (one of help, bin, pips, sense)
+  TARGET  which work to do (one of help, bin, pips, sense, tests)
 
 examples:
   make  # shows a few examples and exits zero
   make help  # shows many help lines and exits zero
-  make bin  # updates your Shell Path ~/bin/ Folder from our bin/ and sh/
+  make bin  # updates your Shell Path ~/bin/ Folder from our bin/ and sh/ and Makefile
   make pips  # installs/ updates Python add-on's from PyPi·Org
   make sense  # calls for Code Review from Black, Flake8, and MyPy Strict
   make tests  # updates:  git diff csp/cspbook-py-readme.md
@@ -56,8 +56,11 @@ bin:
 	(ls -A bin && ls -A bin/git-verbs && ls -A sh) \
 		|(cd ~/ && xargs -I{} rm -fr bin/{})
 	ls -d bin/* bin/git-verbs/* sh/* sh/.* \
+		|grep -v -e /__pycache__$$ \
 		|grep -v -e ^bin/git-verbs$$ -e ^sh/[.]$$ -e ^sh/[.][.]$$ -e sh/pwnme$$ \
 		|xargs -I{} cp -ip {} ~/bin/.
+	rm -fr ~/bin/Makefile  # not reached by the rm above, which sweeps only bin/ and sh/
+	cp -ip Makefile ~/bin/.
 
 # beware: the classic 'sh' can add ./ and ../ into sh/.*
 # beware: the classic bin/* or sh/* can include a bin/__init__.py or sh/__init__.py
@@ -132,14 +135,18 @@ black:
 
 flake8:
 	~/.pyvenvs/flake8/bin/flake8 \
-		--max-line-length=999 --max-complexity 15 --ignore=E203,E704,W503 \
+		--max-line-length=999 --max-complexity 15 --extend-ignore=E203,E704,W503 \
 			$$PWD
 
+# --max-complexity 15  # limit how much McCabe Cyclomatic Complexity we accept
+
 # --max-line-length=999  # Black max line lengths over Flake8 max line lengths
-# --max-complexity 10  # limit how much McCabe Cyclomatic Complexity we accept
-# --ignore=E203  # Black '[ : ]' rules over E203 whitespace before ':'
-# --ignore=E704  # Black of typing.Protocol rules over E704 multiple statements on one line (def)
-# --ignore=W503  # 2017 Pep 8 and Black over W503 line break before bin op
+# --extend-ignore  # adds to the Defaults E121,E123,E126,E226,E24,E704,W503,W504 (--ignore replaces)
+# --extend-ignore=E203  # Black '[ : ]' rules over E203 whitespace before ':'
+
+# some setups do not need
+# --extend-ignore=E704  # Black of typing.Protocol over E704 multiple statements on one line (def)
+# --extend-ignore=W503  # 2017 Pep 8 and Black over W503 line break before bin op
 
 # exits 0 despite finding some F401 '...' imported but unused
 
