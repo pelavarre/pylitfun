@@ -193,6 +193,7 @@ class GitGopher:
 
         taggable_shline = taggable + " " + " ".join(shlex_quote_calmly(_) for _ in diff_shargv[1:])
         taggable_shline = taggable_shline.rstrip()
+        taggable_shline = self.tagged_shline_to_brief(taggable_shline)
 
         tagged_shverb = "gg" if diff_shverb in ("gg/0", "gg/n") else diff_shverb
         tagged_shline = f": {tagged_shverb}{given_shsuffix} && {taggable_shline}"
@@ -239,6 +240,10 @@ class GitGopher:
 
         # todo: do we ever call Git so that it needs a .pass_fds= to fill out /dev/fd ?
         # todo: do we ever call Git so that it needs its Stdin cut off ?
+
+    #
+    # Start up, or fail fast
+    #
 
     def exit_if_dash_dash_help(self) -> None:
         """Print the Doc and exit zero, if '--help' in the Shell Args"""
@@ -347,6 +352,80 @@ class GitGopher:
         sys.exit()
 
     #
+    # Surface context
+    #
+
+    def find_git_who(self) -> str:
+        """Go fetch the 'git config user.email'"""
+
+        gwho_shline = "git config user.email"
+
+        gwho_run = subprocess.run(
+            shlex.split(gwho_shline),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        # Exit nonzero and explain why, if need be
+
+        if gwho_run.returncode:
+
+            print(f": gwho && {gwho_run}", file=sys.stderr)
+            sys.stderr.write(gwho_run.stdout.decode())  # written to Stderr, and commonly empty
+            sys.stderr.write(gwho_run.stderr.decode())
+
+            print(f"+ exit {gwho_run.returncode}", file=sys.stderr)
+
+            sys.exit(gwho_run.returncode)
+
+        # Succeed
+
+        gwho = gwho_run.stdout.decode().rstrip()
+        assert gwho, (gwho,)
+
+        return gwho
+
+        # todo: merge with nearly identical .find_git_top
+        # todo: run .find_git_who at most once per Process
+
+    def find_git_top(self, default: str | None) -> str:
+        """Find RealPath of the enclosing Git Clone, else complain & exit nonzero"""
+
+        gtop_shline = "git rev-parse --show-toplevel"
+
+        gtop_run = subprocess.run(
+            shlex.split(gtop_shline),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,  # small 2 Lines here, vs like 129 Lines from "git diff"
+        )
+
+        # Exit nonzero and explain why, if Pwd not inside a Git Clone
+
+        if gtop_run.returncode:
+            if default is not None:
+                return default
+
+            print(f": gtop && {gtop_shline}", file=sys.stderr)
+            sys.stderr.write(gtop_run.stdout.decode())  # written to Stderr, and commonly empty
+            sys.stderr.write(gtop_run.stderr.decode())
+
+            print(f"+ exit {gtop_run.returncode}", file=sys.stderr)
+
+            sys.exit(gtop_run.returncode)
+
+        # Succeed
+
+        gtop = gtop_run.stdout.decode().rstrip()
+        assert gtop, (gtop,)
+
+        return gtop
+
+        # todo: merge with nearly identical .find_git_who
+        # todo: run .find_git_top at most once per Process
+
+    #
     # Choose the ShVerb
     #
 
@@ -363,7 +442,7 @@ class GitGopher:
         alt_shverb = shverb
         if shverb == "gg":  # 'git status' without args, or 'git grep' with args
             alt_shverb = "gg/n"
-            posargv = self.maybe_posargv_from_shargv(shargv)
+            posargv = self._maybe_posargv_from_shargv_(shargv)
             if not posargv:
                 alt_shverb = "gg/0"
 
@@ -380,6 +459,25 @@ class GitGopher:
         # Succeed
 
         return alt_shverb
+
+    def _maybe_posargv_from_shargv_(self, shargv: tuple[str, ...]) -> tuple[str, ...]:
+        """Pick out the Args with a look of a Pos Arg, though maybe the substance of an Option"""
+
+        posargv: list[str] = list()
+
+        for index, arg in enumerate(shargv):
+            if index == 0:
+                continue
+
+            if not arg.startswith("-"):
+                posargv.append(arg)
+            elif arg == "-":
+                posargv.append(arg)
+            elif arg == "--":
+                posargv.extend(shargv[(index + 1) :])
+                break
+
+        return tuple(posargv)
 
     #
     # Form the ShLine
@@ -423,7 +521,7 @@ class GitGopher:
     ) -> tuple[str, str]:
         """Handle case where >= 1 Shell Args are required"""
 
-        posargv = self.maybe_posargv_from_shargv(shargv)
+        posargv = self._maybe_posargv_from_shargv_(shargv)
 
         assert shverb_shline_plus.endswith("..."), (shverb_shline_plus,)
         required_args_usage = f"usage: {shverb} ..."
@@ -508,25 +606,6 @@ class GitGopher:
         return (shline, shsuffix)
 
         # ga, gc, gco, gcp, gg/n, ggl, glf, grh
-
-    def maybe_posargv_from_shargv(self, shargv: tuple[str, ...]) -> tuple[str, ...]:
-        """Pick out the Args with a look of a Pos Arg, though maybe the substance of an Option"""
-
-        posargv: list[str] = list()
-
-        for index, arg in enumerate(shargv):
-            if index == 0:
-                continue
-
-            if not arg.startswith("-"):
-                posargv.append(arg)
-            elif arg == "-":
-                posargv.append(arg)
-            elif arg == "--":
-                posargv.extend(shargv[(index + 1) :])
-                break
-
-        return tuple(posargv)
 
     def _form_shline_optional_args_(
         self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...], gwho: str
@@ -638,189 +717,6 @@ class GitGopher:
 
         # gb, gca, gcaa, gcam, gda, gdh, gf, glqn, gno, grh1, grhu, grl, grv, gsis
 
-    def find_git_who(self) -> str:
-        """Go fetch the 'git config user.email'"""
-
-        gwho_shline = "git config user.email"
-
-        gwho_run = subprocess.run(
-            shlex.split(gwho_shline),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        # Exit nonzero and explain why, if need be
-
-        if gwho_run.returncode:
-
-            print(f": gwho && {gwho_run}", file=sys.stderr)
-            sys.stderr.write(gwho_run.stdout.decode())  # written to Stderr, and commonly empty
-            sys.stderr.write(gwho_run.stderr.decode())
-
-            print(f"+ exit {gwho_run.returncode}", file=sys.stderr)
-
-            sys.exit(gwho_run.returncode)
-
-        # Succeed
-
-        gwho = gwho_run.stdout.decode().rstrip()
-        assert gwho, (gwho,)
-
-        return gwho
-
-        # todo: merge with nearly identical .find_git_top
-        # todo: run .find_git_who at most once per Process
-
-    #
-    # Solve work in Shell or not, work at Git Top or not, work with Git Diff or not
-    #
-
-    def form_shell_shline(self, shverb: str, shline: str, given_shsuffix: str) -> tuple[bool, str]:
-        """Choose to call Git by way of .shell=False or .shell=True"""
-
-        if shverb == "glf":
-            if not given_shsuffix:
-                assert shline == "git ls-files", (shline, shverb)
-
-                shell = False
-                return (shell, "git ls-files")
-
-            assert shline == "git ls-files |grep", (shline, shverb)
-            assert " |" in shline, (shline, shverb)
-
-            shell = True
-            return (shell, shline)
-
-        if shverb == "glqn":
-            assert " |" not in shline, (shline, shverb)
-
-            shell = True
-            return (True, shline)
-
-        if shverb == "grv":
-            assert " |" in shline, (shline, shverb)
-
-            shell = True
-            return (True, shline)
-
-        assert " |" not in shline, (shline, shverb)
-
-        shell = False
-        return (shell, shline)
-
-        # todo: operate 'glf ...' and 'glqn' and 'grv' without 'shell=True'
-
-    def find_git_top(self, default: str | None) -> str:
-        """Find RealPath of the enclosing Git Clone, else complain & exit nonzero"""
-
-        gtop_shline = "git rev-parse --show-toplevel"
-
-        gtop_run = subprocess.run(
-            shlex.split(gtop_shline),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,  # small 2 Lines here, vs like 129 Lines from "git diff"
-        )
-
-        # Exit nonzero and explain why, if Pwd not inside a Git Clone
-
-        if gtop_run.returncode:
-            if default is not None:
-                return default
-
-            print(f": gtop && {gtop_shline}", file=sys.stderr)
-            sys.stderr.write(gtop_run.stdout.decode())  # written to Stderr, and commonly empty
-            sys.stderr.write(gtop_run.stderr.decode())
-
-            print(f"+ exit {gtop_run.returncode}", file=sys.stderr)
-
-            sys.exit(gtop_run.returncode)
-
-        # Succeed
-
-        gtop = gtop_run.stdout.decode().rstrip()
-        assert gtop, (gtop,)
-
-        return gtop
-
-        # todo: merge with nearly identical .find_git_who
-        # todo: run .find_git_top at most once per Process
-
-    def shline_at_git_diff(
-        self, shverb: str, shline: str, tweaked_shargv: tuple[str, ...]
-    ) -> tuple[str, str]:
-        """Change up 'gcam' and 'gno' when truthy 'git diff --name-only'"""
-
-        shline_plus_by_shverb = ShlinePlusByShverb
-
-        # Require 'gno' to expand to precisely accurate copies of 'gdno' and 'gspno'
-
-        gdno_shline = shline_plus_by_shverb["gdno"].removesuffix(" [...]")
-        gspno_shline = shline_plus_by_shverb["gspno"].removesuffix(" [...]")
-
-        assert gdno_shline == "git diff --name-only"
-        assert gspno_shline == "git show --pretty= --name-only"
-
-        # Change nothing but 'gcam' or 'gno'
-
-        if shverb not in ("gcam", "gno"):
-            return (shverb, shline)  # no change
-
-        # Collapse a "gno" with Shell Options or Pos Args
-        # Collapse to one "gspno" with no "gdno" pre-check
-
-        if shverb == "gno":
-            assert shline == "git diff/show --pretty= --name-only", (shline,)
-            if tweaked_shargv[1:]:
-                return ("gspno", gspno_shline)  # 'gno' with Args/Opts is 'gspno'
-
-        # Try Git Diff once, and complain & exit nonzero if it fails
-
-        gdno_run = subprocess.run(
-            shlex.split(gdno_shline),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        if gdno_run.returncode or gdno_run.stderr:
-            print(f": gdno && {gdno_shline} && : ...", file=sys.stderr)
-            sys.stderr.write(gdno_run.stdout.decode())  # written to Stderr, and commonly empty
-            sys.stderr.write(gdno_run.stderr.decode())
-            print(f"+ exit {gdno_run.returncode}", file=sys.stderr)
-
-            sys.exit(gdno_run.returncode)
-
-        gdno_run_stdout = gdno_run.stdout
-
-        # Tell 'gno' to sum the Git Diff if truthy, else say to sum the Git Show
-
-        if shverb == "gno":
-            assert shline == "git diff/show --pretty= --name-only", (shline,)
-
-            if gdno_run_stdout:
-                return ("gdno", gdno_shline)  # this 'gno' is 'gdno'
-
-            return ("gspno", gspno_shline)  # this 'gno' is 'gspno'
-
-        # Add each Git Diff Pathname into the Commit Message, for 'gcam'
-
-        assert shverb == "gcam", (shverb,)
-        assert shline == "git commit --all -m wip", (shline,)
-
-        if not gdno_run_stdout:
-            return (shverb, shline)  # this 'gcam' learned nothing from 'gdno'
-
-        pathnames = gdno_run_stdout.decode().splitlines()
-        message = "wip - " + " ".join(pathnames)
-
-        gcam_shline_plus = "git commit --all -m " + repr(message)
-
-        return ("gcam", gcam_shline_plus)  # this 'gcam' knows its 'gdno'
-
-        # todo: run .gdno_shline at most once per Process
-
     #
     # Choose ShArgV
     #
@@ -828,7 +724,7 @@ class GitGopher:
     def shargv_tweak_up(self, shverb: str, shargv: tuple[str, ...], gwho: str) -> tuple[str, ...]:
         """Tune Greps to presume text, ignore case, and match >= 1 patterns"""
 
-        posargv = self.maybe_posargv_from_shargv(shargv)
+        posargv = self._maybe_posargv_from_shargv_(shargv)
 
         shline_plus_by_shverb = ShlinePlusByShverb
         shline_plus = shline_plus_by_shverb[shverb]
@@ -975,8 +871,156 @@ class GitGopher:
         return splitlines
 
     #
-    # Auth some Git work
+    # Solve work in Shell or not, work at Git Top or not, work with Git Diff or not
     #
+
+    def form_shell_shline(self, shverb: str, shline: str, given_shsuffix: str) -> tuple[bool, str]:
+        """Choose to call Git by way of .shell=False or .shell=True"""
+
+        if shverb == "glf":
+            if not given_shsuffix:
+                assert shline == "git ls-files", (shline, shverb)
+
+                shell = False
+                return (shell, "git ls-files")
+
+            assert shline == "git ls-files |grep", (shline, shverb)
+            assert " |" in shline, (shline, shverb)
+
+            shell = True
+            return (shell, shline)
+
+        if shverb == "glqn":
+            assert " |" not in shline, (shline, shverb)
+
+            shell = True
+            return (True, shline)
+
+        if shverb == "grv":
+            assert " |" in shline, (shline, shverb)
+
+            shell = True
+            return (True, shline)
+
+        assert " |" not in shline, (shline, shverb)
+
+        shell = False
+        return (shell, shline)
+
+        # todo: operate 'glf ...' and 'glqn' and 'grv' without 'shell=True'
+
+    def shline_at_git_diff(
+        self, shverb: str, shline: str, tweaked_shargv: tuple[str, ...]
+    ) -> tuple[str, str]:
+        """Change up 'gcam' and 'gno' when truthy 'git diff --name-only'"""
+
+        shline_plus_by_shverb = ShlinePlusByShverb
+
+        # Require 'gno' to expand to precisely accurate copies of 'gdno' and 'gspno'
+
+        gdno_shline = shline_plus_by_shverb["gdno"].removesuffix(" [...]")
+        gspno_shline = shline_plus_by_shverb["gspno"].removesuffix(" [...]")
+
+        assert gdno_shline == "git diff --name-only"
+        assert gspno_shline == "git show --pretty= --name-only"
+
+        # Change nothing but 'gcam' or 'gno'
+
+        if shverb not in ("gcam", "gno"):
+            return (shverb, shline)  # no change
+
+        # Collapse a "gno" with Shell Options or Pos Args
+        # Collapse to one "gspno" with no "gdno" pre-check
+
+        if shverb == "gno":
+            assert shline == "git diff/show --pretty= --name-only", (shline,)
+            if tweaked_shargv[1:]:
+                return ("gspno", gspno_shline)  # 'gno' with Args/Opts is 'gspno'
+
+        # Try Git Diff once, and complain & exit nonzero if it fails
+
+        gdno_run = subprocess.run(
+            shlex.split(gdno_shline),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        if gdno_run.returncode or gdno_run.stderr:
+            print(f": gdno && {gdno_shline} && : ...", file=sys.stderr)
+            sys.stderr.write(gdno_run.stdout.decode())  # written to Stderr, and commonly empty
+            sys.stderr.write(gdno_run.stderr.decode())
+            print(f"+ exit {gdno_run.returncode}", file=sys.stderr)
+
+            sys.exit(gdno_run.returncode)
+
+        gdno_run_stdout = gdno_run.stdout
+
+        # Tell 'gno' to sum the Git Diff if truthy, else say to sum the Git Show
+
+        if shverb == "gno":
+            assert shline == "git diff/show --pretty= --name-only", (shline,)
+
+            if gdno_run_stdout:
+                return ("gdno", gdno_shline)  # this 'gno' is 'gdno'
+
+            return ("gspno", gspno_shline)  # this 'gno' is 'gspno'
+
+        # Add each Git Diff Pathname into the Commit Message, for 'gcam'
+
+        assert shverb == "gcam", (shverb,)
+        assert shline == "git commit --all -m wip", (shline,)
+
+        if not gdno_run_stdout:
+            return (shverb, shline)  # this 'gcam' learned nothing from 'gdno'
+
+        pathnames = gdno_run_stdout.decode().splitlines()
+        message = "wip - " + " ".join(pathnames)
+
+        gcam_shline_plus = "git commit --all -m " + repr(message)
+
+        return ("gcam", gcam_shline_plus)  # this 'gcam' knows its 'gdno'
+
+        # todo: run .gdno_shline at most once per Process
+
+    #
+    # Trace & auth some Git work
+    #
+
+    def tagged_shline_to_brief(self, shline: str) -> str:
+        """Don't bother tracing many Pathnames"""
+
+        pathwalkers = [
+            "git grep -a -e ",
+            "git grep -ai -e ",
+            "git grep -l -ai -e ",
+            "git ls-files |grep -ai -e ",
+        ]
+
+        argv = shlex.split(shline)
+
+        for pw in pathwalkers:
+
+            if shline.startswith(pw):
+                if "--" in argv:
+                    i = argv.index("--")
+                    if i:
+                        head = argv[:i]
+                        tail = argv[i + 1 :]
+
+                        tn = os.path.split(tail[-1])[-1]
+                        t = str(len(tail)) + " [" + repr(tail[0]) + ", ..., '.../" + tn + "']"
+
+                        if len(shline) >= 101:
+                            if tail[2:]:
+                                quotable = shlex.join(head) + " -- " + t
+                                return quotable
+
+        return shline
+
+        # % bin/git.py ggl supercali -- bin/g*
+        # : ggl ... &&
+        # git grep -l -ai -e supercali -- 40 ['bin/g', ..., '.../gspno']
 
     def auth_git_shline(self, shline: str) -> str:
         """Let Auth fail, else say which Shell Line to run and which Shell Line to trace"""
