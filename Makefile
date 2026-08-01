@@ -11,7 +11,7 @@ define __EPILOG__
 make  # shows a few examples and exits zero
 
 make help  # shows many help lines and exits zero
-make bin  # updates your Shell Path ~/bin/ Folder from our bin/ and sh/ and Makefile
+make bin  # updates your Shell Path ~/bin/ Folder from our bin/ and sh/
 make pips  # installs/ updates Python add-on's from PyPi·Org
 make sense  # calls for Code Review from Black, Flake8, and MyPy Strict
 make tests  # updates:  git diff csp/cspbook-py-readme.md
@@ -30,7 +30,7 @@ positional arguments:
 examples:
   make  # shows a few examples and exits zero
   make help  # shows many help lines and exits zero
-  make bin  # updates your Shell Path ~/bin/ Folder from our bin/ and sh/ and Makefile
+  make bin  # updates your Shell Path ~/bin/ Folder from our bin/ and sh/
   make pips  # installs/ updates Python add-on's from PyPi·Org
   make sense  # calls for Code Review from Black, Flake8, and MyPy Strict
   make tests  # updates:  git diff csp/cspbook-py-readme.md
@@ -59,8 +59,8 @@ bin:
 		|grep -v -e /__pycache__$$ \
 		|grep -v -e ^bin/git-verbs$$ -e ^sh/[.]$$ -e ^sh/[.][.]$$ -e sh/pwnme$$ \
 		|xargs -I{} cp -ip {} ~/bin/.
-	rm -fr ~/bin/Makefile  # not reached by the rm above, which sweeps only bin/ and sh/
-	cp -ip Makefile ~/bin/.
+	@# rm -fr ~/bin/Makefile
+	@# cp -ip Makefile ~/bin/.  # wrong answer except for hosts who want ours
 
 # beware: the classic 'sh' can add ./ and ../ into sh/.*
 # beware: the classic bin/* or sh/* can include a bin/__init__.py or sh/__init__.py
