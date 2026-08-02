@@ -28,8 +28,9 @@ Contents
     - [5.1 Columns](#51-columns)
     - [5.2 Eng](#52-eng)
     - [5.3 ExpandTabs](#53-expandtabs)
-    - [5.4 Ord](#54-ord)
-    - [5.5 Str](#55-str)
+    - [5.4 Mask](#54-mask)
+    - [5.5 Ord](#55-ord)
+    - [5.6 Str](#56-str)
 - [6 Line by Line](#6-line-by-line)
   - [6.1 Append](#61-append)
   - [6.2 Counter](#62-counter)
@@ -618,7 +619,22 @@ For working with Characters, we offer '|pb expandtabs'
     %
 
 
-### 5.4 Ord
+### 5.4 Mask
+
+Python random.choice, run once per Character
+
+Replace each Character found among a set of Choices with a random Character drawn from a set of Replacements, leaving every other Character untouched
+
+    % echo Order 48291 shipped, call 555-0123 |pb mask /0123456789/ /0123456789/
+    Order 71604 shipped, call 330-8786
+    %
+
+Handy to obscure the Digits before you paste a Log Line somewhere public, while keeping the same shape of Digits and Punctuation
+
+We take exactly two Positional Args, the Choices and then the Replacements. Wrap each of them inside matching / or , or . Marks, same as you've already seen at Pb Append and Pb Insert
+
+
+### 5.5 Ord
 
 Python str.ord
 
@@ -639,7 +655,7 @@ For working with Character Codes spoken as Decimal Int Literals, we offer '|pb o
     %
 
 
-### 5.5 Str
+### 5.6 Str
 
 Python str
 

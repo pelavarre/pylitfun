@@ -30,7 +30,7 @@ pythonic bricks:
   strings strip sum title upper
 
 classic bricks & fun bricks:
-  cut head tail, dent eng frame unframe
+  cut head tail, dent eng frame mask unframe
 
 alt bricks:
   .frame .head .len .max .md5 .min .reverse .sha256 .sort .tail
@@ -479,10 +479,11 @@ class ShellGopher:
 
         if not re.fullmatch(r"[A-Z_a-z][0-9A-Z_a-z]*", string=text):
             if text not in verbs:
-                evalled = str_removeflanks_else(text, marks=",./")  # takes str
+                marks = ",./"
+                evalled = str_removeflanks_else(text, marks=marks)  # takes str
                 if evalled is None:
                     evalled = text
-                elif evalled and (evalled == len(evalled) * evalled[-1]):
+                elif evalled and all(_ in marks for _ in evalled):
                     evalled = text
 
                 return evalled
@@ -891,6 +892,7 @@ class ShellBrick:
             "expandtabs": self.from_text_expandtabs,
             "jq": self.from_text_jq,  # |j
             "lower": self.from_text_lower,  # |L
+            "mask": self.from_text_mask,
             "ord": self.from_text_ord,
             "replace": self.from_text_replace,
             "split": self.from_text_split,  # aka words
@@ -1331,6 +1333,7 @@ class ShellBrick:
         idata = self.fetch_idata()
 
         iotext = idata.decode(errors="replace")
+        # iotext = idata.decode("ascii", errors="replace")
         iotext = iotext.replace(ReplacementCharacter, repl)
 
         otext = ""
@@ -1572,6 +1575,22 @@ class ShellBrick:
 
         itext = self.fetch_itext()
         otext = itext.lower()
+        self.store_otext(otext)
+
+    def from_text_mask(self) -> None:
+        """random.choice(replacements) if (_ in choices) else _ for _ in str(sys.i)"""
+
+        posargs = self.posargs
+
+        pair = posargs[:2]
+        assert len(pair) == 2, (pair,)
+
+        choices, replacements = pair
+        assert isinstance(choices, str), (choices,)
+        assert isinstance(replacements, str), (replacements,)
+
+        itext = self.fetch_itext()
+        otext = "".join(random.choice(replacements) if (_ in choices) else _ for _ in itext)
         self.store_otext(otext)
 
     def from_text_ord(self) -> None:
