@@ -6,7 +6,7 @@ usage: litdecimal.py --
 show how we chop ints down to 3 digits at a multiple-of-three exponent
 
 examples:
-  litdecimal.py --  # runs tests
+  bin/litdecimal.py --  # runs tests
 """
 
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
@@ -37,22 +37,29 @@ def main() -> None:
 
 
 def decimal_int_chop_to_eng(n: int) -> str:
-    """Chop down to 3 Digits at a Multiple-of-Three Exponent"""
+    """Rep the exact Int, else chop down to 3 Digits at an explicit Multiple-of-Three Exponent"""
 
-    ctx = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)  # the Towards-Zero kind of "Down"
+    ctx = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)  # the towards-zero kind of "Down"
     D = ctx.create_decimal
 
     i = int(repr(n))  # raises ValueError when a Float breaks our ': int' contract
     clip = D(i).to_eng_string().lower().replace("e+", "e")
 
-    return clip  # int(float(clip)) is equal to (n) or less than and near (n)
-    # '0'  # '1'  # '1.00e3'  # '987' # '9.87e3'  # '98.7e3'  # '987e3'
-    # as if repr of int, int, float, int, float, float, float  # and '987e3' can mean 0x9_87E3
+    return clip  # int(float(clip)) == n, or near to n but a little closer to zero
 
-    # 'def decimal_int_chop_to_eng' last modified for py2def.py on 2026-07-05 or later
+    # '-9.99e3'  # '-2'  # '0'  # '1'  # '987'  # '1.00e3'  # '9.87e3'  # '98.7e3'  # '987e3'
+    # as if repr of float, int, int, int, int, float, float, float, float
+    # with the unsigned 'e' standing in place of the int digits we did chop off
+
+    # Python's hex int("987e3", 0x10) == 0x9_87E3 does nearly collide with our '987e3' lacking '.'
+    # Python Floats overflow out beyond '179e306', but we correctly clip '180 * 10**306' and above
+
+    # 'def decimal_int_chop_to_eng' last modified for py2def.py on 2026-07-31 or later
 
 
 _decimal_int_chop_to_eng_i_o_: tuple[tuple[int, str], ...] = (
+    (-9999, "-9.99e3"),
+    (-2, "-2"),
     (0, "0"),
     (1, "1"),
     (42, "42"),
