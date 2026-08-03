@@ -170,30 +170,30 @@ def _globals_add_lazy_imports_() -> None:
             g[name] = LazyImport(name)
 
     if "D" not in g.keys():
-        D = LazyImport(import_="decimal.Decimal", as_="D")
+        D = LazyImport(_import_="decimal", _as_="D", _what_="Decimal")
         g["D"] = D
 
     if "dt" not in g.keys():
-        dt = LazyImport(import_="datetime", as_="dt")
+        dt = LazyImport(_import_="datetime", _as_="dt")
         g["dt"] = dt
 
     if "et" not in g.keys():
-        et = LazyImport(import_="xml.etree.ElementTree", as_="et")
+        et = LazyImport(_import_="xml.etree.ElementTree", _as_="et")
         g["et"] = et
 
     if "np" not in g.keys():
-        np = LazyImport(import_="numpy", as_="np")
+        np = LazyImport(_import_="numpy", _as_="np")
         g["np"] = np
 
     if "pd" not in g.keys():
-        pd = LazyImport(import_="pandas", as_="pd")
+        pd = LazyImport(_import_="pandas", _as_="pd")
         g["pd"] = pd
 
     if "plt" not in g.keys():
-        plt = LazyImport(import_="matplotlib.pyplot", as_="plt")
+        plt = LazyImport(_import_="matplotlib.pyplot", _as_="plt")
         g["plt"] = plt
 
-    setattr(urllib, "parse", LazyImport(import_="urllib.parse"))
+    setattr(urllib, "parse", LazyImport(_import_="urllib.parse"))
 
     # todo: lazy 'email.mime.multipart', 'email.mime.text', 'logging.handlers', 'unittest.mock'
     # todo: lazy 'urllib' without 'urllib.parse'
@@ -202,23 +202,28 @@ def _globals_add_lazy_imports_() -> None:
 
 
 class LazyImport:
-    """Defer the work of "import X as Y" till first Y.Z fetched"""
+    """Defer the work of "import X as Y" or "from X import Z as Y" till first Y.Q fetched"""
 
-    def __init__(self, import_: str, as_: str | None = None) -> None:
-        self.import_ = import_
-        self.as_ = import_ if (as_ is None) else as_
+    def __init__(self, _import_: str, _as_: str | None = None, _what_: str | None = None) -> None:
+        self._import_ = _import_
+        self._as_ = _import_ if (_as_ is None) else _as_
+        self._what_ = _what_
+
+    def _fetch_(self) -> object:
+        module = importlib.import_module(self._import_)
+        value = module if (self._what_ is None) else getattr(module, self._what_)
+        globals()[self._as_] = value
+        return value
 
     def __getattribute__(self, name: str) -> object:
-        if name in "as_ import_".split():
+        if name in "_import_ _as_ _what_ _fetch_".split():
             return super().__getattribute__(name)
-        module = importlib.import_module(self.import_)
-        globals()[self.as_] = module
-        return module.__getattribute__(name)
+        value = self._fetch_()
+        return getattr(value, name)
 
     def __repr__(self) -> str:
-        module = importlib.import_module(self.import_)
-        globals()[self.as_] = module
-        return module.__repr__()
+        value = self._fetch_()
+        return repr(value)
 
 
 _PYTHON_IMPORTS_TEXT_ = """
