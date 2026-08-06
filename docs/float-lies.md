@@ -38,11 +38,11 @@ Beware, this is a technical rant: strong opinions & working code.
 
 **The problem:** When you glance across a list of file sizes, network traffic, or database counts, we need your eyes to grasp instantly which numbers matter. But today's formatting tools fail you. They either show too much detail (making small and large numbers hard to compare) or too little (rounding away information you need). They cost you time and accuracy.
 
-**Why it matters:** We work with numbers that span enormous ranges, a good step larger than in years past. Like lately we'll put 74 bytes next to 2 billion bytes in the same table. When your formatter says "0" for something that's actually 74, you've been lied to. When it rounds 3652 to "3.6K" to mean 3.65, you've been confused. These aren't edge cases. These corners come at you more like daily.
+**Why care:** We work with numbers that span enormous ranges, a good deal larger than in years past. Like lately we'll put 74 bytes next to 2 billion bytes in the same table. When your formatter says "0" for something that's actually 74, you've been lied to. When it rounds 3652 to "3.6K" to mean 3.65, you've been misled. These aren't edge cases. These corners come at you more like daily.
 
-**What changed:** We wrote the first generation of number formatters for analog engineers. We kept the ranges narrow and limited the precision. Today, we count digital things that run from single bytes to terabytes, from nanoseconds to years. We need formatting that works across our actual data, without lying to us.
+**Why now:** We wrote the first generation of number formatters for analog engineers. We kept the ranges narrow and limited the precision. Today, we count digital things that run from single bytes to terabytes, from nanoseconds to years. We need formatting that does work well across our actual data and its infinite precision: formatting that doesn't trip us up.
 
-**What we need:** A quick & simple way to format numbers that makes it immediately clear which numbers are big and which are small, that never rounds away information you need. A kind of formatting that speaks only truth. This paper shows a way.
+**What dream:** A quick & simple way to format numbers that makes it immediately clear which numbers are big and which are small, that never rounds away information you need. A kind of formatting that speaks only truth. This short paper shows a way that works.
 
 
 # One Terminal Shell experience
@@ -50,7 +50,7 @@ Beware, this is a technical rant: strong opinions & working code.
 
 ## Show the problem, in this example
 
-Look at a typical file listing:
+Look at an ordinary file listing:
 
 ```sh
 % ls -l
@@ -66,7 +66,7 @@ Look at a typical file listing:
 %
 ```
 
-Your eyes have to work too hard. Is 1378 big or small? Is 10747 much bigger than 1378? You have to count digits. You have to compare numbers mentally. It's slow and error-prone.
+Ouch, your eyes have to work too hard. Is 1378 big or small? Is 10747 much bigger than 1378? You have to count digits. You have to compare numbers mentally. It's slow and error-prone.
 
 Now look at the same listing formatted humanely:
 
@@ -84,13 +84,13 @@ Now look at the same listing formatted humanely:
 %
 ```
 
-Notice what happens visually. The big numbers with "e3" visually pop forward. The small plain numbers fade back. Your eyes instantly split the numbers into two groups. You don't have to think: you can just see.
+Can you feel what happens visually? The big numbers with "e3" visually pop forward. The small plain numbers fade back. Your eyes move on their own, splitting the numbers into two groups. You don't have to settle for thinking: you can just see well.
 
 ## Show our solution
 
-The big difference here is in the byte counts, classically spoken as precise decimal int literals, grown large nowadays.
+These two examples contrast byte counts, classically spoken as precise decimal int literals, but grown inconveniently large nowadays.
 
-Watch what happens to your visual perception when we lay out a copy of just this one column of numbers:
+Watch what your eyes do when we call our tools to lay out a copy of just the column of byte counts:
 
 ```sh
 % ls -l |pb awk 5 join
@@ -98,7 +98,9 @@ Watch what happens to your visual perception when we lay out a copy of just this
 %
 ```
 
-When you let us clip these numbers back to three digits each, then they split themselves apart naturally into two piles:
+Can you feel how the 1378 and 10747 blur together? Quick quick now which one had five digits and which one had four?
+
+When you let us clip these numbers back to three digits and an exponent, then your eyes split apart the large and small numbers without making you detour into counting digits with your brain:
 
 ```sh
 % ls -l |pb eng awk 5 join
@@ -106,9 +108,9 @@ When you let us clip these numbers back to three digits each, then they split th
 %
 ```
 
-You see the visual effect at play here?
+You feel the visual effect at play here?
 
-The smaller numbers naturally more fade away, because they lack the "e3" marks:
+The smallest numbers more fade away, when clipped in our way, because they lack the "e3" marks:
 
 ```sh
 % ls -l |pb eng awk 5 split |grep -v e3 |pb join
@@ -116,7 +118,7 @@ The smaller numbers naturally more fade away, because they lack the "e3" marks:
 %
 ```
 
-The big numbers more naturally stand out and step forward, because they have "e3" marks:
+The bigger numbers stand out and step forward, because they have "e3" marks:
 
 ```sh
 % ls -l |pb eng awk 5 split |grep e3 |pb join
@@ -126,9 +128,9 @@ The big numbers more naturally stand out and step forward, because they have "e3
 
 ## Expand our solution
 
-See next what happens to your visual perception when we do correct the format of these numbers, but we leave them in place in their rows. You see? They quite naturally split their rows across this same dividing line.
+See next what your eyes do when we do clip these numbers well, but while also leaving these numbers in place in their rows. Can you feel how your eyes work with these clipped numbers as friends, splitting the rows across this same dividing line of which lines do and don't have the "e3" mark?
 
-The extra ink of the "e3" mark visually brings forward the rows of the big numbers:
+The added ink of the "e3" mark visually brings forward the rows of the big numbers:
 
 ```sh
 % ls -l |pb eng replace columns |grep e3
@@ -153,9 +155,9 @@ total        72
 %
 ```
 
-You don't have to make time to read through the meaningless detail of the last few digits of each big number. You can decline the struggle. You can make it a job for the bots to clip away the meaningless detail.
+In work for hire, you often can't afford to spend time stepping carefully through every meaningless detail of the last few digits of each big number. We're here to say we can decline this struggle. You can make it a job for the bots to clip away the meaningless detail.
 
-Clipping down to three digits marks each row with the engineering exponent of its number. Visually speaking, the rows then sort themselves. Significantly helpful! The clipped numbers speak into your eyes more quickly, more easily, and more accurately.
+Clipping counts down to three digits marks each row with the engineering exponent of its number. Visually speaking, the rows then sort themselves. Significantly helpful! The clipped numbers speak into your eyes more quickly, more easily, and more accurately.
 
 
 ## Show this problem left broken by 'ls -lh'
@@ -253,13 +255,17 @@ It's only worth it if you're building with numbers, or finding some other reward
 
 You can have "correct at a glance" precision. Ask for it persistently, and they will come. They will give it to you:
 
-| Format    |   3652 | 104999 |  288  | Precision   | Acuity |
-|-----------|-------:|-------:|------:|-------------|--------|
-| ls -l     |   3652 | 104999 |  288  | Too much    | Weak   |
-| ls -lh    |   3.6K |   103K | 288B  | Too little  | Weak   |
-| pb eng    | 3.65e3 |  104e3 |  288  | Helpful     | Strong |
+| Format           |     288 |         3652 |    104999 | Precision        | Clarity       |
+|------------------|--------:|-------------:|----------:|------------------|---------------|
+| str(_)[:3]       |     288 |       365... |    104... | Lots too little  | Cut too short |
+| ls -lh           |    288B |         3.6K |      103K | Still too little | Fuzzy         |
+| ls -l            | **288** |         3652 |    104999 | Too much         | Fuzzy         |
+| {:.2f}           |  288.00 |      3652.00 | 104999.00 | Much too much    | Fuzzy         |
+| round(_/1000, 2) |   0.29k |    **3.65k** |    105.0k | Sometimes great  | Fuzzy         |
+| {:.3g}           | **288** | **3.65e+03** |  1.05e+05 | More often great | Fuzzy         |
+| eng              | **288** |   **3.65e3** | **104e3** | **Just Enough**  | **Clear**     |
 
-Do you feel you get it? Do you see how our first century of software traditions for clipping numbers have led us astray, when we're counting digital things?
+Do you feel you get it? Do your eyes speak the truth of this table to you? Here now we're showing exactly how our first century of software traditions for clipping numbers lead us astray, when we're counting digital things.
 
 
 # Fixes known, and not yet well known
