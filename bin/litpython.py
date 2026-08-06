@@ -99,6 +99,8 @@ def try_main() -> None:
     pyjoin = "\n".join(pylines)
     pytext = textwrap.dedent(pyjoin).strip()
 
+    sys.path[0] = ""  # matches 'python3 -c', not 'python3 F.py'
+
     _globals_add_lazy_imports_()
     _globals_add_eager_objects_()
 

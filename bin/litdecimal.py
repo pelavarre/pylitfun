@@ -36,6 +36,16 @@ def main() -> None:
 #
 
 
+def _(n: int) -> str:
+    ctx = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)
+    D = ctx.create_decimal
+    i = int(repr(n))
+    clip = D(i).to_eng_string().lower().replace("e+", "e")
+    return clip
+
+    # when coded without docstring and without comments
+
+
 def decimal_int_chop_to_eng(n: int) -> str:
     """Rep the exact Int, else chop down to 3 Digits at an explicit Multiple-of-Three Exponent"""
 
@@ -58,16 +68,19 @@ def decimal_int_chop_to_eng(n: int) -> str:
 
 
 _decimal_int_chop_to_eng_i_o_: tuple[tuple[int, str], ...] = (
-    (-9999, "-9.99e3"),
+    (-9999, "-9.99e3"),  # not '-1e+04'
     (-2, "-2"),
-    (0, "0"),
+    (0, "0"),  # not '0e0'  # not '0.0'
     (1, "1"),
     (42, "42"),
-    (999, "999"),
+    (288, "288"),  # not '2.9e+02'
+    (999, "999"),  # not '1e+03'
     (1000, "1.00e3"),
+    (3652, "3.65e3"),
     (9876, "9.87e3"),
     (98765, "98.7e3"),
-    (987654, "987e3"),
+    (104999, "104e3"),  # not '1.05e+05'
+    (987654, "987e3"),  # not '9.88e+05'
 )
 
 

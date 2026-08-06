@@ -476,6 +476,10 @@ def math_int_clip(i: int) -> str:
 #
 # Amp up Import Math for Decimal Metric Units and Binary Metric Units
 #
+#   from litmath import q, r, y, z, a, f, p, n, μ, u, m
+#   from litmath import k, M, G, T, P, E, Z, Y, R, Q
+#   from litmath import Ki, Mi, Gi, Ti, Pi, Ei, Zi, Yi, Ri, Qi
+#
 
 
 q = 10**-30  # 'qryzafpnμm' from https://en.wikipedia.org/wiki/Metric_prefix
