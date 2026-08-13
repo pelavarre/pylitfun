@@ -2,4 +2,4 @@
 
 # sh/.pwd = Print the `pwd` so it usually starts with ~/
 
-dirs -p |head -1
+dirs -p |head -1 |sed 's,$,/,'
