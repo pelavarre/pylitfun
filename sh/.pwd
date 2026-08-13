@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# sh/.pwd = Print the `pwd` so it usually starts with ~/
+
+dirs -p |head -1
