@@ -18,7 +18,7 @@ examples:
   git.py ~/gg -w gg ggl
   : gg ... && git grep -ai -w -e gg -e ggl
   gla -p
-  : gla && git log --pretty=fuller --no-decorate --color-moved --numstat --author=jqdoe -p
+  : gla ... && git log --pretty=fuller --no-decorate --numstat --author=jqdoe --color-moved -p
 """
 
 # Note: Git itself looks for 'git-...' aliases coded as Scripts of the $PATH
@@ -48,6 +48,8 @@ assert int(0x80 + signal.SIGINT) == 130
 
 # Configure
 
+_gsis_finds_ = ": find . -type p && : find . -type d -empty -not -path '*/.git/*' && "
+
 ShlinePlusByShverb = {  # sorted by key
     # 0
     "g": "git status --short [...]",
@@ -75,14 +77,14 @@ ShlinePlusByShverb = {  # sorted by key
     "ggi": "git grep -a -e ... -e ...",
     "ggl": "git grep -l -ai -e ... -e ...",
     # 20
-    "gl": "git log --pretty=fuller --no-decorate --color-moved [...]",
-    "gla": "git log --pretty=fuller --no-decorate --color-moved --numstat --author=...",  # [...]
+    "gl": "git log --pretty=fuller --no-decorate [...]",
+    "gla": "git log --pretty=fuller --no-decorate --numstat --author=...",  # [...]
     "glf": "git ls-files |grep -ai -e ... -e ...",  # as if [...] because 'glf' is 'git ls-files'
-    "glq": "git log --oneline --no-decorate --color-moved [...]",
-    "glqn": "git log --oneline --no-decorate --color-moved [...]",  # but adds |awk to number lines
+    "glq": "git log --oneline --no-decorate [...]",
+    "glqn": "git log --oneline --no-decorate [...]",  # but adds |awk to number lines
     # 25
-    "gls": "git log --pretty=fuller --no-decorate --color-moved --numstat [...]",
-    "glv": "git log --oneline --decorate --color-moved [...]",
+    "gls": "git log --pretty=fuller --no-decorate --numstat [...]",
+    "glv": "git log --oneline --decorate [...]",
     "gno": "git diff/show --pretty= --name-only [...]",  # 'qdno' when truthy, else 'qspno'
     "grb": "git rebase ...",
     "grh": "git reset --hard ...",  # actual no args 'git reset hard' would mean to Head
@@ -95,7 +97,7 @@ ShlinePlusByShverb = {  # sorted by key
     # 35
     "grv": r"git remote -v |tr ' \t' '\n' |grep : |uniq |sed 's,^,git clone ,'",
     "gs": "git show --color-moved [...]",
-    "gsis": ": find . -type p && : find . -type d -empty -not -path '*/.git/*' && git status --ignored --short",
+    "gsis": _gsis_finds_ + "git status --ignored --short",
     "gspno": "git show --pretty= --name-only [...]",
     # 39
 }
@@ -276,7 +278,7 @@ class GitGopher:
         #
 
         extra_gla_shline_str = """
-            git log --pretty=fuller --no-decorate --color-moved --numstat
+            git log --pretty=fuller --no-decorate --numstat
                 --author=$(git config user.email)
         """
 
@@ -289,10 +291,11 @@ class GitGopher:
             "gcaf": "  # --default=HEAD",
             "gcf": "  # --default=HEAD",
             "gf": "  # --default=--quiet",
-            "gl": "  # --default=-1",
+            "gl": "  # --default=-1 or --color-moved",
+            "gla": "  # --default=--color-moved",
             "glq": "  # --default=-9",
-            "glqn": """ | awk '{print "HEAD~"(NR-1), $0}'  # --default=-9""",
-            "gls": "  # --default=-9",
+            "glqn": """ |awk '{print "HEAD~"(NR-1), $0}'  # --default=-9""",
+            "gls": "  # --default=-1 or --color-moved",
             "glv": "  # --default=-9",
         }
 
@@ -442,7 +445,7 @@ class GitGopher:
         alt_shverb = shverb
         if shverb == "gg":  # 'git status' without args, or 'git grep' with args
             alt_shverb = "gg/n"
-            posargv = self._maybe_posargv_from_shargv_(shargv)
+            options, posargv, sep, pathspecs = self._maybe_split_from_shargv_(shargv)
             if not posargv:
                 alt_shverb = "gg/0"
 
@@ -460,24 +463,40 @@ class GitGopher:
 
         return alt_shverb
 
-    def _maybe_posargv_from_shargv_(self, shargv: tuple[str, ...]) -> tuple[str, ...]:
-        """Pick out the Args with a look of a Pos Arg, though maybe the substance of an Option"""
+    def _maybe_split_from_shargv_(
+        self, shargv: tuple[str, ...]
+    ) -> tuple[tuple[str, ...], tuple[str, ...], str, tuple[str, ...]]:
+        """Split the Sh Args by look alone, into Options, Pos Args, one "--" or none, Pathspecs"""
 
+        options: list[str] = list()
         posargv: list[str] = list()
+        sep = ""
+        pathspecs: list[str] = list()
 
         for index, arg in enumerate(shargv):
             if index == 0:
                 continue
 
-            if not arg.startswith("-"):
-                posargv.append(arg)
-            elif arg == "-":
-                posargv.append(arg)
-            elif arg == "--":
-                posargv.extend(shargv[(index + 1) :])
+            if arg == "--":
+                sep = "--"
+                pathspecs.extend(shargv[(index + 1) :])  # takes each Arg past a "--" as a Pathspec
                 break
 
-        return tuple(posargv)
+            if arg.startswith("-") and (arg != (len(arg) * "-")):
+                options.append(arg)
+            else:
+                posargv.append(arg)  # counts a lone "-", and a longer run of Dashes, as a Pos Arg
+
+        assert sep in ("--", ""), (sep,)
+
+        splits = list(options) + list(posargv) + sep.split() + list(pathspecs)
+        assert sorted(splits) == sorted(shargv[1:]), (splits, shargv)
+
+        options_tuple = tuple(options)
+        posargv_tuple = tuple(posargv)
+        pathspecs_tuple = tuple(pathspecs)
+
+        return (options_tuple, posargv_tuple, sep, pathspecs_tuple)
 
     #
     # Form the ShLine
@@ -513,15 +532,24 @@ class GitGopher:
                 shverb, shverb_shline_plus=shverb_shline_plus, shargv=shargv, gwho=gwho
             )
 
+        # Guess --color-moved for a Git Log Call that hands us an Option, such as a '-p' Patch
+
+        if shverb_shline_plus.startswith("git log "):
+            assert shverb in ("gl", "gla", "glq", "glqn", "gls", "glv"), (shverb, shline)
+
+            options, posargv, sep, pathspecs = self._maybe_split_from_shargv_(shargv)
+            if options:
+                shline += " --color-moved"  # colors Moved Lines, but only inside a Patch
+
         assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv, gwho)
         return (shline, shsuffix)
 
     def _form_shline_required_args_(
         self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...], gwho: str
     ) -> tuple[str, str]:
-        """Handle case where >= 1 Shell Args are required"""
+        """Expand the Shell Verb as a Git Alias, while generally requiring Args"""
 
-        posargv = self._maybe_posargv_from_shargv_(shargv)
+        options, posargv, sep, pathspecs = self._maybe_split_from_shargv_(shargv)
 
         assert shverb_shline_plus.endswith("..."), (shverb_shline_plus,)
         required_args_usage = f"usage: {shverb} ..."
@@ -533,10 +561,9 @@ class GitGopher:
             shline = shverb_shline_plus.removesuffix(" ...")
 
             shsuffix = " ..."  # shouts out Args
-            if not posargv:
+            if not shargv[1:]:
                 shline += " -"
-                if not shargv[1:]:
-                    shsuffix = ""  # shouts out (and forgives) No Pos Args
+                shsuffix = ""  # shouts out (and forgives) No Pos Args
 
             assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
             return (shline, shsuffix)
@@ -552,10 +579,7 @@ class GitGopher:
                 print(f"+ git config user.email ==> {gwho!r}", file=sys.stderr)
                 shline += " " + shlex.quote(f"--author={gwho}")
                 if not shargv[1:]:
-                    shline = shline.replace(" --color-moved", "")
                     shsuffix = ""  # shouts out (and forgives) No Pos Args
-
-                    # todo: drop --color-moved when "gla" with Arg has no "-p" Arg
 
             assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
             return (shline, shsuffix)
@@ -565,17 +589,18 @@ class GitGopher:
         if shverb_shline_plus == "git ls-files |grep -ai -e ... -e ...":
             assert shverb == "glf", (shverb, shverb_shline_plus)
 
-            if shargv[1:]:
+            plain = (not options) and (not sep)
+
+            shline = "git ls-files"
+            if plain and posargv:
                 shline = "git ls-files |grep"  # without -ai -e ... -e ...
-                shsuffix = " ..."  # shouts out Args
-            else:
-                shline = "git ls-files"
-                shsuffix = ""  # shouts out (and forgives) No Pos Args
+
+            shsuffix = " ..." if shargv[1:] else ""  # shouts out Args, or forgives none
 
             assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
             return (shline, shsuffix)
 
-            # todo: should 'glf' take Options as well as Pos Args?
+            # an Option or a "--" sends the whole Call to 'git ls-files', so no Arg straddles the |
 
         # Tweak away from Doc while heavily editing required Args
 
@@ -587,9 +612,13 @@ class GitGopher:
 
         shsuffix = " ..."  # shouts out Args
 
-        # Do require Args
+        # Do require Args, and require a Pattern of the Greps, not just any Arg
 
-        if not shargv[1:]:
+        missing = not shargv[1:]
+        if shverb in ("gg/n", "ggi", "ggl"):
+            missing = not posargv  # a Pathspec past a "--" is no Pattern, nor is an Option
+
+        if missing:
 
             if shverb in ("ga", "ggl"):
                 gtop = self.find_git_top(default="")
@@ -605,12 +634,12 @@ class GitGopher:
         assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
-        # ga, gc, gco, gcp, gg/n, ggl, glf, grh
+        # ga, gc, gco, gcp, gg/n, ggi, ggl, gla, glf, grb, grh
 
     def _form_shline_optional_args_(
         self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...], gwho: str
     ) -> tuple[str, str]:
-        """Handle case where >= 0 Shell Args are accepted, and sometimes add 1 Shell Arg"""
+        """Expand the Shell Verb as a Git Alias, while mostly accepting but not requiring Args"""
 
         stdout_isatty = self.stdout_isatty
 
@@ -618,25 +647,33 @@ class GitGopher:
         shline = shverb_shline_plus.removesuffix(" [...]")
 
         shsuffix = " ..."  # shouts out Args
-        posargs = tuple(
-            _ for _ in shargv[1:] if ((_ != "--") and (_ == (len(_) * "-"))) or not _.startswith("-")
-        )
+        options, posargv, sep, pathspecs = self._maybe_split_from_shargv_(shargv)
 
-        if posargs and (posargs == shargv[1:]):
-            if shverb_shline_plus.startswith("git log "):
-                if shverb not in ("gla", "glqn"):  # todo0: glqn $hash doesn't make much sense
-                    assert shverb in ("gl", "glq", "gls", "glv"), (shverb, shline)
-                    if stdout_isatty:
-                        shline += " -1"  # tilts into:  glq -1 $hash, gls -1 $hash, glv -1 $hash
+        # Guess a Count for a Plain Call, where a "--" or an Option means no Count
+
+        plain = (not options) and (not sep)  # maybe Pos Args, but no Options and no "--"
+        oneline = " --oneline" in shverb_shline_plus  # glq, glqn, glv
+        numstat = " --numstat" in shverb_shline_plus  # gla, gls, grl
+
+        if shverb_shline_plus.startswith("git log ") and (not numstat):
+            assert shverb in ("gl", "glq", "glqn", "glv"), (shverb, shline)
+
+            if plain and ((not oneline) or stdout_isatty):
+                size = shutil_terminal_size()
+                portrait = size.columns < (2 * size.lines)  # two Cells of a Row make a Square
+
+                count = 1  # one Commit of --pretty=fuller fills a Screen by itself
+                if oneline:
+                    count = 19 if portrait else 9  # nine --oneline Commits fill a Screen
+
+                shline += f" -{count}"  # tilts into:  gl -1, glq -9, glqn -9, glv -9
 
         if not shargv[1:]:
             shsuffix = ""  # shouts out No Pos Args (indeed No Args)
 
-            if shverb_shline_plus.startswith("git log "):
-                assert shverb in ("gl", "glq", "glqn", "gls", "glv"), (shverb, shline)
-                shline = shline.replace(" --color-moved", "")
+        # Guess a HEAD for a Fixup that names no Commit, even past a "--" of Pathspecs
 
-            #
+        if not posargv:
 
             if shverb_shline_plus == "git commit --all --fixup [...]":
                 assert shverb in ("gcaf",), (shverb, shline)
@@ -646,53 +683,33 @@ class GitGopher:
                 assert shverb in ("gcf",), (shverb, shline)
                 shline += " HEAD"  # tilts into:  git commit --fixup HEAD
 
-            elif shverb_shline_plus == "git log --pretty=fuller --no-decorate --color-moved [...]":
-                assert shverb == "gl", (shverb, shline)
-                if stdout_isatty:
-                    shline += " -1"  # tilts into:  gl -1
-
-            elif shverb_shline_plus.startswith("git log "):
-                assert shverb in ("glq", "glqn", "gls", "glv"), (shverb, shline)
-                if shverb not in ("gls",):  # tilts into:  gls --
-                    if stdout_isatty:
-                        shline += " -9"  # tilts into:  glq -9, glv -9
-
         assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
-        # g, gcaf, gcf, gd, gdno, gg/0, gl, glf, glq, gls, glv, gno, gri, grias, gs, gspno
+        # g, gcaf, gcf, gd, gdh, gdno, gl, glq, glqn, gls, glv, gno, gri, grias, gs, gspno
 
     def _form_shline_no_leading_pos_arg_(
         self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...], gwho: str
     ) -> tuple[str, str]:
-        """Handle case where no Shell Args are accepted, or first Shell Arg must not be a Positional Arg"""
+        """Expand the Shell Verb as a Git Alias, while mostly refusing Args"""
 
         no_arg_usage = f"usage: {shverb}"
         assert not shverb_shline_plus.endswith("..."), (shverb_shline_plus,)
         assert not shverb_shline_plus.endswith(" [...]"), (shverb_shline_plus,)
 
-        stdout_isatty = self.stdout_isatty
-
-        # Fill out some default Options, when given no Shell Args
+        # Guess a default Option for a Plain Call, where a "--" or an Option means no Default
 
         shline = shverb_shline_plus
         shsuffix = ""  # shouts out No Pos Args
 
-        if not shargv[1:]:
+        options, posargv, sep, pathspecs = self._maybe_split_from_shargv_(shargv)
+        plain = (not options) and (not sep)  # maybe Pos Args, but no Options and no "--"
+
+        if plain:
             o = (shverb, shline)
             if shverb == "gf":
                 assert shverb_shline_plus.endswith("git fetch --prune --prune-tags --force"), o
                 shline += " --quiet"  # tilts into:  gf --quiet
-
-            elif shverb == "glqn":
-                assert shverb_shline_plus.startswith("git log --oneline --no-decorate |")
-                if stdout_isatty:
-                    count_eq_1 = 1
-                    shline = shverb_shline_plus.replace(" |", " -9 |", count_eq_1)
-
-            elif shverb == "grl":
-                assert shverb_shline_plus == "git reflog --date=relative --numstat", o
-                shline += " -9"
 
         # Accept no Shell Args
         # But if Shell Args, then require the first to be Not obviously Positional
@@ -715,7 +732,7 @@ class GitGopher:
         assert shsuffix == "", (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
-        # gb, gca, gcaa, gcam, gda, gdh, gf, glqn, gno, grh1, grhu, grl, grv, gsis
+        # gb, gca, gcaa, gcam, gcl, gda, gf, gg/0, grh1, grhu, grl, grv, gsis
 
     #
     # Choose ShArgV
@@ -724,7 +741,7 @@ class GitGopher:
     def shargv_tweak_up(self, shverb: str, shargv: tuple[str, ...], gwho: str) -> tuple[str, ...]:
         """Tune Greps to presume text, ignore case, and match >= 1 patterns"""
 
-        posargv = self._maybe_posargv_from_shargv_(shargv)
+        options, posargv, sep, pathspecs = self._maybe_split_from_shargv_(shargv)
 
         shline_plus_by_shverb = ShlinePlusByShverb
         shline_plus = shline_plus_by_shverb[shverb]
@@ -758,6 +775,9 @@ class GitGopher:
                 assert shverb in ("gl", "glq", "glqn", "gls", "glv"), (shverb, shline_plus)
 
                 for i, sharg in enumerate(shargv[1:]):
+                    if sharg == "--":
+                        break  # leaves a Pathspec spelled '--author' alone, past the Sep
+
                     if sharg == "--author":
                         print(f"+ git config user.email ==> {gwho!r}", file=sys.stderr)
 
@@ -791,8 +811,13 @@ class GitGopher:
         if shverb not in ("gg/n", "ggi", "ggl", "glf"):
             return shargv
 
-        if (shverb == "glf") and not shargv[1:]:
+        if not posargv:  # a Pathspec past a "--" is no Pattern
             return shargv
+
+        if shverb == "glf":
+            plain = (not options) and (not sep)
+            if not plain:
+                return shargv
 
         assert shargv[1:], (shargv[1:], shverb)
 
@@ -877,34 +902,14 @@ class GitGopher:
     def form_shell_shline(self, shverb: str, shline: str, given_shsuffix: str) -> tuple[bool, str]:
         """Choose to call Git by way of .shell=False or .shell=True"""
 
-        if shverb == "glf":
-            if not given_shsuffix:
-                assert shline == "git ls-files", (shline, shverb)
-
-                shell = False
-                return (shell, "git ls-files")
-
-            assert shline == "git ls-files |grep", (shline, shverb)
-            assert " |" in shline, (shline, shverb)
+        if shverb == "glqn":
+            assert " |" not in shline, (shline, shverb)  # its |awk arrives later
 
             shell = True
             return (shell, shline)
 
-        if shverb == "glqn":
-            assert " |" not in shline, (shline, shverb)
+        shell = " |" in shline
 
-            shell = True
-            return (True, shline)
-
-        if shverb == "grv":
-            assert " |" in shline, (shline, shverb)
-
-            shell = True
-            return (True, shline)
-
-        assert " |" not in shline, (shline, shverb)
-
-        shell = False
         return (shell, shline)
 
         # todo: operate 'glf ...' and 'glqn' and 'grv' without 'shell=True'
@@ -1056,14 +1061,11 @@ class GitGopher:
     ) -> subprocess.CompletedProcess[bytes]:
         """Do the work"""
 
-        stdout_isatty = self.stdout_isatty
-
         # Mention what might should run instead
 
         if diff_shverb == "gl":
             if not shfile_shargv[1:]:
-                if stdout_isatty:
-                    print("# you got 'gl -1'  # did you mean:  gl --", file=sys.stderr)
+                print("# you got 'gl -1'  # did you mean:  gl --", file=sys.stderr)
 
         # Call out to Shell, or call Git multiple times, or call Git once
 
@@ -1131,7 +1133,7 @@ class GitGopher:
     def subprocess_run_shlines_till_exit_nonzero(
         self, shlines: typing.Iterable[str]
     ) -> subprocess.CompletedProcess[bytes]:
-        """Call the Shell for each Line and return the last, but quit early at exit nonzero, if any"""
+        """Call the Shell for each Line and return the last, except quit early at any exit nonzero"""
 
         shlines_list = list(shlines)
 
@@ -1241,6 +1243,89 @@ assert shlex_quote_calmly("HEAD~1") == "HEAD~1", (shlex_quote_calmly("HEAD~1"),)
 
 
 #
+# Amp up Import ShUtil
+#
+
+
+def shutil_terminal_size(fallback: tuple[int, int] = (80, 24)) -> os.terminal_size:
+    """We must imagine we print into a rectangle of Columns x Rows"""
+
+    default_size = os.terminal_size(fallback)
+    size = os_env_tty_size() or stdio_tty_size() or dev_tty_size() or default_size
+
+    return size
+
+    #
+    # Adds Stderr, Stdin, Dev Tty fallbacks to a copy-edit of shutil.get_terminal_size
+    #
+    #   + same policy of ask os.environ first
+    #   + same default final .fallback size of (80, 24)
+    #   + same Python Columns Before Rows, reversed from the '24 80' at Terminal Shell 'stty size'
+    #
+
+
+def os_env_tty_size() -> os.terminal_size | None:
+    """Take Columns x Rows from the Env, but only when the Env speaks of both"""
+
+    default_eq_str = ""
+    columns_str = os.environ.get("COLUMNS", default_eq_str)
+    lines_str = os.environ.get("LINES", default_eq_str)
+
+    if (not columns_str.isdigit()) or (not lines_str.isdigit()):  # '-' is not digit
+        return None  # takes either Env Var not an Unsigned Decimal Int Literal as no answer
+
+    columns = int(columns_str)
+    lines = int(lines_str)
+
+    if (not columns) or (not lines):
+        return None  # takes either Env Var not Positive as no answer
+
+    size = os.terminal_size([columns, lines])
+    return size
+
+
+def stdio_tty_size() -> os.terminal_size | None:
+    """Take Columns x Rows from Stdout, else from Stderr, else from Stdin"""
+
+    if sys.__stdin__:
+        assert sys.__stdin__.fileno() == 0
+    if sys.__stdout__:
+        assert sys.__stdout__.fileno() == 1
+    if sys.__stderr__:
+        assert sys.__stderr__.fileno() == 2
+
+    for fd in (1, 2, 0):  # out, err, in
+        try:
+            size = os.get_terminal_size(fd)
+        except OSError:
+            continue
+
+        return size
+
+    return None
+
+
+def dev_tty_size() -> os.terminal_size | None:
+    """Take Columns x Rows from the Controlling Tty, when no Stdio speaks for it"""
+
+    try:
+
+        fd = os.open("/dev/tty", os.O_RDONLY)
+        try:
+            size = os.get_terminal_size(fd)
+        finally:
+            os.close(fd)
+
+    except OSError:
+
+        return None
+
+    return size
+
+    # solves:  verb 0</dev/null 1>out 2>err
+
+
+#
 # Run from the Shell Command Line, if not imported
 #
 
@@ -1250,8 +1335,6 @@ if __name__ == "__main__":
 
 
 _ = """  # todo's
-
-# todo0: glv to -9 or -19 by landscape v portrait
 
 # todo1: less voluminous set-xe at:  gg xyz -- $(glf)
 
