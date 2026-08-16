@@ -1,0 +1,3 @@
+# sh/.gh = Say who GitHub thinks you are now
+
+ssh -T git@github.com
