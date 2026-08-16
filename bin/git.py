@@ -468,35 +468,34 @@ class GitGopher:
     ) -> tuple[tuple[str, ...], tuple[str, ...], str, tuple[str, ...]]:
         """Split the Sh Args by look alone, into Options, Pos Args, one "--" or none, Pathspecs"""
 
-        options: list[str] = list()
-        posargv: list[str] = list()
+        options_list: list[str] = list()
+        posargv_list: list[str] = list()
         sep = ""
-        pathspecs: list[str] = list()
+        pathspecs_list: list[str] = list()
 
         for index, arg in enumerate(shargv):
-            if index == 0:
+            if index == 0:  # skips the Shell Verb
                 continue
 
-            if arg == "--":
+            if arg == "--":  # takes each Arg past a "--" as a Pathspec
                 sep = "--"
-                pathspecs.extend(shargv[(index + 1) :])  # takes each Arg past a "--" as a Pathspec
+                pathspecs_list.extend(shargv[(index + 1) :])
                 break
 
-            if arg.startswith("-") and (arg != (len(arg) * "-")):
-                options.append(arg)
-            else:
-                posargv.append(arg)  # counts a lone "-", and a longer run of Dashes, as a Pos Arg
+            if arg.startswith("-") and (arg != (len(arg) * "-")):  # takes -... as Option
+                options_list.append(arg)
+            else:  # takes 1 "-", or 3 and more "-", as a Pos Arg
+                posargv_list.append(arg)
 
         assert sep in ("--", ""), (sep,)
+        takes = options_list + posargv_list + sep.split() + pathspecs_list
+        assert sorted(takes) == sorted(shargv[1:]), (takes, shargv)
 
-        splits = list(options) + list(posargv) + sep.split() + list(pathspecs)
-        assert sorted(splits) == sorted(shargv[1:]), (splits, shargv)
+        options = tuple(options_list)
+        posargv = tuple(posargv_list)
+        pathspecs = tuple(pathspecs_list)
 
-        options_tuple = tuple(options)
-        posargv_tuple = tuple(posargv)
-        pathspecs_tuple = tuple(pathspecs)
-
-        return (options_tuple, posargv_tuple, sep, pathspecs_tuple)
+        return (options, posargv, sep, pathspecs)
 
     #
     # Form the ShLine
