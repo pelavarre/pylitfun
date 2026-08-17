@@ -1,14 +1,6 @@
-# sh/.which = Show the `which -a` and the first cat $(which ...)
+#!/bin/bash
 
-if [ $# -eq 0 ]; then
-    which.py --
-else:
-    while [ $# -ne 0 ]; do
-        (
-            set -xe
-            which -a $1
-            cat $(which $1)
-        )
-        shift
-    done
-fi
+# sh/.which = Call Shell Which, but with -a and speaking ~/ to mean $HOME/
+
+which -a "$@" | \
+    awk -v HOME="$HOME" '(index($0, HOME) == 1){print "~" substr($0, 1 + length(HOME)); next} 1'
