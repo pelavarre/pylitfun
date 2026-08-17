@@ -57,8 +57,9 @@ bin:
 		|(cd ~/ && xargs -I{} rm -fr bin/{})
 	ls -d bin/* bin/git-verbs/* sh/* sh/.* \
 		|grep -v -e /__pycache__$$ \
-		|grep -v -e ^bin/git-verbs$$ -e ^sh/[.]$$ -e ^sh/[.][.]$$ -e sh/pwnme$$ \
+		|grep -v -e ^bin/git-verbs$$ -e ^bin/git-verbs/man$$ -e ^sh/[.]$$ -e ^sh/[.][.]$$ -e sh/pwnme$$ \
 		|xargs -I{} cp -ip {} ~/bin/.
+	cp -ipR bin/git-verbs/man ~/bin/.
 	@# rm -fr ~/bin/Makefile
 	@# cp -ip Makefile ~/bin/.  # wrong answer except for hosts who want ours
 

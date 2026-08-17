@@ -1,0 +1,50 @@
+.TH "GIT-CL" "1" "2026-08-16" "pylitfun" "Git-Verbs Manual"
+.SH NAME
+git-cl \- remove untracked files from the working tree
+.SH SYNOPSIS
+.B git cl
+.RB [ \-n ]
+.SH DESCRIPTION
+.B git cl
+deletes every file and directory that
+.B git status \-\-ignored
+would list: every file and directory not under version control, including ones listed only by
+.BR .gitignore .
+It runs
+.B git clean \-dffxq
+to do this.
+.PP
+Because deleting is hard to reverse,
+.B git cl
+prints the command it is about to run, then blocks reading Stdin until you press Control-D to confirm (or Control-C to cancel), before it deletes anything.
+.SH OPTIONS
+.PP
+\-n
+.RS 4
+Dry run. Runs
+.B git clean \-dffxn
+right away, with no confirmation prompt, since a dry run deletes nothing.
+.PP
+Recognized only when
+.B \-n
+is the one and only argument. Any other argument list falls back to the confirmed form above, forwarding those arguments to
+.BR "git clean \-dffxq" .
+.RE
+.SH EXIT STATUS
+Exits with the status of the
+.B git clean
+it ran.
+.SH EXAMPLES
+.PP
+git cl
+.RS 4
+Confirm, then delete every untracked file and directory.
+.RE
+.PP
+git cl \-n
+.RS 4
+Show what would be deleted, without deleting anything and without asking to confirm.
+.RE
+.SH SEE ALSO
+.BR git-clean (1),
+.BR git-status (1)
