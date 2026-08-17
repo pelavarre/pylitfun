@@ -1,0 +1,46 @@
+.TH "GIT-RHU" "1" "2026-08-17" "pylitfun" "Git-Verbs Manual"
+.SH NAME
+git-rhu, grhu \- roll back the working tree to what you last fetched
+.SH SYNOPSIS
+.B git rhu
+.SH DESCRIPTION
+.B git rhu
+resets the current branch hard to its upstream, discarding every local commit and every local
+change, by running
+.BR "git reset --hard @{upstream}" .
+.PP
+Because this both moves the branch pointer and overwrites the working tree,
+.B git rhu
+prints the command it is about to run, then blocks reading Stdin until you press Control-D to
+confirm (or Control-C to cancel), before it changes anything.
+.PP
+Unlike
+.BR git-cl (1),
+.B git reset --hard
+has no dry-run flag, so there is no way to preview what
+.B git rhu
+would discard before confirming.
+.SH NOTES
+Some causes of divergence from the upstream are better undone before reaching for
+.BR "git rhu" :
+.RS 4
+git rebase \-\-abort
+.br
+git cherry\-pick \-\-abort
+.br
+git checkout main
+.RE
+.SH EXIT STATUS
+Exits with the status of the
+.B git reset
+it ran.
+.SH EXAMPLES
+.PP
+git rhu
+.RS 4
+Confirm, then discard every local commit and local change, resetting to
+.BR @{upstream} .
+.RE
+.SH SEE ALSO
+.BR git-reset (1),
+.BR git-cl (1)

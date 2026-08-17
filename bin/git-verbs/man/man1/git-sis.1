@@ -1,0 +1,47 @@
+.TH "GIT-SIS" "1" "2026-08-17" "pylitfun" "Git-Verbs Manual"
+.SH NAME
+git-sis, gsis \- list the untracked and ignored files, without deleting anything
+.SH SYNOPSIS
+.B git sis
+.SH DESCRIPTION
+.B git sis
+lists the files and directories that
+.BR git-cl (1)
+would delete, without deleting anything, by running
+.BR "git status --ignored --short" .
+.PP
+Unlike
+.BR git-cl (1)
+and
+.BR git-rhu (1),
+.B git sis
+changes nothing, so it asks for no confirmation.
+.SH QUIRKS
+Before running
+.BR "git status --ignored --short" ,
+.B git sis
+prints two reminder lines about what that command will not show you, without running either of
+them:
+.RS 4
+find . \-type p
+.br
+find . \-type d \-empty \-not \-path '*/.git/*'
+.RE
+.PP
+That is: untracked named pipes, and empty directories, neither of which
+.B git status
+lists.
+.SH EXIT STATUS
+Exits with the status of the
+.B git status
+it ran.
+.SH EXAMPLES
+.PP
+git sis
+.RS 4
+List every untracked and ignored file and directory, plus the two reminder lines above.
+.RE
+.SH SEE ALSO
+.BR git-status (1),
+.BR git-clean (1),
+.BR git-cl (1)
