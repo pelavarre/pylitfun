@@ -1,7 +1,106 @@
 <!-- omit in toc -->
 # litint-readme.md
 
-## Welcome
+Contents
+
+- [Every standard Int format goes wrong](#every-standard-int-format-goes-wrong)
+- [Python has a name for this corner](#python-has-a-name-for-this-corner)
+- [We have tests for this corner](#we-have-tests-for-this-corner)
+- [The precedent of Math Pi](#the-precedent-of-math-pi)
+- [The engineer's answer to 2 + 2](#the-engineers-answer-to-2--2)
+- [Not all Python Int's are created equal](#not-all-python-ints-are-created-equal)
+- [The wins, and the low cost](#the-wins-and-the-low-cost)
+
+## Every standard Int format goes wrong
+
+We can teach you to see what they get wrong, and how to fix it.
+
+| Format             |     288 |       3\_652 |  104\_999 | Precision                                   | Clarity                               |
+|--------------------|--------:|-------------:|----------:|---------------------------------------------|---------------------------------------|
+| ---                |     --- |          --- |       --- | ---                                         | ---                                   |
+| str(_)[:3]         |     288 |       365... |    104... | Impossible to compare large and small_      | Cut too short                         |
+| ls -lh .           |    288B |         3.6K |      103K | Two digits in total can be not enough       | Too hard to pick B apart from 8       |
+| ls -l .            | **288** |         3652 |    104999 | 999 is too much, after 104                  | Too hard to pick 4999 apart from 9999 |
+| {_:.2f}            |  288.00 |      3652.00 | 104999.00 | Every .00 is too much                       | Much too much ink                     |
+| round(_ / 1000, 2) |   0.29k |    **3.65k** |    105.0k | Two digits past the dot can be not enough   | And which of these is rounded?        |
+| {_:.3g}            | **288** | **3.65e+03** |  1.05e+05 | Enough precision, but still lacking clarity | Which of these is rounded?            |
+| ---                |     --- |          --- |       --- | ---                                         | ---                                   |
+| eng(_)             | **288** |   **3.65e3** | **104e3** | **Just Enough**                             | **Clear**                             |
+| ---                |     --- |          --- |       --- | ---                                         | ---                                   |
+
+Have your eyes learned to see problems in typography? For example, bad Keming is a common problem when printing English. You thought you said to print r and then n but then you feel what you got is m because your rn characters are printing too close together, looking too much like a smudged m. Good "Kerning" is the technical term for spacing out letters well. Bad "Keming" is what you have when it's gone wrong.
+
+The problem we solve here is similar, but for digits, not for letters.
+
+Lots of practical work needs at least three digits, and nearly all practical work never needs more than three digits. But getting a standard format to give you three digits always in a struggle. They love to cut your short, or they go on too long.
+
+And even when they do deliver the three digits, they often get the last digit wrong. They don't let you ask to truncate the details. They insist on rounding up the last digit, and only half the time. When you don't have a copy of the original, you can't know what it said. Oops.
+
+You can fix all this, simply, after you learn to notice that it's been going wrong on you.
+
+## Python has a name for this corner
+
+Python shows you our solution if you know to look for it, in the corner posted as
+
++ decimal.Context,
++ prec=3,
++ rounding=decimal.ROUND\_DOWN,
++ to\_eng\_string,
++ lower
+
+And also to finish up you have to replace their "e+" with "e".
+
+As Python Code, this looks like
+
+    def _(n: int) -> str:
+        i = int(repr(n))
+        ctx = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)
+        D = ctx.create_decimal
+        clip = D(i).to_eng_string().lower().replace("e+", "e")
+        return clip
+
+This corner is possible to find online, but deeply deeply buried in the weeds, as you can see. Besides the precise Round Down, they offer Up, and Ceiling & Floor, & the fuzzier choices of Half Down, Half Up, Half Even, and 0 5 Up.
+
+After glancing across this much code gives you the idea, you're set up to review the details in the code we ship. We add comments, docstrings, and asserts. And we code the idea twice. Once as shown here, and then once again by working directly with strings, bypassing the 'import decimal' trick of Python, so as to set us up for porting this code into Google Sheets & Microsoft Excel and so on.
+
+## We have tests for this corner
+
+We've collected some telling test cases.
+
+Never an "e0" exponent. Never more than three digits. Always exactly three digits before any "e" exponent, even when ending in "00". Always an unsigned exponent, never marked by "+", nor by "+0". Always the first three digits, truncated. Never the last digit changed by rounding up.
+
+    -9999: "-9.99e3",  # not '-1e+04'
+    -2: "-2",
+    0: "0",  # not '0e0'  # not '0.0'
+    1: "1",
+    42: "42",
+    288: "288",  # not '2.9e+02'
+    999: "999",  # not '1.00e+03'
+    1000: "1.00e3",  # not '1e+03'
+    3652: "3.65e3",
+    9876: "9.87e3",
+    98765: "98.7e3",
+    104999: "104e3",  # not '1.05e+05'
+    120789: "120e3",  # not '1.21e+05'
+    987654: "987e3",  # not '9.88e+05'
+
+## The precedent of Math Pi
+
+Nearly all practical work never needs more than three digits. But all the standard formats shove excess precision at you. Most famously, they try to say you must distinguish 'math.pi' from 22/7. Meanwhile, back in real life, you don't care, not until you need the last 0.04% of accuracy
+
+    >>> 100 * ((22/7 - math.pi) / math.pi)
+    0.04024994347707008
+    >>>
+
+Most engineers know to feel hurt by inadequate precision. But we feel the full horror of excess precision too. You see us here working hard to duck it.
+
+## The engineer's answer to 2 + 2
+
+Different roles call for different conventions. A mathematician will tell you 2 + 2 is 4. A scientist more like says 4.00, calling out some exact idea of precision. An accountant will ask you what you want it to be. An engineer will tell you it's less than 5, and ask if you need to know more than that.
+
+We're arguing here that less than 3 digits commonly misleads you with inadequacy, more than 3 digits is commonly floods you with excess. That's how exactly 3 digits comes out as exactly correct. But you won't find those same 3 digits in your original detail, unless you take care to always truncate and never round up.
+
+## Not all Python Int's are created equal
 
 Do you feel Python Int Math should be simple?
 
@@ -11,7 +110,7 @@ Nine boundaries force us to write more code, as our Decimal Int's grow larger:
 
 | - | At or Above |      Exact Last Simple | Next Complexity                                       |
 |---|------------:|-----------------------:|-------------------------------------------------------|
-| 1 |         999 |                    999 | 1000 or 1_000 or 1,000 or 10**3 or 1e+3               |
+| 1 |         999 |                    999 | 1000 or 1\_000 or 1,000 or 10**3 or 1e+3               |
 | 2 |        1023 |              2**10 - 1 | Binary Prefixes start at Ki, go up through Qi, & stop |
 | 3 |     9.00e15 |                  2**53 | float(n) == float(n - 1) starts happening             |
 | 4 |     9.99e15 |             10**16 - 2 | repr(float(n)) switches to e+ notation                |
@@ -45,66 +144,13 @@ Mixing Python Int's with Python Byte's surfaces more boundaries:
 |      2.14e9 |              2**31 - 1 | max signed 32-bit int                                  |
 |     9.22e18 |              2**63 - 1 | max signed 64-bit int                                  |
 
-# Why we care
+## The wins, and the low cost
 
-**1 ) The problem:** We need your eyes to grasp instantly which numbers matter, when you glance across a list of file sizes, network traffic, or search results. But today's formatting tools fail you. They show much detail, or too little. They make small and large numbers hard to compare, or they round away information you need. They cost you time and accuracy.
-
-**2 ) Why care:** We work now with numbers that span enormous ranges, more enormous now than in years past. Like lately we'll put 74 bytes next to 2 billion bytes in the same table. When your formatter says "0" for something that's actually 74, you've been lied to. When it rounds 3652 to "3.6K" to mean 3.65e3, you've been misled. These aren't edge cases. These corners come at you more like daily. Even our 64-bit Ints for counting things have now begun overflowing, for everyone working out beyond 9.22e18 E (exa).
-
-**3 ) Why now:** We wrote the first generation of number formatters for analog engineers. We kept the ranges narrow and limited the precision. Today, we count digital things that run from single bytes to terabytes, from nanoseconds to years. We need formatting that does format well across all of our actual data and its indefinitely large and growing precision. We need formatting that doesn't trip us up.
-
-**4 ) What dream:** A quick & simple way to format numbers that makes it immediately clear which numbers are big and which are small, that doesn't round away information you need, that doesn't says you crossed a critical boundary when you didn't. A kind of formatting that speaks only the truth of Ints. This short paper sketches up a simple way that works.
-
-
-# Show not tell
-
-6 Bad Examples and then 1 Good Example:
-
-| Format             |     288 |         3652 |    104999 | Precision                                 | Clarity                              |
-|--------------------|--------:|-------------:|----------:|-------------------------------------------|--------------------------------------|
-| ---                |     --- |          --- |       --- | ---                                       | ---                                  |
-| str(_)[:3]         |     288 |       365... |    104... | Impossible to compare large and small     | Cut too short                        |
-| ls -lh .           |    288B |         3.6K |      103K | Two digits are often not enough           | Too hard to pick B apart from 8      |
-| ls -l .            | **288** |         3652 |    104999 | 999 is too much                           | To hard to pick 4999 apart from 9999 |
-| {_:.2f}            |  288.00 |      3652.00 | 104999.00 | Every .00 is too much                     | Much too much ink                    |
-| round(_ / 1000, 2) |   0.29k |    **3.65k** |    105.0k | Two digits past the dot can be not enough | Which did come out rounded           |
-| {_:.3g}            | **288** | **3.65e+03** |  1.05e+05 | Delivered as asked                        | But which did come out rounded       |
-| ---                |     --- |          --- |       --- | ---                                       | ---                                  |
-| eng(_)             | **288** |   **3.65e3** | **104e3** | **Just Enough**                           | **Clear**                            |
-| ---                |     --- |          --- |       --- | ---                                       | ---                                  |
-
-Do you feel you get most of this? Are you only thinking real numbers or also the text of the digits of a digital numeric literal?
-
-
-# Round down to floor, up to ceiling, or either way half the time
-
-Do you feel I've gone too far, when I chose the simple constant truncation of always rounding down to the floor, and not the conventional variable round up to the ceiling half the time?
-
-I agree more conventional is an option. Indeed, I agree round to ceiling half the time is the most familiar, and therefore most clear, option when we do have so much control that we're giving the audience only one revision of the data. But as for this century now, not last century, well, things have changed. In my present work for hire, we commonly send the data down multiple routes to reach our audiences. They get one revision from one pipe and another revision from another pipe.
-
-When we tell our audiences to look for 1 0 4 9 in one place and 1 0 5 in another, we're not helping. Near me, the least awful compromise is to radically reduce the precision, give over only three digits, and have those three digits be the same three digits that they'll find coming at them through the other pipelines that do not radically reduce precision. Soon enough to round things up after we can get all the pipes to agree over how much precision to send out.
-
-Aye for certain when I give you just 1 0 4 then half the time you'll have to search for 1 0 5 too before you find everybody out there who is rounding up. But this is better than asking you to remember to search also for 1 0 3 when they give you 1 0 4 because maybe it was 1 0 3 9. Because for most of the people in our audiences, it's better to ask you to remember to look up than to ask you to look down. Because they hold a bias for forward, over backward.
-
-Choices. Second standards, and third standards, after the first standard.
-
-We're working here to put out the word on **the wins found in always presenting three digits and always rounding down to floor**. To catch what every one means by 1 0 4 you have to search up 1 0 3 and 1 0 5 too. Yes you do, and no we're not making this worse. Truncate to floor already did have adopters you had to go find, especially the people who just copy the leftmost digits of the number to you, and then cut it short.
-
-**The wins, and the low cost.** To fix this problem, you pretty much just have to notice it exists and move to fix it. Not much permission required.
+To fix this problem, you pretty much just have to notice it exists and move to fix it. Not much permission required.
 
 <!--
 
-zero
-single digit positive ints
-two and three digit ints
-
-0
-1 .. 9
-10 .. 999
-1000 .. 9999
-10_000 ... 2**53 - 1 (aka 8 Pi - 1)
-2**53 .. (10**308 + x)
-(10**309 - y) ..
-
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/litint-readme.md
+# copied from:  git clone https://github.com/pelavarre/pylitfun.git
 
 -->
