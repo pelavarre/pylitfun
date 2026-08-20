@@ -18,7 +18,7 @@ examples:
   git.py ~/gg -w gg ggl
   : gg ... && git grep -ai -w -e gg -e ggl
   gla -p
-  : gla ... && git log --pretty=fuller --no-decorate --numstat --author=jqdoe --color-moved -p
+  : gla ... && git log --date=local --pretty=fuller --no-decorate --numstat --author=jqdoe -p
 """
 
 # Note: Git itself looks for 'git-...' aliases coded as Scripts of the $PATH
@@ -77,13 +77,13 @@ ShlinePlusByShverb = {  # sorted by key
     "ggi": "git grep -a -e ... -e ...",
     "ggl": "git grep -l -ai -e ... -e ...",
     # 20
-    "gl": "git log --pretty=fuller --no-decorate [...]",
-    "gla": "git log --pretty=fuller --no-decorate --numstat --author=...",  # [...]
+    "gl": "git log --date=local --pretty=fuller --no-decorate [...]",
+    "gla": "git log --date=local --pretty=fuller --no-decorate --numstat --author=...",  # [...]
     "glf": "git ls-files |grep -ai -e ... -e ...",  # as if [...] because 'glf' is 'git ls-files'
     "glq": "git log --oneline --no-decorate [...]",
     "glqn": "git log --oneline --no-decorate [...]",  # but adds |awk to number lines
     # 25
-    "gls": "git log --pretty=fuller --no-decorate --numstat [...]",
+    "gls": "git log --date=local --pretty=fuller --no-decorate --numstat [...]",
     "glv": "git log --oneline --decorate [...]",
     "gno": "git diff/show --pretty= --name-only [...]",  # 'qdno' when truthy, else 'qspno'
     "grb": "git rebase ...",
@@ -277,10 +277,7 @@ class GitGopher:
 
         #
 
-        extra_gla_shline_str = """
-            git log --pretty=fuller --no-decorate --numstat
-                --author=$(git config user.email)
-        """
+        extra_gla_shline = "git log ... --author=$(git config user.email)"  # elides the Flags above
 
         before_shline_by_shverb = {
             "gco": "# : gco && git checkout -",
@@ -291,18 +288,16 @@ class GitGopher:
             "gcaf": "  # --default=HEAD",
             "gcf": "  # --default=HEAD",
             "gf": "  # --default=--quiet",
-            "gl": "  # --default=-1 or --color-moved",
-            "gla": "  # --default=--color-moved",
+            "gl": "  # --default=-1",
             "glq": "  # --default=-9",
             "glqn": """ |awk '{print "HEAD~"(NR-1), $0}'  # --default=-9""",
-            "gls": "  # --default=-1 or --color-moved",
             "glv": "  # --default=-9",
         }
 
         after_shline_by_shverb = {
             "g": "# or pipe sink |grep -ai -e ... -e ...",
             "gg/0": "# : gg && " + shline_plus_by_shverb["gg/n"],
-            "gla": "# : gla && " + " ".join(extra_gla_shline_str.split()),
+            "gla": "# : gla && " + extra_gla_shline,
         }
 
         skip_shverbs = ["gsis"]
