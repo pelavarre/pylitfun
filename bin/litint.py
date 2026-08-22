@@ -26,7 +26,7 @@ def main() -> None:
 
     for i, s in _str_by_int_.items():
 
-        _s_ = int_chop_to_eng(i)
+        _s_ = repr_int_chop_to_eng(i)
         assert _s_ == s, (_s_, s)
 
         _s_ = decimal_int_chop_to_eng(i)
@@ -58,7 +58,7 @@ _str_by_int_ = {
 #
 
 
-def int_chop_to_eng(n: int) -> str:
+def repr_int_chop_to_eng(n: int) -> str:
     """Rep the exact Int, else chop down to 3 Digits at an explicit Multiple-of-Three Exponent"""
 
     i = int(repr(n))  # raises ValueError when a Float breaks our ': int' contract
@@ -77,7 +77,7 @@ def int_chop_to_eng(n: int) -> str:
         assert 1 <= (len(digits) - eng) <= 3, (len(digits), eng, sci, digits, n)
 
         precise = digits[:-eng] + "." + digits[-eng:]  # '120.789'
-        nearby = precise[:4]  # '120.'  # significand, mantissa, multiplier
+        nearby = precise[:4]  # '120.'  # significand, mantissa, multiplier  # with a dot included
         worthy = nearby.rstrip(".")  # '120' # drops a single trailing '.'
 
         assert "." in nearby, (nearby, precise, eng, sci, digits, n)
@@ -99,7 +99,7 @@ def int_chop_to_eng(n: int) -> str:
     # Python's hex int("987e3", 0x10) == 0x9_87E3 does nearly collide with our '987e3' lacking '.'
     # Python Floats overflow out beyond '179e306', but we correctly clip '180 * 10**306' and above
 
-    # 'def int_chop_to_eng' last modified for py2def.py on 2026-08-18 or later
+    # 'def repr_int_chop_to_eng' last modified for py2def.py on 2026-08-22 or later
 
 
 #

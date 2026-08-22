@@ -86,12 +86,12 @@ _math_int_step_clips_i_o_: tuple[tuple[int, str, str], ...] = (
 
 
 #
-# Try some Testcases of .math_float_clip and .int_chop_to_eng
+# Try some Testcases of .math_float_clip and .repr_int_chop_to_eng
 #
 
 
 def try_math_float_int_clips() -> None:
-    """Try some Testcases of .math_float_clip and .int_chop_to_eng"""
+    """Try some Testcases of .math_float_clip and .repr_int_chop_to_eng"""
 
     for before, after in _math_float_int_clips_i_o_:
 
@@ -124,9 +124,9 @@ def try_math_float_int_clips() -> None:
                 assert o == fir, (o, fir, s)
 
             oi = o.replace("+", "")
-            ir = int_chop_to_eng(i)
+            ir = repr_int_chop_to_eng(i)
 
-            if (oi, ir) == ("-1e21", "-1.00e21"):  # todo: reconcile with .int_chop_to_eng
+            if (oi, ir) == ("-1e21", "-1.00e21"):  # todo: reconcile with .repr_int_chop_to_eng
                 pass
             elif (oi, ir) == ("-1e3", "-1.00e3"):
                 pass
@@ -206,7 +206,7 @@ def _match_s_with_f_i_(s: str, f: float | None, i: int | None) -> None:
 #
 
 
-def int_chop_to_eng(n: int) -> str:
+def repr_int_chop_to_eng(n: int) -> str:
     """Rep the exact Int, else chop down to 3 Digits at an explicit Multiple-of-Three Exponent"""
 
     i = int(repr(n))  # raises ValueError when a Float breaks our ': int' contract
@@ -225,7 +225,7 @@ def int_chop_to_eng(n: int) -> str:
         assert 1 <= (len(digits) - eng) <= 3, (len(digits), eng, sci, digits, n)
 
         precise = digits[:-eng] + "." + digits[-eng:]  # '120.789'
-        nearby = precise[:4]  # '120.'  # significand, mantissa, multiplier
+        nearby = precise[:4]  # '120.'  # significand, mantissa, multiplier  # with a dot included
         worthy = nearby.rstrip(".")  # '120' # drops a single trailing '.'
 
         assert "." in nearby, (nearby, precise, eng, sci, digits, n)
@@ -247,7 +247,7 @@ def int_chop_to_eng(n: int) -> str:
     # Python's hex int("987e3", 0x10) == 0x9_87E3 does nearly collide with our '987e3' lacking '.'
     # Python Floats overflow out beyond '179e306', but we correctly clip '180 * 10**306' and above
 
-    # 'def int_chop_to_eng' last modified for py2def.py on 2026-08-18 or later
+    # 'def repr_int_chop_to_eng' last modified for py2def.py on 2026-08-22 or later
 
 
 #
