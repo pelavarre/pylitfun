@@ -1,7 +1,7 @@
 <!-- omit in toc -->
 # litint-readme.md
 
-Here we talk over how our short simple [litint.py](https://github.com/pelavarre/pylitfun/blob/main/docs/litint.py) works.
+Here we talk over how our short simple [litint.py](./litint.py) works.
 
 Contents
 
