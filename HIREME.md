@@ -110,7 +110,7 @@ Can you know how much you changed your judgment because of how you were feeling 
 
 Do you know this table? It shows the choices we make while working as judges. We the judges make a quality into a strength, or we make it into a fault, when we read the quality out of a person.
 
-| - | Them | You & Me |
+| # | Them | You & Me |
 | --- | --- | --- |
 | 1 | Abrasive | Direct |
 | 2 | Disruptive | Disruptor |

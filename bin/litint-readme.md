@@ -85,17 +85,17 @@ Still reasonably simple and small.
 
 ### 4 Digits with no Dot for when 16 is larger than 10
 
-Lots of practical work needs at least three digits, and nearly all practical work never needs more than a dot and three digits. But getting a standard format to give you three digits always is such a struggle. They love to cut your short, and they love to go on too long.
+Lots of practical work needs at least three digits, and nearly all practical work never needs more than a dot and three digits. But getting a standard format to give you three digits always is such a struggle. They love to cut you short, and they love to go on too long.
 
 Even when they do deliver the three digits, they often get the last digit wrong. They don't let you ask to truncate the details. They insist on rounding up the last digit, and only half the time. When you don't have a copy of the original, you can't know what it said. Oops. They often go far wrong like that, and we don't.
 
-The corner of dealing with decimal counts of binary metric prefixes is slightly less simple, because 0 .. 2**10 - 1 is 0 .. 1023, which is as many as four digits, albeit no dots. We deal with that separately. For that corner, we talk of 0, 0.00, 0.01, ... 0.99, 1.00, ... 9.99, 10.0, 10.1, ... 100, ... 999, 1000, 1001, ... 1023.
+The corner of dealing with decimal counts of binary metric prefixes is slightly less simple, because 0 .. 2**10 - 1 is 0 .. 1023, which is as many as four digits, albeit no dots. We deal with that separately. For that corner, we talk of 0, 0.00, 0.01, ... 0.99, 1.00, ... 9.99, 10.0, 10.1, ... 100, ... 999, 1000, 1001, ... 1023. We don't yet show this separate code here. It is coming soon, I hope.
 
-After glancing across this much of our doc and tests and code gives you the idea, you're all set up to review the details in the code we ship.
+After glancing across this much of our doc and tests and code, you're all set up to review the details in the code we ship.
 
 ## Fourteen Compelling Tests
 
-We've dug up more than a dozen telling test cases.
+We've dug up compelling test cases.
 
     -9999: "-9.99e3",  # not '-1e+04'
     -2: "-2",
@@ -122,7 +122,7 @@ We do agree, our "104e3" and "120e3" and "987e3" can be misread as lowercase hex
 
 Different roles call for different conventions. A mathematician will tell you 2 + 2 is 4. A scientist more like says 4.00, calling out some exact idea of precision. An accountant will ask you what you want it to be. An engineer will tell you it's less than 5, and ask if you need to know more than that.
 
-We're saying that less than 3 digits commonly misleads you with inadequacy, and more than 3 digits is commonly floods you with excess.
+We're saying that less than 3 digits commonly misleads you with inadequacy, and more than 3 digits commonly floods you with excess.
 
 That's how exactly 3 digits comes out as exactly correct. Goldilocks. But your search will fail, when you go looking for those same 3 digits in the original detail, unless you take care to always truncate and never round up.
 
@@ -140,27 +140,21 @@ Most engineers know to feel hurt by inadequate precision. But you can learn to f
 
 Do you feel Python Int Math should be simple?
 
-In reality, working with larger and larger Int's gives you more wrinkles to solve, one after another. For sure, you can think first of the simple internal reality. Each Python Int is a simple digital native: a binary count of arbitrary precision, always with sign, never with overflow. But as you gather more and more bits into a Python Int, you face more and more consequences downstream.
+In reality, working with larger and larger Int's gives you more and more wrinkles to solve, one after another. For sure, you can think first of the simple internal reality. Each Python Int is a simple digital native: a binary count of arbitrary precision, always with sign, never with overflow. But as you gather more and more bits into a Python Int, you face more and more consequences downstream.
 
-Nine boundaries force us to write more code, as our Decimal Int's grow larger:
+Seven Python boundaries force us to write more code, as our Decimal Int's grow larger:
 
-| - | At or Above |      Exact Last Simple | Next Complexity                                       |
+| # | At or Above |      Exact Last Simple | Next Complexity                                       |
 |---|------------:|-----------------------:|-------------------------------------------------------|
-| 1 |         999 |                    999 | 1000 or 1\_000 or 1,000 or 10**3 or 1e+3               |
-| 2 |        1023 |              2**10 - 1 | Binary Prefixes start at Ki, go up through Qi, & stop |
-| 3 |     9.00e15 |                  2**53 | float(n) == float(n - 1) starts happening             |
-| 4 |     9.99e15 |             10**16 - 2 | repr(float(n)) switches to e+ notation                |
-| 5 |     9.22e18 |              2**63 - 1 | 64-bit ints start arguing about if they're unsigned   |
-| 6 |      999e30 |             10**33 - 1 | Decimal Metric Prefixes cap out above 999 Q - 1       |
-| 7 |     1.29e33 |  2\*\*110 - 2**100 - 1 | Binary Prefixes cap out above 1023 Qi - 1             |
-| 8 |     179e306 | 2\*\*1024 - 2**970 - 1 | float(n) raises OverflowError                         |
-| 9 |   9.99e4299 |           10**4300 - 1 | str(n) and int(digits) and f"{:d}" raise ValueError   |
+| 1 |         999 |                    999 | 1000 or 1\_000 or 1,000 or 10**3 or 1e+3              |
+| 2 |     9.00e15 |                  2**53 | float(n) == float(n - 1) starts happening             |
+| 3 |     9.99e15 |             10**16 - 2 | repr(float(n)) switches to e+ notation                |
+| 4 |     9.22e18 |              2**63 - 1 | 64-bit ints start arguing about if they're unsigned   |
+| 5 |      999e30 |             10**33 - 1 | Decimal Metric Prefixes end after 10**3 * Q - 1       |
+| 6 |     179e306 | 2\*\*1024 - 2**970 - 1 | float(n) raises OverflowError                         |
+| 7 |   9.99e4299 |           10**4300 - 1 | str(n) and int(digits) and f"{:d}" raise ValueError   |
 
-Last century had it easier, but work for hire now commonly crosses the 1e18 Exa and 1.15e18 Exbi boundaries.
-
-+ 999: Many people stop transcribing numbers accurately near here.
-+ 9.00e15: That's counting out Petabytes, not even Exabytes.
-+ 9.22e18: We did dream a 63-bit Int could count anything. Not so much now.
+Int Formatting getting a little less simple past 999? Not news. What is news lately in work for hire is getting into counting out 10\**15 Petabytes and 2**50 Pebibytes. That kind of work drops you into Int Formatting complications as soon as 8 Pebi (above 9.00 Peta), with your next complication coming as soon as 9.99 Peta and your next complication after that as soon as 8 Exbi - 1 (above 9.22 Exa). This year 2026 is a good year to wake up to these.
 
 Two technical notes.
 
@@ -170,15 +164,17 @@ Reducing your scope to speak of Python Int's only as Binary, Octal, or Hexadecim
 
 Note 2.
 
-Mixing Python Int's with Python Byte's surfaces more boundaries:
+Seven Python boundaries force us to write more code, as our Binary Int's grow larger:
 
-| At or Above |      Exact Last Simple | Next Complexity                                        |
-|------------:|-----------------------:|--------------------------------------------------------|
-|         127 |               2**7 - 1 | max signed 8-bit int                                   |
-|         256 |                   2**8 | CPython guarantees (int(n) is n) only across -5 .. 256 |
-|      32.7e3 |              2**15 - 1 | max signed 16-bit int                                  |
-|      2.14e9 |              2**31 - 1 | max signed 32-bit int                                  |
-|     9.22e18 |              2**63 - 1 | max signed 64-bit int                                  |
+| # | At or Above |      Exact Last Simple | Next Complexity                                       |
+|---|------------:|-----------------------:|-------------------------------------------------------|
+| 1 |         127 |               2**7 - 1 | max signed 8-bit int                                  |
+| 2 |         256 |                   2**8 | CPython promises (int(n) is n) only across -5 .. 256  |
+| 3 |      1.02e3 |              2**10 - 1 | Binary Prefixes start at 1 Ki = 1024                  |
+| 4 |      32.7e3 |              2**15 - 1 | max signed 16-bit int                                 |
+| 5 |      2.14e9 |              2**31 - 1 | max signed 32-bit int                                 |
+| 6 |     9.22e18 |              2**63 - 1 | max signed 64-bit int                                 |
+| 7 |     1.29e33 |             2**110 - 1 | Binary Prefixes end after 2**10 * Qi - 1              |
 
 ## Conclusion
 

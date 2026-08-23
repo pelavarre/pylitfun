@@ -146,6 +146,38 @@ def decimal_int_chop_to_eng(n: int) -> str:
 
 
 #
+# Amp up Import Math for Decimal Metric Units and Binary Metric Units
+#
+#   from litint import k, M, G, T, P, E, Z, Y, R, Q
+#   from litint import Ki, Mi, Gi, Ti, Pi, Ei, Zi, Yi, Ri, Qi
+#
+
+
+k = 10**3  # 'kMGTPEZYRQ' from https://en.wikipedia.org/wiki/Metric_prefix
+M = 10**6
+G = 10**9
+T = 10**12
+P = 10**15
+E = 10**18
+Z = 10**21
+Y = 10**24
+R = 10**27
+Q = 10**30
+
+
+Ki = 2**10  # "KMGTPE" + 'i' at https://physics.nist.gov/cuu/Units/binary.html
+Mi = 2**20
+Gi = 2**30
+Ti = 2**40
+Pi = 2**50
+Ei = 2**60
+Zi = 2**70  # "KMGTPEZYRQ" + 'i' at https://en.wikipedia.org/wiki/Binary_prefix
+Yi = 2**80
+Ri = 2**90
+Qi = 2**100
+
+
+#
 # Run from the Shell Command Line, if not imported
 #
 
