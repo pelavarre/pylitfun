@@ -9,12 +9,13 @@ Contents
   - [Every standard Int format often goes far wrong](#every-standard-int-format-often-goes-far-wrong)
   - [Python has a name for our solution](#python-has-a-name-for-our-solution)
   - [Small systems solved similarly](#small-systems-solved-similarly)
-  - [4 Digits with no Dot for when 16 is larger than 10](#4-digits-with-no-dot-for-when-16-is-larger-than-10)
+  - [Who ever looks at the 4th digit?](#who-ever-looks-at-the-4th-digit)
+  - [No Dot as the 4th Character when counting up to the next 1 Ki](#no-dot-as-the-4th-character-when-counting-up-to-the-next-1-ki)
 - [Fourteen Compelling Tests](#fourteen-compelling-tests)
 - [Past work](#past-work)
   - [The Engineer's answer to 2 + 2](#the-engineers-answer-to-2--2)
   - [Pi in schools](#pi-in-schools)
-  - [The Python Int's created inequal](#the-python-ints-created-inequal)
+  - [The Python Int's created unequal](#the-python-ints-created-unequal)
 - [Conclusion](#conclusion)
 
 ## The problem and our solution
@@ -83,11 +84,13 @@ We ship our copy of their alternative out as 'def repr_int_chop_to_eng'. Its cor
 
 Still reasonably simple and small.
 
-### 4 Digits with no Dot for when 16 is larger than 10
+### Who ever looks at the 4th digit?
 
 Lots of practical work needs at least three digits, and nearly all practical work never needs more than a dot and three digits. But getting a standard format to give you three digits always is such a struggle. They love to cut you short, and they love to go on too long.
 
 Even when they do deliver the three digits, they often get the last digit wrong. They don't let you ask to truncate the details. They insist on rounding up the last digit, and only half the time. When you don't have a copy of the original, you can't know what it said. Oops. They often go far wrong like that, and we don't.
+
+### No Dot as the 4th Character when counting up to the next 1 Ki
 
 The corner of dealing with decimal counts of binary metric prefixes is slightly less simple, because 0 .. 2**10 - 1 is 0 .. 1023, which is as many as four digits, albeit no dots. We deal with that separately. For that corner, we talk of 0, 0.00, 0.01, ... 0.99, 1.00, ... 9.99, 10.0, 10.1, ... 100, ... 999, 1000, 1001, ... 1023. We don't yet show this separate code here. It is coming soon, I hope.
 
@@ -136,7 +139,7 @@ Nearly all practical work never needs more than three digits. And all the standa
 
 Most engineers know to feel hurt by inadequate precision. But you can learn to feel the full horror of excess precision too. You see us working hard here now to duck out of it entirely.
 
-### The Python Int's created inequal
+### The Python Int's created unequal
 
 Do you feel Python Int Math should be simple?
 

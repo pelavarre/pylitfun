@@ -7,6 +7,7 @@ show how we chop ints down to 3 digits at a multiple-of-three exponent
 
 examples:
   bin/litint.py --  # runs tests
+  from litint import decimal_int_chop_to_eng as ichop
 """
 
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
@@ -21,36 +22,7 @@ if not __debug__:
 def main() -> None:
     """Run from the Shell"""
 
-    # import litsys
-    # sys.excepthook = litsys.sys_excepthook_pdb_pm
-
-    for i, s in _str_by_int_.items():
-
-        _s_ = repr_int_chop_to_eng(i)
-        assert _s_ == s, (_s_, s)
-
-        _s_ = decimal_int_chop_to_eng(i)
-        assert _s_ == s, (_s_, s)
-
-    print("litint.py: passed supercalifragilistically", file=sys.stderr)
-
-
-_str_by_int_ = {
-    -9999: "-9.99e3",  # not '-1e+04'
-    -2: "-2",
-    0: "0",  # not '0e0'  # not '0.0'
-    1: "1",
-    42: "42",
-    288: "288",  # not '2.9e+02'
-    999: "999",  # not '1.00e+03'
-    1000: "1.00e3",  # not '1e+03'
-    3652: "3.65e3",
-    9876: "9.87e3",
-    98765: "98.7e3",
-    104999: "104e3",  # not '1.05e+05'
-    120789: "120e3",  # not '1.21e+05'
-    987654: "987e3",  # not '9.88e+05'
-}
+    _self_test_()
 
 
 #
@@ -108,10 +80,12 @@ def repr_int_chop_to_eng(n: int) -> str:
 
 
 def _(n: int) -> str:
-    i = int(repr(n))
+
     ctx = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)
     D = ctx.create_decimal
-    clip = D(i).to_eng_string().lower().replace("e+", "e")
+
+    clip = D(n).to_eng_string().lower().replace("e+", "e")
+
     return clip
 
     # when coded without docstring, without comments, and without asserts
@@ -121,9 +95,8 @@ def decimal_int_chop_to_eng(n: int) -> str:
     """Rep the exact Int, else chop down to 3 Digits at an explicit Multiple-of-Three Exponent"""
 
     i = int(repr(n))  # raises ValueError when a Float breaks our ': int' contract
-
     ctx = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)  # the towards-zero kind of "Down"
-    D = ctx.create_decimal
+    D = ctx.create_decimal  # truncating is not ceiling, floor, half down/up, half even, nor 0 5 up
 
     clip = D(i).to_eng_string().lower().replace("e+", "e")
 
@@ -142,7 +115,7 @@ def decimal_int_chop_to_eng(n: int) -> str:
     # Python's hex int("987e3", 0x10) == 0x9_87E3 does nearly collide with our '987e3' lacking '.'
     # Python Floats overflow out beyond '179e306', but we correctly clip '180 * 10**306' and above
 
-    # 'def decimal_int_chop_to_eng' last modified for py2def.py on 2026-07-31 or later
+    # 'def decimal_int_chop_to_eng' last modified for py2def.py on 2026-08-25 or later
 
 
 #
@@ -175,6 +148,46 @@ Zi = 2**70  # "KMGTPEZYRQ" + 'i' at https://en.wikipedia.org/wiki/Binary_prefix
 Yi = 2**80
 Ri = 2**90
 Qi = 2**100
+
+
+#
+# Test things around here
+#
+
+
+def _self_test_() -> None:
+    """Test things around here"""
+
+    # import litsys
+    # sys.excepthook = litsys.sys_excepthook_pdb_pm
+
+    for i, s in _str_by_int_.items():
+
+        _s_ = repr_int_chop_to_eng(i)
+        assert _s_ == s, (_s_, s)
+
+        _s_ = decimal_int_chop_to_eng(i)
+        assert _s_ == s, (_s_, s)
+
+    print("litint.py: passed supercalifragilistically", file=sys.stderr)
+
+
+_str_by_int_ = {
+    -9999: "-9.99e3",  # not '-1e+04'
+    -2: "-2",
+    0: "0",  # not '0e0'  # not '0.0'
+    1: "1",
+    42: "42",
+    288: "288",  # not '2.9e+02'
+    999: "999",  # not '1.00e+03'
+    1000: "1.00e3",  # not '1e+03'
+    3652: "3.65e3",
+    9876: "9.87e3",
+    98765: "98.7e3",
+    104999: "104e3",  # not '1.05e+05'
+    120789: "120e3",  # not '1.21e+05'
+    987654: "987e3",  # not '9.88e+05'
+}
 
 
 #
