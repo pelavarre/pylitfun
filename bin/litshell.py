@@ -2932,10 +2932,11 @@ def json_dumps_as_py(j: object) -> str:
     """Print a Python Program that forms a copy of this Object"""
 
     object_pylines = list()
+    mentions_textwrap = False
 
     if isinstance(j, dict):
         object_pylines.append("j: typing.Any = dict()")
-        dict_pylines = json_dumps_items_as_py_lines(j, keys=list())
+        dict_pylines, mentions_textwrap = json_dumps_items_as_py_lines(j, keys=list())
         object_pylines.extend(dict_pylines)
     else:
         raise NotImplementedError(type(j))
@@ -2943,7 +2944,7 @@ def json_dumps_as_py(j: object) -> str:
     pylines = list()
 
     pylines.append("import json")
-    if " = textwrap." in "\n".join(object_pylines):  # a little too often
+    if mentions_textwrap:
         pylines.append("import textwrap")
     pylines.append("import typing")
     pylines.append("")
@@ -2961,63 +2962,83 @@ def json_dumps_as_py(j: object) -> str:
 
 def json_dumps_items_as_py_lines(
     j: list[object] | dict[str, object], keys: list[str | int]
-) -> list[str]:
-    """Print a Python Program that forms a copy of this Dict"""
+) -> tuple[list[str], bool]:
+    """Print a Python Program that forms a copy of this Dict, and say if it needs Import Textwrap"""
 
     q = str_int_quote_as_flat_py
 
     above = "".join(("[" + q(_) + "]") for _ in keys)
+    container_py = f"j{above}"
+
+    is_list = isinstance(j, list)
 
     jitems: list[tuple[str | int, object]] = list()
-    if isinstance(j, list):
+    if is_list:
         jitems = list(enumerate(j))
     else:
         assert isinstance(j, dict), (type(j),)
         jitems = list(j.items())
 
     pylines = list()
+    mentions_textwrap = False
+
     for k, v in jitems:
         assert isinstance(k, (int, str)), (type(k), keys)
         keys_plus = list(keys) + [k]
 
-        py = f"j{above}[{q(k)}]"
+        py = f"{container_py}[{q(k)}]"
 
         if isinstance(v, (bool, int, float, type(None))):
-            pylines.append(f"{py} = {v}")
+            literal = f"{v}"
+            pylines.append(f"{container_py}.append({literal})" if is_list else f"{py} = {literal}")
             continue
 
         if isinstance(v, str):
             tall_py = str_quote_as_tall_py_if(v)
             if tall_py:
-                for index, pyline in enumerate(tall_py.splitlines()):
-                    if index == 0:
-                        pylines.append(f"{py} = {pyline}")
-                    else:
-                        pylines.append(f"{pyline}")
+                mentions_textwrap = True
+
+                tall_pylines = tall_py.splitlines()
+                assert tall_pylines, (v, keys)
+                if is_list:
+                    tall_pylines[0] = f"{container_py}.append({tall_pylines[0]}"
+                    tall_pylines[-1] = f"{tall_pylines[-1]})"
+                else:
+                    tall_pylines[0] = f"{py} = {tall_pylines[0]}"
+                pylines.extend(tall_pylines)
             else:
-                pylines.append(f"{py} = {q(v)}")
+                literal = q(v)
+                pylines.append(
+                    f"{container_py}.append({literal})" if is_list else f"{py} = {literal}"
+                )
             continue
 
         if isinstance(v, list):
-            if not v:
-                pylines.append(f"{py} = list()")
-                continue
-
-            n = len(v)
-            pylines.append(f"{py} = {n} * [None]")
-            list_pylines = json_dumps_items_as_py_lines(j=v, keys=keys_plus)
-            pylines.extend(list_pylines)
+            literal = "list()"
+            pylines.append(f"{container_py}.append({literal})" if is_list else f"{py} = {literal}")
+            if v:
+                list_pylines, list_mentions_textwrap = json_dumps_items_as_py_lines(
+                    j=v, keys=keys_plus
+                )
+                pylines.extend(list_pylines)
+                mentions_textwrap = mentions_textwrap or list_mentions_textwrap
             continue
 
         if isinstance(v, dict):
-            pylines.append(f"{py} = dict()")
-            dict_pylines = json_dumps_items_as_py_lines(j=v, keys=keys_plus)
+            literal = "dict()"
+            pylines.append(f"{container_py}.append({literal})" if is_list else f"{py} = {literal}")
+            dict_pylines, dict_mentions_textwrap = json_dumps_items_as_py_lines(j=v, keys=keys_plus)
             pylines.extend(dict_pylines)
+            mentions_textwrap = mentions_textwrap or dict_mentions_textwrap
             continue
 
         raise NotImplementedError(type(v), keys)
 
-    return pylines
+    if is_list:
+        assert jitems, (keys,)  # guarded by 'if v:' at every recursive call site
+        pylines.append(f"assert len({container_py}) == {len(jitems)}")
+
+    return pylines, mentions_textwrap
 
 
 def str_quote_as_tall_py_if(s: str) -> str:
