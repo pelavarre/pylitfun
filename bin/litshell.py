@@ -22,6 +22,7 @@ quirks:
   defaults to wide osep='  ' for |awk and |columns and |join
   takes both isep and osep from --sep=SEP when given --sep=SEP, unlike |awk -F$sep -vOFS=$sep
   lets you mark the stop and stop of a string literal with any of , . /
+  defaults |.jq to Diffable .append() Lists, do |.jq keys for concrete Int Keys
 
 pythonic bricks:
   append bytes casefold counter decode enumerate expandtabs if insert
@@ -435,6 +436,12 @@ class ShellGopher:
                 dot = word
                 if word == ".":
                     newborn.posargs += (dot,)
+                    continue
+
+                # Pick out a Pos Arg Keys, as in |.jq keys
+
+                if word == "keys":
+                    newborn.posargs += (word,)
                     continue
 
                 # Pick out a Pos Arg Number
@@ -1557,6 +1564,8 @@ class ShellBrick:
         """json.dumps(json.loads(str(sys.i)), indent=2)"""
 
         verb = self.verb
+        posargs = self.posargs
+        keying = "keys" in posargs
 
         itext = self.fetch_itext()
 
@@ -1566,7 +1575,7 @@ class ShellBrick:
 
             otext = json.dumps(loads, indent=2) + "\n"
             if verb in ("j", ".jq"):
-                otext = json_dumps_as_py(loads)
+                otext = json_dumps_as_py(loads, keying=keying)
 
         self.store_otext(otext)
 
@@ -2928,15 +2937,15 @@ def str_removeflanks_else(lit: str, marks: str) -> str | None:
 #
 
 
-def json_dumps_as_py(j: object) -> str:
+def json_dumps_as_py(j: object, keying: bool) -> str:
     """Print a Python Program that forms a copy of this Object"""
 
     object_pylines = list()
-    mentions_textwrap = False
+    textwrapping = False
 
     if isinstance(j, dict):
         object_pylines.append("j: typing.Any = dict()")
-        dict_pylines, mentions_textwrap = json_dumps_items_as_py_lines(j, keys=list())
+        dict_pylines, textwrapping = json_dumps_items_as_py_lines(j, keys=list(), keying=keying)
         object_pylines.extend(dict_pylines)
     else:
         raise NotImplementedError(type(j))
@@ -2944,7 +2953,7 @@ def json_dumps_as_py(j: object) -> str:
     pylines = list()
 
     pylines.append("import json")
-    if mentions_textwrap:
+    if textwrapping:
         pylines.append("import textwrap")
     pylines.append("import typing")
     pylines.append("")
@@ -2961,9 +2970,12 @@ def json_dumps_as_py(j: object) -> str:
 
 
 def json_dumps_items_as_py_lines(
-    j: list[object] | dict[str, object], keys: list[str | int]
+    j: list[object] | dict[str, object], keys: list[str | int], keying: bool
 ) -> tuple[list[str], bool]:
     """Print a Python Program that forms a copy of this Dict, and say if it needs Import Textwrap"""
+
+    # 'keying' says give every List Item its own concrete Int Index, to spell out Dict/List paths
+    # else default to .append(), so inserting or deleting a List Item diffs as 1 changed line
 
     q = str_int_quote_as_flat_py
 
@@ -2971,6 +2983,7 @@ def json_dumps_items_as_py_lines(
     container_py = f"j{above}"
 
     is_list = isinstance(j, list)
+    appending = is_list and not keying
 
     jitems: list[tuple[str | int, object]] = list()
     if is_list:
@@ -2980,7 +2993,7 @@ def json_dumps_items_as_py_lines(
         jitems = list(j.items())
 
     pylines = list()
-    mentions_textwrap = False
+    textwrapping = False
 
     for k, v in jitems:
         assert isinstance(k, (int, str)), (type(k), keys)
@@ -2990,17 +3003,17 @@ def json_dumps_items_as_py_lines(
 
         if isinstance(v, (bool, int, float, type(None))):
             literal = f"{v}"
-            pylines.append(f"{container_py}.append({literal})" if is_list else f"{py} = {literal}")
+            pylines.append(f"{container_py}.append({literal})" if appending else f"{py} = {literal}")
             continue
 
         if isinstance(v, str):
             tall_py = str_quote_as_tall_py_if(v)
             if tall_py:
-                mentions_textwrap = True
+                textwrapping = True
 
                 tall_pylines = tall_py.splitlines()
                 assert tall_pylines, (v, keys)
-                if is_list:
+                if appending:
                     tall_pylines[0] = f"{container_py}.append({tall_pylines[0]}"
                     tall_pylines[-1] = f"{tall_pylines[-1]})"
                 else:
@@ -3009,36 +3022,38 @@ def json_dumps_items_as_py_lines(
             else:
                 literal = q(v)
                 pylines.append(
-                    f"{container_py}.append({literal})" if is_list else f"{py} = {literal}"
+                    f"{container_py}.append({literal})" if appending else f"{py} = {literal}"
                 )
             continue
 
         if isinstance(v, list):
-            literal = "list()"
-            pylines.append(f"{container_py}.append({literal})" if is_list else f"{py} = {literal}")
+            literal = f"{len(v)} * [None]" if (v and keying) else "list()"
+            pylines.append(f"{container_py}.append({literal})" if appending else f"{py} = {literal}")
             if v:
-                list_pylines, list_mentions_textwrap = json_dumps_items_as_py_lines(
-                    j=v, keys=keys_plus
+                list_pylines, list_textwrapping = json_dumps_items_as_py_lines(
+                    j=v, keys=keys_plus, keying=keying
                 )
                 pylines.extend(list_pylines)
-                mentions_textwrap = mentions_textwrap or list_mentions_textwrap
+                textwrapping = textwrapping or list_textwrapping
             continue
 
         if isinstance(v, dict):
             literal = "dict()"
-            pylines.append(f"{container_py}.append({literal})" if is_list else f"{py} = {literal}")
-            dict_pylines, dict_mentions_textwrap = json_dumps_items_as_py_lines(j=v, keys=keys_plus)
+            pylines.append(f"{container_py}.append({literal})" if appending else f"{py} = {literal}")
+            dict_pylines, dict_textwrapping = json_dumps_items_as_py_lines(
+                j=v, keys=keys_plus, keying=keying
+            )
             pylines.extend(dict_pylines)
-            mentions_textwrap = mentions_textwrap or dict_mentions_textwrap
+            textwrapping = textwrapping or dict_textwrapping
             continue
 
         raise NotImplementedError(type(v), keys)
 
-    if is_list:
+    if appending:
         assert jitems, (keys,)  # guarded by 'if v:' at every recursive call site
         pylines.append(f"assert len({container_py}) == {len(jitems)}")
 
-    return pylines, mentions_textwrap
+    return pylines, textwrapping
 
 
 def str_quote_as_tall_py_if(s: str) -> str:
