@@ -1,17 +1,25 @@
+# sh/_ = Drop input, take input, do nothing loudly, or do what you're told = aka sh/.cat
+
 if [ $# -ne 0 ]; then  # _ ...  # with args
+
     set -xe
     cat "$@"
+
 elif [ -t 0 ]; then
+
     echo 'Press ⌃D to quit happy, or ⌃C to quit sad' >&2
     if [ -t 1 ]; then  # _  # standalone
-        set -e
+        set -xe
         echo 'cat - >/dev/null' >&2
         cat - >/dev/null
     else  # _ |...  # at the front
         set -xe
         cat -
     fi
+
 else  # |_  # |_ |...  # at the back or in the middle
+
     set -xe
     cat -
+
 fi

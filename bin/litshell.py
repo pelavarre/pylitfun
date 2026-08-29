@@ -3245,7 +3245,7 @@ if __name__ == "__main__":
 
 # todo2: |sh/nl.py --, for to say |nl -pba -v0
 
-# todo2: sh/which.py, finish up how we've begun offline
+# todo2: py/which.py, finish up how we've begun offline
 
 #
 

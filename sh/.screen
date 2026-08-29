@@ -1,61 +1,18 @@
-# sh/.screen = reconnect with the youngest Screen Session, after showing the Session Names
+# sh/.screen = reconnect via 'screen -rr', else launch a low-latency log of a new labelled chat
 
-# (except if first you learn 'screen -rr' exists, then you might not bother with the rest of this)
-
-if [ $# -ne 0 ]; then
+if [ $# -eq 0 ]; then
 
     set -xe
-    T=$1
-    echo "logfile $T.screen" >$T.cfg
-    echo "logfile flush 0" >>$T.cfg
-    T=$T screen -S $T -L -c $T.cfg
+    screen -rr
 
 else
 
-    echo + screen -ls >&2
-    SCREEN_LS=$(screen -ls |tr -d '\r')
+    T=$1
+    shift
 
-    SESSIONS=$(echo "$SCREEN_LS" |awk -F'\t' '(NF > 1)')
-    I=$(echo "$SESSIONS" |awk NF |wc -l |awk '{print $1}')
+    set -xe
+    echo "logfile $T.screen" >$T.cfg
+    echo "logfile flush 0" >>$T.cfg
+    T=$T screen -S $T -L -c $T.cfg "$@"
 
-    CHOICES=$(echo "$SESSIONS" |grep -v Attached.$ |awk -F'\t' '{print $2}')
-    J=$(echo "$CHOICES" |awk NF |wc -l |awk '{print $1}')
-
-    MAX_PID=$(echo "$CHOICES" |cut -d. -f1 |awk '{print $1}' |sort -n |tail -1)
-
-    if [ "$(uname)" != "Darwin" ]; then
-
-        if [ "$I" == "0" ]; then
-            echo "$SCREEN_LS"
-        elif [ "$J" == "1" ]; then
-            echo "$SCREEN_LS"
-        else
-            echo ...
-        fi
-
-        set -xe
-        screen -rr
-
-    else
-
-        if [ "$I" == "0" ]; then
-            echo "$SCREEN_LS"
-        elif [ "$J" == "0" ]; then
-            echo ...
-        else
-            echo "$SCREEN_LS"
-        fi
-
-        if [ "$MAX_PID" == "" ]; then
-
-            set -xe
-            screen -rr
-
-        else
-
-            set -xe
-            screen -rr "$MAX_PID"
-
-        fi
-    fi
 fi

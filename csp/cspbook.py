@@ -2017,5 +2017,5 @@ if __name__ == "__main__":
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/cspbook.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/cspbook.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

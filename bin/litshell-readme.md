@@ -140,8 +140,8 @@ You don't have to keep straight whether you mean 'pbpaste' or 'pbcopy'. You don'
 
 A unified 'pb' works by branching on sys.stdin.isatty() and sys.stdout.isatty(). Inside of Shell, you speak of these as a '-t' test of sys.stdin.fileno() == 0, and as a '-t' test of sys.stdout.fileno() == 1
 
-    % cat sh/.pb
-    # .pb = Edit your Os Copy/Paste Clipboard Buffer
+    % cat sh/pb
+    # sh/pb = Edit your Os Copy/Paste Clipboard Buffer
 
     if [ -t 0 ]; then
         pbpaste "$@"
@@ -155,7 +155,7 @@ A unified 'pb' works by branching on sys.stdin.isatty() and sys.stdout.isatty().
 
 You can see that '|pb ' ends up meaning '| (pbcopy; pbpaste)', which works much like '|sponge' but leaves a copy in '|tee >(pbcopy) |' as it runs oruns on
 
-You can adopt this sh/.pb Shell Script into your Shell Path and workflow now
+You can adopt this sh/pb Shell Script into your Shell Path and workflow now
 
 Read a bit more, and you'll immediately pick up your next small Shell Integration win
 
@@ -1454,27 +1454,43 @@ In our Sh Folder
 | ------------ | ------- |
 | sh/.awk | Pick out the last Column when it's not empty |
 | sh/.bash | Bash but without Profile |
-| sh/.cat | Cat but as 'echo Press ⌃D to continue' && cat - >/dev/null |
+| sh/.cat | Prompt to take & drop input, or do what you're told, or do nothing loudly = aka sh/_ |
+| sh/.cd.sh | Cd, but to the join of a split Pathname |
+| sh/.clear | Clear the Screen, and the Scrollback too |
+| sh/.code | Pretend VsCode is in my Shell $Path, and default to edit my Settings·Json |
 | sh/.cp | Copy with 1 Pos Arg = Make a backup copy of a File or Folder and put a date-time stamp on it |
+| sh/.curl | Curl but shrugging off Security, following Redirects, and not metering Progress |
 | sh/.cut | Cut to Screen |
-| sh/.cv | Same as sh/.pb, but collides with other people's 'cv' rather than their 'pb' |
+| sh/.diff | Compare the last backup made by .cp, against the present |
 | sh/.echo | Print an unambiguous Python Repr of the Sys ArgV |
 | sh/.emacs | Emacs but without Profile |
 | sh/.exit.sh | Shell Source for .exit to mean show the Shell's $? Process Exit Status Return Code |
+| sh/.gh | Say who GitHub thinks you are now |
+| sh/.h | Same as sh/.history, but filtered further through bin/g.py |
 | sh/.head | Head but fill Screen |
-| sh/.ls | ls -hlAF -rt --full-time -d except also at macOS and -d only for multiple Args |
+| sh/.history | Dump History in Chrono Order but drop Duplicates before last Repeat |
+| sh/.less | Less but --quit-if-one-screen --ignore-case --RAW-CONTROL-CHARS --no-init |
+| sh/.ls | ls -hlAF -rt -d except -d only for multiple Args |
+| sh/.make | Same as sh/m, but collides with other people's 'make' rather than their 'm' |
 | sh/.mv | Rename with 1 Pos Arg = Put a date-time stamp on an original File or Folder so that it looks deleted |
 | sh/.od | Come close to '|hexdump -C' when that's not available |
-| sh/.pb | Pb but without Args and without its implicit Unframes |
 | sh/.ps | Call Ps to disclose which Shell is calling Ps |
+| sh/.pwd | Print an Scp Spec of the pwd, so the Path often starts with ~/ |
+| sh/.pwnme | Update my Software across 3 sibling Repos, but keep this Verb itself out of ~/bin |
+| sh/.python | Launch the Python Repl |
+| sh/.rm | Move away into ~/Desktop/., rather than really delete |
 | sh/.screen | Celebrate 'screen -rr' and probably do nothing else as helpful |
 | sh/.sed | Convert a Git 'Changes to be committed' into Commit Message Lines |
+| sh/.seq | Call 'seq' to scroll all the Screen Rows up and away |
 | sh/.sh | Sh but without Profile |
 | sh/.sort | Sort but inside LC_ALL=C |
 | sh/.ssh | Ssh but without Profile |
 | sh/.tail | Tail but fill Screen |
 | sh/.uniq | Uniq but inside LC_ALL=C |
+| sh/.uptime | Call for '--pretty' no matter if running at macOS |
+| sh/.valid | Guess when my Ssh Certs will expire |
 | sh/.vim | Vim but without Profile |
+| sh/.which | Call Shell Which, but with -a and speaking ~/ to mean $HOME/ |
 | sh/.zsh | Zsh but without Profile |
 
 In our Bin Folder
@@ -1556,7 +1572,7 @@ We've focused first on bringing up what should work
 
 Presently you can toss extra input into your Shell Command Lines near us, and receive no pushback to tell you that you placed it wrong
 
-    % echo hello |sh/.pb 1 2 3
+    % echo hello |sh/pb 1 2 3
     %
 
     % bin/pb 4 5 6

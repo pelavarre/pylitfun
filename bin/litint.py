@@ -199,5 +199,5 @@ if __name__ == "__main__":
     main()
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/docs/litint.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/litint.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

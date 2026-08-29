@@ -41,5 +41,5 @@ def print_doc_and_exit_zero_if(indexable: str) -> None:
         sys.exit(0)
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/sh/litnotes.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/py/litnotes.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

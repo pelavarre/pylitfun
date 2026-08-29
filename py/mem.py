@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""sh/.free = Count Bytes of Ram - at macOS or Linux, in the Linux way"""
+"""py/mem.py = Count Bytes of Ram - at macOS or Linux, in the Linux way"""
 
 import os
 

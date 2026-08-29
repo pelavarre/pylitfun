@@ -16,7 +16,7 @@ quirks:
 
 examples:
   rm -fr ./def*.py
-  ./sh/py2def.py sys_excepthook_pdb_pm
+  ./py/py2def.py sys_excepthook_pdb_pm
   ls ./def*.py
   for F in def*.py; do echo $(ls $F) $(cat $F |tail -n +2 |md5sum); done
 """
@@ -52,7 +52,7 @@ def main() -> None:
     run_for_defname(_defname_)
 
     print()
-    print("Bye from sh/py2def.py")
+    print("Bye from py/py2def.py")
     print()
 
 
@@ -124,7 +124,7 @@ def write_one_file_if(opathname: str, path: pathlib.Path, lines: list[str], i: i
     # Write the First Lines
 
     lineno = 1 + i
-    oline = f"# {path}:{lineno} found by sh/py2def.py"
+    oline = f"# {path}:{lineno} found by py/py2def.py"
 
     pass  # todo: add the obvious imports
 
@@ -180,16 +180,16 @@ def write_one_file_if(opathname: str, path: pathlib.Path, lines: list[str], i: i
     otext = "\n".join(olines) + "\n"
 
     line1 = lines[0]
-    if line1.endswith("found by sh/py2def.py"):  # todo: merge the 'found by's
+    if line1.endswith("found by py/py2def.py"):  # todo: merge the 'found by's
         pname = shlex.quote(path.name)
-        print(f"Skipping {pname} found by sh/py2def.py")
+        print(f"Skipping {pname} found by py/py2def.py")
 
         return 0  # pretend we found No Lines, because we wrote No Lines
 
     # Write the Lines
 
     opname = shlex.quote(opathname)  # todo: also show the md5sum, not just len olines
-    print(f"Writing {len(olines)} lines into {opname} as found by sh/py2def.py")
+    print(f"Writing {len(olines)} lines into {opname} as found by py/py2def.py")
     pathlib.Path(opathname).write_text(otext)
 
     # Succeed
@@ -448,9 +448,9 @@ def os_walk_ext(ext: str) -> list[str]:
 
         for file in files:
             if file.endswith(ext):
-                dotpath = os.path.join(root, file)  # './sh/py2def.py'
+                dotpath = os.path.join(root, file)  # './py/py2def.py'
 
-                relpath = os.path.relpath(dotpath)  # 'sh/py2def.py'
+                relpath = os.path.relpath(dotpath)  # 'py/py2def.py'
                 relpaths.append(relpath)
 
     return relpaths
@@ -474,5 +474,5 @@ if __name__ == "__main__":
 #
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/sh/py2def.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/py/py2def.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

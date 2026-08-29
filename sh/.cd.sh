@@ -1,4 +1,4 @@
-# sh/.cd = go to the join of a split pathname
+# sh/.cd.sh = go to the join of a split pathname
 
 function .cd() {
     cd $(printf '%s' "$@")

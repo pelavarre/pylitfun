@@ -1,0 +1,5 @@
+#!/bin/sh
+# bin/pf = Filter your Os Copy/Paste Clipboard Buffer through litshell.py 'pf' = aka bin/fp
+# : pf | ... && pbpaste |...
+# : ... |pf && ... |pbcopy
+$(dirname "$0")/litshell.py pf "$@"

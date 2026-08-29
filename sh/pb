@@ -1,4 +1,10 @@
-#!/bin/sh
-# : pb | ... && pbpaste |...
-# : ... |pb && ... |pbcopy
-$(dirname "$0")/litshell.py pb "$@"
+# sh/pb = Edit your Os Copy/Paste Clipboard Buffer = aka sh/cv
+
+if [ -t 0 ]; then
+    pbpaste "$@"
+else
+    pbcopy "$@"
+    if [ ! -t 1 ]; then
+        pbpaste
+    fi
+fi

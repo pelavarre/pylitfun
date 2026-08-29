@@ -590,7 +590,7 @@ Speak of Processes that do not exist alone, that form complete definitions only 
 
 # todo: Find more todo0: todo1: todo3: todo4: todo9: etc
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/cspbook-py-readme.md
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/csp/cspbook-py-readme.md
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git
 
 -->

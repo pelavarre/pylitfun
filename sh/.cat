@@ -1,4 +1,25 @@
-# sh/.cat = Echo one copy of Input on Screen, not two, and prompt to say How to Quit Vi
+# sh/.cat = Prompt to take & drop input, or do what you're told, or do nothing loudly = aka sh/_
 
-echo Press ⌃D to continue, or ⌃C to quit >&2
-cat - >/dev/null
+if [ $# -ne 0 ]; then  # .cat ...  # with args
+
+    set -xe
+    cat "$@"
+
+elif [ -t 0 ]; then
+
+    echo 'Press ⌃D to quit happy, or ⌃C to quit sad' >&2
+    if [ -t 1 ]; then  # .cat  # standalone
+        set -xe
+        echo 'cat - >/dev/null' >&2
+        cat - >/dev/null
+    else  # .cat |...  # at the front
+        set -xe
+        cat -
+    fi
+
+else  # |.cat  # |.cat |...  # at the back or in the middle
+
+    set -xe
+    cat -
+
+fi
