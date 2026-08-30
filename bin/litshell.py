@@ -37,16 +37,16 @@ alt bricks:
   .frame .head .len .max .md5 .min .reverse .sha256 .sort .tail
 
 cryptic bricks:
-  -  0 1 2 3  F L O T U  a h i j k n o r s t u w x  nl plf
+  -  0 1 2 3  F L O T U  a h i j k n o r s t u w x  nl pf
 
 examples:
-  cat README.md |plf
-  plf |wc -l
-  plf str set join
-  plf str set sort join
-  plf str set sort join --sep=''
+  cat README.md |pf
+  pf |wc -l
+  pf str set join
+  pf str set sort join
+  pf str set sort join --sep=''
   echo Hello Shell Pipe Filter Brick World |pbcopy
-  plf
+  pf
   0
   0 upper
   1
@@ -54,11 +54,11 @@ examples:
 """
 
 #
-# No name collision in |plf with: bin/[gp] sh/[defmv]
+# No name collision in |pf with: bin/[gp] sh/[defmv]
 #
 
 #
-# No precedent yet in |plf or sh/ for [bclqwyz] but many Linux define [lw]
+# No precedent yet in |pf or sh/ for [bclqwyz] but many Linux define [lw]
 #
 
 #
@@ -420,11 +420,11 @@ class ShellGopher:
             if index == 0:
                 assert word == "__enter__", (word,)
 
-            if index == 1:  # todo3: say this more simply - plf could mean __enter__
-                if word in ("cv", "pb", "plf"):
+            if index == 1:  # todo3: say this more simply - pf could mean __enter__
+                if word in ("fp", "pf"):
                     continue
 
-                # todo3: add comment of when (index == 1) doesn't imply in ("cv", "pb", "plf")
+                # todo3: add comment of when (index == 1) doesn't imply 'word in ("fp", "pf"):'
 
             # Pick out a Pos Arg
 
@@ -508,7 +508,7 @@ class ShellGopher:
         writing_pbcopy = False
         if writing_file:
             writing_pbcopy = True
-        elif (not sys_stdin_isatty) and (not words[1:]):  # |pb  # without Args
+        elif (not sys_stdin_isatty) and (not words[1:]):  # |pf  # without Args
             writing_pbcopy = True
 
         return writing_pbcopy
@@ -537,11 +537,11 @@ class ShellGopher:
         if not writing_file:
 
             if sys_stdin_isatty or (not sys_stdout_isatty):
-                writing_stdout = True  # not |pb  # pb, pb |, or |pb|
+                writing_stdout = True  # not |pf  # pf, pf |, or |pf|
 
             if sys_stdout_isatty:
                 if words[1:]:
-                    writing_stdout = True  # |pb ...
+                    writing_stdout = True  # |pf ...
 
         return writing_stdout
 
@@ -557,12 +557,12 @@ class ShellGopher:
         return brick
 
     def sketch_pipe(self) -> None:
-        """Sketch the Pipe as + |pb '...' |pb '...' ..."""
+        """Sketch the Pipe as + |pf '...' |pf '...' ..."""
 
         bricks = self.bricks
         words = self.words
 
-        first = "pb"
+        first = "pf"
         if words:
             word0 = words[0]
             if word0 in ("0", "1", "2", "3"):
@@ -576,12 +576,12 @@ class ShellGopher:
 
             doc = func.__doc__
 
-            if verb in ("0", "1", "2", "3", "cv", "pb", "plf", "__enter__", "__exit__"):
+            if verb in ("0", "1", "2", "3", "fp", "pf", "__enter__", "__exit__"):
                 continue
 
             s += " " + repr(doc)
 
-        # doesn't show when inferring 'tee >(pbcopy)' and/or '|pb printable'
+        # doesn't show when inferring 'tee >(pbcopy)' and/or '|pf printable'
 
     #
     # Run the compiled Shell Pipe
@@ -605,7 +605,7 @@ class ShellGopher:
         argv = list(sys.argv)
 
         argv.pop(0)
-        if argv[:1] == ["plf"]:
+        if (argv[:1] == ["fp"]) or (argv[:1] == ["pf"]):
             argv.pop(0)
         if argv[:1] == ["-i"]:
             argv.pop(0)
@@ -967,7 +967,7 @@ class ShellBrick:
             ".reversed": self.for_line_reverse,  # not ".reverse":
             ".sorted": self.from_lines_number_sort,  # not ".sort":
             #
-            # Python & Shell names for data types of the File, most especially for |pb ... len,
+            # Python & Shell names for data types of the File, most especially for |pf ... len,
             # tipping the hat to variable names, Shell 'wc' data types, Python result datatypes
             #
             "data": self.from_bytes_as_ints,  # aka bytes
@@ -1067,7 +1067,7 @@ class ShellBrick:
             if not stdin_isatty:
                 texts = traceback.format_exception(exc, limit=0)  # colorize=sys.stderr.isatty()
                 assert len(texts) == 1, (texts,)
-                raise LitSystemExit(code=1, occasion=texts[0].rstrip())  # UnicodeDecodeError of |pb
+                raise LitSystemExit(code=1, occasion=texts[0].rstrip())  # UnicodeDecodeError of |pf
 
             print(f"{verb=}", file=sys.stderr)
             raise  # UnicodeDecodeError from Brick Func while .stdin_isatty
@@ -1099,11 +1099,11 @@ class ShellBrick:
         assert sg.data is None, (len(sg.data),)
         assert not sg.writing_file, (sg.writing_file,)
 
-        if sys_stdin_isatty:  # pb, pb |, pb -
+        if sys_stdin_isatty:  # pf, pf |, pf -
             data = self.pbpaste()  # yep
             sg.data = data
 
-        if not sys_stdin_isatty:  # |pb or |pb|  # but not |pb -
+        if not sys_stdin_isatty:  # |pf or |pf|  # but not |pf -
             data = sys.stdin.buffer.read()
             sg.data = data
 
@@ -1145,7 +1145,7 @@ class ShellBrick:
                     assert sg.data is not None, (sg.data,)
                     data = sg.data
 
-                    # tested by:  echo $' \t\n\r\x0b\x0c' |pb -
+                    # tested by:  echo $' \t\n\r\x0b\x0c' |pf -
 
             assert int(0x80 + signal.SIGPIPE) == 141
             try:
@@ -1153,7 +1153,7 @@ class ShellBrick:
             except BrokenPipeError:
                 raise LitSystemExit(code=141, occasion=None)  # 0x80 + signal.SIGPIPE
 
-            # tested by:  set -o pipefail && seq 123456 |pb && pb |head; echo + exit $?
+            # tested by:  set -o pipefail && seq 123456 |pf && pf |head; echo + exit $?
             # else:  BrokenPipeError: [Errno 32] Broken pipe
 
     def for_argv_print(self) -> None:
@@ -1195,7 +1195,7 @@ class ShellBrick:
         path = pathlib.Path(str(n))
         if not path.exists():
             occasion = f"./{n} file not found"
-            raise LitSystemExit(code=1, occasion=occasion)  # pb stack entry not found
+            raise LitSystemExit(code=1, occasion=occasion)  # pf stack entry not found
 
         data = path.read_bytes()
         self.pbcopy(data)
@@ -1215,7 +1215,7 @@ class ShellBrick:
             data = self.pbpaste()
             sg.data = data
 
-        if not sys_stdin_isatty:  # |pb or |pb|
+        if not sys_stdin_isatty:  # |pf or |pf|
             data = sys.stdin.buffer.read()
             self.pbcopy(data)
             sg.data = data
@@ -3258,19 +3258,19 @@ if __name__ == "__main__":
 
 #
 
-# todo4: 'plf' vs 'plf -' @ plf split sort |fmt -n |sed 's,^,  ,' |plf -; plf
+# todo4: 'pf' vs 'pf -' @ pf split sort |fmt -n |sed 's,^,  ,' |pf -; pf
 # todo4: dream up some great way to pass Bytes through |pbcopy
 # todo4: repro and explain '@' marks on 'ls -l' permissions of tracked Files in local Git Clone
 
 #
 
-# todo5: |plf dt datetime struggle to convert input into date/time-stamps
+# todo5: |pf dt datetime struggle to convert input into date/time-stamps
 # todo5: timedelta absolute local """astimezone""
 # todo5: timedelta absolute utc """fromtimestamp""
 # todo5: timedelta relative previous """timedelta"""  # """dt.timedelta(_[0] - _[-1] for _ in zip)"""
 # todo5: timedelta relative t0 """- _[0]"""  # """dt.timedelta(_ - list(sys.i)[0])""
 # todo5: test with our favourite TZ=America/Los_Angeles TZ=Europe/Prague TZ=Asia/Kolkata
-# todo5: plf for work with date/time's as utc floats in order - rel & abs & utc & zone & float
+# todo5: pf for work with date/time's as utc floats in order - rel & abs & utc & zone & float
 
 #
 
@@ -3278,7 +3278,7 @@ if __name__ == "__main__":
 
 #
 
-# todo7: fill out 'plf .' so as to retire 'pq .'
+# todo7: fill out 'pf .' so as to retire 'pq .'
 
 # todo7: add Hp Calculator Words:  fix, sci, ...
 
@@ -3297,14 +3297,14 @@ if __name__ == "__main__":
 
 #
 
-# todo8: mess with what 'plf --' and '|plf --' means
+# todo8: mess with what 'pf --' and '|pf --' means
 
-# todo8: plf hexdump, especially for a -C, especially a memorizable 128 glyph set
+# todo8: pf hexdump, especially for a -C, especially a memorizable 128 glyph set
 
 # todo8: brick helps
 
 # todo8: |expandtabs 2
-# todo8: confusion in having 'plf --sep=-' work while 'plf split /-/' quietly doesn't
+# todo8: confusion in having 'pf --sep=-' work while 'pf split /-/' quietly doesn't
 # todo8: |textwrap.wrap textwrap.fill or some such
 # todo8: |fmt ... just to do |fmt, or more a la |fold -sw $W
 # todo8: reject -t without |column
@@ -3319,8 +3319,8 @@ if __name__ == "__main__":
 
 # todo8: dir(str)
 
-# todo8: plf for reorder and transpose arrays of tsv, for split into tsv
-# todo8: plf for work with tsv's
+# todo8: pf for reorder and transpose arrays of tsv, for split into tsv
+# todo8: pf for work with tsv's
 # todo8: tables
 
 # todo8: mess around with lineseps of \r \n \r\n
@@ -3356,20 +3356,20 @@ if __name__ == "__main__":
 
 # todo: accept single space as column sep if it's present in same column across all lines
 
-# todo: teach '|plf columns' to cope with Markdown Tables as input
+# todo: teach '|pf columns' to cope with Markdown Tables as input
 
-# plf insert '/  /'
-# is not plf insert '  '
+# pf insert '/  /'
+# is not pf insert '  '
 
-# % plf wc
+# % pf wc
 # NameError: name 'wc' is not defined
-# % plf wc -w
+# % pf wc -w
 # usage: litshell.py [-h] [-i] [-r] [-V] [--sep SEP] [--start START] [WORD ...]
 # litshell.py: error: unrecognized arguments: -w
 # %
 
-# todo0: plf ord, plf str ord, are not the same
-# todo0: it's the 'plf ord' that goes with 'plf bytes'
+# todo0: pf ord, pf str ord, are not the same
+# todo0: it's the 'pf ord' that goes with 'pf bytes'
 
 
 # middling todo0's
@@ -3383,23 +3383,23 @@ if __name__ == "__main__":
 # todo0: plfi take + as rel time speak of next abs time
 # todo0: plfi stack variables w z y x
 
-# todo0: |plf match,fullmatch,index same as sketched for |plf g here
-# todo0: |plf g to work like |plf match, but accept multiple text args as if or'ed by |grep -e
-# todo0: |plf g /SESS/ for the Python RegEx effect of |grep -ai -e /SESS/
+# todo0: |pf match,fullmatch,index same as sketched for |pf g here
+# todo0: |pf g to work like |pf match, but accept multiple text args as if or'ed by |grep -e
+# todo0: |pf g /SESS/ for the Python RegEx effect of |grep -ai -e /SESS/
 
-# todo0: ls -l |plf __brick__ 5 __brick__ --sep=' '
+# todo0: ls -l |pf __brick__ 5 __brick__ --sep=' '
 # todo0: debug here, where the --sep of join came to awk, oops
 #
-# % plf awk 5 join --sep=' '
+# % pf awk 5 join --sep=' '
 #      plavarre plavarre
-# % plf awk 5 |join --sep=' '
+# % pf awk 5 |join --sep=' '
 # 1415 1378 818 716 1568 288 3652 10747 282 1632
 # %
 
 
 # smaller todo0's
 
-# from |plf .jq . we could say
+# from |pf .jq . we could say
 # print(json.dumps(j)) # from |.jq
 
 # self. in place of ClassName. at mentions of @staticmethod
@@ -3412,8 +3412,8 @@ if __name__ == "__main__":
 # mv: cannot move 'dir/' to a subdirectory of itself, 'dir/~0505jqd1127~'
 # $
 
-# (echo '620 (8h ago)' && echo '686 (8h ago)') |plf column  # why two columns not one
-# plf |sed 's,   *,\t,g' |plf  # could be |plf unexpand a la Shell
+# (echo '620 (8h ago)' && echo '686 (8h ago)') |pf column  # why two columns not one
+# pf |sed 's,   *,\t,g' |pf  # could be |pf unexpand a la Shell
 
 # todo0: illusion of a hang at:  gg $(find . |grep [.]py$ |head -10)
 
