@@ -60,7 +60,7 @@ ShlinePlusByShverb = {  # sorted by key
     # 5
     "gcaa": "git commit --all --amend",
     "gcaf": "git commit --all --fixup [...]",
-    "gcam": "git commit --all -m wip",  # inverts : grh1 && git reset --soft HEAD~1
+    "gcam": "git commit --all -m wip",  # inverts : grh1 && git reset HEAD~1
     "gcf": "git commit --fixup [...]",
     "gcl": "... && git clean -dffxq",
     # 10
@@ -89,7 +89,7 @@ ShlinePlusByShverb = {  # sorted by key
     "grb": "git rebase ...",
     "grh": "git reset --hard ...",  # actual no args 'git reset hard' would mean to Head
     # 30
-    "grh1": "git reset --soft HEAD~1",  # inverts : gcam && git commit --all -m wip
+    "grh1": "git reset HEAD~1",  # inverts : gcam && git commit --all -m wip
     "grhu": "... && git reset --hard @{upstream}",
     "gri": "git rebase -i [...]",
     "grias": "git rebase -i --autosquash [...]",
