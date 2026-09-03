@@ -1,0 +1,6 @@
+# sh/.date = Call Date first for Local Time, but also for UTC Z Time, and a Home Time in the middle
+
+set -xe
+date
+TZ=America/Los_Angeles date
+date -u
