@@ -8,6 +8,7 @@ Each file in [here/](.) is a few lines of a plain Shell Script. Each Script stan
 
 That is the whole install. No framework, no config to source. If you stop liking one, delete it, and nobody cares.
 
+
 ## Who is this for?
 
 You already have a dozen aliases in your Shell rc file. You know more is a bit wrong than you have made time to fix. A few of them you have forgotten altogether by now.
@@ -17,6 +18,7 @@ They die when you 'ssh' somewhere, because they didn't come with you. They die w
 A tool that is one small file has none of these problems. It runs from any Shell, or from no Shell. It travels by 'cp' and by 'scp'. Its whole story fits on one screen, it opens by saying what it's for, and it can be coded to say who it is again, when it runs.
 
 Fifty of these small files are exactly this simple. And then there are two more. These other two end in '.sh' and come from 'chmod -x'. They code up Shell 'function's to source into your Shell, because they touch things that exist only inside your Shell: your $Pwd current directory and your $? last exit code. To install them, you copy them into your ~/.zprofile and ~/.bash_profile and so on. Or you can 'source' them on demand.
+
 
 ## Three kinds of new Shell Commands
 
@@ -43,3 +45,12 @@ Each of these tools says again who it is when it runs. It echoes the command it'
 So the appendix below reads fine in any order. Skim the headings. Stop at one that names a thing you do often. Read its three lines: what it does, how to call it, and why to like it. If it lands with you, copy that one file into your Shell Path. Come back for another whenever you like. Nobody's counting.
 
 A few of these lean on macOS, such as anything that touches the Clipboard or the Homebrew Emacs. Two, 'm' and '.make', expect a Makefile of your own at '~/bin/Makefile', and say so up top. The rest run anywhere a Shell runs.
+
+
+<!--
+
+# written with help from:  Claude·Ai Fable 5.1
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/sh/sh-readme.md
+# copied from:  git clone https://github.com/pelavarre/pylitfun.git
+
+-->

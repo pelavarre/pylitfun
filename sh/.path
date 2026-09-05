@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# sh/.path = Search the Shell $PATH, much like a 'which -a' but with the looser 'ls |grep -ai -e'
+
+if [ $# -eq 0 ]; then  # defaults to print each Dirname
+
+    printf '+ %s\n' "printf '%s\n' \"\$PATH\" |tr ':' '\n' |sed \"s,^\$HOME,~,\"" >&2
+    printf '%s\n' "$PATH" |tr ':' '\n' |sed "s,^$HOME,~,"
+
+else  # else runs once per Shell Arg, calling for 'ls -A |grep -ai -e' at each Dirname
+
+    echo + "for P in ... \$PATH ...; do ls -A \$P |grep -ai -e ...  # shellcheck disable=SC2010" >&2
+    for A in "$@"; do
+        echo "$PATH" |tr ':' '\n' |while read -r P; do
+            # shellcheck disable=SC2010  # Avoid ls | grep. Prefer Glob, or For Loop, or Ls Options.
+            [ -d "$P" ] && ls -A "$P" |grep -ai -e "$A" |while read -r F; do
+                [ -f "$P/$F" ] && [ -x "$P/$F" ] && echo "$P/$F"
+            done
+        done
+    done |sed "s,^$HOME,~,"
+
+fi
