@@ -2,7 +2,8 @@
 
 
 #
-# Define 'make' and 'make help'
+# make = shows a few examples and exits zero
+# make help = shows many help lines and exits zero
 #
 
 
@@ -11,7 +12,7 @@ define __EPILOG__
 make  # shows a few examples and exits zero
 
 make help  # shows many help lines and exits zero
-make bin  # updates your Shell Path ~/bin/ Folder from our bin/ and sh/
+make bin  # updates your Shell Path ~/bin/ Folder from our bin/ py/ sh/
 make pips  # installs/ updates Python add-on's from PyPi·Org
 make sense  # calls for Code Review from Black, Flake8, and MyPy Strict
 make tests  # updates:  git diff csp/cspbook-py-readme.md
@@ -30,7 +31,7 @@ positional arguments:
 examples:
   make  # shows a few examples and exits zero
   make help  # shows many help lines and exits zero
-  make bin  # updates your Shell Path ~/bin/ Folder from our bin/ and sh/
+  make bin  # updates your Shell Path ~/bin/ Folder from our bin/ py/ sh/
   make pips  # installs/ updates Python add-on's from PyPi·Org
   make sense  # calls for Code Review from Black, Flake8, and MyPy Strict
   make tests  # updates:  git diff csp/cspbook-py-readme.md
@@ -48,29 +49,28 @@ help:
 
 
 #
-# Install stale copies into your Shell Path ~/bin/ Folder
+# make bin = updates your Shell Path ~/bin/ Folder from our bin/ py/ sh/
 #
 
 
 bin:
-	(ls -A bin && ls -A bin/git-verbs && ls -A py && ls -A sh) \
-		|(cd ~/ && xargs -I{} rm -fr bin/{})
-	ls -d bin/* bin/git-verbs/* py/* sh/* sh/.* \
-		|grep -v -e /__pycache__$$ \
-		|grep -v -e ^bin/git-verbs$$ -e ^bin/git-verbs/man$$ -e ^sh/[.]$$ -e ^sh/[.][.]$$ -e sh/pwnme$$ \
+	find bin/ py/ sh/ -not -type d |grep -v -e __pycache__/ -e /man/ -e [.]md$$ -e ^sh/pwnme$$ \
+		|awk -F/ '{print $$NF}' |xargs -I{} rm -fr ~/bin/{}
+	find bin/ py/ sh/ -not -type d |grep -v -e __pycache__/ -e /man/ -e [.]md$$ -e ^sh/pwnme$$ \
 		|xargs -I{} cp -ip {} ~/bin/.
+	find bin/git-verbs/man/ -not -type d |sed 's,^bin/git-verbs/,,' |xargs -I{} rm -fr ~/bin/{}
 	cp -ipR bin/git-verbs/man ~/bin/.
 	@# rm -fr ~/bin/Makefile
 	@# cp -ip Makefile ~/bin/.  # wrong answer except for hosts who want ours
 
-# beware: the classic 'sh' can add ./ and ../ into sh/.*
-# beware: each */*.py might include a */__init__.py
-# beware: s*curity attacks on net ops may slow down early calls of Python or even all calls of Python
 # beware: working far from 'git clean -dffxq' can toss in __pycache__/ dirs to freak us out
+# beware: each */*.py might include a */__init__.py
+# beware: the classic 'sh' can add ./ and ../ into sh/.*
+# beware: s*curity attacks on net ops may slow down early calls of Python or even all calls of Python
 
 
 #
-# Installs/ replaces Python add-on's from PyPi·Org
+# make pips = installs/ updates Python add-on's from PyPi·Org
 #
 
 
@@ -98,7 +98,7 @@ pips requirements.txt:
 
 
 #
-# Calls for Python Code Review from Black, Flake8, and MyPy Strict
+# make sense = calls for Code Review from Black, Flake8, and MyPy Strict
 #
 
 
@@ -160,7 +160,7 @@ mypy:
 
 
 #
-# Calls for Shell Code Review from ShellCheck
+# make shellcheck = calls for Shell Code Review from ShellCheck
 #
 
 
@@ -175,7 +175,7 @@ shellcheck:
 
 
 #
-# Updates:  git diff csp/cspbook-py-readme.md
+# make tests = updates:  git diff csp/cspbook-py-readme.md
 #
 
 tests:
