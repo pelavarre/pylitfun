@@ -1,5 +1,6 @@
 # sh/.awk = Pick out the last Column when it's not empty
 
+set -xe
 awk "$@" 'NF{print $NF}'
 
 # And some Shell Comments on things this sh/.awk could say, but doesn't =>

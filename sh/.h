@@ -1,2 +1,3 @@
 # sh/.h = Compose sh/.history |bin/g ...
-cat ~/.*.log |pb decode reverse set reverse cut |g.py g "$@"
+echo "+ cat ~/.*.log |pf decode reverse set reverse cut |g.py g $*" >&2
+cat ~/.*.log |pf decode reverse set reverse cut |g.py g "$@"

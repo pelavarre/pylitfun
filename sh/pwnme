@@ -6,15 +6,17 @@
 D=$(dirname "$0")/..
 cd "$D"/ || exit 1
 
-echo
-echo cd "$(dirs -p |head -1)/"
+echo >&2
+echo + cd "$(dirs -p |head -1)/" >&2
 
-echo
+set -xe
+
+:
 git log --oneline --no-decorate -3
 
-echo
+:
 git fetch --prune --prune-tags --force
 git rebase
 
-echo
+:
 git log --oneline --no-decorate -3

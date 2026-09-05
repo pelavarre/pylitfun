@@ -1,3 +1,7 @@
+# sh/md5sum = Call OpenSsl to speak like Md5Sum
+
 set -xe
 openssl dgst -md5 "$@" |tr '()=' ' ' |awk '{print $3 "  " $2}'
-# many Mac lack Linux '/usr/bin/md5sum'
+
+# older Mac lack Linux /bin/md5sum
+# newer Mac add /sbin/md5sum

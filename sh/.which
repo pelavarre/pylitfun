@@ -2,5 +2,6 @@
 
 # sh/.which = Call Shell Which, but with -a and speaking ~/ to mean $HOME/
 
+echo "+ which -a $* |awk -v HOME=... '(index ...){ \"~\" substr ...; next} 1'" >&2
 which -a "$@" | \
     awk -v HOME="$HOME" '(index($0, HOME) == 1){print "~" substr($0, 1 + length(HOME)); next} 1'

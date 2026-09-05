@@ -1,4 +1,7 @@
 #!/bin/sh
+
+# sh/.pwnme = Update all three of my Git Clones, and 'make bin' from each
+
 true \
     && (echo && cd ~/Public/pelavarre/byoverbs/ && bin/pwnme && make bin ||:) \
     && (echo && cd ~/Public/pelavarre/xshverb/ && bin/pwnme && make bin ||:) \

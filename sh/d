@@ -1,3 +1,5 @@
+# sh/d = Compare ./a against ./b, or ./a against one File, or Folders/Files against Folders/Files
+
 if [ $# -eq 0 ]; then
     set -xe
     diff -brpu a b

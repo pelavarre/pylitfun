@@ -1,3 +1,7 @@
+# sh/tac = Call Tail R to speak like Tac
+
 set -xe
 tail -r "$@"
-# many Mac lack Linux Tac (but have Rev)  # many Linux lack Mac Tail R
+
+# many Mac lack Linux 'tac', whereas most Mac do have 'rev'
+# most Linux lack Mac 'tail -r', whereas most Linux do have 'tac' and 'rev'
