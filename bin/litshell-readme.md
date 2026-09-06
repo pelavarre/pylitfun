@@ -95,7 +95,7 @@ Download & run
     git clone https://github.com/pelavarre/pylitfun.git
     cd pylitfun/
     export PATH=$PATH:$PWD/bin
-    which pb
+    which pf
 
 This is not an install into the Shell Path chosen by your ~/.profile Shell Script. This is just a test, just a way to try out this Code, before you surface your need for it
 
@@ -168,37 +168,37 @@ Linux folk have to work first to make pbpaste, pbpaste|, and |pbcopy go. Those t
 
 ## 1.4 Write into a Shell Pipe without spelling out the fiddly | and ' parts
 
-This same line of thinking can go a step farther. You can just say
+This same line of thinking can go a step farther. Our 'pf' takes the same Paste Buffer in and out, but it also takes Args, to say what to do to the text on its way through. You can just say
 
-    pb upper
+    pf upper
 
 That comes out looking as clean as this
 
-    % echo Hello, World! |pb
-    % pb
+    % echo Hello, World! |pf
+    % pf
     Hello, World!
     %
 
-    % pb upper
+    % pf upper
     HELLO, WORLD!
     %
 
-You do have to adopt our bin/pb to make this work. You make it into an Shell Alias
+You do have to adopt our bin/pf to make this work. You make it into an Shell Alias
 
-    alias cv=~/Public/pelavarre/pylitfun/bin/pb
+    alias pf=~/Public/pelavarre/pylitfun/bin/pf
 
 Or you add it into your Path
 
-    ln -s ~/Public/pelavarre/pylitfun/bin/pb ~/bin/pb
+    ln -s ~/Public/pelavarre/pylitfun/bin/pf ~/bin/pf
 
-You name it what you like. Some of us like 'pb', short for Paste Buffer. Some of us like 'cv', short for ⌘C Edit Copy and ⌘V Edit Paste
+You name it what you like. Some of us like 'pf'. Some of us like 'fp', and we ship that spelling too, as bin/fp
 
 
 ## 1.5 Familiar vocabulary
 
-Our word UPPER comes from the Python BuiltIns. One of their datatypes is STR. And one of its methods is UPPER. This way of choosing a Word makes this '|pb upper' Shell Hack memorable for Shell & Python people. You can add dozens of shortcuts and then still find these shortcuts a month later, when next you need them
+Our word UPPER comes from the Python BuiltIns. One of their datatypes is STR. And one of its methods is UPPER. This way of choosing a Word makes this '|pf upper' Shell Hack memorable for Shell & Python people. You can add dozens of shortcuts and then still find these shortcuts a month later, when next you need them
 
-All of the Python and Shell words could work, and six dozen already do. Like you can try '|pb lower' and '|pb title' and '|pb casefold' now, just as seeing '|pb upper' work teaches you to hope you can, working from your memorization of Python's 'dir(str)'
+All of the Python and Shell words could work, and six dozen already do. Like you can try '|pf lower' and '|pf title' and '|pf casefold' now, just as seeing '|pf upper' work teaches you to hope you can, working from your memorization of Python's 'dir(str)'
 
 
 ## 1.6 Run your Paste Buffer through a Shell Pipe
@@ -212,7 +212,7 @@ We owe you mention that you're not rewriting the Paste Buffer when you say it th
     Hello, World!
     %
 
-    % pb upper
+    % pf upper
     HELLO, WORLD!
     %
 
@@ -222,68 +222,15 @@ We owe you mention that you're not rewriting the Paste Buffer when you say it th
 
 See that? No change to the Paste Buffer
 
-But it gets better. Like you know you can fix this by adding the four characters ' |pb'
+But it gets better. Like you know you can fix this by adding the four characters ' |pf'
 
-    pb upper |pb
-
-And we're here to tell you, there is a better way. Try
-
-    0 upper
-
-This comes out as clean as
-
-    % echo Hello, World! |pbcopy
-    % 0
-    Hello, World!
-    %
-
-    % 0 upper
-    HELLO, WORLD!
-    %
+    pf upper |pf
 
     % pbpaste
     HELLO, WORLD!
     %
 
-Our 'pb' was a middling kind of explicit. You didn't spell out if you meant 'pbpaste' or 'pbcopy', but you did still say when you did and didn't want to write into the Paste Buffer
-
-Our '0' and '1' and '2' and '3' do more work for you, but more implicitly, more automagically. These four always do write back into the Paste Buffer. When you pick '0', then you read from the Paste Buffer and write back into it. When you pick '1' then you read from your -1'th revision of the Paste Buffer, but you write into the present Paste Buffer
-
-Try
-
-    echo Hello, World! |pbcopy
-    0 upper
-
-    pbpaste
-    1
-    pbpaste
-
-By the end of all that, you're looking at
-
-    % pbpaste
-    HELLO, WORLD!
-    %
-
-    % 1
-    Hello, World!
-    %
-
-    % pbpaste
-    Hello, World!
-    %
-
-You see what you made happen?
-
-We give you a Stack of Paste Buffers. 0 is your latest revision, 1 is your second to last, 2 is your third to last, 3 is your fourth to last
-
-You choosing 1 works like you choosing the "Over" of a Forth Stack Machine, or the "Rcl Y" of an HP Calculator Stack Machine. You choosing 0 after 0 works like you choosing the "Dup" of a Forth Stack Machine, the "Enter" of an HP Calculator Stack Machine
-
-We store these revisions of your Paste Buffer in a very local and destructive way. Without your permission and without backup, we replace one or more of the four Files at
-
-    ./0
-    ./1
-    ./2
-    ./3
+We did dream, for a while, of abbreviating 'pf upper |pf' down to '0 upper', with '1' and '2' and '3' as a Stack of your recent Paste Buffers. We gave that dream up, and kept on typing 'pf ... |pf'
 
 
 ## 1.7 How many Words are out there?
@@ -294,7 +241,7 @@ Please try some word that you remember from Python or from Shell. Tell us if you
 
 You can see like 75 Words suggested at
 
-    pb --help
+    pf --help
 
 You can speak each of these Python and Shell Words as the Name of a Pipe Brick. Each of these Pipe Bricks runs like a Shell Pipe Filter, but each Pipe Brick is easier to grab a hold of and stick to other Bricks, like a LEGO® Brick is
 
@@ -306,11 +253,11 @@ The names of our Pipe Bricks come from Python and Shell traditions. Learn the st
 
 ## 2.1 Dash, to show the Bytes Written
 
-When you do pipe a text back into the Paste Buffer, you often need to review it immediately. We let you say '|pb -' in place of '|pb' to mean that you want to see what you wrote
+When you do pipe a text back into the Paste Buffer, you often need to review it immediately. We let you say '|pf -' in place of '|pf' to mean that you want to see what you wrote
 
-    echo Abc |cat -n |pb -
+    echo Abc |cat -n |pf -
 
-We chose to spell this out as '|pb -' by analogy with '|cat -', which does much the same thing
+We chose to spell this out as '|pf -' by analogy with '|cat -', which does much the same thing
 
     printf '\033[1m''bold\n''\033[m''plain\n' |cat -
 
@@ -334,9 +281,9 @@ The Apple macOS '|cat -tv' lets the 0xC0 Byte through, as if it were printable, 
     tr: Illegal byte sequence
     %
 
-Try this in Apple macOS and it tells you talk to the hand while it's making a Stop Sign. Apple's '|cat -tv' makes this Byte Trouble a problem for you, but our '|pb -' doesn't. We substitute the Bytes b"\xC2\xA4" 'Currency Sign' that are printable as ¤, much like a 💥 'Collision' Boom, as often as you send us Unprintable Bytes to print for you
+Try this in Apple macOS and it tells you talk to the hand while it's making a Stop Sign. Apple's '|cat -tv' makes this Byte Trouble a problem for you, but our '|pf -' doesn't. We substitute the Bytes b"\xC2\xA4" 'Currency Sign' that are printable as ¤, much like a 💥 'Collision' Boom, as often as you send us Unprintable Bytes to print for you
 
-    % printf 'Tab\tNac\xC0\x80Lf\n' |pb -
+    % printf 'Tab\tNac\xC0\x80Lf\n' |pf -
     Tab¤Nac¤¤Lf
     %
 
@@ -358,16 +305,16 @@ You see that?
 
 The Apple macOS '|cat -tv' lets the Bytes b"\xC2\xA0 through, as if they were as printable as a U+0020 Space. But the Python str.isprintable test knows to reject these. We let it tell us to substitute the ¤ 'Currency Sign'
 
-    % printf 'abc\xC2\xA0def\n' |pb -
+    % printf 'abc\xC2\xA0def\n' |pf -
     abc¤def
     %
 
 
 ## 2.2 Decode, to forward all the Bytes in some form
 
-We define '|pb decode |' inside the Shell Pipe to work a lot like '|pb -' at the far end of the Pipe
+We define '|pf decode |' inside the Shell Pipe to work a lot like '|pf -' at the far end of the Pipe
 
-Our '|pb -' scrubs the unprintables out of your life, but only when you try to write them to a Tty
+Our '|pf -' scrubs the unprintables out of your life, but only when you try to write them to a Tty
 
 Let's look back at how Apple macOS will flatly deny service when you stray far from US Ascii
 
@@ -385,7 +332,7 @@ Apple macOS is still fighting the Character Encoding Wars of late last century. 
 
 Our Python bytes.decode Pipe Brick does just work. We don't freak over rare bytes so much as to deny service. We substitute ¤ 'Currency Symbol'
 
-    % printf 'Just \xC0\x80 Bytes\n' |pb decode |sed 's/$/, not a Character/'
+    % printf 'Just \xC0\x80 Bytes\n' |pf decode |sed 's/$/, not a Character/'
     Just ¤¤ Bytes, not a Character
     %
 
@@ -394,7 +341,7 @@ As you learn these corners, you may wish to go so far as to substitute macOS Hom
 
 ## 2.3 Take out the Trash
 
-We call our Pb Decode for you when you ask for '|pb -', but just for what you show at the Terminal
+We call our Pb Decode for you when you ask for '|pf -', but just for what you show at the Terminal
 
 When you do want to change what you're writing, and not only show what you're writing, then you do have to ask to change what you're writing
 
@@ -403,12 +350,12 @@ When you do want to change what you're writing, and not only show what you're wr
     00000003
     %
 
-    % printf '\xC0\x80\n' |pb decode |hexdump -C |column -t
+    % printf '\xC0\x80\n' |pf decode |hexdump -C |column -t
     00000000  c2  a4  c2  a4  0a  |.....|
     00000005
     %
 
-    % printf '\xC0\x80\n' |pb decode
+    % printf '\xC0\x80\n' |pf decode
     ¤¤
     %
 
@@ -422,7 +369,7 @@ We default to work with the Lines found between Line-Break's and the Line found 
 
 Counting Lines looks like this
 
-    % seq 99 |pb len
+    % seq 99 |pf len
     99
     %
 
@@ -435,15 +382,15 @@ And you can count Bytes or Characters or Words instead
     ¡Feliz cumpleaños!
     %
 
-    % echo ¡Feliz cumpleaños! |pb bytes len
+    % echo ¡Feliz cumpleaños! |pf bytes len
     21
-    % echo ¡Feliz cumpleaños! |pb str len
+    % echo ¡Feliz cumpleaños! |pf str len
     20
-    % echo ¡Feliz cumpleaños! |pb split len
+    % echo ¡Feliz cumpleaños! |pf split len
     2
-    % echo ¡Feliz cumpleaños! |pb splitlines len
+    % echo ¡Feliz cumpleaños! |pf splitlines len
     1
-    % echo ¡Feliz cumpleaños! |pb len
+    % echo ¡Feliz cumpleaños! |pf len
     1
     %
 
@@ -456,7 +403,7 @@ You can keep fighting that war, or you can move on
 
 When what you want is the length of each Line, in the style of the Shell '|wc -L' that is not Shell '|wc -l, then you can say
 
-    % ls -l |pb .len .max
+    % ls -l |pf .len .max
     67
     %
 
@@ -474,21 +421,21 @@ For working with Bytes, we offer more Pipe Bricks
 
 You can ask for the Shell 'md5sum', and you can ask it to include the Byte Length
 
-    % cat /dev/null |pb md5
+    % cat /dev/null |pf md5
     d41d8cd98f00b204e9800998ecf8427e  -
     %
 
-    % cat /dev/null |pb .md5
+    % cat /dev/null |pf .md5
     d41d8cd98f00b204e9800998ecf8427e  0  -
     %
 
 The merely classic Shell 'md5sum' and 'sha256sum' tools do too often mislead people by neglecting to mention Zeroed Byte Lengths. People come out wrongly feeling the Hash of Zero Bytes is indecipherable, while it's actually very well known. If you always ask for the Byte Length, then you don't have that problem
 
-    % cat /dev/null |pb sha256
+    % cat /dev/null |pf sha256
     e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  -
     %
 
-    % cat /dev/null |pb .sha256
+    % cat /dev/null |pf .sha256
     e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 0  -
     %
 
@@ -518,18 +465,18 @@ Ayup. This is a problem not only for their '|cat -tv' but also for their '|strin
 
 Odds on your Terminal is showing you those unprintable ¤ Characters ambiguously, as visually identical to the U+003F 'Question Mark' Character. We regret their error, and we don't follow it
 
-    % printf 'abcd\xC0wxyz\n' |pb -
+    % printf 'abcd\xC0wxyz\n' |pf -
     abcd¤wxyz
     %
 
-    % printf 'abcd\xC0wxyz\n' |pb strings
+    % printf 'abcd\xC0wxyz\n' |pf strings
     abcd
     wxyz
     %
 
 You can call on us in place of Apple macOS, any time you regret their error as much as I do
 
-    % cat $(which cat) |pb strings |head -3
+    % cat $(which cat) |pf strings |head -3
     __PAGEZERO
     __TEXT
     __text
@@ -552,19 +499,19 @@ Right-align the Numeric Columns, and left-align the Text Columns, after splittin
 
 Try these
 
-    ls -lAF -rt |pb eng columns
+    ls -lAF -rt |pf eng columns
 
-    du -s ~/Public/* |expand |pb eng columns
+    du -s ~/Public/* |expand |pf eng columns
 
 And try them again but without asking for 'columns'
 
-    ls -lAF -rt |pb eng
+    ls -lAF -rt |pf eng
 
-    du -s ~/Public/* |expand |pb eng
+    du -s ~/Public/* |expand |pf eng
 
 You'll see. You get vertically aligned Columns when you ask for them, and you don't when you don't
 
-We don't require you to remember if it is "columns" or "column". We let you say singular '|pb column' in place of plural 'pb columns', in homage of Shell '|column -t', which does split Columns but doesn't volunteer to right-align any of them
+We don't require you to remember if it is "columns" or "column". We let you say singular '|pf column' in place of plural 'pf columns', in homage of Shell '|column -t', which does split Columns but doesn't volunteer to right-align any of them
 
 We don't engage with the unrelated Shell legacies of 'col' and 'colrm'
 
@@ -582,7 +529,7 @@ But truncate, never round up. Like don't talk of the next millisecond till after
     -rw-r--r--@  1 plavarre  staff    282 Feb  1 12:32 requirements.txt
     -rw-r--r--@  1 plavarre  staff  10747 Feb  3 09:40 README.md
     %
-    % ls -lAF -rt |head -3 |pb eng
+    % ls -lAF -rt |head -3 |pf eng
     total 152
     -rw-r--r--@  1 plavarre  staff    282 Feb  1 12:32 requirements.txt
     -rw-r--r--@  1 plavarre  staff  10.7e3 Feb  3 09:40 README.md
@@ -595,13 +542,13 @@ But truncate, never round up. Like don't talk of the next millisecond till after
     8       /Users/plavarre/Public/0
     200     /Users/plavarre/Public/100k
     %
-    % du -s ~/Public/* |expand |head -3 |pb eng
+    % du -s ~/Public/* |expand |head -3 |pf eng
     99e3   /Users/plavarre/Public/__pycache__
     8       /Users/plavarre/Public/0
     200     /Users/plavarre/Public/100k
     %
 
-    % echo -- 2.718 3.14159 6.283 42. -inf -0e0 0e0 +inf nan |pb eng split join
+    % echo -- 2.718 3.14159 6.283 42. -inf -0e0 0e0 +inf nan |pf eng split join
     --  2.71  3.14  6.28  42  -Inf  -0e0  0  Inf  NaN
     %
 
@@ -610,11 +557,11 @@ But truncate, never round up. Like don't talk of the next millisecond till after
 
 Python str.expandtabs
 
-For working with Characters, we offer '|pb expandtabs'
+For working with Characters, we offer '|pf expandtabs'
 
-    % echo Abc |cat -n |pb -
+    % echo Abc |cat -n |pf -
          1¤Abc
-    % echo Abc |cat -n |pb expandtabs
+    % echo Abc |cat -n |pf expandtabs
          1  Abc
     %
 
@@ -625,7 +572,7 @@ Python random.choice, run once per Character
 
 Replace each Character found among a set of Choices with a random Character drawn from a set of Replacements, leaving every other Character untouched
 
-    % echo Order 48291 shipped, call 555-0123 |pb mask /0123456789/ /0123456789/
+    % echo Order 48291 shipped, call 555-0123 |pf mask /0123456789/ /0123456789/
     Order 71604 shipped, call 330-8786
     %
 
@@ -638,9 +585,9 @@ We take exactly two Positional Args, the Choices and then the Replacements. Wrap
 
 Python str.ord
 
-For working with Character Codes spoken as Decimal Int Literals, we offer '|pb ord'
+For working with Character Codes spoken as Decimal Int Literals, we offer '|pf ord'
 
-    % echo Abc |cat -n |pb ord
+    % echo Abc |cat -n |pf ord
     32
     32
     32
@@ -663,12 +610,12 @@ I want you to know up front to hold in mind as you learn, yes we do make all our
 
 For example, after you learn how we help you work with Lines, then you can come back and tell us to show which Characters show up in a Source File in the order of their first occurrence
 
-    % cat bin/litshell.py |pb decode str set |pb join --sep=''
+    % cat bin/litshell.py |pf decode str set |pf join --sep=''
     #!/usrbinev pytho3"ag:l.[-]VSEPTARBICKdwcf,mkx'?QM01q|F$O=+2LUj56DHWz8&_>9N()G%Y·Z*{}4^←↑→↓\;7¤~<@
 
 And you can tell us to sort the Characters before deduplicating them
 
-    % cat bin/litshell.py |pb decode str sort set |pb join --sep=''
+    % cat bin/litshell.py |pf decode str sort set |pf join --sep=''
      !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIKLMNOPQRSTUVWYZ[\]^_abcdefghijklmnopqrstuvwxyz{|}~¤·←↑→↓
     %
 
@@ -687,33 +634,33 @@ And they come in variations
 
     .enumerate .frame .head .max .min  .reverse .sort .tail
 
-The .enumerate variation defaults to --start=1. The .frame variation implicitly adds a '|pb rstrip' after itself. The .head and .tail variations fill the Screen Rows, not just taking 9 Rows. The .max and .min and .sort variations take the Lines as Float, not as Str. The .reverse variation reverses the Characters in each Line, not the Lines of the File
+The .enumerate variation defaults to --start=1. The .frame variation implicitly adds a '|pf rstrip' after itself. The .head and .tail variations fill the Screen Rows, not just taking 9 Rows. The .max and .min and .sort variations take the Lines as Float, not as Str. The .reverse variation reverses the Characters in each Line, not the Lines of the File
 
 
 ## 6.1 Append
 
 Python str.append
 
-    % ls -l |tail -2 |column -t |pb append
+    % ls -l |tail -2 |column -t |pf append
     -rw-r--r--@  1   plavarre  staff  282   Feb  1  12:32  requirements.txt$
     drwxr-xr-x   41  plavarre  staff  1312  Feb  1  12:55  sh$
     %
 
-    % ls -l |tail -2 |column -t |pb append /@/
+    % ls -l |tail -2 |column -t |pf append /@/
     -rw-r--r--@  1   plavarre  staff  282   Feb  1  12:32  requirements.txt@
     drwxr-xr-x   41  plavarre  staff  1312  Feb  1  12:55  sh@
     %
 
-    % ls -l |tail -2 |column -t |pb append '/ <-- Line-Break /'
+    % ls -l |tail -2 |column -t |pf append '/ <-- Line-Break /'
     -rw-r--r--@  1   plavarre  staff  282   Feb  1  12:32  requirements.txt <-- Line-Break
     drwxr-xr-x   41  plavarre  staff  1312  Feb  1  12:55  sh <-- Line-Break
     %
 
 Technically speaking, Python BuiltIns declare only a list[str].append and not a str.append, but you know what we mean
 
-Adding '|pb append' to a Shell Pipe comes out looking a lot like '|sed 's,$,$,' and even more like '|cat -etv
+Adding '|pf append' to a Shell Pipe comes out looking a lot like '|sed 's,$,$,' and even more like '|cat -etv
 
-Often we'll just say '|pb $' to mean '|pb append'
+Often we'll just say '|pf $' to mean '|pf append'
 
 See also Pb Insert, and Pb RemoveSuffix to undo Append
 
@@ -722,13 +669,13 @@ See also Pb Insert, and Pb RemoveSuffix to undo Append
 
 Python collections.Counter(list[str])
 
-    % echo Alfa Bravo Alfa Bravo Charlie |pb split counter
+    % echo Alfa Bravo Alfa Bravo Charlie |pf split counter
     2?Alfa
     2?Bravo
     1?Charlie
     %
 
-Adding '|pb counter |expand' to a Shell Pipe comes out looking a lot like '|uniq -c', but without forcing you to sort the Lines before you can drop the duplicates, so more like "|awk '!d[$0]++'" really
+Adding '|pf counter |expand' to a Shell Pipe comes out looking a lot like '|uniq -c', but without forcing you to sort the Lines before you can drop the duplicates, so more like "|awk '!d[$0]++'" really
 
 See also Pb Set
 
@@ -737,25 +684,25 @@ See also Pb Set
 
 End each Line with " ..." or "..." before it wraps.
 
-    % seq 99 |pb join cut
+    % seq 99 |pf join cut
     1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19  ...
     %
 
 You can spell out the Line Width in Screen Columns if you like
 
-    % seq 99 |pb join cut -72
+    % seq 99 |pf join cut -72
     1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19  ...
-    % seq 99 |pb join cut -71
+    % seq 99 |pf join cut -71
     1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19 ...
-    % seq 99 |pb join cut -70
+    % seq 99 |pf join cut -70
     1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  1...
     %
 
-We define '|pb .cut' to mean fill your Terminal Screen with as much of each Line as fits, don't chop it exactly just past the classic 72 Columns
+We define '|pf .cut' to mean fill your Terminal Screen with as much of each Line as fits, don't chop it exactly just past the classic 72 Columns
 
 Like to fit into 101-Column Terminal
 
-    % seq 99 |bin/pb join .cut
+    % seq 99 |bin/pf join .cut
     1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19  20  21  22  23  24  25  26  ...
     %
 
@@ -767,9 +714,9 @@ Our Counting of Columns comes out far more accurately than classic Shell '|cut -
 
     git log --oneline --decorate --color-moved -1 --color=always |cut -c1-72
 
-    git log --oneline --decorate --color-moved -1 --color=always |pb .cut |cat -
+    git log --oneline --decorate --color-moved -1 --color=always |pf .cut |cat -
 
-    git log --oneline --decorate --color-moved --color=always |pb .head .cut | cat -
+    git log --oneline --decorate --color-moved --color=always |pf .head .cut | cat -
 
 
 ## 6.4 Dent
@@ -782,7 +729,7 @@ Our Counting of Columns comes out far more accurately than classic Shell '|cut -
     3
     %
 
-    % seq 3 |pb dent -
+    % seq 3 |pf dent -
         1
         2
         3
@@ -795,22 +742,22 @@ See also Pb Unframe and Pb RemovePrefix
 
 Python list[str].enumerate
 
-    % ls -l |pb enumerate |tail -3 |column -t
+    % ls -l |pf enumerate |tail -3 |column -t
     4  -rw-r--r--@  1   plavarre  staff  10746  Feb  1  12:12  README.md
     5  -rw-r--r--@  1   plavarre  staff  282    Feb  1  12:32  requirements.txt
     6  drwxr-xr-x   41  plavarre  staff  1312   Feb  1  12:55  sh
     %
 
-Often we'll just say '|pb n' or '|pb nl' to mean '|pb enumerate'
+Often we'll just say '|pf n' or '|pf nl' to mean '|pf enumerate'
 
-We define '|pb enumerate' and '|pb nl' to default to ' --start=0'. We define '|pb .enumerate' and '|pb .nl' and '|pb n' to default to ' --start=1'. We don't define a '|pb .n'
+We define '|pf enumerate' and '|pf nl' to default to ' --start=0'. We define '|pf .enumerate' and '|pf .nl' and '|pf n' to default to ' --start=1'. We don't define a '|pf .n'
 
 
 ## 6.6 Frame
 
 "Frame" in the sense of inserting 2 Blank Rows above and below, as well as 4 Blank Columns at left and at right
 
-    % seq 3 |pb frame
+    % seq 3 |pf frame
 
 
         1
@@ -820,7 +767,7 @@ We define '|pb enumerate' and '|pb nl' to default to ' --start=0'. We define '|p
 
     %
 
-    % seq 3 |pb frame append
+    % seq 3 |pf frame append
     $
     $
         1    $
@@ -830,9 +777,9 @@ We define '|pb enumerate' and '|pb nl' to default to ' --start=0'. We define '|p
     $
     %
 
-We define '|pb .frame' to mean '|pb frame' but also str.rstrip each Line out
+We define '|pf .frame' to mean '|pf frame' but also str.rstrip each Line out
 
-Often we'll just say '|pb O' to mean Pb Frame in its four dimensions, and '|pb o' to mean Pb Unframe
+Often we'll just say '|pf O' to mean Pb Frame in its four dimensions, and '|pf o' to mean Pb Unframe
 
 See also Pb Dent and Pb Unframe
 
@@ -841,15 +788,15 @@ See also Pb Dent and Pb Unframe
 
 Python list[str][slice(stop)]
 
-    % echo a b c d e f g h i j k l m |pb split enumerate head -3
+    % echo a b c d e f g h i j k l m |pf split enumerate head -3
     0¤a
     1¤b
     2¤c
     %
 
-We define '|pb .head' to mean fill your Terminal Screen with the many First Lines, not just the First 9 Lines
+We define '|pf .head' to mean fill your Terminal Screen with the many First Lines, not just the First 9 Lines
 
-Often we'll just say '|pb h' to mean '|pb head -9'. This works very much like Shell '|head -9' and it's off-by-one from Shell '|head'
+Often we'll just say '|pf h' to mean '|pf head -9'. This works very much like Shell '|head -9' and it's off-by-one from Shell '|head'
 
 We also ship '|sh/.head' to fill your Terminal Screen with the many First Lines
 
@@ -868,7 +815,7 @@ See also Pb Tail
 
 For example, to add double-spacing from a text can be
 
-    % seq 3 |pb append |tr '$' '\n'
+    % seq 3 |pf append |tr '$' '\n'
     1
 
     2
@@ -879,7 +826,7 @@ For example, to add double-spacing from a text can be
 
 which is then neatly undone by Pb If
 
-    % seq 3 |pb append |tr '$' '\n' |pb if
+    % seq 3 |pf append |tr '$' '\n' |pf if
     1
     2
     3
@@ -890,24 +837,24 @@ which is then neatly undone by Pb If
 
 Python str.insert
 
-    % ls -l |head -2 |column -t |pb insert
+    % ls -l |head -2 |column -t |pf insert
         total       40
         drwxr-xr-x  47  plavarre  staff  1504  Jan  29  08:17  bin
     %
 
-    % ls -l |head -2 |column -t |pb insert /+/
+    % ls -l |head -2 |column -t |pf insert /+/
     +total       40
     +drwxr-xr-x  47  plavarre  staff  1504  Jan  29  08:17  bin
     %
 
-    % ls -l |head -2 |column -t |pb insert '/  /'
+    % ls -l |head -2 |column -t |pf insert '/  /'
     total       40
     drwxr-xr-x  47  plavarre  staff  1504  Jan  29  08:17  bin
     %
 
 Technically speaking, Python BuiltIns declare only a list[str].insert and not a str.insert, but you know what we mean
 
-Often we'll just say '|pb ^' to mean '|pb insert'
+Often we'll just say '|pf ^' to mean '|pf insert'
 
 See also Pb Append, Pb Dent, and Pb RemovePrefix to undo Insert
 
@@ -922,13 +869,13 @@ Python str.join(list[str])
     e f
     %
 
-    % (echo a b; echo c d; echo e f) |pb join
+    % (echo a b; echo c d; echo e f) |pf join
     a b  c d  e f
     %
-    % (echo a b; echo c d; echo e f) |pb join --sep=' '
+    % (echo a b; echo c d; echo e f) |pf join --sep=' '
     a b c d e f
     %
-    % (echo a b; echo c d; echo e f) |pb join --sep=' x '
+    % (echo a b; echo c d; echo e f) |pf join --sep=' x '
     a b x c d x e f
     %
 
@@ -937,13 +884,13 @@ Python str.join(list[str])
 
 Python str.lstrip
 
-    % echo '  abc  ' |pb $
+    % echo '  abc  ' |pf $
       abc  $
-    % echo '  abc  ' |pb lstrip $
+    % echo '  abc  ' |pf lstrip $
     abc  $
-    % echo '  abc  ' |pb strip $
+    % echo '  abc  ' |pf strip $
     abc$
-    % echo '  abc  ' |pb rstrip $
+    % echo '  abc  ' |pf rstrip $
       abc$
     %
 
@@ -952,22 +899,22 @@ Python str.lstrip
 
 Python list[str].max, or Python list[float].max, or Python list[int].max
 
-    % echo 3 14 15 9 |pb split
+    % echo 3 14 15 9 |pf split
     3
     14
     15
     9
     %
 
-    % echo 3 14 15 9 |pb split max
+    % echo 3 14 15 9 |pf split max
     9
     %
 
-    % echo 3 14 15 9 |pb split float.max
+    % echo 3 14 15 9 |pf split float.max
     15
     %
 
-We give you list[str].max by default, but you can say '|pb .max' to mean '|pb float.max'
+We give you list[str].max by default, but you can say '|pf .max' to mean '|pf float.max'
 
 See also Pb Min, Pb Sort, and Pb Sum
 
@@ -976,15 +923,15 @@ See also Pb Min, Pb Sort, and Pb Sum
 
 Python list[str].max, or Python list[float].max, or Python list[int].max
 
-    % echo 3 14 15 9 |pb split min
+    % echo 3 14 15 9 |pf split min
     14
     %
 
-    % echo 3 14 15 9 |pb split float.min
+    % echo 3 14 15 9 |pf split float.min
     3
     %
 
-We give you list[str].min by default, but you can say '|pb .min' to mean '|pb float.min'
+We give you list[str].min by default, but you can say '|pf .min' to mean '|pf float.min'
 
 See also Pb Max, Pb Sort, and Pb Sum
 
@@ -993,7 +940,7 @@ See also Pb Max, Pb Sort, and Pb Sum
 
 Python str.partition
 
-    % git grep ^class bin/litpython.py bin/litshell.py |pb partition
+    % git grep ^class bin/litpython.py bin/litshell.py |pf partition
     bin/litpython.py:
         class LazyImport:
         class ArgDocParser:
@@ -1004,7 +951,7 @@ Python str.partition
         class ArgDocParser:
     %
 
-    % git grep terminal.size bin/*.py |pb partition
+    % git grep terminal.size bin/*.py |pf partition
     bin/litglass.py:
         w, h = os.get_terminal_size(fd)  # Columns x Lines
     bin/litshell.py:
@@ -1014,23 +961,23 @@ Python str.partition
 
 And also try
 
-    git grep -n terminal.size |pb partition
+    git grep -n terminal.size |pf partition
 
 
 ## 6.15 Printable
 
 Python str.isprintable
 
-    % echo Abc |cat -n |pb
+    % echo Abc |cat -n |pf
     %
-    % echo Abc |cat -n |pb -
+    % echo Abc |cat -n |pf -
          1¤Abc
     %
-    % echo Abc |cat -n |pb printable
+    % echo Abc |cat -n |pf printable
          1¤Abc
     %
 
-Our '|pb -' inside of a Pipe faithfully stores a copy of Stdin and forwards those Bytes intact on into Stdout. We default to run the Bytes through '|pb printable' only when they're going into a Tty
+Our '|pf -' inside of a Pipe faithfully stores a copy of Stdin and forwards those Bytes intact on into Stdout. We default to run the Bytes through '|pf printable' only when they're going into a Tty
 
 Technically speaking, Python defines both a Python string.printable and also a similar but different Python str.isprintable. Fun fun name collision! We regret their error. We go with the Python str.printable
 
@@ -1041,13 +988,13 @@ Python str.removeprefix
 
 See also Pb Insert of prefix, and Pb RemoveSuffix
 
-    % seq 3 |pb insert
+    % seq 3 |pf insert
         1
         2
         3
     %
 
-    % seq 3 |pb insert |pb removeprefix '/  /'
+    % seq 3 |pf insert |pf removeprefix '/  /'
       1
       2
       3
@@ -1058,13 +1005,13 @@ See also Pb Insert of prefix, and Pb RemoveSuffix
 
 Python str.removesuffix
 
-    % seq 3 |pb insert
+    % seq 3 |pf insert
         1
         2
         3
     %
 
-    % seq 3 |pb insert |pb removeprefix '/  /'
+    % seq 3 |pf insert |pf removeprefix '/  /'
       1
       2
       3
@@ -1077,7 +1024,7 @@ See also Pb Append of suffix, and Pb RemoveSuffix
 
 Python list[str].reverse, or Python str.reverse
 
-When you're working with Lines, our '|pb reverse' comes across like a macOS '|tail -r' or a Linux '|tac'
+When you're working with Lines, our '|pf reverse' comes across like a macOS '|tail -r' or a Linux '|tac'
 
     % seq 3
     1
@@ -1085,15 +1032,15 @@ When you're working with Lines, our '|pb reverse' comes across like a macOS '|ta
     3
     %
 
-    % seq 3 |pb reverse
+    % seq 3 |pf reverse
     3
     2
     1
     %
 
-We define '|pb .reverse' to work like Shell '|rev', for when you want the Characters in each Line reversed, rather than the Lines of the File
+We define '|pf .reverse' to work like Shell '|rev', for when you want the Characters in each Line reversed, rather than the Lines of the File
 
-    % printf 'Hello\n''Goodbye' |pb .reverse
+    % printf 'Hello\n''Goodbye' |pf .reverse
     olleH
     eybdooG
     %
@@ -1103,11 +1050,11 @@ We define '|pb .reverse' to work like Shell '|rev', for when you want the Charac
     eybdooG
     %
 
-Often we'll just say '|pb r' to mean '|pb reverse'
+Often we'll just say '|pf r' to mean '|pf reverse'
 
-In particular '|pb r set r' means wait till the last Line arrives, then show me the Lines in the order they arrived, but with the duplicates removed from the top
+In particular '|pf r set r' means wait till the last Line arrives, then show me the Lines in the order they arrived, but with the duplicates removed from the top
 
-And we do let you say past-tense '|pb reversed' in place of imperative-tense 'pb reverse', in homage of 'list(reversed(list[str]))'. And we do let you say '|pb rev' to mean '|pb .reverse', in the Shell tradition
+And we do let you say past-tense '|pf reversed' in place of imperative-tense 'pf reverse', in homage of 'list(reversed(list[str]))'. And we do let you say '|pf rev' to mean '|pf .reverse', in the Shell tradition
 
 See also Pb Shuffle, and Pb Sort
 
@@ -1116,13 +1063,13 @@ See also Pb Shuffle, and Pb Sort
 
 Python str.rstrip
 
-    % echo '  abc  ' |pb $
+    % echo '  abc  ' |pf $
       abc  $
-    % echo '  abc  ' |pb lstrip $
+    % echo '  abc  ' |pf lstrip $
     abc  $
-    % echo '  abc  ' |pb strip $
+    % echo '  abc  ' |pf strip $
     abc$
-    % echo '  abc  ' |pb rstrip $
+    % echo '  abc  ' |pf rstrip $
       abc$
     %
 
@@ -1131,7 +1078,7 @@ Python str.rstrip
 
 Python set(list[str])
 
-    % echo Alfa Bravo Alfa Bravo Charlie |pb split
+    % echo Alfa Bravo Alfa Bravo Charlie |pf split
     Alfa
     Bravo
     Alfa
@@ -1139,13 +1086,13 @@ Python set(list[str])
     Charlie
     %
 
-    % echo Alfa Bravo Alfa Bravo Charlie |pb split set
+    % echo Alfa Bravo Alfa Bravo Charlie |pf split set
     Alfa
     Bravo
     Charlie
     %
 
-Adding '|pb set' to a Shell Pipe comes out looking a lot like '|uniq', but without forcing you to sort the Lines before you can drop the duplicates, so more like "|awk '!d[$0]++'" really
+Adding '|pf set' to a Shell Pipe comes out looking a lot like '|uniq', but without forcing you to sort the Lines before you can drop the duplicates, so more like "|awk '!d[$0]++'" really
 
 See also Pb Counter
 
@@ -1154,7 +1101,7 @@ See also Pb Counter
 
 Python random.shuffle(list[str])
 
-    seq 6 |pb shuffle head -1
+    seq 6 |pf shuffle head -1
 
 Try it, you'll like it. It's the pseudo-random roll of one 6-face die
 
@@ -1165,7 +1112,7 @@ See also Pb Sort
 
 Not yet Spec'd out and implemented
 
-    % ls -l |pb a
+    % ls -l |pf a
     40
     bin
     docs
@@ -1175,7 +1122,7 @@ Not yet Spec'd out and implemented
     sh
     %
 
-    % ls -l |pb awk -1
+    % ls -l |pf awk -1
     40
     bin
     docs
@@ -1185,7 +1132,7 @@ Not yet Spec'd out and implemented
     sh
     %
 
-    % ls -l |pb awk 6 7 8
+    % ls -l |pf awk 6 7 8
     Feb  2  11:56
     Feb  1  17:12
     Jan  25  18:51
@@ -1194,7 +1141,7 @@ Not yet Spec'd out and implemented
     Feb  2  11:57
     %
 
-Often we'll just say '|pb a' to mean '|pb .slice -1'
+Often we'll just say '|pf a' to mean '|pf .slice -1'
 
 Comparable to the most basic deployments of Shell '|awk'
 
@@ -1203,30 +1150,30 @@ Comparable to the most basic deployments of Shell '|awk'
 
 Python list[str].sort, or Python list[float].sort, or Python list[int].sort
 
-    % echo 3 14 15 9 |pb split
+    % echo 3 14 15 9 |pf split
     3
     14
     15
     9
     %
 
-    % echo 3 14 15 9 |pb split sort
+    % echo 3 14 15 9 |pf split sort
     14
     15
     3
     9
     %
 
-    % echo 3 14 15 9 |pb split float.sort
+    % echo 3 14 15 9 |pf split float.sort
     3
     9
     14
     15
     %
 
-We give you list[str].sort by default, but you can say '|pb .sort' to mean '|pb float.sort'
+We give you list[str].sort by default, but you can say '|pf .sort' to mean '|pf float.sort'
 
-And we do let you say past-tense '|pb sorted' in place of imperative-tense 'pb sort', in homage of 'list(sorted(list[str]))'
+And we do let you say past-tense '|pf sorted' in place of imperative-tense 'pf sort', in homage of 'list(sorted(list[str]))'
 
 See also Pb Max, Pn Reverse, Pb Shuffle, and Pb Sum
 
@@ -1235,13 +1182,13 @@ See also Pb Max, Pn Reverse, Pb Shuffle, and Pb Sum
 
 Python str.strip
 
-    % echo '  abc  ' |pb $
+    % echo '  abc  ' |pf $
       abc  $
-    % echo '  abc  ' |pb lstrip $
+    % echo '  abc  ' |pf lstrip $
     abc  $
-    % echo '  abc  ' |pb strip $
+    % echo '  abc  ' |pf strip $
     abc$
-    % echo '  abc  ' |pb rstrip $
+    % echo '  abc  ' |pf rstrip $
       abc$
     %
 
@@ -1254,7 +1201,7 @@ list[float].sum or list[int].sum
     1 2 3
     4 5 6
     %
-    % (echo 1 2 3; echo 4 5 6) |pb sum
+    % (echo 1 2 3; echo 4 5 6) |pf sum
     5 7 9
     %
 
@@ -1265,17 +1212,17 @@ See also Pb Max, Pb Min, and Pb Sort
 
 Python list[str][slice(len(_) - stop, len(_))]
 
-    % echo a b c d e f g h i j k l m |pb split enumerate tail -3
+    % echo a b c d e f g h i j k l m |pf split enumerate tail -3
     10¤k
     11¤l
     12¤m
     %
 
-We define '|pb .tail' to mean fill your Terminal Screen with the many Last Lines, not just the Last 9 Lines
+We define '|pf .tail' to mean fill your Terminal Screen with the many Last Lines, not just the Last 9 Lines
 
-Often we'll just say '|pb t' to mean '|pb tail -9'. This works very much like Shell '|tail -9' and it's off-by-one from Shell '|tail'
+Often we'll just say '|pf t' to mean '|pf tail -9'. This works very much like Shell '|tail -9' and it's off-by-one from Shell '|tail'
 
-Often we'll just say '|pb t' to mean '|pb tail -9'
+Often we'll just say '|pf t' to mean '|pf tail -9'
 
 We also ship '|sh/.tail' to fill your Terminal Screen with the many Last Lines
 
@@ -1303,7 +1250,7 @@ We help you with that
 
 You can frame a thing
 
-    % seq 3 |pb frame |pb
+    % seq 3 |pf frame |pf
     % pbpaste |cat -e
     $
     $
@@ -1316,15 +1263,15 @@ You can frame a thing
 
 And you can unframe it again
 
-    % pbpaste |pb unframe |cat -e
+    % pbpaste |pf unframe |cat -e
     1$
     2$
     3$
     %
 
-Showing this persuasively can be difficult, because we so often unframe by default. You've got to choose some Brick in particular when you want to run without an implicit automagic '|pb frame' cleaning up whatever you've left in the Paste Buffer. Our '|pb -' is the shortest explicit way to say we don't unframe it for you
+Showing this persuasively can be difficult, because we so often unframe by default. You've got to choose some Brick in particular when you want to run without an implicit automagic '|pf frame' cleaning up whatever you've left in the Paste Buffer. Our '|pf -' is the shortest explicit way to say we don't unframe it for you
 
-    % seq 3 |pb frame |pb
+    % seq 3 |pf frame |pf
     % pbpaste |cat -e
     $
     $
@@ -1334,11 +1281,11 @@ Showing this persuasively can be difficult, because we so often unframe by defau
     $
     $
     %
-    % pb
+    % pf
     1
     2
     3
-    % pb -
+    % pf -
 
 
         1
@@ -1347,14 +1294,14 @@ Showing this persuasively can be difficult, because we so often unframe by defau
 
 
     %
-    % pb unframe |pb
+    % pf unframe |pf
     % pbpaste |cat -e
     1$
     2$
     3$
     %
 
-As easy as we make it to unframe by default, we also keep it easy quick to explicitly say do unframe it. We'll just say '|pb o' to mean Pb Unframe in its four dimensions, and '|pb O' to mean Pb Frame
+As easy as we make it to unframe by default, we also keep it easy quick to explicitly say do unframe it. We'll just say '|pf o' to mean Pb Unframe in its four dimensions, and '|pf O' to mean Pb Frame
 
 Technically speaking, the work of Pb Frame can be done Line by Line, but the work of Pb Unframe has to wait for the whole File to arrive, so it can know how many Columns are Blank on the Left. Because this is a detail of the Undo, and not part of the Do, I figure our Doc comes across most clear if we gloss over this point, as we have
 
@@ -1374,11 +1321,11 @@ Many macOS and Linux understand between one and three of
 
 We give you the uncolored experience like that, via Python json.loads/ json.dumps, at
 
-    echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pb jq .
+    echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pf jq .
 
 But we also offer
 
-    echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pb j
+    echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pf j
 
 Call us like that and you see the nests go flat
 
@@ -1390,19 +1337,19 @@ Call us like that and you see the nests go flat
     j["bravo"]["charlie"] = 33
     j["bravo"]["delta"] = 44
 
-    print(json.dumps(j))  # from |pb .jq
+    print(json.dumps(j))  # from |pf .jq
 
-You can say '|pb .jq' or 'pb j' to get this to come out
+You can say '|pf .jq' or 'pf j' to get this to come out
 
 You can run this output as Python to get back to where you started
 
-    % echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pb j |python3
+    % echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pf j |python3
     {"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}
     %
 
 You can grep this output to see what you've got, surfacing the exact path of keys that picks out the values you care about
 
-    % echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pb j |grep -ai -e BRAVO
+    % echo '{"alfa": 11, "bravo": {"charlie": 33, "delta": 44}}' |pf j |grep -ai -e BRAVO
     j["bravo"] = dict()
     j["bravo"]["charlie"] = 33
     j["bravo"]["delta"] = 44
@@ -1439,59 +1386,16 @@ Our jq, head, md5sum, nl, sha256sum, & tail come in also as dot variations: .jq,
 
 Our jq and .jq are minimal, nothing like as ambitious as the real '|jq' that is more than its '|jq .'
 
-We could emulate the '|uniq' and '|uniq -c' of Shell, and we don't. Those two come with their bizarre small-machine limitation of needing sorted input. For now, with us, you have to find your way to calling for '|pb counter' or '|pb set', much more in the way of "|awk '!d[$0]++'"
+We could emulate the '|uniq' and '|uniq -c' of Shell, and we don't. Those two come with their bizarre small-machine limitation of needing sorted input. For now, with us, you have to find your way to calling for '|pf counter' or '|pf set', much more in the way of "|awk '!d[$0]++'"
 
 
 ## 8.2 Outside the Pipe
 
-Adopt our 'bin/pb' and you get most of what we discuss in this doc, but if you tire of typing 'pb 0' to mean 0 then you can also adopt our bin/0, bin/1, bin/2, and bin/3 as we've shown
+Adopt our 'bin/pf' and you get most of what we discuss in this doc
 
 For ourselves we also post many more intensely cryptic abbreviations to become everyday things in like daily use
 
-In our Sh Folder
-
-| Shell Script | Meaning |
-| ------------ | ------- |
-| sh/.awk | Pick out the last Column when it's not empty |
-| sh/.bash | Bash but without Profile |
-| sh/.cat | Prompt to take & drop input, or do what you're told, or do nothing loudly = sh/_ |
-| sh/.cd.sh | Cd, but to the join of a split Pathname |
-| sh/.clear | Clear the Screen, and the Scrollback too |
-| sh/.code | Pretend VsCode is in my Shell $Path, and default to edit my Settings·Json |
-| sh/.cp | Copy with 1 Pos Arg = Make a backup copy of a File or Folder and put a date-time stamp on it |
-| sh/.curl | Curl but shrugging off Security, following Redirects, and not metering Progress |
-| sh/.cut | Cut to Screen |
-| sh/.diff | Compare the last backup made by .cp, against the present |
-| sh/.echo | Print an unambiguous Python Repr of the Sys ArgV |
-| sh/.emacs | Emacs but without Profile |
-| sh/.exit.sh | Shell Source for .exit to mean show the Shell's $? Process Exit Status Return Code |
-| sh/.gh | Say who GitHub thinks you are now |
-| sh/.h | Same as sh/.history, but filtered further through bin/g.py |
-| sh/.head | Head but fill Screen |
-| sh/.history | Dump History in Chrono Order but drop Duplicates before last Repeat |
-| sh/.less | Less but --quit-if-one-screen --ignore-case --RAW-CONTROL-CHARS --no-init |
-| sh/.ls | ls -hlAF -rt -d except -d only for multiple Args |
-| sh/.make | Same as sh/m, but collides with other people's 'make' rather than their 'm' |
-| sh/.mv | Rename with 1 Pos Arg = Put a date-time stamp on an original File or Folder so that it looks deleted |
-| sh/.od | Come close to '|hexdump -C' when that's not available |
-| sh/.ps | Call Ps to disclose which Shell is calling Ps |
-| sh/.pwd | Print an Scp Spec of the pwd, so the Path often starts with ~/ |
-| sh/.pwnme | Update my Software across 3 sibling Repos, but keep this Verb itself out of ~/bin |
-| sh/.python | Launch the Python Repl |
-| sh/.rm | Move away into ~/Desktop/., rather than really delete |
-| sh/.screen | Celebrate 'screen -rr' and probably do nothing else as helpful |
-| sh/.sed | Convert a Git 'Changes to be committed' into Commit Message Lines |
-| sh/.seq | Call 'seq' to scroll all the Screen Rows up and away |
-| sh/.sh | Sh but without Profile |
-| sh/.sort | Sort but inside LC_ALL=C |
-| sh/.ssh | Ssh but without Profile |
-| sh/.tail | Tail but fill Screen |
-| sh/.uniq | Uniq but inside LC_ALL=C |
-| sh/.uptime | Call for '--pretty' no matter if running at macOS |
-| sh/.valid | Guess when my Ssh Certs will expire |
-| sh/.vim | Vim but without Profile |
-| sh/.which | Call Shell Which, but with -a and speaking ~/ to mean $HOME/ |
-| sh/.zsh | Zsh but without Profile |
+In our Sh Folder, [sh/sh-readme.md](../sh/sh-readme.md) speaks for each Script: what it does, one call with the trace it prints, and why to like it
 
 In our Bin Folder
 
@@ -1508,9 +1412,9 @@ When you like, we do let you type just one Memorable Letter to stand for a whole
 
 For example, a search of Shell Input History can look like
 
-    cat ~/.*.log |pb decode r set r |.cut |grep -ai -e CP -e MV |grep -ai F=
+    cat ~/.*.log |pf decode r set r |.cut |grep -ai -e CP -e MV |grep -ai F=
 
-In there, each of the two ' r ' stand for a '|pb reverse' Pipe Brick
+In there, each of the two ' r ' stand for a '|pf reverse' Pipe Brick
 
 Memorable Lowercase Letters
 
@@ -1538,7 +1442,7 @@ Memorable Uppercase Letters
 | T | title |
 | U | upper |
 
-The pun with 'First Lady of the United States (FLOTUS)' does amuse me, but I've not found a convincing case for defining '|pb S' to mean anything in particular. We do define '|pb .sort' to mean the Float Sort not the Str Sort, in contrast with '|pb s' to mean the Str Sort of the default Locale
+The pun with 'First Lady of the United States (FLOTUS)' does amuse me, but I've not found a convincing case for defining '|pf S' to mean anything in particular. We do define '|pf .sort' to mean the Float Sort not the Str Sort, in contrast with '|pf s' to mean the Str Sort of the default Locale
 
 
 # 9 Future work
@@ -1573,10 +1477,16 @@ We've focused first on bringing up what should work
 Presently you can toss extra input into your Shell Command Lines near us, and receive no pushback to tell you that you placed it wrong
 
     % echo hello |sh/pb 1 2 3
+    + if [ -t 0 ... -t 1 ... then pbpaste ...; else pbcopy ...
     %
 
-    % bin/pb 4 5 6
-    hello
+Our 'pf' reads a bare digit as a '|pf awk' pick of a Field, like the '$1' of Awk, and joins the picks with two Spaces. Ask for Fields that aren't there and you get back Spaces, or nothing at all, and no complaint. You'd never see it without '|cat -etv'
+
+    % echo hello |bin/pf 1 2 3 |cat -etv
+    hello    $
+    %
+
+    % echo hello |bin/pf 4 5 6 |cat -etv
     %
 
 That's not nice. We can do better
