@@ -1,7 +1,7 @@
 # sh/sha256sum = Call OpenSsl to speak like Sha256Sum
 
 set -xe
-openssl dgst -sha256 "$@" |tr '()=_' ' ' |awk '{print $3 "  " $2}' |sed 's,  stdin$,  -,'
+openssl dgst -sha256 -r "$@" |sed 's,[*]stdin$,*-,' |sed 's,[*], ,'
 
 # older Mac lack Linux /bin/sha256sum
 # newer Mac add /sbin/sha256sum
