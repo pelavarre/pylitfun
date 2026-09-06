@@ -38,13 +38,14 @@ The 'emacs', 'md5sum', 'sha256sum', and 'tac' add back in a frequently needed Li
 
 The 'd' for a diff, 'v' or 'e' for an editor, 'f' for a find, 'm' for a make. And the 'pb' is your Os Copy/Paste Clipboard Buffer: at the front of a Pipe it pastes, at the back of a Pipe it copies, and in the middle it copies, waits for end-of-file, and then passes the bytes along, so you type 'pb' wherever you like, and never stop again to remember which of 'pbpaste' and 'pbcopy' you meant. Plus you get the classic idea of '|sponge|' more simply installed and running just as well, but as '|pb|'.
 
+
 ## Why you'll enjoy paging through
 
-Each of these tools says again who it is when it runs. It echoes the command it's about to run, and then it runs it. Often it does this by way of 'set -xe'. Use '.less' a few times and you'll have learned 'less -FIRX' without meaning to. Use '.curl' and you'll learn 'curl -k -LSs'. Each file is a flashcard for one Flag or one trick you'd otherwise look up again next month. It works hard to make friends with you itself, and to make the Shell Command inside into more of a friend for you too.
+Each of these Scripts says again who it is when it runs. It prints the command that it's about to run, and then it runs it. Often it does this by way of 'set -xe'. Try '.less' a few times and you'll have learned 'less -FIRX' without working hard to remember it. Try '.curl' much, and you'll have learned 'curl -k -LSs'. Each file is a flashcard for an option or a trick you'd otherwise look up again next month. Each Script works hard to make friends with you itself, and works hard to make the Shell Command inside into more of a friend for you too.
 
-So the appendix below reads fine in any order. Skim the headings. Stop at one that names a thing you do often. Read its three lines: what it does, how to call it, and why to like it. If it lands with you, copy that one file into your Shell Path. Come back for another whenever you like. Nobody's counting.
+This is why the appendix below reads fine in any order. Skim the headings. Stop at one that names a thing you do often. Read its three lines: what it does, how to call it, and why to like it. If it lands with you, copy that one Script into your Shell Path. Come back for another whenever you like. Nobody's counting.
 
-A few of these lean on macOS, such as anything that touches the Clipboard or the Homebrew Emacs. Two, 'm' and '.make', expect a Makefile of your own at '~/bin/Makefile', and say so up top. The rest run anywhere a Shell runs.
+A few of these Scripts lean on the macOS ways of reaching a Homebrew Emacs or the Os Copy/Paste Clipboard Buffer (the pbuffer). To make those run at Linux, you can define the same underlying Shell Commands: pbcopy, pbpaste, and a /opt/homebrew/bin/emacs. Two of these Scripts, the 'm' and '.make', do you good only after you place your most loved Makefile at '~/bin/Makefile', and they say so up top. The rest run well anywhere a Shell runs well.
 
 
 <!--
