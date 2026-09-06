@@ -1,0 +1,5 @@
+# sh/.fmt = Call '|fmt' but go for Max is Goal is Leave 4 Columns blank on the far right
+
+COLUMNS=$(stty size </dev/tty|cut -d' ' -f2)  # $COLUMNS flakes out variously
+set -xe
+fmt -w $((COLUMNS - 4))
