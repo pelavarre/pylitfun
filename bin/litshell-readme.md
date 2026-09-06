@@ -1454,7 +1454,7 @@ In our Sh Folder
 | ------------ | ------- |
 | sh/.awk | Pick out the last Column when it's not empty |
 | sh/.bash | Bash but without Profile |
-| sh/.cat | Prompt to take & drop input, or do what you're told, or do nothing loudly = aka sh/_ |
+| sh/.cat | Prompt to take & drop input, or do what you're told, or do nothing loudly = sh/_ |
 | sh/.cd.sh | Cd, but to the join of a split Pathname |
 | sh/.clear | Clear the Screen, and the Scrollback too |
 | sh/.code | Pretend VsCode is in my Shell $Path, and default to edit my Settings·Json |

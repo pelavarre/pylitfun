@@ -1,4 +1,4 @@
-# e = Run Homebrew Emacs, like on a ./pb proxy of the Paste Buffer, and with less Spam
+# sh/e = Run Homebrew Emacs, like on a ./pb proxy of the Paste Buffer, and with less Spam
 
 emacs=/opt/homebrew/bin/emacs
 if [ $# -ne 0 ]; then

@@ -1,4 +1,4 @@
-# v = Run Vim, like on a ./pb proxy of the Paste Buffer, and with less Spam
+# sh/v = Run Vim, like on a ./pb proxy of the Paste Buffer, and with less Spam
 
 if [ $# -ne 0 ]; then
     set -xe

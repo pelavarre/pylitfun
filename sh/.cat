@@ -1,4 +1,4 @@
-# sh/.cat = Prompt to take & drop input, or do what you're told, or do nothing loudly = aka sh/_
+# sh/.cat = Prompt to take & drop input, or do what you're told, or do nothing loudly = sh/_
 
 if [ $# -ne 0 ]; then  # .cat ...  # with args
 
