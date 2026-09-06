@@ -9,11 +9,8 @@ elif [ -t 0 ]; then
 
     echo 'Press ⌃D to quit happy, or ⌃C to quit sad' >&2
     if [ -t 1 ]; then  # .cat  # standalone
-        set -xe
-        echo 'cat - >/dev/null' >&2
         cat - >/dev/null
     else  # .cat |...  # at the front
-        set -xe
         cat -
     fi
 
