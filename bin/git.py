@@ -1330,6 +1330,8 @@ if __name__ == "__main__":
 
 _ = """  # todo's
 
+# todo: gdwd for:  git diff --color-moved --word-diff
+
 # todo1: less voluminous set-xe at:  gg xyz -- $(glf)
 
 # todo1: practice more gsis during --rebase and --cherry-pick
