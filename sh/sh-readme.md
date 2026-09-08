@@ -17,7 +17,9 @@ They die when you 'ssh' somewhere, because they didn't come with you. They die w
 
 A tool that is one small file has none of these problems. It runs from any Shell, or from no Shell. It travels by 'cp' and by 'scp'. Its whole story fits on one screen, it opens by saying what it's for, and it can be coded to say who it is again, when it runs.
 
-Fifty of these small files are exactly this simple. And then there are two more. These other two end in '.sh' and come from 'chmod -x'. They code up Shell 'function's to source into your Shell, because they touch things that exist only inside your Shell: your $Pwd current directory and your $? last exit code. To install them, you copy them into your ~/.zprofile and ~/.bash_profile and so on. Or you can 'source' them on demand.
+Fifty of these small files are exactly this simple. And then there are two more. These other two end in '.sh' and come from 'chmod -x'. They code up Shell 'function's to source into your Shell, because they touch things that exist only inside your Shell: your Pwd current directory folder and your '$?' last exit code. To install them, you copy them into your ~/.zprofile and ~/.bash_profile and so on. Or you can 'source' them on demand.
+
+<!-- beware: Some Markdown Renders overreact to more than one $ in a paragraph. -->
 
 
 ## Three kinds of new Shell Commands
@@ -230,7 +232,11 @@ Defines a '.exit' Shell Function that says the Exit Code of your last Command.
     $ .exit
     + exit 1
 
-The '$?' is gone the moment you type your next Command, and this says it first, in fewer careful keystrokes than 'echo $?'.
+People working through Shell Ops too often type out something else when they mean 'echo + exit $?'.
+
+Defining a Shell Function to type it out for you works better. The $ ? Shell Feature is an aggressive invasive read-and-clear, it self-destructs itself out at the end of the command you sent to capture it for you.
+
+<!-- beware: Some Markdown Renders overreact to more than one $ in a paragraph. -->
 
 ### [sh/.fmt](./.fmt)
 
@@ -339,7 +345,7 @@ Run it as '.ps', then 'bash .ps', then 'zsh .ps', and learn which Shell each of 
 
 ### [sh/.pwd](./.pwd)
 
-Prints your Pwd as an Scp Spec, with your Home spelled as '~'.
+Prints your Pwd current directory folder as an Scp Spec, with your Home spelled as '~'.
 
     $ .pwd
     + printf "%s\n" "$(id -un ... hostname ... dirs -p ...
@@ -505,7 +511,7 @@ The third clean room, beside '.bash' and '.sh', for when Zsh is the Shell in que
 
 ### [sh/@](./@)
 
-Runs a Command inside some other Folder, without moving your own Pwd.
+Runs a Command inside some other Folder, without changing your own choice of your Pwd current directory folder.
 
     $ @ /usr pwd
     + cd /usr
@@ -563,7 +569,7 @@ macOS stopped shipping Emacs, since Oct/2019 macOS Catalina, leaving you with on
 
 ### [sh/f](./f)
 
-Calls Find, but with no Args searches the Pwd.
+Calls Find, but with no Args searches the folders of folders led by your present Pwd current directory folder.
 
     $ f
     + find .
