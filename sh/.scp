@@ -1,0 +1,4 @@
+# sh/.scp = Call Scp but keep the last-modified date/time, don't meter progress, and allow folders
+
+set -xe
+scp -pqr "$@"

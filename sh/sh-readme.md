@@ -372,6 +372,15 @@ Moves a File or Folder into your Desktop, instead of deleting it.
 
 The stock 'rm' has no undo. This one thanks the File for its service and sets it aside, and the undo is a drag out of your Desktop.
 
+### [sh/.scp](./.scp)
+
+Calls Scp, but keeps the last-modified date/time, doesn't meter progress, and copies Folders too.
+
+    $ .scp t.txt jqdoe@example.com:~/Public/pylitfun/.
+    + scp -pqr t.txt jqdoe@example.com:~/Public/pylitfun/.
+
+The '-p' carries your File's timestamp across the wire, the '-q' quiets the per-File progress meter, and the '-r' means a Folder needs no separate flag you'd have to remember.
+
 ### [sh/.screen](./.screen)
 
 Reconnects to your detached Screen, or given a label launches a new Screen that logs every byte at once to a File named by that label.
