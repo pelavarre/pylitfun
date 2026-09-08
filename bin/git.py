@@ -71,35 +71,36 @@ ShlinePlusByShverb = {  # sorted by key
     "gdh": "git diff --color-moved HEAD~1 [...]",
     # 15
     "gdno": "git diff --name-only [...]",
+    "gdwd": "git diff --color-moved --word-diff [...]",
     "gf": "date && date -u && time git fetch --prune --prune-tags --force",
     "gg/0": "git status",  # "gg": but without Sh Args
     "gg/n": "git grep -ai -e ... -e ...",  # "gg": but with Sh Args
     "ggi": "git grep -a -e ... -e ...",
-    "ggl": "git grep -l -ai -e ... -e ...",
     # 20
+    "ggl": "git grep -l -ai -e ... -e ...",
     "gl": "git log --date=local --pretty=fuller --no-decorate [...]",
     "gla": "git log --date=local --pretty=fuller --no-decorate --numstat --author=...",  # [...]
     "glf": "git ls-files |grep -ai -e ... -e ...",  # as if [...] because 'glf' is 'git ls-files'
     "glq": "git log --oneline --no-decorate [...]",
-    "glqn": "git log --oneline --no-decorate [...]",  # but adds |awk to number lines
     # 25
+    "glqn": "git log --oneline --no-decorate [...]",  # but adds |awk to number lines
     "gls": "git log --date=local --pretty=fuller --no-decorate --numstat [...]",
     "glv": "git log --oneline --decorate [...]",
     "gno": "git diff/show --pretty= --name-only [...]",  # 'qdno' when truthy, else 'qspno'
     "grb": "git rebase ...",
-    "grh": "git reset --hard ...",  # actual no args 'git reset hard' would mean to Head
     # 30
+    "grh": "git reset --hard ...",  # actual no args 'git reset hard' would mean to Head
     "grh1": "git reset HEAD~1",  # inverts : gcam && git commit --all -m wip
     "grhu": "... && git reset --hard @{upstream}",
     "gri": "git rebase -i [...]",
     "grias": "git rebase -i --autosquash [...]",
-    "grl": "git reflog --date=relative --numstat",
     # 35
+    "grl": "git reflog --date=relative --numstat",
     "grv": r"git remote -v |tr ' \t' '\n' |grep : |uniq |sed 's,^,git clone ,'",
     "gs": "git show --color-moved [...]",
     "gsis": _gsis_finds_ + "git status --ignored --short",
-    "gspno": "git show --pretty= --name-only [...]",
     # 39
+    "gspno": "git show --pretty= --name-only [...]",
 }
 
 # often does say '--color-moved' with Hyphen-Minus, but never says '--color=moved' with Equals Sign
@@ -680,7 +681,7 @@ class GitGopher:
         assert shsuffix in ("", " ..."), (shsuffix, shline, shverb, shargv)
         return (shline, shsuffix)
 
-        # g, gcaf, gcf, gd, gdh, gdno, gl, glq, glqn, gls, glv, gno, gri, grias, gs, gspno
+        # g, gcaf, gcf, gd, gdh, gdno, gdwd, gl, glq, glqn, gls, glv, gno, gri, grias, gs, gspno
 
     def _form_shline_no_leading_pos_arg_(
         self, shverb: str, shverb_shline_plus: str, shargv: tuple[str, ...], gwho: str
@@ -1329,8 +1330,6 @@ if __name__ == "__main__":
 
 
 _ = """  # todo's
-
-# todo: gdwd for:  git diff --color-moved --word-diff
 
 # todo1: less voluminous set-xe at:  gg xyz -- $(glf)
 

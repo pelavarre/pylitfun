@@ -1,0 +1,3 @@
+#!/bin/sh
+# : gdwd && git diff --color-moved --word-diff [...]
+g.py "$0" "$@"
