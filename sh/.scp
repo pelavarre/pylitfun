@@ -1,4 +1,12 @@
 # sh/.scp = Call Scp but keep the last-modified date/time, don't meter progress, and allow folders
 
-set -xe
-scp -pqr "$@"
+if [ $# -eq 0 ]; then
+    set -xe
+    pbpaste > ./pb && scp -pqr "$@" ./pb linux:
+elif [ $# -eq 1 ]; then
+    set -xe
+    scp -pqr "$@" linux:
+else
+    set -xe
+    scp -pqr "$@"
+fi
