@@ -3349,8 +3349,8 @@ if __name__ == "__main__":
 
 # big todo0's
 
-# todo: rewrite ever more of the git.py to distribute via ~/bin/git-*
-# todo: rewrite ever more of the git.py to distribute via ~/bin/litgit.py
+# todo: rewrite ever more of the litpygit.py to distribute via ~/bin/git-*
+# todo: rewrite ever more of the litpygit.py to distribute via ~/bin/litgit.py
 
 # todo: refresh the pipe-bricks.md sorts to look more like the def's here
 

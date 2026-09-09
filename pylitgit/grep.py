@@ -6,7 +6,7 @@ usage: grep.py SHFILE [SHWORD ...]
 call Grep but as |grep -ai -e ... -e ...
 
 positional arguments:
-  SHFILE  disclose who is calling (often a pathname of bin/g)
+  SHFILE  disclose who is calling (often a pathname of pylitgit/g)
   SHWORD  option or positional argument of Grep
 
 options:
@@ -101,7 +101,7 @@ class GrepGopher:
         #
         # Passing down the 'pass_fds=' ducks out of this kind of failure
         #
-        #   % echo |bin/grep.py alf brav -- <(echo alfa bravo)
+        #   % echo |pylitgit/grep.py alf brav -- <(echo alfa bravo)
         #   |grep -ai -e alf -e brav -- /dev/fd/12
         #   grep: /dev/fd/12: Bad file descriptor
         #   + exit 2
@@ -147,5 +147,5 @@ if __name__ == "__main__":
     main()
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/grep.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/pylitgit/grep.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

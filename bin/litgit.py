@@ -606,8 +606,8 @@ _ = """  # todo's
 # todo: next port = "grl": "git reflog --date=relative --numstat",
 # todo: grl, grl --, grl -4
 
-# todo: port ever more of our three dozen Git Aliases at bin/git.py
-# todo: port the --make-bin work into here from bin/git.py
+# todo: port ever more of our three dozen Git Aliases at pylitgit/litpygit.py
+# todo: port the --make-bin work into here from pylitgit/litpygit.py
 
 """
 

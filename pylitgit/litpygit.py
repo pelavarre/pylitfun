@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 
 """
-usage: git.py [--help] [--make-bin] SHFILE [SHWORD ...]
+usage: litpygit.py [--help] [--make-bin] SHFILE [SHWORD ...]
 
 abbreviate the subcommands to call Git, but do show them in full
 
 positional arguments:
-  SHFILE      disclose who is calling (often a pathname of bin/g*)
+  SHFILE      disclose who is calling (often a pathname of pylitgit/g*)
   SHWORD      option or positional argument of Git
 
 options:
   --help      show this help message and exit (-h is for Git, not for Git·Py)
-  --make-bin  rewrite bin/g* as Shell Scripts to call g.py to call git.py
+  --make-bin  rewrite pylitgit/g* as Shell Scripts to call g.py to call litpygit.py
 
 examples:
   gg -w gg ggl
-  git.py ~/gg -w gg ggl
+  litpygit.py ~/gg -w gg ggl
   : gg ... && git grep -ai -w -e gg -e ggl
   gla -p
   : gla ... && git log --date=local --pretty=fuller --no-decorate --numstat --author=jqdoe -p
@@ -136,7 +136,7 @@ class GitGopher:
 
         # Quit early for good reasons
 
-        usage = "usage: git.py [--help] [--make-bin] SHFILE [SHWORD ...]"
+        usage = "usage: litpygit.py [--help] [--make-bin] SHFILE [SHWORD ...]"
 
         if not sys.argv[1:]:
             print(usage)
@@ -258,7 +258,7 @@ class GitGopher:
             sys.exit(0)  # exits 0 after printing Help
 
     def exit_if_dash_dash_make_bin(self) -> None:
-        """Rewrite bin/g* as Shell Scripts to call g.py to call git.py"""
+        """Rewrite pylitgit/g* as Shell Scripts to call g.py to call litpygit.py"""
 
         if sys.argv[1:] != ["--make-bin"]:
             return
@@ -271,7 +271,7 @@ class GitGopher:
 
         alt_shline_plus_by_shverb = dict(shline_plus_by_shverb)
         for shverb in shline_plus_by_shverb.keys():
-            pathname = f"bin/{shverb}"
+            pathname = f"pylitgit/{shverb}"
             if shverb in removals:
                 assert not os.path.exists(pathname), (pathname,)
                 del alt_shline_plus_by_shverb[shverb]
@@ -309,11 +309,11 @@ class GitGopher:
                 continue
 
             alt_shverb = shverb
-            pathname = f"bin/{shverb}"
+            pathname = f"pylitgit/{shverb}"
             if "/" in shverb:
                 assert shverb in ("gg/0", "gg/n"), (shverb,)
                 alt_shverb = "gg"
-                pathname = "bin/gg"
+                pathname = "pylitgit/gg"
 
                 if shverb == "gg/n":
                     continue
@@ -1018,9 +1018,9 @@ class GitGopher:
 
         return shline
 
-        # % bin/git.py ggl supercali -- bin/g*
+        # % pylitgit/litpygit.py ggl supercali -- pylitgit/g*
         # : ggl ... &&
-        # git grep -l -ai -e supercali -- 40 ['bin/g', ..., '.../gspno']
+        # git grep -l -ai -e supercali -- 40 ['pylitgit/g', ..., '.../gspno']
 
     def auth_git_shline(self, shline: str) -> str:
         """Let Auth fail, else say which Shell Line to run and which Shell Line to trace"""
@@ -1350,5 +1350,5 @@ _ = """  # todo's
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/git.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/pylitgit/litpygit.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

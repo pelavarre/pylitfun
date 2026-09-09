@@ -29,7 +29,7 @@ I work a day job in tech, onsite Santa Clara five days a week. (I'd recommend yo
 
 I can keep up this one Git Repo outside, hosting four projects
 
-+ [Lit Git - Read Me](./bin/litgit-readme.md) <br>
++ [Lit Git - Read Me](./pylitgit/pylitgit-readme.md) <br>
 + [Lit Glass - Read Me](./bin/litglass-readme.md) <br>
 + [Lit Python - Read Me](./bin/litpython-readme.md) <br>
 + [Lit Shell - Read Me](./bin/litshell-readme.md) <br>

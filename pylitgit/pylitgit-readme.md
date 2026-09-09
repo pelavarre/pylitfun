@@ -1,4 +1,4 @@
-# pylitfun / ... / litgit-readme.md
+# pylitfun / ... / pylitgit-readme.md
 
 **Abbreviated Git verbs that guess the rest, and then show you what they guessed**
 
@@ -72,7 +72,7 @@ Written with help from Claude·Ai
 
 <!--
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/bin/litgit-readme.md
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/pylitgit/pylitgit-readme.md
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git
 
 -->
