@@ -68,13 +68,13 @@ import shlex
 import subprocess
 import sys
 
-import litnotes
+import litpydoc
 
 
 def main() -> None:
     """Run from the Shell Command Line"""
 
-    litnotes.print_doc_and_exit_zero_if("examples:")
+    litpydoc.print_doc_and_exit_zero_if("examples:")
 
     if sys.argv[1:] not in (["--"],):
         print("usage: screen.py [--help]", file=sys.stderr)
@@ -218,5 +218,5 @@ if __name__ == "__main__":
     main()
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/py/screen.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/pylitdoc/screen.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

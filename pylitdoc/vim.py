@@ -36,9 +36,9 @@ examples:
 
 import sys
 
-import litnotes
+import litpydoc
 
-litnotes.print_doc_and_exit_zero_if("examples:")
+litpydoc.print_doc_and_exit_zero_if("examples:")
 
 print("NotImplementedError: vim.py ...", file=sys.stderr)
 sys.exit(2)
@@ -64,5 +64,5 @@ sys.exit(2)
 #
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/py/vim.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/pylitdoc/vim.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

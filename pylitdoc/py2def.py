@@ -474,5 +474,5 @@ if __name__ == "__main__":
 #
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/py/py2def.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/pylitdoc/py2def.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

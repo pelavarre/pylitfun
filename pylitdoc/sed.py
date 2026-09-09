@@ -29,9 +29,9 @@ examples:
 
 import sys
 
-import litnotes
+import litpydoc
 
-litnotes.print_doc_and_exit_zero_if("examples:")
+litpydoc.print_doc_and_exit_zero_if("examples:")
 
 print("NotImplementedError: sed.py ...", file=sys.stderr)
 sys.exit(2)
@@ -39,5 +39,5 @@ sys.exit(2)
 # vs tradition of 'sed.py --' meaning:  pbpaste |awk '{print $NF}' |sed 's,^,-- ,' |etc etc etc
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/py/sed.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/pylitdoc/sed.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

@@ -22,7 +22,7 @@ import os
 import pathlib
 
 
-import litnotes
+import litpydoc
 
 #
 # Run from the Shell Command Line
@@ -32,7 +32,7 @@ import litnotes
 def main() -> None:
     """Run from the Shell Command Line"""
 
-    litnotes.print_doc_and_exit_zero_if("examples:")
+    litpydoc.print_doc_and_exit_zero_if("examples:")
 
     default_eq_str = str()
     env_path = os.getenv("PATH", default_eq_str)
@@ -171,5 +171,5 @@ if __name__ == "__main__":
     main()
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/py/which.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/pylitdoc/which.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git

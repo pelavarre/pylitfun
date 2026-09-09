@@ -12,7 +12,7 @@ define __EPILOG__
 make  # shows a few examples and exits zero
 
 make help  # shows many help lines and exits zero
-make bin  # updates your Shell Path ~/bin/ Folder from our bin/ py/ sh/
+make bin  # updates your Shell Path ~/bin/ Folder from our bin/ pylitdoc/ sh/
 make pips  # installs/ updates Python add-on's from PyPi·Org
 make sense  # calls for Code Review from Black, Flake8, and MyPy Strict
 make tests  # updates:  git diff csp/cspbook-py-readme.md
@@ -31,7 +31,7 @@ positional arguments:
 examples:
   make  # shows a few examples and exits zero
   make help  # shows many help lines and exits zero
-  make bin  # updates your Shell Path ~/bin/ Folder from our bin/ py/ sh/
+  make bin  # updates your Shell Path ~/bin/ Folder from our bin/ pylitdoc/ sh/
   make pips  # installs/ updates Python add-on's from PyPi·Org
   make sense  # calls for Code Review from Black, Flake8, and MyPy Strict
   make tests  # updates:  git diff csp/cspbook-py-readme.md
@@ -49,17 +49,24 @@ help:
 
 
 #
-# make bin = updates your Shell Path ~/bin/ Folder from our bin/ py/ sh/
+# make bin = updates your Shell Path ~/bin/ Folder from our bin/ pylitdoc/ sh/
 #
 
 
 bin:
-	find bin/ py/ sh/ -not -type d |grep -v -e __pycache__/ -e /man/ -e [.]md$$ -e ^sh/pwnme$$ \
-		|awk -F/ '{print $$NF}' |xargs -I{} rm -fr ~/bin/{}
-	find bin/ py/ sh/ -not -type d |grep -v -e __pycache__/ -e /man/ -e [.]md$$ -e ^sh/pwnme$$ \
+	find bin/ pylitdoc/ sh/ -not -type d \
+		|grep -v -e __pycache__/ -e /man/ -e [.]md$$ -e ^sh/pwnme$$ \
+		|awk -F/ '{print $$NF}' \
+		|xargs -I{} rm -fr ~/bin/{}
+	find bin/ pylitdoc/ sh/ -not -type d \
+		|grep -v -e __pycache__/ -e /man/ -e [.]md$$ -e ^sh/pwnme$$ \
 		|xargs -I{} cp -ip {} ~/bin/.
-	find bin/git-verbs/man/ -not -type d |sed 's,^bin/git-verbs/,,' |xargs -I{} rm -fr ~/bin/{}
-	cp -ipR bin/git-verbs/man ~/bin/.
+	find bin/git-verbs/man/ -not -type d \
+		|sed 's,^bin/git-verbs/,,' \
+		|xargs -I{} rm -fr ~/bin/{}
+	@#
+	cp -ipR bin/git-verbs/man ~/bin/.  # man/man1/ into ~/bin/man/ and such
+	@#
 	@# rm -fr ~/bin/Makefile
 	@# cp -ip Makefile ~/bin/.  # wrong answer except for hosts who want ours
 

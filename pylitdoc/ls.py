@@ -46,7 +46,7 @@ import shlex
 import subprocess
 import sys
 
-import litnotes
+import litpydoc
 
 #
 
@@ -63,7 +63,7 @@ def main() -> None:
 
     ow = OsWalker(env_tz)
 
-    litnotes.print_doc_and_exit_zero_if("examples:")
+    litpydoc.print_doc_and_exit_zero_if("examples:")
     ow.parse_args_if()
     ow.call_shell_ls_once()
     ow.scrape_columns()
@@ -387,5 +387,5 @@ if __name__ == "__main__":
 # except maybe i'll end up preferring to go for date/time-created over date/time-modified when those sort orders differ
 
 
-# posted as:  https://github.com/pelavarre/pylitfun/blob/main/py/ls.py
+# posted as:  https://github.com/pelavarre/pylitfun/blob/main/pylitdoc/ls.py
 # copied from:  git clone https://github.com/pelavarre/pylitfun.git
