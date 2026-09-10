@@ -1,0 +1,5 @@
+#!/bin/sh
+# Wrapper putting UDE's VS Code CLI on PATH as `code`.
+# Points at the stable UDE.app symlink so it survives install version bumps
+# (ude_install_2 -> ...). Lets Claude Code's /ide install and terminal `code` work.
+exec ~/ude_installations/UDE.app/Contents/Resources/app/bin/code "$@"

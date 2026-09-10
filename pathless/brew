@@ -1,0 +1,2 @@
+set -xe
+/opt/homebrew/bin/brew "$@"
