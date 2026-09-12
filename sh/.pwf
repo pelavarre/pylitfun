@@ -1,0 +1,12 @@
+# sh/.pwf = Print an Scp Spec of the Pwf
+
+if [ $# = 0 ]; then
+    P=$(find . -maxdepth 1 -not -type d -print0 |xargs -0 -r ls -rt |tail -1)
+    if [ "$P" ]; then
+       set "$P"
+    fi
+fi
+
+echo '+ printf "%s\n" "$(id -un ... hostname ... dirs -p ...' >&2
+printf "%s\n" "$(id -un)@$(hostname):$(dirs -p |head -1 |sed 's,/*$,/,')$P" >&2
+printf "%s\n" "$P"

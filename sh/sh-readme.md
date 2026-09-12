@@ -54,7 +54,11 @@ A few of these Scripts lean on the macOS ways of reaching a Homebrew Emacs or th
 
 ## Appendix
 
-Here we present each Script, in the order 'ls -1A' shows them. We give you three lines per Script: what it does, one call with the trace it prints, and why to like it. The Screen-fitting Scripts below are shown at 80 Columns by 24 Rows. The Scripts that print who and where you are are shown for J Q Doe (JQD) < jqdoe @ example . com >.
+Here we present each Script, in the order 'ls -1A' shows them. We give you three lines per Script: what it does, one call with the trace it prints, and why to like it.
+
+We're hoping you'll often choose to click through to read the brief few lines of Code per Script. In particular, we've left an abundance of Easter Eggs inside, for you to enjoy.
+
+Here we show what Screen-fitting Scripts do for a Terminal Screen of 80 Columns by 24 Rows. And the Scripts for printing who and where you are, we show those as if run for J Q Doe (JQD) < jqdoe @ example . com >.
 
 ### [sh/_](./_)
 
@@ -352,6 +356,17 @@ Prints your Pwd current directory folder as an Scp Spec, with your Home spelled 
     jqdoe@example.com:~/Public/pylitfun/
 
 Paste it into an 'scp' at your other machine, and it's already correct.
+
+### [sh/.pwf](./.pwf)
+
+Prints an Scp Spec of your latest File in the Pwd current directory folder, or of the File you name, the way '.pwd' prints one of the Folder itself.
+
+    $ .pwf
+    + printf "%s\n" "$(id -un ... hostname ... dirs -p ...
+    jqdoe@example.com:~/Public/pylitfun/t.txt
+    t.txt
+
+The Scp Spec lands on Stderr, to paste into an 'scp' at your other machine, and the bare Filename lands on Stdout, to feed onward into a Pipe.
 
 ### [sh/.python](./.python)
 

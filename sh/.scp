@@ -1,5 +1,15 @@
 # sh/.scp = Call Scp but keep the last-modified date/time, don't meter progress, and allow folders
 
+if [ $# = 0 ]; then
+    P=$(find . -maxdepth 1 -not -type d -print0 |xargs -0 -r ls -rt |tail -1)
+    if [ "$P" ]; then
+       set "$P"
+    else
+       P=./t.touch
+       touch "$P"
+    fi
+fi
+
 if [ $# -eq 0 ]; then
     set -xe
     pbpaste > ./pb && scp -pqr "$@" ./pb linux:

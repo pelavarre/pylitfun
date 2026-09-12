@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# sh/.pwd = Print an Scp Spec of the pwd, so the Path often starts with ~/
+# sh/.pwd = Print an Scp Spec of the Pwd, often with a Path that starts with ~/
 
 echo '+ printf "%s\n" "$(id -un ... hostname ... dirs -p ...' >&2
-printf "%s\n" "$(id -un)@$(hostname):$(dirs -p |head -1 |sed 's,/*$,/,')"
+printf "%s\n" "$(id -un)@$(hostname):$(dirs -p |head -1 |sed 's,/*$,/,')" >&2
 printf "%s\n" "$(dirs -p |head -1 |sed 's,/*$,/,')"
