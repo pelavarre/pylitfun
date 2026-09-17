@@ -362,7 +362,8 @@ Paste it into an 'scp' at your other machine, and it's already correct.
 Prints an Scp Spec of your latest File in the Pwd current directory folder, or of the File you name, the way '.pwd' prints one of the Folder itself.
 
     $ .pwf
-    + printf "%s\n" "$(id -un ... hostname ... dirs -p ...
+    + printf "%s\n" "$(ls -hlAF -rt ... id -un ... hostname ... dirs -p ...
+    -rw-r--r--  1 jqdoe  staff    50B Sep  6 13:01 t.txt
     jqdoe@example.com:~/Public/pylitfun/t.txt
     t.txt
 
