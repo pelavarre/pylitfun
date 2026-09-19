@@ -349,25 +349,27 @@ Run it as '.ps', then 'bash .ps', then 'zsh .ps', and learn which Shell each of 
 
 ### [sh/.pwd](./.pwd)
 
-Prints your Pwd current directory folder as an Scp Spec, with your Home spelled as '~'.
+Prints your Pwd current directory folder, preferring it relative to your Home spelled as '~', but first shows its 'ls -dl' and its Scp Spec. Any Arg you give lands on the 'ls -dl' too.
 
     $ .pwd
-    + printf "%s\n" "$(id -un ... hostname ... dirs -p ...
+    $(dirs -p ... head ... ls -d -hlAF -rt ... id -un ... hostname)
+    drwxr-xr-x  62  jqdoe  staff  1.9K  Sep  6  13:01  ~/Public/pylitfun/
     jqdoe@example.com:~/Public/pylitfun/
+    ~/Public/pylitfun/
 
-Paste it into an 'scp' at your other machine, and it's already correct.
+The 'ls -dl' and the Scp Spec land on Stderr, to look over and paste into an 'scp' at your other machine, and the Pwd itself lands on Stdout, to feed onward into a Pipe.
 
 ### [sh/.pwf](./.pwf)
 
-Prints an Scp Spec of your latest File in the Pwd current directory folder, or of the File you name, the way '.pwd' prints one of the Folder itself.
+Prints your latest File in the Pwd current directory folder, or creates an empty 't.txt' when the folder holds none, but first shows its 'ls -l' and its Scp Spec, the way '.pwd' does for the Folder itself. Any Arg you give lands on the 'ls -l' too.
 
     $ .pwf
-    + printf "%s\n" "$(ls -hlAF -rt ... id -un ... hostname ... dirs -p ...
-    -rw-r--r--  1 jqdoe  staff    50B Sep  6 13:01 t.txt
+    $(find -not d ... ls -rt |tail ... ls -hlAF ... id -un ... dirs -p ...)
+    -rw-r--r--  1  jqdoe  staff  50B  Sep  6  13:01  t.txt
     jqdoe@example.com:~/Public/pylitfun/t.txt
-    t.txt
+    ./t.txt
 
-The Scp Spec lands on Stderr, to paste into an 'scp' at your other machine, and the bare Filename lands on Stdout, to feed onward into a Pipe.
+The 'ls -l' and the Scp Spec land on Stderr, to look over and paste into an 'scp' at your other machine, and the Filename lands on Stdout with a './' in front, like so a Filename that looks like a Double-Dash Option still feeds safely onward into a Pipe.
 
 ### [sh/.python](./.python)
 
@@ -395,7 +397,7 @@ Calls Scp, but keeps the last-modified date/time, doesn't meter progress, and co
     $ .scp t.txt jqdoe@example.com:~/Public/pylitfun/.
     + scp -pqr t.txt jqdoe@example.com:~/Public/pylitfun/.
 
-The '-p' carries your File's timestamp across the wire, the '-q' quiets the per-File progress meter, and the '-r' means a Folder needs no separate flag you'd have to remember.
+The '-p' carries your File's timestamp across the wire, the '-q' quiets the per-File progress meter, and the '-r' means a Folder needs no separate Option you'd have to remember.
 
 ### [sh/.screen](./.screen)
 

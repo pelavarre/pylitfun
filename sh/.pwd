@@ -1,7 +1,16 @@
-#!/bin/bash
+# sh/.pwd = Print the Pwd and prefer relative to ~/, but first show its 'ls -dl' and Scp Spec
 
-# sh/.pwd = Print an Scp Spec of the Pwd, often with a Path that starts with ~/
+# shellcheck shell=bash  # SC1071: 2026-09 ShellCheck doesn't check shell=zsh
+# shellcheck disable=SC2012  # Use find instead of ls to better handle non-alphanumeric filenames.
 
-echo '+ printf "%s\n" "$(id -un ... hostname ... dirs -p ...' >&2
-printf "%s\n" "$(id -un)@$(hostname):$(dirs -p |head -1 |sed 's,/*$,/,')" >&2
-printf "%s\n" "$(dirs -p |head -1 |sed 's,/*$,/,')"
+set -e
+
+SSH=$(id -un)@$(hostname)
+CD=$(dirs -p |head -1 |sed 's,/*$,/,')
+DOLLAR='$'
+
+printf '%s\n' $DOLLAR'(dirs -p ... head ... ls -d -hlAF -rt ... id -un ... hostname)' >&2
+ls -d -hlAF -rt "$@" "$PWD" |sed "s,$HOME/,~/," |column -t >&2
+printf '%s\n' "$SSH:$CD" >&2
+
+printf '%s\n' "$CD"
