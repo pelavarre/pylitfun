@@ -515,6 +515,24 @@ Runs Vim, but reads none of your Vimrc.
 
 Vim as if you'd never customized it, which is how you check whether the bug is yours.
 
+### [sh/.watch](./.watch)
+
+Runs a Command over & over, but prints its Stdout & Stderr only when they change.
+
+    $ .watch -n 1.234 cat t.txt
+
+    Sampling every 1.234 seconds ..., till you press ⌃C
+
+    + date
+    Sun Sep 20 12:13:18 PDT 2026
+    + cat t.txt
+    one
+    + exit 0
+    + date
+    Sun Sep 20 12:13:18 PDT 2026
+
+Takes '-n 1.234' or '-n1.234', like 'watch', but defaults to 0.200s in 2026, not to the 2.000s of 1991. Spools each run into './w.watch', keeps the last run in './w.watch~', and speaks only when 'cmp' says they differ, so a Command that doesn't change doesn't scroll.
+
 ### [sh/.which](./.which)
 
 Calls Which with '-a', and spells your Home as '~'.

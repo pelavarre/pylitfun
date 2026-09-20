@@ -1,0 +1,31 @@
+# sh/.watch = Run a Command over & over, but print its Stdout & Stderr only when they change
+
+# usage: .watch [-n SECONDS] COMMAND...
+
+# shellcheck shell=bash  # SC1071: 2026-09 ShellCheck doesn't check shell=zsh
+
+S=0.200
+case "$1" in -n) S=$2; shift 2;; -n*) S=${1#-n}; shift; esac  # -n 0.200, -n0.200
+
+echo
+echo Sampling every "$S" seconds ..., till you press ⌃C
+echo
+
+cat /dev/null >w.watch
+while :; do
+    cp -p w.watch w.watch~
+
+    T0=$(date)
+    (set -x; "$@") >w.watch 2>&1
+    echo + exit $? >>w.watch
+    T1=$(date)
+
+    if ! cmp -s w.watch~ w.watch; then
+        echo + date >&2 && echo "$T0"
+        cat w.watch
+        echo + date >&2 && echo "$T1"
+        echo
+    fi
+
+    sleep "$S"
+done
