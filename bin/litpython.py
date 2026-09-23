@@ -62,9 +62,6 @@ PacificLaunch = dt.datetime.now(Pacific)
 def main() -> None:
     """Run Python Code else a Python Chat, but tell uncaught Exceptions to launch the Py Repl"""
 
-    # sys.excepthook = sys_excepthook_shell_else_pdb_pm  # catches SystemExit, KeyboardInterrupt, etc
-    # try_main()
-
     try:
 
         try_main()
@@ -88,6 +85,8 @@ def main() -> None:
 
 def try_main() -> None:
     """Run Python Code else a Python Chat"""
+
+    # Fill .pytext with Python Code from the Shell Command Line, or don't
 
     doc = __main__.__doc__
     assert doc, (doc,)
@@ -113,8 +112,7 @@ def try_main() -> None:
         os.environ["PYTHONINSPECT"] = str(True)
         sys.excepthook = sys_excepthook_shell_else_pdb_pm
 
-        # t = dt.datetime.now(Pacific)
-        # print(t - PacificLaunch)  # < 2ms lately at my desk
+        # t = dt.datetime.now(Pacific); print(t - PacificLaunch)  # < 25ms lately at my desk
 
 
 def arg_doc_to_parser(doc: str) -> ArgDocParser:
@@ -197,7 +195,9 @@ def _globals_add_lazy_imports_() -> None:
 
     setattr(urllib, "parse", LazyImport(_import_="urllib.parse"))
 
-    # todo: lazy 'email.mime.multipart', 'email.mime.text', 'logging.handlers', 'unittest.mock'
+    # todo: lazy 'email.mime.image', 'email.mime.multipart', 'email.mime.text',
+    # todo: lazy 'logging.handlers', 'unittest.mock'
+    # todo: lazy 'matplotlib.pyplot' alongside lazy 'plt'
     # todo: lazy 'urllib' without 'urllib.parse'
 
     # todo: lazy PyPi 'import mysql.connector'
@@ -230,33 +230,56 @@ class LazyImport:
 
 _PYTHON_IMPORTS_TEXT_ = """
 
-    # the most eager Imports
+    # the top of it all
+
+    __main__
+
+    #
+    # the most eager of the Imports, found inside:  python3 -i -c ''
     #
     #   import sys
     #   items = list(sys.modules.items())
     #   sorted(_[0] for _  in items if not _[0].startswith("_") and not hasattr(_[-1], "__file__"))
     #
 
-    __main__
+    builtins errno marshal posix sys time
+    atexit itertools pwd  # these three found in the '-i -c' but not found inside:  python3 -c '...'
 
-    atexit builtins errno itertools marshal posix pwd sys time
+    #
+    # the Built-In Modules more compiled into the Interpreter itself, not found by 'ls' recipes
+    #
+    #   import sys
+    #   sorted(_ for _ in sys.builtin_module_names if not _.startswith("_"))
+    #
+    # minus obscure Linux:  pyexpat spwd xxsubtype
+    #
 
+    atexit builtins errno faulthandler gc itertools marshal posix pwd sys time  # macOS
 
+    array atexit binascii builtins cmath errno faulthandler fcntl gc grp itertools  # Linux
+        marshal math posix pwd select sys syslog time unicodedata zlib
+
+    faulthandler  gc  # not found by other recipes near here
+
+    #
     # the ".so" Shared Object Libraries of
     #
     #   cd $(python3 -c 'import os, readline; print(os.path.dirname(readline.__file__))')
     #   ls *.so |grep -v ^_
     #
-    # minus obscure:  xxlimited_35 xxlimited xxsubtype
+    # minus obscure:  pyexpat  xxlimited_35 xxlimited xxsubtype
+    #
 
     array  binascii  cmath  fcntl  grp
     math mmap  readline resource  select syslog  termios  unicodedata  zlib
 
-
+    #
     # the Py Files of
     #
     #   cd $(python3 -c 'import abc, os; print(os.path.dirname(abc.__file__))')
     #   ls *.py |grep -v ^_ |cut -d. -f1 |cut -d/ -f1 |LC_ALL=C sort
+    #
+    # minus obscure Linux-only:  sitecustomize
     #
 
     abc annotationlib antigravity argparse ast  base64 bdb bisect bz2
@@ -272,17 +295,19 @@ _PYTHON_IMPORTS_TEXT_ = """
     pdb pickle pickletools pkgutil platform plistlib poplib posixpath
         pprint profile pstats pty py_compile pyclbr pydoc
     queue quopri  random reprlib rlcompleter runpy
-    sched secrets selectors shelve shlex shutil signal site sitecustomize smtplib socket
+    sched secrets selectors shelve shlex shutil signal site smtplib socket
         socketserver sre_compile sre_constants sre_parse ssl stat statistics
         stringprep struct subprocess symtable
     tabnanny tarfile tempfile textwrap this threading timeit token tokenize
         trace traceback tracemalloc tty turtle types typing
     uuid  warnings wave weakref webbrowser  zipapp zipimport
 
+    #
     # the Py Folders of
     #
     #   cd $(python3 -c 'import abc, os; print(os.path.dirname(abc.__file__))')
     #   ls */__init__.py |grep -v ^_ |cut -d. -f1 |cut -d/ -f1 |LC_ALL=C sort
+    #
 
     asyncio  collections compression concurrent ctypes curses  dbm
     email encodings ensurepip  html http  idlelib importlib  json  logging
@@ -290,20 +315,26 @@ _PYTHON_IMPORTS_TEXT_ = """
     multiprocessing  pathlib pydoc_data  re  sqlite3 string sysconfig
     test tkinter tomllib turtledemo  unittest urllib  venv  wsgiref  xml xmlrpc  zipfile zoneinfo
 
-
-    # from VEnv Pip Install
+    #
+    # the most popular of the VEnv Pip Install's,
+    # but omitting:  atlassian bs4 github jinja2 slack_bolt yaml
+    #
 
     jira matplotlib mysql numpy pandas psutil psycopg2 redis requests
 
 """
 
 
+# We don't lazily do:  from __future__ import annotations
+
+
 PYTHON_IMPORTS = _PYTHON_IMPORTS_TEXT_.splitlines()
 PYTHON_IMPORTS = list(_.partition("#")[0] for _ in PYTHON_IMPORTS)
 PYTHON_IMPORTS = list(_.strip() for _ in PYTHON_IMPORTS)
 PYTHON_IMPORTS = " ".join(PYTHON_IMPORTS).split()
+PYTHON_IMPORTS = sorted(set(PYTHON_IMPORTS))
 
-assert len(PYTHON_IMPORTS) == 199, (len(PYTHON_IMPORTS), 199)  # Feb/2026 Python 3.14.3
+assert len(PYTHON_IMPORTS) == 200, (len(PYTHON_IMPORTS),)  # Jun/2026 Python 3.14.6
 
 
 #
