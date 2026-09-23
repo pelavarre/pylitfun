@@ -93,7 +93,7 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 
 import argparse
 import collections
-import collections.abc  # .collections.abc is not .abc & collections.abc.Callable is not typing.Callable
+import collections.abc  # .collections.abc != .abc, .collections.abc.Callable != typing.Callable
 import dataclasses
 import datetime as dt
 import difflib

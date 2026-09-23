@@ -31,7 +31,7 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 import builtins  # (__builtins__ is vars(builtins)) or (__builtins__ is builtins)
 import codeop
 import collections
-import collections.abc  # .collections.abc is not .abc import collections.abc collections.abc.Callable is not typing.Callable
+import collections.abc  # .collections.abc != .abc, .collections.abc.Callable != typing.Callable
 import functools
 import inspect
 import math

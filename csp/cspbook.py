@@ -40,7 +40,7 @@ import __main__
 import argparse
 import bdb
 import codecs
-import collections.abc  # .collections.abc is not .abc import collections.abc collections.abc.Callable is not typing.Callable
+import collections.abc  # .collections.abc != .abc, .collections.abc.Callable != typing.Callable
 import dataclasses
 import datetime as dt
 import difflib
