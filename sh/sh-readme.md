@@ -70,19 +70,6 @@ A 'cat' that says what it's doing with your Stdin when it sits in the middle or 
 
 Type '\_' alone and it shows what you paste next as input, but discards it, doesn't force you to forward it.
 
-### [sh/.argv](./.argv)
-
-Shows each Shell Arg as one Line of Python Repr, numbered from 1, after the Shell has done its splitting and unquoting.
-
-    $ .argv 'Hello, ArgV World!' ''
-    + python3 -c ''' ...
-    1: 'Hello, ArgV World!'
-    2: ''
-
-The empty Arg and the doubled Space show up here, where 'echo' would have hidden them.
-
-<!-- todo: think over if argv[0] should show up in sh/.argv and/or sh/.echo output -->
-
 ### [sh/.awk](./.awk)
 
 Picks out the last Column of each Line, and skips the empty Lines.
@@ -133,15 +120,6 @@ Clears the Scrollback too, not just the Screen.
     0000013
 
 The macOS Terminal does this for ⌘K.
-
-### [sh/.code](./.code)
-
-Runs the VsCode that macOS keeps out of your Shell Path, and with no Args opens your VsCode Settings·Json.
-
-    $ .code
-    + '/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code' '/Users/jqdoe/Library/Application Support/Code/User//settings.json'
-
-The one File you most often go edit in VsCode opens here with the shortest command.
 
 ### [sh/.cp](./.cp)
 
@@ -216,8 +194,6 @@ Shows each Shell Arg as one Line of Python Repr, numbered from 1, after the Shel
     2: 'c'
 
 The empty Arg and the doubled Space show up here, where the stock 'echo' would have hidden them.
-
-We'd never want this to be the only /bin/echo, so we also push it out as 'sh/.argv'.
 
 ### [sh/.emacs](./.emacs)
 
@@ -347,18 +323,6 @@ Prints your Pwd current directory folder, preferring it relative to your Home sp
 
 The 'ls -dl' and the Scp Spec land on Stderr, to look over and paste into an 'scp' at your other machine, and the Pwd itself lands on Stdout, to feed onward into a Pipe.
 
-### [sh/.pwf](./.pwf)
-
-Prints your latest File in the Pwd current directory folder, or creates an empty 't.txt' when the folder holds none, but first shows its 'ls -l' and its Scp Spec, the way '.pwd' does for the Folder itself. Any Arg you give lands on the 'ls -l' too.
-
-    $ .pwf
-    $(find -not d ... ls -rt |tail ... ls -hlAF ... id -un ... dirs -p ...)
-    -rw-r--r--  1  jqdoe  staff  50B  Sep  6  13:01  t.txt
-    jqdoe@example.com:~/Public/pylitfun/t.txt
-    ./t.txt
-
-The 'ls -l' and the Scp Spec land on Stderr, to look over and paste into an 'scp' at your other machine, and the Filename lands on Stdout with a './' in front, like so a Filename that looks like a Double-Dash Option still feeds safely onward into a Pipe.
-
 ### [sh/.python](./.python)
 
 Launches the Python Repl.
@@ -476,23 +440,6 @@ Calls Uniq, but in the C Locale.
     b
 
 Paired with '.sort', so the two agree on what is equal.
-
-### [sh/.valid](./.valid)
-
-Says when your Ssh Certs expire.
-
-    $ .valid
-    + ssh-add -l
-    256 SHA256:AbCdEf... jqdoe@example.com (ED25519-CERT)
-    + ssh-add -L
-    + grep -- -jqdoe
-    + ssh-keygen -L -f -
-    + date
-    Sun Sep  6 13:01:30 PDT 2026
-    + grep Valid
-            Valid: from 2026-09-06T06:00:00 to 2026-09-07T06:00:00
-
-Prints today's date beside the expiry, so you learn the Cert is dying before the next 'ssh' tells you.
 
 ### [sh/.vim](./.vim)
 
