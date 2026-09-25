@@ -509,7 +509,7 @@ Runs a Command over & over, but prints its Stdout & Stderr only when they change
 
     $ .watch -n 1.234 cat t.txt
 
-    Sampling every 1.234 seconds ..., till you press ⌃C
+    Sampling into 'w.watch' every 1.234 seconds ..., till you press ⌃C
 
     + date
     Sun Sep 20 12:13:18 PDT 2026
@@ -519,7 +519,7 @@ Runs a Command over & over, but prints its Stdout & Stderr only when they change
     + date
     Sun Sep 20 12:13:18 PDT 2026
 
-Takes '-n 1.234' or '-n1.234', like 'watch', but defaults to 0.200s in 2026, not to the 2.000s of 1991. Spools each run into './w.watch', keeps the last run in './w.watch~', and speaks only when 'cmp' says they differ, so a Command that doesn't change doesn't scroll.
+Takes '-n 1.234' or '-n1.234', like 'watch', but defaults to 0.200s in 2026, not to the 2.000s of 1991. Spools each run into './w.watch', keeps the last run in './w.watch~', falls back to './w.12345.watch', named after its own Pid, when './w.watch' is already taken by another '.watch', and speaks only when 'cmp' says they differ, so a Command that doesn't change doesn't scroll.
 
 ### [sh/.which](./.which)
 

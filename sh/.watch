@@ -1,28 +1,30 @@
 # sh/.watch = Run a Command over & over, but print its Stdout & Stderr only when they change
+# shellcheck shell=bash  # SC1071: 2026-09 ShellCheck doesn't check shell=zsh
 
 # usage: .watch [-n SECONDS] COMMAND...
-
-# shellcheck shell=bash  # SC1071: 2026-09 ShellCheck doesn't check shell=zsh
 
 S=0.200
 case "$1" in -n) S=$2; shift 2;; -n*) S=${1#-n}; shift; esac  # -n 0.200, -n0.200
 
+W=w.watch
+[ -e "$W" ] && W=w.$$.watch  # racy, and good enough, not a 'set -C' noclobber solution
+
 echo
-echo Sampling every "$S" seconds ..., till you press ⌃C
+echo Sampling into "'$W'" every "$S" seconds ..., till you press ⌃C
 echo
 
-cat /dev/null >w.watch
+cat /dev/null >"$W"
 while :; do
-    cp -p w.watch w.watch~
+    cp -p "$W" "$W~"
 
     T0=$(date)
-    (set -x; "$@") >w.watch 2>&1
-    echo + exit $? >>w.watch
+    (set -x; "$@") >"$W" 2>&1
+    echo + exit $? >>"$W"
     T1=$(date)
 
-    if ! cmp -s w.watch~ w.watch; then
+    if ! cmp -s "$W~" "$W"; then
         echo + date >&2 && echo "$T0"
-        cat w.watch
+        cat "$W"
         echo + date >&2 && echo "$T1"
         echo
     fi
