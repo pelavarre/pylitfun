@@ -559,9 +559,7 @@ No 'cd' there, no 'cd -' back, and no chance of forgetting the second half.
 The same Script as 'pb', under a name for hands that reach for ⌃C and ⌃V.
 
     $ echo alfa |cv
-    + if [ -t 0 ... -t 1 ... then pbpaste ...; else pbcopy ...
     $ cv
-    + if [ -t 0 ... -t 1 ... then pbpaste ...; else pbcopy ...
     alfa
 
 At the front of a Pipe it pastes, at the back it copies, and in the middle it does both.
@@ -638,9 +636,7 @@ The output matches Linux byte for byte, two Spaces and the '-' for Stdin include
 Edits your Os Copy/Paste Clipboard Buffer: pastes at the front of a Pipe, copies at the back, and in the middle copies, waits for end-of-file, and passes the bytes along.
 
     $ .ls |pb
-    + if [ -t 0 ... -t 1 ... then pbpaste ...; else pbcopy ...
     $ pb |wc -l
-    + if [ -t 0 ... -t 1 ... then pbpaste ...; else pbcopy ...
            4
 
 You type 'pb' wherever you like and never again stop to remember which of 'pbpaste' and 'pbcopy' you meant, and '|pb|' is '|sponge|' with nothing to install.

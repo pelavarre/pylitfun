@@ -1,6 +1,7 @@
 # sh/cv = Edit your Os Copy/Paste Clipboard Buffer = sh/pb
 
-echo '+ if [ -t 0 ... -t 1 ... then pbpaste ...; else pbcopy ...' >&2
+# echo '+ if [ -t 0 ... -t 1 ... then pbpaste ...; else pbcopy ...' >&2
+
 if [ -t 0 ]; then
     pbpaste "$@"
 else
