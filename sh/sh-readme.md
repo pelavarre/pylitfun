@@ -52,7 +52,7 @@ This is why the appendix below reads fine in any order. Skim the headings. Stop 
 A few of these Scripts lean on the macOS ways of reaching a Homebrew Emacs or the Os Copy/Paste Clipboard Buffer (the pbuffer). To make those run at Linux, you can define the same underlying Shell Commands: pbcopy, pbpaste, and a /opt/homebrew/bin/emacs. Two of these Scripts, the 'm' and '.make', do you good only after you place your most loved Makefile at '~/bin/Makefile', and they say so up top. The rest run well anywhere a Shell runs well.
 
 
-## Appendix
+## Appendix A - Three Dozen Scripts
 
 Here we present each Script, in the order 'ls -1A' shows them. We give you three lines per Script: what it does, one call with the trace it prints, and why to like it.
 
@@ -646,6 +646,86 @@ Runs Vim, and with no Args edits your Os Copy/Paste Clipboard Buffer.
     + pbcopy
 
 Copy some text, type 'v', edit, quit, paste: the same trick as 'e', for the other editor.
+
+
+## Appendix B - Shell Operations
+
+### Two hundred fixes
+
+You coming here is like you glancing over my shoulder while I work, inside my Terminal Shell Tab Window:
+
+    % ls -A ~/bin |wc -l
+        234
+    %
+
+I keep these Shell Scripts simple and small. I search until I find good memorable names for these Scripts: two hundred and more good names. Names chosen well are the only thing that can keep a hundred fixes in flight, without losing track and without forking the Shell, while it sits stuck, broken in hundreds of its tiny ways that we're not much welcomed to talk about.
+
+When will you push your first patch onto your Shell? Can you stop waiting for the rest of us to understand your patch? You have to roll all your own patches, because what bothered me won't be what bothers you. But your Shell is yours to change and improve. Yes we have made it impractically difficult for you to rebuild your Shell. But no, wse've not completely locked you out from changing your Shell. You can easily develop and adopt small simple reliable extensions.
+
+### Three dozen patched verbs
+
+Each of these three dozen Dot Scripts is a good small Shell Extension. All of these only add good stuff, they do not replace classic stuff. Each of these arrives one at a time in working order, they never resort to calling on one another.
+
+    % ls -CA sh |expand
+    .awk            .date           .less           .rm             .tail
+    .bash           .diff           .ls             .scp            .uniq
+    .cat            .echo           .make           .screen         .vim
+    .cd.sh          .emacs          .mv             .sed            .watch
+    .clear          .exit.sh        .od             .seq            .which
+    .cp             .fmt            .ps             .sh             .zsh
+    .curl           .gh             .pwd            .sort
+    .cut            .head           .python         .ssh
+    %
+
+Each of these Dot Scripts breaks with Shell convention for one of six good reasons:
+
+1. Fix bugs: [.cat](./.cat), [.clear](./.clear), [.watch](./.watch), [.which](./.which)<br>
+2. Update stale defaults:  [.curl](./.curl), [.date](./.date), [.fmt](./.fmt), [.head](./.head), [.sort](./.sort), [.screen](./.screen), [.tail](./.tail), [.uniq](./.uniq)<br>
+3. Stop forcing you to supply more args: [.awk](./.awk), [.cp](./.cp), [.cut](./.cut), [.diff](./.diff), [.gh](./.gh), [.mv](./.mv), [.python](./.python), [.rm](./.rm), [.scp](./.scp), [.sed](./.sed)<br>
+4. Stop forcing you to supply fewer args: [.cd.sh](./.cd.sh)<br>
+5. Run differently for you on purpose: [.echo](./.echo), [.exit.sh](./.exit.sh), |[.less](./.less), [.ls](./.ls), |[.od](./.od), [.ps](./.ps), [.pwd](./.pwd)<br>
+6. Run as if not configured to run differently for you: [.bash](./.bash), [.emacs](./.emacs), [.sh](./.sh), [.ssh](./.ssh), [.vim](./.vim), [.zsh](./.zsh)<br>
+
+Three dozen examples of wake up in this century & stop & think & like it better when written this way:
+
+| New Verb | Classic | Improved |
+|---|---|---|
+| [.awk](./.awk) | Forces you to write an Awk script | Defaults to print the last column only |
+| [.bash](./.bash) | Secretly runs dot files | Runs same for all people |
+| [.cat](./.cat) | Hangs for input | Prompts for input |
+| [.cd](./.cd.sh) | Takes just one arg | Joins the args, like a Google Chrome Address Bar |
+| [.clear](./.clear) | Clears some not all scrollback at macOS | Clears the scrollback too, as if macOS Terminal ⌘K |
+| [.cp](./.cp) | Forces you to choose two args | One is enough |
+| [.curl](./.curl) | Defaults to stop for security & pop up a progress meter | Defaults to curl -k -LSs |
+| [.cut](./.cut) | Forces you to choose args | Chops to Terminal Width minus 4 Columns |
+| [.date](./.date) | Shows you only the nearby clock | Shows a nearby clock and adds on California and UTC |
+| [.diff](./.diff) | Forces you to choose two pathnames and options | Defaults to -brpu ./a ./b |
+| [.echo](./.echo) | Varies by Shell, doesn't split and count args | Splits and counts args |
+| [.emacs](./.emacs) | Secretly runs dot files | Runs same for all people |
+| [.exit](./.exit.sh) | Quits your Shell | Prints & clears the $? Process Exit Status Return Code |
+| [.fmt](./.fmt) | Defaults to \|fmt 65 75 | Fits inside Terminal Width minus 4 Columns |
+| [.gh](./.gh) | Floods the screen with man page | Calls ssh -T git @ github . com, to say who you are now |
+| [.head](./.head) | Chops to ten Lines, as if half of 24 Rows | Chops to Terminal Height minus 3 Rows |
+| [.less](./.less) | Defaults to turn -FIRX off | Defaults to \|less -FIRX |
+| [.ls](./.ls) | Defaults to -C | Defaults to ls -hlAF -rt -d |
+| [.mv](./.mv) | Forces you to choose two args | One is enough |
+| [.od](./.od) | Makes you struggle to see Hex & Ascii | Defaults to \|od -A x -t x1c -v |
+| [.ps](./.ps) | Shows you processes you own | Tells you which Shell you're running now |
+| [.pwd](./.pwd) | Shows you the local abs pathname where you are | Shows you relative to ~/ and sets up Scp |
+| [.python](./.python) | Launches after printing Version & Help | Just launches |
+| [.rm](./.rm) | Destroys without backup | Moves into ~/Desktop/ |
+| [.scp](./.scp) | Forces you to choose two args and options | Defaults to scp -pqr of pbpaste to linux: |
+| [.screen](./.screen) | Defaults to lag and no transcript | Defaults to named transcript and no lag |
+| [.sed](./.sed) | Forces you to write a Sed script | Defaults to enclose each line in a prefix/ suffix pair |
+| [.sh](./.sh) | Secretly runs dot files | Runs same for all people |
+| [.sort](./.sort) | Secretly guesses which collation order you mean | Runs inside LC_ALL=C |
+| [.ssh](./.ssh) | Secretly runs dot folder | Runs same for all people |
+| [.tail](./.tail) | Chops to ten Lines, as if half of 24 Rows | Chops to Terminal Height minus 3 Rows |
+| [.uniq](./.uniq) | Secretly guesses which collation order you mean | Runs inside LC_ALL=C |
+| [.vim](./.vim) | Secretly runs dot files | Runs same for all people |
+| [.watch](./.watch) | Drops last timestamp and all but last result | Shows each different result and its timestamp |
+| [.which](./.which) | Drops all inexact and all but first exact match | Prints 1 Shell Path Folder per line, or searches them |
+| [.zsh](./.zsh) | Secretly runs dot files | Runs same for all people |
 
 
 <!--
