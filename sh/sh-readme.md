@@ -325,18 +325,6 @@ Dumps Bytes as Hex and as Chars, in the style of 'hexdump -C', on the Hosts wher
 
 The '-v' shows every Byte, where the stock 'od' folds repeats into a '*' you then have to reason about.
 
-### [sh/.path](./.path)
-
-Prints your Shell Path one Dir per Line, or given Args searches every Dir in it for Executables matching each Arg as a loose substring.
-
-    $ .path md5
-    + for P in ... $PATH ...; do ls -A $P |grep -ai -e ...  # shellcheck disable=SC2010
-    /sbin/md5
-    /sbin/md5sum
-    ~/bin/md5sum
-
-Whereas 'which -a' needs the exact name, this finds 'md5sum' when you typed 'md5', and it spells your Home as '~'.
-
 ### [sh/.ps](./.ps)
 
 Calls Ps to say which Shell is running the Script.
@@ -535,14 +523,15 @@ Takes '-n 1.234' or '-n1.234', like 'watch', but defaults to 0.200s in 2026, not
 
 ### [sh/.which](./.which)
 
-Calls Which with '-a', and spells your Home as '~'.
+Prints your Shell Path one Dir per Line, or given Args searches every Dir in it for Executables matching each Arg as a loose substring.
 
-    $ .which python3
-    + which -a python3 |awk -v HOME=... '(index ...){ "~" substr ...; next} 1'
-    /usr/local/bin/python3
-    /usr/bin/python3
+    $ .which md5
+    + for P in ... $PATH ...; do ls -A $P |grep -ai -e ...
+    /sbin/md5
+    /sbin/md5sum
+    ~/bin/md5sum
 
-Shows every copy in your Shell Path, not just the first, so you can see the one hiding the others.
+Whereas 'which -a' needs the exact name, this finds 'md5sum' when you typed 'md5', and it spells your Home as '~'.
 
 ### [sh/.zsh](./.zsh)
 
