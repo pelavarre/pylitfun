@@ -1,12 +1,31 @@
-# sh/e = Run Homebrew Emacs, like on a ./pb proxy of the Paste Buffer, and with less Spam
+# sh/e = Run an Emacs with less spam, often on a ./x.pb proxy of the Os Copy/Paste Clipboard Buffer
 
 emacs=/opt/homebrew/bin/emacs
+
 if [ $# -ne 0 ]; then
+
     set -xe
     $emacs --no-splash -nw --eval '(menu-bar-mode -1)' "$@"
-else
-    set -xe
-    pbpaste >./pb
-    $emacs --no-splash -nw --eval '(menu-bar-mode -1)' ./pb
-    pbcopy <./pb
+
+else  # edits a fresh sample at ./x.pb, but first backs up into ./y.pb and ./z.pb if need be
+
+    set -e
+
+    if [ -e x.pb ]; then
+
+        CP='set -xe'
+        [ -e y.pb ] && CP="$CP && cp -p y.pb z.pb"
+        CP="$CP && cp -p x.pb y.pb"
+
+        ( eval "$CP"; )
+
+    fi
+
+    echo '+ pbpaste >x.pb && e ./x.pb && pbcopy <x.pb' >&2
+    pbpaste >x.pb
+    $emacs --no-splash -nw --eval '(menu-bar-mode -1)' ./x.pb
+    pbcopy <x.pb
+
 fi
+
+# see also: sh/v

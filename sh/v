@@ -1,11 +1,29 @@
-# sh/v = Run Vim, like on a ./pb proxy of the Paste Buffer, and with less Spam
+# sh/v = Run Vim, often on a ./x.pb proxy of the Os Copy/Paste Clipboard Buffer
 
 if [ $# -ne 0 ]; then
+
     set -xe
     vim "$@"
-else
-    set -xe
-    pbpaste >./pb
-    vim ./pb
-    pbcopy <./pb
+
+else  # edits a fresh sample at ./x.pb, but first backs up into ./y.pb and ./z.pb if need be
+
+    set -e
+
+    if [ -e x.pb ]; then
+
+        CP='set -xe'
+        [ -e y.pb ] && CP="$CP && cp -p y.pb z.pb"
+        CP="$CP && cp -p x.pb y.pb"
+
+        ( eval "$CP"; )
+
+    fi
+
+    echo '+ pbpaste >x.pb && vim ./x.pb && pbcopy <x.pb' >&2
+    pbpaste >x.pb
+    vim ./x.pb
+    pbcopy <x.pb
+
 fi
+
+# see also: sh/e

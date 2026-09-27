@@ -38,8 +38,11 @@ The 'emacs', 'md5sum', 'sha256sum', and 'tac' add back in a frequently needed Li
 
 ### 3 The few surprising names are extremely short, because you type them so often
 
-The 'd' for a diff, 'v' or 'e' for an editor, 'f' for a find, 'm' for a make. And the 'pb' is your Os Copy/Paste Clipboard Buffer: at the front of a Pipe it pastes, at the back of a Pipe it copies, and in the middle it copies, waits for end-of-file, and then passes the bytes along, so you type 'pb' wherever you like, and never stop again to remember which of 'pbpaste' and 'pbcopy' you meant. Plus you get the classic idea of '|sponge|' more simply installed and running just as well, but as '|pb|'.
+The 'd' for a diff, 'v' or 'e' for an editor, 'f' for a find, 'm' for a make.
 
+Our 'pb' is your Os Copy/Paste Clipboard Buffer: at the front of a Pipe it pastes, at the back of a Pipe it copies, and in the middle it copies, waits for end-of-file, and then passes the bytes along, so you type 'pb' when you need it, and never stop again to remember which of 'pbpaste' and 'pbcopy' you meant. Plus you get the classic idea of '|sponge|' more simply installed and running just as well, but as '|pb|'.
+
+Because land-grabbing short names so often collides with work by someone else, we define both 'pb' and 'cv' to do the same thing, and hope you can call the one or the other.
 
 ## Why you'll enjoy paging through
 
@@ -68,7 +71,9 @@ A 'cat' that says what it's doing with your Stdin when it sits in the middle or 
     + cat -
     alfa
 
-Type '\_' alone and it shows what you paste next as input, but discards it, doesn't force you to forward it.
+Stood alone or at the left of a Pipe, it says 'Press ⌃D to quit happy, or ⌃C to quit sad', which is the manual for 'cat' that 'cat' never gave you. Stood alone, it shows what you paste next as input, but discards it for you, doesn't force you to pipe it out somewhere.
+
+We define this as sh/_ and as sh/.cat, the one quicker to type, the other easier to remember.
 
 ### [sh/.awk](./.awk)
 
@@ -93,13 +98,15 @@ When a thing works here and fails in your own Shell, the bug is in your own Rc F
 
 ### [sh/.cat](./.cat)
 
-The same Script as '_', but as a longer verb that you can remember more easily.
+A 'cat' that says what it's doing with your Stdin when it sits in the middle or at the back of a Pipe, and quietly takes what you type when it stands alone or at the front.
 
-    $ .cat t.txt
-    + cat t.txt
-    alfa bravo charlie
+    $ echo alfa |.cat
+    + cat -
+    alfa
 
-Stood alone, it says 'Press ⌃D to quit happy, or ⌃C to quit sad', which is the manual for 'cat' that 'cat' never gave you.
+Stood alone or at the left of a Pipe, it says 'Press ⌃D to quit happy, or ⌃C to quit sad', which is the manual for 'cat' that 'cat' never gave you. Stood alone, it shows what you paste next as input, but discards it for you, doesn't force you to pipe it out somewhere.
+
+We define this as sh/.cat and as sh/_, the one easier to remember, the other quicker to type.
 
 ### [sh/.cd.sh](./.cd.sh)
 
@@ -225,7 +232,7 @@ Reflows Paragraphs to fit your Screen, leaving 4 Columns blank at the right, whi
     $ .fmt <t.txt
     + fmt -w 76
 
-Where '.cut' throws away the far right of each Line, this keeps every word and wraps.
+Where '|cut -c' throws away the far right of each Line, this keeps every word and wraps.
 
 <!-- todo: stop sh/.fmt from silently hanging terminals, and screen for others in sh/ that do and stop them -->
 
@@ -407,7 +414,7 @@ Calls Sort, but in the C Locale.
     a
     b
 
-Sorted this way, macOS and Linux agree, and 'uniq' and 'comm' and 'join' agree with 'sort'.
+Sorted this way, macOS and Linux can agree. In fact, '|uniq' and '|comm' and '|join' can agree with '|sort'.
 
 <!-- todo: add sh/.comm and sh/.join, if we want -->
 
@@ -439,7 +446,7 @@ Calls Uniq, but in the C Locale.
     a
     b
 
-Paired with '.sort', so the two agree on what is equal.
+Sorted this way, macOS and Linux can agree. In fact, '|comm' and '|join' and '|sort' can agree with '|uniq'.
 
 ### [sh/.vim](./.vim)
 
@@ -488,7 +495,7 @@ Runs a Zsh that reads none of your Rc Files, inside an empty Environment.
     + env -i 'PS1=zsh %# ' TERM=xterm-256color zsh -f
     zsh %
 
-The third clean room, beside '.bash' and '.sh', for when Zsh is the Shell in question.
+When a thing works here and fails in your own Shell, the bug is in your own Rc Files, and you've just proved it.
 
 ### [sh/@](./@)
 
@@ -503,13 +510,15 @@ No 'cd' there, no 'cd -' back, and no chance of forgetting the second half.
 
 ### [sh/cv](./cv)
 
-The same Script as 'pb', under a name for hands that reach for ⌃C and ⌃V.
+Edits your Os Copy/Paste Clipboard Buffer: pastes at the front of a Pipe, copies at the back, and in the middle copies, waits for end-of-file, and passes the bytes along.
 
-    $ echo alfa |cv
-    $ cv
-    alfa
+    $ .ls |cv
+    $ cv |wc -l
+           4
 
-At the front of a Pipe it pastes, at the back it copies, and in the middle it does both.
+You type 'cv' wherever you like and never again stop to remember which of 'pbpaste' and 'pbcopy' you meant, and '|cv|' is '|sponge|' with nothing to install.
+
+The same Script as 'pb', for editing your PasteBoard, alongside ⌃C and ⌃V.
 
 ### [sh/d](./d)
 
@@ -528,14 +537,19 @@ Name two scratch Files 'a' and 'b' and the diff is one keystroke, and the '-brpu
 
 ### [sh/e](./e)
 
-Runs the Homebrew Emacs in the Terminal with less noise, and with no Args edits your Os Copy/Paste Clipboard Buffer.
+Runs the Homebrew Emacs in the Terminal with less noise, and with no Args edits your Os Copy/Paste Clipboard Buffer, sampled fresh into './x.pb'.
 
     $ e
-    + pbpaste
-    + /opt/homebrew/bin/emacs --no-splash -nw --eval '(menu-bar-mode -1)' ./pb
-    + pbcopy
+    + pbpaste >x.pb && e ./x.pb && pbcopy <x.pb
 
-Copy some text, type 'e', edit, quit, paste: the Clipboard was the File all along.
+    $ e
+    ++ cp -p x.pb y.pb
+    + pbpaste >x.pb && e ./x.pb && pbcopy <x.pb
+
+    $ e x.pb
+    + /opt/homebrew/bin/emacs --no-splash -nw --eval '(menu-bar-mode -1)' x.pb
+
+Copy some text, type 'e', edit, quit, paste: the Clipboard was the File all along, and each edit of './x.pb' first backs up the last two samples into './y.pb' and './z.pb'. Name a File and 'e' edits it directly, with no Sample and no Backup.
 
 ### [sh/emacs](./emacs)
 
@@ -588,6 +602,8 @@ Edits your Os Copy/Paste Clipboard Buffer: pastes at the front of a Pipe, copies
 
 You type 'pb' wherever you like and never again stop to remember which of 'pbpaste' and 'pbcopy' you meant, and '|pb|' is '|sponge|' with nothing to install.
 
+The same Script as 'cv', for editing your PasteBoard, alongside ⌃C and ⌃V.
+
 ### [sh/pwnme](./pwnme)
 
 Brings this Git Clone up to date, from wherever you call it, and shows the last three Commits before and after.
@@ -622,7 +638,7 @@ Calls OpenSsl to speak like the Linux 'sha256sum'.
     + sed 's,[*], ,'
     154d5d238d27461c33398f3766ca2da78969f6ca0415f05392dfa6aebfda47d7  t.txt
 
-The same Script as 'md5sum' with one word changed, and the same byte-for-byte match with Linux.
+The output matches Linux byte for byte, two Spaces and the '-' for Stdin included, so a checksum you paste between Hosts compares equal.
 
 ### [sh/tac](./tac)
 
@@ -638,14 +654,16 @@ macOS has 'tail -r' and no 'tac', Linux has 'tac' and no 'tail -r', and this mak
 
 ### [sh/v](./v)
 
-Runs Vim, and with no Args edits your Os Copy/Paste Clipboard Buffer.
+Runs Vim, and with no Args edits your Os Copy/Paste Clipboard Buffer, sampled fresh into './x.pb'.
 
     $ v
-    + pbpaste
-    + vim ./pb
-    + pbcopy
+    + pbpaste >x.pb && vim ./x.pb && pbcopy <x.pb
 
-Copy some text, type 'v', edit, quit, paste: the same trick as 'e', for the other editor.
+    $ v
+    ++ cp -p x.pb y.pb
+    + pbpaste >x.pb && vim ./x.pb && pbcopy <x.pb
+
+Copy some text, type 'v', edit, quit, paste: the Clipboard was the File all along, and each edit of './x.pb' first backs up the last two samples into './y.pb' and './z.pb'. Name a File and 'v' edits it directly, with no Sample and no Backup.
 
 
 ## Appendix B - Shell Operations
