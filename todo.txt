@@ -1,0 +1,1 @@
+write a /bin/sh emulate to bypass n*twork sec*rity attacks injecting latency at each shline
