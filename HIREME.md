@@ -13,7 +13,7 @@
 - [3 Winning at work](#3-winning-at-work)
   - [3.1 Doing the important things, and the urgent things too](#31-doing-the-important-things-and-the-urgent-things-too)
   - [3.2 Getting things done, vs making \& keeping friends](#32-getting-things-done-vs-making--keeping-friends)
-  - [3.3 Chart the Course ™, Behind the Scenes ™, Get Things Going ™, Take Charge ™](#33-chart-the-course--behind-the-scenes--get-things-going--take-charge-)
+  - [3.3 Think well, move well](#33-think-well-move-well)
   - [3.4 Forming, Storming, Norming, \& Performing](#34-forming-storming-norming--performing)
   - [3.5 Feeling Bored, Impatient, Baffled, or Dissed for good reason](#35-feeling-bored-impatient-baffled-or-dissed-for-good-reason)
   - [3.6 Reshuffling the points of the story](#36-reshuffling-the-points-of-the-story)
@@ -21,8 +21,9 @@
 - [4 Losing at work](#4-losing-at-work)
   - [4.1 Nine ways bosses have bullied me out of getting things done](#41-nine-ways-bosses-have-bullied-me-out-of-getting-things-done)
   - [4.2 Five ways bosses have slapped me out of making friends with them](#42-five-ways-bosses-have-slapped-me-out-of-making-friends-with-them)
-  - [4.3 Instructions you don't want to give me](#43-instructions-you-dont-want-to-give-me)
-  - [4.4 One thing I won't do for you](#44-one-thing-i-wont-do-for-you)
+  - [4.3 Cold War](#43-cold-war)
+  - [4.4 Instructions you don't want to give me](#44-instructions-you-dont-want-to-give-me)
+  - [4.5 One thing I won't do for you](#45-one-thing-i-wont-do-for-you)
 - [5 Six of your needs that you've not been speaking](#5-six-of-your-needs-that-youve-not-been-speaking)
   - [5.1 Shout](#51-shout)
   - [5.2 Jump](#52-jump)
@@ -73,7 +74,9 @@ I'm great at talking with machines. I'm not so great at talking with you. You sa
 
 My work on our first project will amaze you. It will amaze you because you did the hard part first. You told the other bosses what to get done, and when, and why. You did that plenty well. That's how you got the money to hire me.
 
-You told them first what I should do. You told me second. And then I amazed you. I delivered our first project before time, below cost, and better than spec. Then came the second project. And there we went wrong. Ouch. Why? Because you didn't show up early to do your part again. You can do your part fast without me, or slow with me. But you can't skip it. When you do your part early & well, then you've set me up for success. If you skip your part, you're asking for us to waste your time, which isn't a result you can afford to buy.
+You told them first what I should do. You told me second. And then I amazed you. I delivered our first project before time, below cost, and better than spec. Then came the second project. And there we went wrong. Ouch. Why? Because you didn't show up early to do your part again.
+
+You can do your part fast without me, or slow with me. But you can't skip it. When you do your part early & well, then you've set me up for success. If you skip your part, you're asking for us to waste your time, which isn't a result you can afford to buy.
 
 So come tell me. What do you need done? When? Why? Bet on me. That's my ask.
 
@@ -86,16 +89,16 @@ And I am already placed where I can & do turn impossible into done. But to keep 
 
 I've not been laid off since 2004. Right now I'm happily employed. I'm not desperate. This is a chance for you & me to win big. We can get me to take the bigger risk of leaving before I'm told to leave, by showing me the bigger win of having me take the job with you now.
 
-Later, I'll be easier to hire, after our AI boom goes bust and I get laid off. I'm harder to hire now, but more profitable to hire now. I'm saying: sounds good, let's make this happen.
+Later, I'll be easier to hire, after our AI boom goes bust and I get laid off. I'm harder to hire now, but more profitable to hire now. I'm saying: hiring me sounds good, let's make this happen.
 
 
 ### 2.3 Alignment
 
-We're sure to find one old, ordinary conflict. A boss who likes to take charge vs a worker who loves the craft. That's you & me.
+We're sure to find the one old, most ordinary conflict: a boss who likes to take charge vs a worker who loves the craft. That's you & me.
 
 It's ok. I want the work. I want it enough that I'm completely prepared to work your way. Your way is quick, then simple, then good. That's the boss in you. Mine is good, then simple, then quick. That's the craft in me.
 
-I can give you your order. It just won't come to me on its own. It takes you & me both, working on it together, to bring me round.
+I can deliver your ask. It just won't come to me on its own. It takes you & me both, working on it together, to bring me round.
 
 You ok with this?
 
@@ -125,9 +128,9 @@ Do you know this table? It shows the choices we make while working as judges. We
 
 Our choice depends on whose side we put the person on. We feel we're still judging one of You & Me, or we feel we're now judging a Them. The table comes from comedienne Sarah Cooper, remixing Merrill Wilson Reid. She's laughing so she's not crying, over how often so many of us get this backwards, get this wrong.
 
-What I most want to avoid, as we work together, is having me become a Them. I want you & me to solve our every difficulty together.
+What I most want to avoid, as we work together, is having me become a Them, in your eyes. I want you & me to solve our every difficulty together.
 
-Do you feel you can hold back from making me into a Them, in your eyes? I need your support there.
+Do you feel you can hold back from making me into a Them in your eyes? I need your support there.
 
 
 ### 2.5 Too many words
@@ -141,7 +144,7 @@ As often as I make you feel that hurt, I need you to tell me, so I stop it.
 
 ## 3 Winning at work
 
-I ask from you for what I ask from you because I know I can. Other bosses, before you, have got it right. You can do at least as well, and probably better, since by now I more know what's going on.
+I ask from you what I ask from you because I know I can. Other bosses, before you, have got it right. You can do at least as well, and probably better, since by now I more know what's going on.
 
 I know I can ask a job to make me feel I am:
 
@@ -164,48 +167,44 @@ San Francisco's Watermark Org featured Lindsay McGregor in that same month, Oct/
 
 You know this MBA 2x2 plot?
 
-1. Move the thing, when it's urgent & important.
-2. Schedule the thing, when it is important, but not urgent all the same.
-3. Delegate the thing, when it is urgent but not important enough to do it yourself.
-4. Get the thing off your plate, when it's not important or urgent enough for you to own.
+1. **Move** the thing, when it's urgent & important.
+2. **Schedule** the thing, when it is important, but not urgent all the same.
+3. **Delegate** the thing, when it is urgent but not important enough to do it yourself.
+4. **Get the thing off your plate**, when it's not important or urgent enough for you to own.
 
 This is the Eisenhower Matrix.
 
-Bosses find a lose/lose with me when they starve Point 2 for attention. Point 1 is the urgent fire, and it fascinates them. When I don't share that fascination loudly enough to reinforce their good judgment, they take offense.
+Bosses find a lose/lose with me when they starve Point 2 for attention. Point 1 is the urgent fire, and it fascinates them. When I don't share that fascination loudly enough to reinforce their good judgment, they can take offense. Let's you & I duck around that lose/lose, not let it happen naturally.
 
 
 ### 3.2 Getting things done, vs making & keeping friends
 
 You know this MBA 2x2 plot?
 
-1. Compete = Get more done, but maybe people don't like you.
-2. Collaborate = Expensive, and sometimes worth it = Make friends by getting things done.
-3. Accommodate = Get more people liking you, but maybe not enough done.
-4. Avoid = Drop what's not important, and not urgent either.
+1. **Compete** = Get more done, but maybe people don't like you.
+2. **Collaborate** = Expensive, and sometimes worth it = Make friends by getting things done together.
+3. **Accommodate** = Get more people liking you, but maybe not get enough done.
+4. **Avoid** = Drop what's not important, and not urgent either.
 
-When you feel I've leant way over into making & keeping friends, then we can ask if you're blocking me from getting things done.
+When you feel I've leaned way over into making & keeping friends, then we can ask if you're blocking me from getting things done.
 
-Each real situation calls us to one point or another. Often the middle of it all works best. We can label the middle as:
+Each real situation calls us to one point or another. Often the middle of it all works best. We can label the middle center of the 2x2 as:
 
-5. Compromise = Get enough done, without hurting people.
+5. **Compromise** = Get enough done, without hurting people.
 
 This is the Thomas-Kilmann Conflict Mode Instrument. Group classes take an hour to teach it well.
 
 
-### 3.3 Chart the Course ™, Behind the Scenes ™, Get Things Going ™, Take Charge ™
+### 3.3 Think well, move well
 
-People working in teams split apart to work different roles. Books of pop psych & self-help try to sketch these roles well.
+People working in teams split apart to cover different roles for the team. Books of pop psych & self-help try to sketch these roles well. Linda Berens has gone and trademarked her names for the four roles she finds people working through:
 
-Linda Berens has gone and trademarked her names for the four roles she finds people working through:
+1. Chart the Course ™ = Give us a **clear path and** keep our work **on track**.
+2. Behind the Scenes ™ = Go for the best result by first **gathering, analyzing, summarizing** several points of view on lots of data.
+3. Get Things Going ™ = **Persuade, involve, and spark** the rest of us to move early & often.
+4. Take Charge ™ = **Drive results**: take decisive action, make the goal get done.
 
-1. Chart the Course ™ = Give us a clear path and keep our work on track.
-2. Behind the Scenes ™ = Go for the best result by first gathering, analyzing, summarizing several points of view on lots of data.
-3. Get Things Going ™ = Persuade, involve, and spark the rest of us to move early & often.
-4. Take Charge ™ = Drive results, take decisive action, make sure the goal gets done.
-
-You're a boss with staff and budget. So you probably cover role (4) well for us. I'd guess I'm most valuable at (1), then (2), then (3).
-
-When I'm mostly paid to do (3), we can guess two things. We forgot to ask me for (2). And we didn't listen when I volunteered (1).
+You're a boss with staff and budget. So you probably cover role (4) well for us. I'd guess I'm most valuable at (1), then (2), then (3). But next suppose you see me mostly paid to do (3)? Well then we can guess two things. We forgot to ask me for (2). And we didn't listen when I volunteered (1).
 
 
 ### 3.4 Forming, Storming, Norming, & Performing
@@ -229,7 +228,7 @@ Maybe you've got skills that build deep trust much faster? I've not seen it, as 
 
 That's from "Designing Interfaces", by Jenifer Tidwell Nov/2005, p. 7/331.
 
-I can give you too much credit. I take you for curious, patient, imaginative, and collegial -- even when you're not feeling it. So I talk and talk, on and on and on. And that hurts you.
+Me, I can give you too much credit. I take you for curious, patient, imaginative, and collegial: even when you're not feeling it. So I talk and talk, on and on and on. And that hurts you.
 
 As often as I do this, I need you to tell me, out loud in words, so I stop.
 
@@ -238,37 +237,36 @@ As often as I do this, I need you to tell me, out loud in words, so I stop.
 
 You'll often need to hear the "Bottom Line Up Front (BLUF)" = Recommendations, before Conclusions, before Opinions, before Facts. And you'll often need to hear Who, What, When, Where, Why, & How, in exactly that order.
 
-When you feel I've shuffled either order, or dropped a point, I need you to tell me your need, so I can come meet it. Neither of these conventions come naturally to me. But I can conform to custom on request, no problem.
+When you feel I've shuffled either order, or dropped a point, I need you to tell me your need, so I can come meet it. Neither of these conventions come naturally to me. But I can conform to these customs on request, no problem. Just so long as you can speak your own needs out loud.
 
 
 ### 3.7 Telling you how to do your own job
 
-Sometimes you need me to tell us directly how I feel we should work.
+Sometimes you do need me to tell us directly how I feel we should work. But it's lots hard for me to really believe you want that. If you mean it, I need you to ask me more than once.
 
-It's lots hard for me to really believe you want that. If you mean it, I need you to ask me more than once.
-
-The fear I'm carrying is that you're feeling I'm talking AT you. But we agree that what we need is for me to talk WITH you. When you do feel I'm ducking the question, then I immediately urgently need one particular tiny bit of help from you. I need you to tell me you feel I need to take more floor time.
+The fear I'm carrying is that you'll be feeling I'm talking AT you. But what we need is for me to talk WITH you. When you do feel I'm ducking the question, then I need help from you inside that very moment. I need you to tell me you feel I need to take more floor time away from you.
 
 
 ## 4 Losing at work
 
 As we work together, you'll judge my performance, and I'll judge yours.
 
-I'll be too quick to misunderstand you. I misunderstand when I feel you sound like you're repeating an old foolish wrong that other bosses have repeated before you. I'll need you to lead me well out of my misimpression.
+I'll be too quick to misunderstand you. I'll misunderstand when I feel you sound like you're repeating an old foolish wrong that other bosses placed over me have repeated before you. I need you to lead me well out of my misimpressions.
 
 
 ### 4.1 Nine ways bosses have bullied me out of getting things done
 
-a. Gaslight me -- Say I have not seen and heard what I just saw and heard.<br>
-b. Don't tolerate dissent -- Don't tolerate questions -- Disapprove of my thoughts and actions that depart from the conventional.<br>
+a. Gaslight me. Say I have not seen and heard what I just saw and heard. <br>
+b. Don't tolerate dissent. Don't tolerate questions. Disapprove of my thoughts and actions that depart from the conventional.<br>
 c. Use me like a servant.<br>
 d. Order me to understand.<br>
-e. Blame me for failures of our system -- Pretend failures occurred because I lacked The Right Stuff, not because our system failed -- Scapegoat me.<br>
+e. Blame me for failures of our system. Pretend failures occurred because I lacked The Right Stuff, not because our system failed. Scapegoat me.<br>
 f. Give me no permission to question, no permission to disagree, no promise to listen.<br>
 g. Watch me all the time.<br>
 h. Come unglued when I get some idea of what you want and it isn't what you want.<br>
 i. Take my every failure as an insult to your ability to lead and command.<br>
 
+I've seen these 9 wrongs myself, firsthand.
 
 ### 4.2 Five ways bosses have slapped me out of making friends with them
 
@@ -278,12 +276,18 @@ c. Never acknowledge, never discuss, that the work must continue while you are a
 d. Make me guess what normal is.<br>
 e. Speak much less than you feel.<br>
 
-I've seen these 9 wrongs and 5 myself, firsthand. I've seen ill treatment of my coworkers, and ill treatment of myself. But I only found words for these common wrongs in a book. It's the "Military Brats" book, by Mary Edwards Wertsch, 351 pages, 1991. Her book sketches how children grew up, born 1952..1964 into the families of USA Cold War Military.
+I've seen these 5 wrongs myself, firsthand.
+
+### 4.3 Cold War
+
+I've seen these 9 wrongs and 5, myself, firsthand, in workplaces, in schools, in homes. Ill treatment of my coworkers, and ill treatment of myself. But I only found words for these common wrongs in a book.
+
+The book that gave me words for these familiar wrongs is the "Military Brats" book, by Mary Edwards Wertsch, 351 pages, 1991. Her book sketches how children grew up, born 1952..1964 into the families of USA Cold War Military.
 
 As for me, the US Navy gave me ten homes and ten schools by the tenth grade, across the 1960s and 1970s. I came to know that Cold War life, much the same, in the decade after hers.
 
 
-### 4.3 Instructions you don't want to give me
+### 4.4 Instructions you don't want to give me
 
 Sometimes I feel we've trapped me in a role I'm wildly overqualified for.
 
@@ -293,12 +297,10 @@ Three wrong instructions I once received are:
 2. Do not help too many people working too far away from your own deliverables, because we will punish that as Lack of Focus.
 3. Do not move too much too quickly on what you believe must move now, because we will punish that as Over-Promise Under-Deliver. And we will punish moving without Permission, and we will never show up with Forgiveness.
 
-To hire me, catch me when I'm feeling misled like this. Promise me you won't wrong me the same way.
-
-What I need from you is clearer direction, less punishment.
+To hire me, catch me when I'm feeling misled like this. Promise me you won't wrong me the same way. What I need from you is more clear directions, less mystic punishments.
 
 
-### 4.4 One thing I won't do for you
+### 4.5 One thing I won't do for you
 
 I'm not going to tell your people how to do their job.
 
@@ -311,7 +313,7 @@ I'm not going to hurt & hurt & hurt them while they hold no right of reply.
 
 Have you got needs, needs that your people are not meeting, needs that you have never put into words?
 
-Are your unspoken needs these six?
+Are your unspoken needs these six that follow?
 
 I'll guess they are, unless you tell me different.
 
@@ -323,7 +325,7 @@ My thirty years of working with people like you has taught me the 6 accommodatio
 
 I cut to the chase, I don't beat around the bush. I get to the point, I spit it out. You don't want stories. You want "just the facts". When talking to you, I leave out the details and stick to the broad strokes.
 
-I provide basic context, I give the minimal background info and I skip the "colour". I offer you the Coles Notes version. You can ask questions to find out whatever else you need to know.
+I provide basic context, I give the minimal background info and I skip the "colour". I offer you the Cliffs Notes/ Coles Notes version. You can ask questions to find out whatever else you need to know.
 
 ### 5.2 Jump
 
@@ -347,7 +349,7 @@ I've had a particularly hard time with this one. People like you just "get" each
 
 Whatever I do, I don't cry. This is tough for me, because I show anger as tears. But you don't understand tears in a professional setting. You mistake tears as a purely emotional reaction: sad or unhappy. Me crying makes you extremely uncomfortable and you don't know what to do. You'd read crying as weakness, as a sign that I can't cope. Too often, this is what you have been taught, so then crying reflects poorly on me.
 
-When I think I'm losing it, I excuse myself or reschedule for a time when I'll feel less emotional and more stoic. If need be, I settle for seeming abrupt or rude, rather than giving way to tears.
+When I think I'm losing it, I excuse myself or reschedule for a time when I'll feel less emotional and more stoic. If need be, I settle for me coming across as abrupt or rude, never me giving way naturally to tears.
 
 ### 5.6 Cheat
 
