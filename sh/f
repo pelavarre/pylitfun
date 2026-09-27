@@ -4,6 +4,6 @@ if [ $# -ne 0 ]; then
     set -xe
     find "$@"
 else
-    set -xe
-    find .
+    echo "+ find . |sed 's,^[.]/,,'" >&2
+    find . |sed 's,^[.]/,,'  # |... converts failure in 'find' to success :(
 fi

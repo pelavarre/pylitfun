@@ -565,9 +565,9 @@ macOS stopped shipping Emacs, since Oct/2019 macOS Catalina, leaving you with on
 Calls Find, but with no Args searches the folders of folders led by your present Pwd current directory folder.
 
     $ f
-    + find .
+    + find . |sed 's,^[.]/,,'
     .
-    ./t.txt
+    t.txt
 
 Called with no Args, the stock 'find' on macOS prints its usage and quits, where 'f' prints the tree.
 
