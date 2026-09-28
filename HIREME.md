@@ -256,7 +256,7 @@ I'll be too quick to misunderstand you. I'll misunderstand when I feel you sound
 
 ### 4.1 Nine ways bosses have bullied me out of getting things done
 
-a. Gaslight me. Say I have not seen and heard what I just saw and heard. <br>
+a. Gaslight me. Say I have not seen and heard what I just saw and heard.<br>
 b. Don't tolerate dissent. Don't tolerate questions. Disapprove of my thoughts and actions that depart from the conventional.<br>
 c. Use me like a servant.<br>
 d. Order me to understand.<br>
@@ -268,6 +268,7 @@ i. Take my every failure as an insult to your ability to lead and command.<br>
 
 I've seen these 9 wrongs myself, firsthand.
 
+
 ### 4.2 Five ways bosses have slapped me out of making friends with them
 
 a. Make it exceedingly difficult to get past the surface of things.<br>
@@ -277,6 +278,7 @@ d. Make me guess what normal is.<br>
 e. Speak much less than you feel.<br>
 
 I've seen these 5 wrongs myself, firsthand.
+
 
 ### 4.3 Cold War
 
@@ -321,11 +323,13 @@ Research tells us you focus on the results. You pick a goal, and look for the sh
 
 My thirty years of working with people like you has taught me the 6 accommodations you need. It's on me. To meet your needs, I must shout, jump, shove, shrug, storm, and cheat.
 
+
 ### 5.1 Shout
 
 I cut to the chase, I don't beat around the bush. I get to the point, I spit it out. You don't want stories. You want "just the facts". When talking to you, I leave out the details and stick to the broad strokes.
 
 I provide basic context, I give the minimal background info and I skip the "colour". I offer you the Cliffs Notes/ Coles Notes version. You can ask questions to find out whatever else you need to know.
+
 
 ### 5.2 Jump
 
@@ -333,11 +337,13 @@ I leave out the explanations about why I didn't or why we can't do something. Yo
 
 In place of explanation, I sketch how I have begun to compensate for or correct the situation. That's what you need to hear: much more the what, not so much the why.
 
+
 ### 5.3 Shove
 
 I don't take it personally. I cultivate a thicker skin. You have an enviable ability to shrug off criticism, move past negative comments, and ignore unwanted input. I can take casual feedback in the worst possible light, as a laser pinpointing my shortcomings. I can dwell on feedback, giving it more weight than it was meant to carry. Yes I can, and no I shouldn't. I shouldn't waste my time on failing & failing to make sense of your incoherence.
 
 I hold back from hearing your every word and listening for all of your possible meanings. I assume you are thinking only of the message: your words as you meant them.
+
 
 ### 5.4 Shrug
 
@@ -345,11 +351,13 @@ I ditched the chip on my shoulder. Lesson number 1: Life is not fair. Lesson num
 
 I've had a particularly hard time with this one. People like you just "get" each other. There will always be times when I am the odd one out, basically because I am not one of you.
 
+
 ### 5.5 Storm
 
 Whatever I do, I don't cry. This is tough for me, because I show anger as tears. But you don't understand tears in a professional setting. You mistake tears as a purely emotional reaction: sad or unhappy. Me crying makes you extremely uncomfortable and you don't know what to do. You'd read crying as weakness, as a sign that I can't cope. Too often, this is what you have been taught, so then crying reflects poorly on me.
 
 When I think I'm losing it, I excuse myself or reschedule for a time when I'll feel less emotional and more stoic. If need be, I settle for me coming across as abrupt or rude, never me giving way naturally to tears.
+
 
 ### 5.6 Cheat
 
