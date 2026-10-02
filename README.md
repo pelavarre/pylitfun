@@ -1,25 +1,53 @@
 # pylitfun
 
-This place is the 1 Git Repo that I keep up for fun, outside of work.
+I'd say this is a portfolio of work in computer engineering. This place is the 1 Git Repo that I keep up for fun, outside of work.
 
-Come fix to a hundred bugs in your Shell without losing track of your hundred fixes. Or come tune up some Text User Interface (TUI) of yours as well as we've tuned up ours. Or come play & patch Games inside a Terminal Shell Tab Window.
+Come fix a hundred bugs in your Shell without losing track of your hundred fixes. Or come tune up some Text User Interface (TUI) of yours as well as we've tuned up ours. Or come play & patch Games inside a Terminal Shell Tab Window.
 
-Presently you have a dozen Docs to choose from:
+I'm on the watch to surface the fraction of the work that I have the right to disclose. I figure it helps that I work in California, where the labor law makes me less of a thing my employer can own, leaves me more free to speak.
+
+## Docs
+
+You can pick any of a dozen docs for us to talk over.
+
+### 1 ) Working with People
 
 | Words  | Pathname | Topic |
 |-------:|--------------------------------|--|
+|    830 | [README.md](./README.md) | You are here (vous êtes là) |
 |   3830 | [HIREME.md](./HIREME.md) | Hire me, because I like turning impossible into done |
-|   1803 | [bin/litglass-readme.md](./bin/litglass-readme.md) | Let's make a game |
+|    662 | [docs/engineers-day-calendar.md](./docs/engineers-day-calendar.md) | You'll remember when your nation's national celebration of Engineers is? |
+
+### 2 ) Working with Numbers
+
+| Words  | Pathname | Topic |
+|-------:|--------------------------------|--|
 |   2179 | [bin/litint-readme.md](./bin/litint-readme.md) | Three digits are plenty, nearly always. |
+|   4991 | [docs/float-lies.md](./docs/float-lies.md) | After you grok three-digit Ints, try three-digit Floats. |
+
+### 3 ) Working with Terminals
+
+| Words  | Pathname | Topic |
+|-------:|--------------------------------|--|
+|   1803 | [bin/litglass-readme.md](./bin/litglass-readme.md) | Let's make a game inside your Terminal |
+|   1376 | [docs/printf-cat.md](./docs/printf-cat.md) | Surveying Terminals |
+|    666 | [docs/screen-tests.md](./docs/screen-tests.md) | Testing Terminals |
+|   5023 | [docs/terminal-lies.md](./docs/terminal-lies.md) | Disbelieving Terminals |
+
+### 4 ) Working with Shells
+
+| Words  | Pathname | Topic |
+|-------:|--------------------------------|--|
 |   7075 | [bin/litshell-readme.md](./bin/litshell-readme.md) | 30 Shell Pipe Extensions you'll call often enough to remember |
 |   1097 | [csp/cspbook-py-readme.md](./csp/cspbook-py-readme.md) | Shouldn't sketching with Communicating Sequential Processes (CSP) be easy? |
-|    662 | [docs/engineers-day-calendar.md](./docs/engineers-day-calendar.md) | You'll remember when your nation's national celebration of Engineers is? |
-|   4991 | [docs/float-lies.md](./docs/float-lies.md) | After you grok three-digit Ints, try three-digit Floats. |
-|   1376 | [docs/printf-cat.md](./docs/printf-cat.md) | Notes on building bin/litglass-readme.md |
-|    666 | [docs/screen-tests.md](./docs/screen-tests.md) | Notes on testing bin/litglass-readme.md |
-|   5023 | [docs/terminal-lies.md](./docs/terminal-lies.md) | Notes on needing bin/litglass-readme.md |
 |    582 | [pylitgit/pylitgit-readme.md](./pylitgit/pylitgit-readme.md) | Take Git as a TUI and make it better |
-|   5528 | [sh/sh-readme.md](./sh/sh-readme.md) | 100 Shell Extensions for you to love and not forget |
+|   5528 | [sh/sh-readme.md](./sh/sh-readme.md) | 100 Tiny Shell Extensions for you to love and not forget |
+
+<!-- Word counts rapidly go stale, of course. Tell me if you ever feel we're as much as 10% off? -->
+
+## Friends
+
+Friends make friends make time for jokes. Like the two most difficult puzzles in Computer Engineering are cache invalidation, naming, and off-by-one-errors. Even for people who believe three is not two. As for the naming, well:
 
 I say this Repo is Lit because a Lit Thing is something amazing, fun, or full of energy. I say this Repo is Py Fun because I enjoy speaking Python & Shell simply and well. I say this Repo is Fun because it is.
 
