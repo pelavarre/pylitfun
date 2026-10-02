@@ -179,7 +179,7 @@ Bosses find a lose/lose with me when they starve Point 2 for attention. Point 1 
 
 ### 3.2 Getting things done, vs making & keeping friends
 
-You know this MBA 2x2 plot?
+You know this next MBA 2x2 plot too?
 
 1. **Compete** = Get more done, but maybe people don't like you.
 2. **Collaborate** = Expensive, and sometimes worth it = Make friends by getting things done together.
