@@ -4,7 +4,7 @@ I'd say this is a portfolio of work in computer engineering. This place is the 1
 
 Come fix a hundred bugs in your Shell without losing track of your hundred fixes. Or come tune up some Text User Interface (TUI) of yours as well as we've tuned up ours. Or come play & patch Games inside a Terminal Shell Tab Window.
 
-I'm on the watch to surface the fraction of the work that I have the right to disclose. I figure it helps that I work in California, where the labor law makes me less of a thing my employer can own, leaves me more free to speak.
+I'm on the watch to surface the play that I have the right to disclose. I figure it helps that I work in California, where the labor law makes me less of a thing my employer can own, leaves me more free to speak.
 
 ## Docs
 
