@@ -1,8 +1,10 @@
 # Tiny independent Shell Tools, one file each
 
+\> [sh/*](.)
+
 **Take one. Then another. Then more.**
 
-Each file in [here/](.) is a few lines of a plain Shell Script. Each Script stands alone. Copy one into your own Shell Path, and it works. Copy none of the others, and the one you did copy still works.
+Each file in here is a few lines of a plain Shell Script. Each Script stands alone. Copy one into your own Shell Path, and it works. Copy none of the others, and the one you did copy still works.
 
     cp -ip sh/.ls ~/bin/.
 
@@ -13,9 +15,9 @@ That is the whole install. No framework, no config to source. If you stop liking
 
 You already have a dozen aliases in your Shell rc file. You know more is a bit wrong than you have made time to fix. A few of them you have forgotten altogether by now.
 
-They die when you 'ssh' somewhere, because they didn't come with you. They die when you switch to Zsh from Bash. They fail when not found in the Shell Path by a new Script. They pile up as lines of 'alias' inside one file that you're slow to edit, because you've forgotten how half of them work.
+The bundling is part of the problem. They die when you 'ssh' somewhere, because they didn't come with you. They die when you switch to Zsh from Bash. They fail when not found in the Shell Path by a new Script. They pile up as lines of 'alias' inside one file that you're slow to edit, because you've forgotten how half of them work.
 
-A tool that is one small file has none of these problems. It runs from any Shell, or from no Shell. It travels by 'cp' and by 'scp'. Its whole story fits on one screen, it opens by saying what it's for, and it can be coded to say who it is again, when it runs.
+A tool that is one small file has none of these problems. You drop it into the Shell Path, one host at a time, and make its name as short or long as you like. It runs from any Shell, or from no Shell. It travels by 'cp' and by 'scp'. Its whole story fits on one screen, it opens by saying what it's for, and it can be coded to say who it is again, when it runs.
 
 Fifty of these small files are exactly this simple. And then there are two more. These other two end in '.sh' and come from 'chmod -x'. They code up Shell 'function's to source into your Shell, because they touch things that exist only inside your Shell: your Pwd current directory folder and your '$?' last exit code. To install them, you copy them into your ~/.zprofile and ~/.bash_profile and so on. Or you can 'source' them on demand.
 
