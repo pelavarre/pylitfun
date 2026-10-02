@@ -8,12 +8,12 @@ Each file in here is a few lines of a plain Shell Script. Each Script stands alo
 
     cp -ip sh/.ls ~/bin/.
 
-That is the whole install. No framework, no config to source. If you stop liking one, delete it, and nobody cares.
+That is the whole install. No framework to adopt, no config to source. If you stop liking one, delete it, and nobody cares.
 
 
 ## Who is this for?
 
-You already have a dozen aliases in your Shell rc file. You know more is a bit wrong than you have made time to fix. A few of them you have forgotten altogether by now.
+You already have a dozen aliases in your Shell rc file. You know they've got bugs you're not fixing. A few of them you have forgotten altogether by now.
 
 The bundling is part of the problem. They die when you 'ssh' somewhere, because they didn't come with you. They die when you switch to Zsh from Bash. They fail when not found in the Shell Path by a new Script. They pile up as lines of 'alias' inside one file that you're slow to edit, because you've forgotten how half of them work.
 
