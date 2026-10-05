@@ -309,13 +309,13 @@ class ByteKeeper:
 
 
 #
-# Collect KeyByteFrame's and track when they arrived
+# Collect TerminalByteFrame's and track when they arrived
 #
 
 
 @dataclasses.dataclass(order=True)  # , frozen=True)
-class KeyByteFrameKeeper:
-    """Collect KeyByteFrame's and track when they arrived"""
+class TerminalByteFrameKeeper:
+    """Collect TerminalByteFrame's and track when they arrived"""
 
 
 #
@@ -324,7 +324,7 @@ class KeyByteFrameKeeper:
 
 
 def _try_key_byte_frame_() -> None:
-    """Try KeyByteFrame things"""
+    """Try TerminalByteFrame things"""
 
     assert DL_Y == "\033[" "{}M"
     assert _CLICK3_ == "\033[M"
@@ -334,52 +334,52 @@ def _try_key_byte_frame_() -> None:
 
     # Do nothing with grace & elegance
 
-    KeyByteFrame(b"")
+    TerminalByteFrame(b"")
 
     # Speak well of ↑ and ⎋↑
 
-    f = KeyByteFrame(b"\033[A")
+    f = TerminalByteFrame(b"\033[A")
     assert f.to_frame_bytes() == b"\033[A", (f,)
     assert f.closed, (f,)
 
-    f = KeyByteFrame(b"\033\033[A")
+    f = TerminalByteFrame(b"\033\033[A")
     assert f.to_frame_bytes() == b"\033\033[A", (f,)
     assert f.closed, (f,)
 
     # Dance well with the _CLICK3_ clash into DL_Y without Pn
 
-    f = KeyByteFrame(b"\033[M")
+    f = TerminalByteFrame(b"\033[M")
     assert f.to_frame_bytes() == b"\033[M", (f,)
     assert not f.closed, (f,)  # because could be ⎋[⇧M{b}{x}{y}
 
-    f = KeyByteFrame(b"\033[Mabc")
+    f = TerminalByteFrame(b"\033[Mabc")
     assert f.to_frame_bytes() == b"\033[Mabc", (f,)
     assert f.closed, (f,)
 
-    f = KeyByteFrame(b"\033[Mab\xff")
+    f = TerminalByteFrame(b"\033[Mab\xff")
     assert f.to_frame_bytes() == b"\033[Mab\xff", (f,)
     assert f.closed, (f,)
 
     # Accept ↖↗↘↙ Intercardinal Arrows, not just ←↑→↓ Cardinal Arrows
 
-    f = KeyByteFrame("\033[↗".encode())  # not yet standard
+    f = TerminalByteFrame("\033[↗".encode())  # not yet standard
     assert f.to_frame_bytes() == "\033[↗".encode(), (f,)
     assert f.closed, (f,)
 
     # Accept the ⎋\ String Terminator (ST) to close an ⎋] Osc Frame
 
-    f = KeyByteFrame(b"\033]11;?\033\\")
+    f = TerminalByteFrame(b"\033]11;?\033\\")
     assert f.to_frame_bytes() == b"\033]11;?\033\\", (f,)
     assert f.closed, (f,)
 
     #
-    # todo: port in more KeyByteFrame tests from ._try_key_pack_ of
+    # todo: port in more TerminalByteFrame tests from ._try_key_pack_ of
     #   https://github.com/pelavarre/less-beeps/blob/1009pl/bin/less-beeps.py
     #
 
 
 @dataclasses.dataclass(order=True)  # , frozen=True)
-class KeyByteFrame:
+class TerminalByteFrame:
     """Frame Bytes of Input, as an ⎋ Esc Sequence, else simply"""
 
     encodes: bytearray  # b''  # Decodable Printable Text
@@ -415,10 +415,10 @@ class KeyByteFrame:
 
     def __bool__(self) -> bool:
 
-        truthy = self != KeyByteFrame(b"")
+        truthy = self != TerminalByteFrame(b"")
         return truthy
 
-    # def __str__(self) -> str:  # todo9: add for Class KeyByteFrame
+    # def __str__(self) -> str:  # todo9: add for Class TerminalByteFrame
 
     def clear_frame(self) -> None:
         """Start again"""
@@ -559,7 +559,7 @@ class KeyByteFrame:
 
         prefix = extras[:-1]
         o = (prefix, extras, kbyte)
-        assert (not prefix) or KeyByteFrame.bytes_to_later_decode_if(prefix), o
+        assert (not prefix) or TerminalByteFrame.bytes_to_later_decode_if(prefix), o
 
         return extras
 
@@ -586,11 +586,11 @@ class KeyByteFrame:
         # Hold 1..3 Bytes to decode later, except after ⎋[⇧M where 0x80..0xFF are raw Coords
 
         data = bytes(stash + kbyte)
-        text = KeyByteFrame.bytes_decode_if(data)
+        text = TerminalByteFrame.bytes_decode_if(data)
 
         if not text:
             if head != b"\033[M":
-                if KeyByteFrame.bytes_to_later_decode_if(data):
+                if TerminalByteFrame.bytes_to_later_decode_if(data):
                     stash.extend(kbyte)
                     return b""
 
@@ -688,7 +688,7 @@ class KeyByteFrame:
         # Take one of the ⎋ Esc Head's, without closing the Frame
 
         head_plus = head + data
-        if head_plus in KeyByteFrame.Headbook:
+        if head_plus in TerminalByteFrame.Headbook:
             lstrip = head_plus.lstrip(b"\033")
             assert len(lstrip) <= 1, (head_plus,)
 
@@ -744,7 +744,7 @@ class KeyByteFrame:
 
         if (not neck) and (not backtail):
             head_plus = head + data
-            if head_plus in KeyByteFrame.Headbook:
+            if head_plus in TerminalByteFrame.Headbook:
                 assert head_plus == b"\033[M", (head_plus,)
                 head.extend(data)
                 return b""
@@ -850,7 +850,7 @@ class KeyByteFrame:
     def bytes_to_later_decode_if(data: bytes) -> str:
         """Say if some Bytes start 1 or more UTF-8 Encodings of Chars"""
 
-        endswiths = KeyByteFrame.Endswiths
+        endswiths = TerminalByteFrame.Endswiths
 
         for endswith in endswiths:
             data_plus = data + endswith
