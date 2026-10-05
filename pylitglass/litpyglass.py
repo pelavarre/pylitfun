@@ -73,8 +73,7 @@ def main() -> None:
 
     # Pick a demo, else freak  # todo: tighter parsing of .shargv
 
-    eggs = list(_ for _ in shargv if _ != "--")
-    eggs = list(_.removeprefix("--egg=") for _ in eggs)
+    eggs = list(_.removeprefix("--egg=") for _ in shargv if _.startswith("--egg="))
     if not eggs:
         eggs.append("bytes")
 
@@ -82,8 +81,8 @@ def main() -> None:
         show_bytes()
     elif "nanos" in eggs:
         show_nanos()
-    # elif "frames" in eggs:
-    #     show_frames()
+    elif "frames" in eggs:
+        show_frames()
     else:
         assert False, (eggs,)
 
@@ -111,51 +110,50 @@ def _main_doc_scrape_closing_() -> str:
 def show_bytes() -> None:
     """Print your input bytes, on screen"""
 
-    ilog = ByteLog()
-
-    with TerminalBoss(ilog=ilog) as tb:
+    with TerminalBoss() as tb:
 
         print("Press Return three times quickly, to quit", end="\r\n")
         print(end="\r\n")
 
+        ibk = ByteKeeper()
         while True:
-            tb.read_bytes()
+            b = tb.read_one_byte()
+            ibk.bytes_extend(b)
 
-            pull = ilog.pull_bytes()
-            for xx in pull:
-                print(xx, repr(bytes([xx])), end="\r\n")
+            print(ord(b), repr(b), end="\r\n")
 
-            if ilog.is_quitting():
+            if ibk.is_quitting():
                 break
 
 
 def show_nanos() -> None:
     """Print your input bytes and when they arrived"""
 
-    ilog = ByteLog()
-
     nano = LAUNCH_NANO
-    with TerminalBoss(ilog=ilog) as tb:
+    with TerminalBoss() as tb:
 
         print("Press Return three times quickly, to quit", end="\r\n")
         print(end="\r\n")
 
+        ibk = ByteKeeper()
         while True:
-            tb.read_bytes()
+            b = tb.read_one_byte()
+            n = ibk.bytes_extend(b)
 
-            pairs = ilog.pull_nano_byte_pairs()
-            for pair in pairs:
-                n, b = pair
+            xx = ord(b)
+            delta_n = n - nano
+            nano = n
 
-                delta_n = n - nano
-                xx = ord(b)
+            print(f"{delta_n:_}", xx, repr(b), end="\r\n")
 
-                print(f"{delta_n:_}", xx, repr(b), end="\r\n")
-
-                nano = n
-
-            if ilog.is_quitting():
+            if ibk.is_quitting():
                 break
+
+
+def show_frames() -> None:
+    """Print your input byte frames and when they started and ended"""
+
+    raise NotImplementedError()
 
 
 #
@@ -170,9 +168,8 @@ class TerminalBoss:
     stdio: io.TextIOWrapper
     fileno: int  # often 2 == sys.__stderr__.fileno()
     tcgetattr: list[int | list[bytes | int]]  # replaced by .__enter__
-    ilog: ByteLog
 
-    def __init__(self, ilog: ByteLog) -> None:
+    def __init__(self) -> None:
 
         assert sys.__stderr__, (sys.__stderr__,)
         stdio = sys.__stderr__  # todo: stdin, tty
@@ -181,7 +178,6 @@ class TerminalBoss:
         self.stdio = stdio
         self.fileno = fileno
         self.tcgetattr = list()
-        self.ilog = ilog
 
     def __enter__(self) -> TerminalBoss:
         r"""Pause line-buffering Input, pause taking \n Output as \r\n, etc"""
@@ -243,11 +239,10 @@ class TerminalBoss:
 
         # todo: try termios.TCSAFLUSH to discard Input while exiting
 
-    def read_bytes(self) -> None:
-        """Do read the bytes, but don't frame them and don't return them"""
+    def read_one_byte(self) -> bytes:
+        """Read one byte and return it"""
 
         fileno = self.fileno
-        ilog = self.ilog
 
         fd = fileno
         length = 1
@@ -257,7 +252,7 @@ class TerminalBoss:
             raise OSError(errno.EIO, os.strerror(errno.EIO))  # as Linux does for b''
 
         assert len(read) == 1, (read,)
-        ilog.bytes_extend(read)
+        return read
 
 
 #
@@ -266,8 +261,8 @@ class TerminalBoss:
 
 
 @dataclasses.dataclass(order=True)  # , frozen=True)
-class ByteLog:
-    """Collect Bytes and track when they arrived"""
+class ByteKeeper:
+    """Collect Bytes, and track when they arrived"""
 
     data: bytearray  # the Bytes
     nanos: list[int]  # when they arrived
@@ -279,45 +274,17 @@ class ByteLog:
         self.nanos = list()
         self.index = 0
 
-    def bytes_extend(self, extend: bytes) -> None:
+    def bytes_extend(self, extend: bytes) -> int:
         """Say >= 0 more Bytes arrived now"""
 
         data = self.data
         nanos = self.nanos
 
-        ns = time.perf_counter_ns()
+        nano = time.perf_counter_ns()
         data.extend(extend)
-        nanos.extend(len(extend) * [ns])
+        nanos.extend(len(extend) * [nano])
 
-    def pull_bytes(self) -> bytes:
-        """Read and clear the bytes queued since last sampled"""
-
-        data = self.data
-        index = self.index
-
-        pull = bytes(data[index:])
-        self.index = len(data)
-
-        return pull
-
-    def pull_nano_byte_pairs(self) -> tuple[tuple[int, bytes], ...]:
-        """Read and clear the (nano, bytes) pairs queued since last sampled"""
-
-        data = self.data
-        nanos = self.nanos
-        index = self.index
-
-        pairs_list: list[tuple[int, bytes]] = list()
-        for i in range(index, len(data)):
-            n = nanos[i]
-            b = bytes(data[i:][:1])
-            pair = (n, b)
-            pairs_list.append(pair)
-
-        self.index = len(data)
-
-        pairs = tuple(pairs_list)
-        return pairs
+        return nano
 
     def is_quitting(self) -> bool:
         """Say if the Bytes have said please quit soon"""
