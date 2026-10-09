@@ -5789,8 +5789,6 @@ class KeyByteFrame:
     def _take_after_csi_if_(self, data: bytes, text: str) -> bytes:
         """Take 1..4 more Bytes in, after ⎋[ CSI, else return what doesn't fit"""
 
-        code = ord(text)
-
         head = self.head
         neck = self.neck
         backtail = self.backtail
@@ -5809,6 +5807,7 @@ class KeyByteFrame:
         # Grow the ⎋[ Csi Frame with 1 Decoded Printable Char
 
         if text and text.isprintable():
+            code = ord(text)
             assert code >= 0x20, (code, text, data)
 
             # Grow the Neck until the Backtail starts
