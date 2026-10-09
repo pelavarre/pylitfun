@@ -5623,15 +5623,16 @@ class KeyByteFrame:
         if closed:
             return kbyte
 
-        # Hold 1..3 Bytes to decode later
+        # Hold 1..3 Bytes to decode later, except after ⎋[⇧M where 0x80..0xFF are raw Coords
 
         data = bytes(stash + kbyte)
         text = KeyByteFrame.bytes_decode_if(data)
 
         if not text:
-            if KeyByteFrame.bytes_to_later_decode_if(data):
-                stash.extend(kbyte)
-                return b""
+            if head != b"\033[M":
+                if KeyByteFrame.bytes_to_later_decode_if(data):
+                    stash.extend(kbyte)
+                    return b""
 
         assert len(text) <= 1, (len(text), text, data)
 
@@ -5752,39 +5753,23 @@ class KeyByteFrame:
         return b""
 
     def _take_after_csi_m_if_(self, data: bytes) -> bytes:
-        """Take 1..4 more Bytes in, after ⎋[⇧M, else return what doesn't fit"""
+        """Take 1 more Byte in, after ⎋[⇧M, and never bounce it"""
 
         head = self.head
         backtail = self.backtail
 
-        # Take up to three B X Y Chars after the Head, if all printable
+        # Take three raw B X Y Bytes after the Head, each 32 + Coord, so 0x20..0xFF, never decoded
 
-        head_backtail_plus = bytes(head + backtail + data)
-        plus_later = KeyByteFrame.bytes_to_later_decode_if(head_backtail_plus)
-        assert not plus_later, (plus_later, head, backtail, data)
+        assert len(data) == 1, (data, head, backtail)  # stashes nothing after ⎋[⇧M
+        assert len(head + backtail) < 6, (head, backtail, data)  # closes at 6, before now
 
-        plus_decode = KeyByteFrame.bytes_decode_if(head_backtail_plus)
-        if plus_decode:
-            if len(plus_decode) <= 6:
-                backtail.extend(data)
-                if len(plus_decode) == 6:
-                    self.close_frame()
-                return b""
+        backtail.extend(data)
+        if len(head + backtail) == 6:
+            self.close_frame()
 
-        # Take up to three B X Y Bytes after the Head without limitation
+        return b""
 
-        fit = 6 - len(head + backtail)
-        if fit > 0:
-            backtail.extend(data[:fit])
-            extra = data[fit:]
-            if len(head_backtail_plus) >= 6:
-                self.close_frame()
-            return extra  # maybe empty
-
-        # Close the ⎋[⇧M Frame after 6 Bytes or before
-
-        self.close_frame()
-        return data
+        # ⎋[?1005h Utf-8 Mouse Coords never enabled here, so never decoded here
 
     def _take_after_csi_if_(self, data: bytes, text: str) -> bytes:
         """Take 1..4 more Bytes in, after ⎋[ CSI, else return what doesn't fit"""
