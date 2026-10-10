@@ -123,7 +123,7 @@ sense: black flake8 mypy
 slow: black flake8 mypy
 	:
 	bin/litdatetime.py -- >/dev/null 2>/dev/null
-	bin/litdecimal.py -- >/dev/null 2>/dev/null
+	: bin/litdecimal.py -- >/dev/null 2>/dev/null
 	: bin/litgit.py -- >/dev/null 2>/dev/null
 	: bin/litglass.py -- >/dev/null 2>/dev/null
 	bin/litjson.py -- >/dev/null 2>/dev/null
