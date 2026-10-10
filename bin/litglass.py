@@ -5606,6 +5606,21 @@ class KeyByteFrame:
         assert len(data) == 1, (data,)
         kbyte = data
 
+        extras = self._take_one_byte_if_(kbyte)
+
+        # Promise to bounce this Byte last, if at all, after the 0..3 Bytes of 1 unfinished Char
+
+        assert extras[-1:] in (b"", kbyte), (extras, kbyte)
+
+        prefix = extras[:-1]
+        o = (prefix, extras, kbyte)
+        assert (not prefix) or KeyByteFrame.bytes_to_later_decode_if(prefix), o
+
+        return extras
+
+    def _take_one_byte_if_(self, kbyte: bytes) -> bytes:
+        """Take 1 Byte in and return 0 Bytes, else return 1..4 Bytes that don't fit, unchecked"""
+
         encodes = self.encodes
         head = self.head
         stash = self.stash
