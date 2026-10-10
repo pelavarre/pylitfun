@@ -16,7 +16,7 @@ examples:
   pbpaste |awk '{print $NF}' |sed 's,^,-- ,' |sed 's,$, --,' |pbcopy  # f"-- {line} --" for each
 
   sed -i.bak 's,old,new,g' FILE ...  # edits File's in place
-  git show --pretty= --name-only |sed "s,\",$'," |sed "s,\",'," |sed 's,^,echo ,'  # unescapes
+  git show --pretty= --name-only |sed "s,\\",$'," |sed "s,\\",'," |sed 's,^,printf "%s\\\\n" ,'  # unescapes
 
   |sed 's,^  *,,' |sed 's,  *$,,'  # drops Space's from start and end of each line  # |pf strip
   |sed 's,  *, ,g'  # collapses each run of Space's into a single Space  # |pf split join

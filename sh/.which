@@ -11,10 +11,10 @@ else  # else runs once per Shell Arg, calling for 'ls -A |grep -ai -e' at each D
 
     echo + "for P in ... \$PATH ...; do ls -A \$P |grep -ai -e ..." >&2
     for A in "$@"; do
-        echo "$PATH" |tr ':' '\n' |while read -r P; do
+        printf '%s\n' "$PATH" |tr ':' '\n' |while read -r P; do
             # shellcheck disable=SC2010  # Avoid ls | grep. Prefer Glob, or For Loop, or Ls Options.
             [ -d "$P" ] && ls -A "$P" |grep -ai -e "$A" |while read -r F; do
-                [ -f "$P/$F" ] && [ -x "$P/$F" ] && echo "$P/$F"
+                [ -f "$P/$F" ] && [ -x "$P/$F" ] && printf '%s\n' "$P/$F"
             done
         done
     done |sed "s,^$HOME,~,"

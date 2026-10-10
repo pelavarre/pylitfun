@@ -16,3 +16,5 @@ else
     T=$T screen -S $T -L -c $T.cfg "$@"
 
 fi
+
+# known: inject a \ Backslash into the $T Label to make this go wrong under Zsh and Dash

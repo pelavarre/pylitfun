@@ -2,7 +2,7 @@
 
 echo ': grhu && echo Press ⌃D && cat - >/dev/null && git reset --hard @{upstream}' >&2
 
-echo 'Press ⌃D to auth:  git reset --hard @{upstream}' "$@" >&2
+printf '%s\n' "Press ⌃D to auth:  git reset --hard @{upstream} $*" >&2
 cat - >/dev/null
 
 : grhu && git reset --hard @{upstream} "$@"

@@ -7,7 +7,7 @@ D=$(dirname "$0")/..
 cd "$D"/ || exit 1
 
 echo >&2
-echo + cd "$(dirs -p |head -1)/" >&2
+printf '%s\n' "+ cd $(dirs -p |head -1)/" >&2
 
 set -xe
 

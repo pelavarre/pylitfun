@@ -23,9 +23,9 @@ while :; do
     T1=$(date)
 
     if ! cmp -s "$W~" "$W"; then
-        echo + date >&2 && echo "$T0"
+        echo + date >&2 && printf '%s\n' "$T0"
         cat "$W"
-        echo + date >&2 && echo "$T1"
+        echo + date >&2 && printf '%s\n' "$T1"
         echo
     fi
 

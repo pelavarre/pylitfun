@@ -7,4 +7,6 @@ if [ $# = 0 ]; then
     fi
 fi
 
-F=$(echo "$@") && echo + cp -ipR $F{,~$(date -r $F +%m%djqd%H%M)~} |tee /dev/tty |sed 's,^+ ,,' |sh
+F=$* && printf "+ cp -ipR '%s' '%s'\n" "$F" "$F~$(date -r "$F" +%m%djqd%H%M)~" |tee /dev/tty |sed 's,^+ ,,' |sh
+
+# known: inject a ' Apostrophe into the Filename to make this go wrong

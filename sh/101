@@ -1,0 +1,6 @@
+# sh/101 = Choose 101 Columns as the Terminal Window Width now
+
+ROWS=$(stty size </dev/tty |cut -d' ' -f1)  # $LINES flakes out variously
+
+printf '%s\n' "+ printf '\\033[8;$ROWS;101t'" >&2  # xterm ⎋[8;{rows};{columns}t
+printf '\033[8;%s;101t' "$ROWS"
