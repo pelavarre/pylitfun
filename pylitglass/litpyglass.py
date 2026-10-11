@@ -1337,7 +1337,7 @@ def _try_keyboard_decoder_() -> None:
         (b" ", "␢"),  # a Printable Char
         (b"j", "J"),
         (b"J", "⇧J"),
-        (b"abc", "A B C"),  # a Paste
+        (b"ABC", "⇧A ⇧B ⇧C"),  # a Paste
         (b"\377", ""),  # an Undecodable Byte
         #
         ("é".encode(), "⌥E E"),  # 'é' as 1 Char  # NFD would split out a Combining Acute Accent
@@ -1787,7 +1787,7 @@ class KeyboardDecoder:
             words.append(t_echo)
 
         caps = " ".join(words)
-        return caps  # ⌥E J  # ⌥E E  # A B C
+        return caps  # ⌥E J  # ⌥E E  # ⇧A ⇧B ⇧C
 
     def bytes_to_echoes_if(self, data: bytes) -> tuple[str, ...]:
         """Speak of a Byte Encoding as Sequences of Chords of Key Caps"""
