@@ -1329,11 +1329,11 @@ def _try_keyboard_decoder_() -> None:
         (b"\r", "⏎"),
         (b"\001", "⌃A"),
         (b"\033", "⎋"),
-        (b"\033[A", "↑"),  # an Esc Sequence
+        (b"\033[A", "↑"),  # a Csi Sequence
         (b"\033[1;2C", "⇧→"),
         (b"\033[", "⎋["),  # ⎋ struck before [
-        (b"\033[1", "⎋ [ 1"),  # three Key Caps struck, no Chord sends these Bytes
-        (b"\033[a", "⎋ [ A"),  # three Key Caps struck, though a closes the Esc Sequence
+        (b"\033[1", "⎋ [ 1"),  # three Key Caps struck, though no Chord sends these Bytes
+        (b"\033[a", "⎋ [ A"),  # three Key Caps struck, and the trailing b'a' closes the Frame
         (b" ", "␢"),  # a Printable Char
         (b"j", "J"),
         (b"J", "⇧J"),
@@ -1345,6 +1345,14 @@ def _try_keyboard_decoder_() -> None:
         ("´".encode(), "⌥⇧E"),  # the Spacing Acute Accent, as struck
         ("\u0301".encode(), ""),  # the Combining Acute Accent by itself, which no Key sends
         ("a\u0301\u0308".encode(), ""),  # two Combining Marks on one Char, which no Key sends
+        #
+        (b"\033OP", "F1"),  # an Ss3 Sequence
+        (b"\033[17~", "F6"),  # F6 over ⌥F1 or ⎋F1, which send the same Bytes
+        (b"\033[23~", "⌥F6"),  # ⌥F6 because macOS Mission Control often steals F11
+        (b"\033[24~", "F12"),  # F12 over ⌥F7 or ⎋F7
+        (b"\033[25~", "⇧F5"),  # ⇧F5 over ⌥F8 or ⎋F8
+        (b"\033[22~", "⎋ [ 2 2 ⇧~"),  # no F Key sends ⎋[22~  # F10 sends 21, F11 sends 23
+        (b"\033\020", "⎋⌃P"),  # ⎋⌃P over ⎋⇧F1 .. ⎋⌃⇧F12, which send the same Bytes
         #
     )
 
@@ -1411,6 +1419,7 @@ class KeyboardDecoder:
 
         self.decode_by_echo = dict()
         self._form_macos_keyboards_()
+        self._form_apple_terminal_keyboards_()
 
         self.echoes_by_decode = self._form_echoes_by_decode_()
 
