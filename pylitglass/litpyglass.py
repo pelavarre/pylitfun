@@ -25,6 +25,7 @@ examples:
 
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
 
+import collections
 import dataclasses
 import decimal
 import errno
@@ -32,6 +33,7 @@ import io
 import os
 import re
 import select
+import string
 import sys
 import termios
 import textwrap
@@ -1291,6 +1293,395 @@ class TerminalByteFrame:
     #
 
     # todo: invent UTF-8'ish Encoding beyond 1..4 Bytes for Unicode Codes > 0x10_FFFF ?
+
+
+#
+# Speak of a Byte Sequence as a Strike of Key Caps at a macBook
+#
+
+
+class KeyboardDecoder:
+    """Speak of a Byte Sequence as a Strike of Key Caps at a macBook"""
+
+    decode_by_echo: dict[str, str]
+    echoes_by_decode: dict[str, tuple[str, ...]]
+
+    PlainCapsWithoutFn = r"""
+        ⎋
+        ` 1 2 3 4 5 6 7 8 9 0 - = ⌫
+        ⇥ Q W E R T Y U I O P [ ] \
+        A S D F G H J K L ; ' ⏎
+        Z X C V B N M , . /
+        ␢ ← ↑ → ↓
+    """  # Plain Caps apart from F1 .. F12 etc
+
+    ShiftCapsWithoutFn = """
+        ⎋
+        ~ ! @ # $ % ^ & * ( ) _ + ⌫
+        ⇥ Q W E R T Y U I O P { } |
+        A S D F G H J K L : " ⏎
+        Z X C V B N M < > ?
+        ␢ ← ↑ → ↓
+    """  # Shift Caps apart from ⇧ F1 .. ⇧ F12 etc
+
+    ShortcutShifts: tuple[str, ...]  # ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧ ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧
+    ShortcutShifts = ("", "⌃", "⌥", "⌃⌥", "⇧", "⌃⇧", "⌥⇧", "⌃⌥⇧", "⎋", "⎋⌃", "⎋⇧", "⎋⌃⇧")
+
+    FamiliarShifts: tuple[str, ...]  # ⇧ ⌃ ⌥ ⌃⇧ ⌥⇧ ⌃⌥ ⌃⌥⇧ ⎋ ⎋⇧ ⎋⌃ ⎋⌃⇧
+    FamiliarShifts = ("", "⇧", "⌃", "⌥", "⌃⇧", "⌥⇧", "⌃⌥", "⌃⌥⇧", "⎋", "⎋⇧", "⎋⌃", "⎋⌃⇧")
+
+    assert sorted(ShortcutShifts) == sorted(FamiliarShifts)
+
+    def __init__(self) -> None:
+
+        self.decode_by_echo = dict()
+        self._form_macos_keyboards_()
+
+        self.echoes_by_decode = self._form_echoes_by_decode_()
+
+    def _form_macos_keyboards_(self) -> None:
+        """Form the ordinary Apple macBook Keyboards of Codes sent by Caps"""
+
+        # 1 ''
+
+        shifts = ""
+        strikes = r"""
+            033
+            140 1 2 3 4 5 6 7 8 9 0 - = 177
+            011 q w e r t y u i o p [ ] \
+            a s d f g h j k l ; ' 015
+            z x c v b n m , . /
+            040 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 2 ⇧
+
+        shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2D and ⎋[1;2C
+
+        strikes = """
+            033
+            176 ! @ # $ % ^ & * ( ) _ + 177
+            ⎋[⇧Z Q W E R T Y U I O P { } |
+            A S D F G H J K L : " 015
+            Z X C V B N M < > ?
+            040 ⎋[1;2⇧D ⎋[⇧A ⎋[1;2⇧C ⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 3 ⌃
+
+        shifts = "⌃"
+        strikes = """
+            033
+            ... ... ... ... ... ... ... ... ... ... ... 037 ... 177
+            011 021 027 005 022 024 031 025 011 017 020 033 035 034
+            001 023 004 006 007 010 012 013 014 ... ... ...
+            032 030 003 026 002 016 015 ... ... ...
+            000 ... ... ... ...
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 4 ⌥
+
+        shifts = "⌥"  # ⌥Y sends \, coded here as r""" \ """
+        strikes = r"""
+            033
+            ¤ ¡ ™ £ ¢ ∞ § ¶ • ª º – ≠ 177
+            011 œ ∑ ¤ ® † \ ¤ ¤ ø π “ ‘ «
+            å ß ∂ ƒ © ˙ ∆ ˚ ¬ … æ 015
+            Ω ≈ ç √ ∫ ¤ µ ≤ ≥ ÷
+            302.240 ⎋B ⎋⎋[⇧A ⎋F ⎋⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 5 ⌃⇧
+
+        shifts = "⌃⇧"
+        strikes = """
+            033
+            ... ... 000 ... ... ... 036 ... ... ... ... 037 ... 177
+            ⎋[⇧Z ... ... ... ... ... ... ... ... ... ... 033 035 034
+            ... ... ... ... ... ... ... ... ... ... ... ...
+            ... ... ... ... ... ... ... ... ... ...
+            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 6 ⌥⇧
+
+        shifts = "⌥⇧"  # ⌥⇧K sends the Apple Logo, coded here as 
+        strikes = """
+            033
+            140 ⁄ € ‹ › ﬁ ﬂ ‡ ° · ‚ — ± 177
+            ⎋[⇧Z Œ „ ´ ‰ ˇ Á ¨ ˆ Ø ∏ ” ’ »
+            Å Í Î Ï ˝ Ó Ô  Ò Ú Æ 015
+            ¸ ˛ Ç ◊ ı ˜ Â ¯ ˘ ¿
+            302.240 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 7 ⌃⌥
+
+        shifts = "⌃⌥"
+        strikes = """
+            033
+            140 1 2 3 4 5 6 7 8 9 0 037 = 177
+            011 021 027 005 022 024 031 025 011 017 020 033 035 034
+            001 023 004 006 007 010 012 013 014 ; ' 015
+            032 030 003 026 002 016 015 , . /
+            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 8 ⌃⌥⇧
+
+        shifts = "⌃⌥⇧"
+        strikes = """
+            033
+            140 1 000 3 4 5 036 7 8 9 0 037 = 177
+            ⎋[⇧Z 021 027 005 022 024 031 025 011 017 020 033 035 034
+            001 023 004 ... 007 010 012 013 014 ; ' 015
+            032 030 003 026 ... 016 015 , . /
+            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 9 ⎋
+
+        shifts = "⎋"
+
+        strikes = r"""
+            ⎋⎋
+            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 ⎋- ⎋= 033.177
+            033.011 ⎋Q ⎋W ⎋E ⎋R ⎋T ⎋Y ⎋U ⎋I ⎋O ⎋P ⎋[ ⎋] ⎋\
+            ⎋A ⎋S ⎋D ⎋F ⎋G ⎋H ⎋J ⎋K ⎋L ⎋; ⎋' 033.015
+            ⎋Z ⎋X ⎋C ⎋V ⎋B ⎋N ⎋M ⎋, ⎋. ⎋/
+            033.040 ⎋B ⎋⎋[⇧A ⎋F ⎋⎋[⇧B
+        """  # ⎋B ⎋F, not ⎋⎋[⇧D ⎋⎋[⇧C
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 10 ⎋⇧  # 033.117 ⎋O stops without closing its Key Byte Frame
+
+        shifts = "⎋⇧"
+        strikes = """
+            033.033
+            033.176 ⎋⇧! ⎋⇧@ ⎋⇧# ⎋⇧$ ⎋⇧% ⎋⇧^ ⎋⇧& ⎋⇧* ⎋⇧( ⎋⇧) ⎋⇧_ ⎋⇧+ 033.010
+            ⎋⎋[⇧Z ⎋⇧Q ⎋⇧W ⎋⇧E ⎋⇧R ⎋⇧T ⎋⇧Y ⎋⇧U ⎋⇧I ⎋⇧O ⎋⇧P ⎋⇧{ ⎋⇧} ⎋⇧|
+            ⎋⇧A ⎋⇧S ⎋⇧D ⎋⇧F ⎋⇧G ⎋⇧H ⎋⇧J ⎋⇧K ⎋⇧L ⎋⇧: ⎋⇧" 033.015
+            ⎋⇧Z ⎋⇧X ⎋⇧C ⎋⇧V ⎋⇧B ⎋⇧N ⎋⇧M ⎋⇧< ⎋⇧> ⎋⇧?
+            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 11 ⎋⌃
+
+        shifts = "⎋⌃"
+
+        strikes = """
+            033.033
+            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 033.037 ⎋= 033.010
+            033.011 033.021 033.027 033.005 033.022 033.024 033.031 033.025 033.011 033.017 033.020 033.033 033.035 033.034
+            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
+            033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
+            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 12 ⎋⌃⇧
+
+        shifts = "⎋⌃⇧"
+        strikes = """
+            033.033
+            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 033.037 ⎋= 033.010
+            ⎋⎋[⇧Z 033.021 033.027 033.005 033.022 033.024 033.031 033.025 033.011 033.017 033.020 033.033 033.035 033.034
+            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
+            033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
+            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+    def _add_keyboard_(self, shifts: str, strikes: str) -> None:
+        """Add in 1 Keyboard of Key Caps and their Strikes"""
+
+        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
+
+        strikes_split = strikes.split()
+        if not strikes_split:
+            return
+
+        plain_caps = tuple(KeyboardDecoder.PlainCapsWithoutFn.split())
+        shift_caps = tuple(KeyboardDecoder.ShiftCapsWithoutFn.split())
+
+        o = (len(plain_caps), len(shift_caps), len(strikes_split))
+        assert len(plain_caps) == len(shift_caps) == len(strikes_split), o
+
+        caps = shift_caps if ("⇧" in shifts) else plain_caps
+        for cap, cap_strikes in zip(caps, strikes_split):
+            echo = shifts + cap
+            decode = self._cap_strikes_to_decode_(cap_strikes, echo=echo)
+            if decode:
+
+                self._keyboard_add_decode_(decode, echo=echo)
+
+    def _cap_strikes_to_decode_(self, cap_strikes: str, echo: str) -> str:
+        """Convert to Decode of Byte Encoding of Key Strike"""
+
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
+
+        if cap_strikes in ("...", "¤"):
+            return ""
+
+        ba = bytearray()
+
+        octets = [cap_strikes]
+        if cap_strikes not in (".", "⎋."):
+            octets = cap_strikes.split(".")
+
+        for octet in octets:
+
+            # Accept single Characters
+
+            if len(octet) == 1:  # '€'
+                t = octet
+                assert t not in ("⎋⌃⌥⇧" "`~"), (octet, octets, cap_strikes, echo)
+                octet_data = octet.encode()
+                ba.extend(octet_data)
+                continue
+
+            # Accept single Characters escaped, no matter if shifted or not
+
+            if octet == "⎋⎋":  # ⎋⎋
+                octet_data = b"\033\033"
+                ba.extend(octet_data)
+                continue
+
+            if octet.startswith("⎋") and (len(octet) == 2):  # ⎋Z  # ⎋/
+                t = octet[1:]
+                if t not in (string.digits + string.ascii_uppercase):
+                    assert t in ("-=" "[]\\" ";'" ",./"), (t, octet, cap_strikes, echo)
+                octet_data = b"\033" + t.lower().encode()
+                ba.extend(octet_data)
+                continue
+
+                # rejects ⎋`
+
+            if octet.startswith("⎋⇧") and (len(octet) == 3):  # ⎋⇧Z  # ⎋⇧?
+                t = octet[2:]
+                if t not in string.ascii_uppercase:
+                    assert t in ("!@#$%^&*()_+" "{}|" ':"' "<>?"), (t, octet, cap_strikes, echo)
+                octet_data = b"\033" + t.encode()
+                ba.extend(octet_data)
+                continue
+
+                # rejects ⎋⇧~
+
+            # Accept three Octal Digits as an Octet
+
+            m = re.fullmatch(r"[0-7][0-7][0-7]", string=octet)
+            if m:  # 177
+                ba.append(int(octet, base=0o010))  # raises ValueError when > 0o377
+                continue
+
+            # Accept simple Csi Sequences spoken as ⎋[... ⇧..., even when preceded by one extra ⎋
+
+            m = re.fullmatch(r"(⎋|⎋⎋)(\[)([0-9;]*)⇧([ABCDPQRSZ~])", string=octet)
+            if m:  # ⎋[⇧Z  # ⎋[1;2⇧C  # ⎋⎋[⇧D  # ⎋[17⇧~
+                octet_data = len(m.group(1)) * b"\033"
+                octet_data += m.group(2).encode() + m.group(3).encode() + m.group(4).encode()
+                ba.extend(octet_data)
+                continue
+
+            assert False, (octet, octets, cap_strikes, echo)
+
+        decode = ba.decode()
+        assert ba and decode, (ba, decode)
+
+        return decode
+
+    def _keyboard_add_decode_(self, decode: str, echo: str) -> None:
+        """Add a Key Cap and its Byte Encoding to a Keyboard"""
+
+        assert decode, (decode, echo)
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
+
+        decode_by_echo = self.decode_by_echo
+
+        assert echo not in decode_by_echo.keys(), (echo, decode_by_echo[echo])
+        decode_by_echo[echo] = decode
+
+    def _form_echoes_by_decode_(self) -> dict[str, tuple[str, ...]]:
+        """Sort and invert our Decode_by_Echo Dict"""
+
+        decode_by_echo = self.decode_by_echo
+
+        familiar_shifts = KeyboardDecoder.FamiliarShifts
+
+        def echo_to_echo_key(echo: str) -> tuple[str, ...]:
+            """Sort Key Caps from least to most celebrated"""
+
+            assert len(echo.split()) == 1, (len(echo.split()), echo)
+
+            lstrip = echo.lstrip("⎋⌃⌥⇧")
+            cap = lstrip if lstrip else echo[-1:]
+
+            shifts = echo[: -len(cap)]
+            chr_index = chr(familiar_shifts.index(shifts))
+
+            chr_wide_cap = chr(len(cap) > 1)
+            chr_len_cap = chr(len(cap))
+
+            echo_key = (chr_wide_cap, chr_index, chr_len_cap, cap)
+            return echo_key
+
+            # ⎋⌃P ⎋⌃⇧P before ⎋⇧F2 before ⎋⇧F12, for example
+
+        vxk = decode_by_echo
+
+        kkxv = collections.defaultdict(list)
+        for k, v in vxk.items():
+            assert k and v, (k, v)
+            kkxv[v].append(k)
+
+        assert "" not in vxk.keys()
+
+        d = dict()
+        for v, kk in kkxv.items():
+            assert kk, (v, kk)
+            d[v] = tuple(sorted(kk, key=echo_to_echo_key))
+
+        assert "" not in d.keys()
+
+        return d
+
+    #
+    # Speak of a Byte Encoding as a Sequence of Chords of Key Caps
+    #
+
+    def bytes_to_echoes_if(self, data: bytes) -> tuple[str, ...]:
+        """Speak of a Byte Encoding as Sequences of Chords of Key Caps"""
+
+        text = data.decode()
+
+        echoes_by_decode = self.echoes_by_decode
+
+        if text in echoes_by_decode.keys():
+            echoes = echoes_by_decode[text]
+            return echoes
+
+            # tuple of '⎋', of '␢', of '⌥⇧⇥', of '⌃⌥⇧Fn'
+
+        return tuple()
 
 
 #
