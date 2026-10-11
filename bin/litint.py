@@ -18,6 +18,8 @@ import sys
 if not __debug__:
     raise NotImplementedError([__debug__])  # 'better python3 without -O than with -O'
 
+_: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
+
 
 def main() -> None:
     """Run from the Shell"""
@@ -79,7 +81,7 @@ def repr_int_chop_to_eng(n: int) -> str:
 #
 
 
-def _(n: int) -> str:
+def __(n: int) -> str:  # todo: 'def _' overrides how infinitely wide we wanted _: to be
 
     ctx = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)
     D = ctx.create_decimal
@@ -89,6 +91,9 @@ def _(n: int) -> str:
     return clip
 
     # when coded without docstring, without comments, and without asserts
+
+
+# see also 'def decimal_int_chop_to_eng_metric'
 
 
 def decimal_int_chop_to_eng(n: int) -> str:
@@ -124,6 +129,10 @@ def decimal_int_chop_to_eng(n: int) -> str:
 #   from litint import k, M, G, T, P, E, Z, Y, R, Q
 #   from litint import Ki, Mi, Gi, Ti, Pi, Ei, Zi, Yi, Ri, Qi
 #
+
+
+_ = "qryzafpnµm"  # also 'u' for 'µ'
+_ = "kMGTPEZYRQ"
 
 
 k = 10**3  # 'kMGTPEZYRQ' from https://en.wikipedia.org/wiki/Metric_prefix
