@@ -1,7 +1,7 @@
 # sh/e = Run an Emacs with less spam, often on a ./x.pb proxy of the Os Copy/Paste Clipboard Buffer
 
 emacs=emacs
-if [ ! which emacs >/dev/null 2>&1 ]; then
+if ! which emacs >/dev/null 2>&1; then
     emacs=/opt/homebrew/bin/emacs
 fi
 
