@@ -9,7 +9,7 @@ options:
   --egg EGG  a hint of how to behave, such as 'bytes' or 'frames'
 
 quirks:
-  quits when given an unprintable byte three times in a row, inside of just three seconds
+  quits when given an unprintable, 3 times in a row, but 100ms or more apart, across less than 3s
 
 examples:
   python3 pylitglass/litpyglass.py  # show these examples
@@ -26,15 +26,19 @@ examples:
 from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
 
 import dataclasses
+import decimal
 import errno
 import io
 import os
 import re
+import select
 import sys
 import termios
 import textwrap
 import time
 import tty
+import typing
+import unicodedata
 
 _: object  # blocks Mypy from narrowing the Datatype of '_ =' at first mention
 
@@ -47,9 +51,11 @@ if not __debug__:
 #
 
 
-_3_GIGA_NANOS_IS_FOREVER_ = 3 * 10**9
+_3_GIGA_NANOS_IS_TOO_SLOW_ = 3 * 10**9  # to slow to take 3 same inputs in a row as a quit request
+_100_MEGA_NANOS_IS_TOO_FAST_ = 100 * 10**6  # too fast to take 3 in a row as a quit request
 
-LAUNCH_NANO = time.perf_counter_ns()
+
+assert unicodedata.name("¤").title() == "Currency Sign"
 
 
 #
@@ -80,6 +86,8 @@ def main() -> None:
     if not eggs:
         eggs.append("bytes")
 
+    GlassWorker.nano_launch = time.perf_counter_ns()
+
     if "bytes" in eggs:
         GlassWorker.show_bytes()
     elif "nanos" in eggs:
@@ -94,6 +102,9 @@ def main() -> None:
     _try_terminal_byte_frame_()
 
     print()
+
+    # ends with 0 or 1 or 2 empty lines
+    # 0 for Stdin Eof, 1 commonly, 2 for quit via Return Return Return in particular
 
 
 def _main_doc_scrape_closing_() -> str:
@@ -115,78 +126,224 @@ def _main_doc_scrape_closing_() -> str:
 class GlassWorker:
     """Show off one Terminal feature and another"""
 
+    nano_launch = -1
+
     @staticmethod
     def show_bytes() -> None:
         """Print your input bytes on screen"""
 
+        # Launch (and prompt just once and early)
+
+        print("Press Return three times quickly, to quit")
+        print()
+
         with TerminalBoss() as tb:
-
-            print("Press Return three times quickly, to quit", end="\r\n")
-            print(end="\r\n")
-
             ibk = ByteKeeper()
+
             while True:
-                b = tb.read_one_byte()
+
+                # Read
+
+                b = tb.read_one_byte_if()
+                if not b:
+                    break
+
                 ibk.append_one_byte(b)
 
+                # Print, and separate on request
+
                 print(ord(b), repr(b), end="\r\n")
+                if b == b"\r":
+                    print()
+
+                # Quit on request
 
                 if ibk.is_quitting_bytes():
                     break
+
+    _ = r"""
+
+        % pylitglass/litpyglass.py --egg=bytes
+
+        Press Return three times quickly, to quit
+
+        27 b'\x1b'
+        91 b'['
+        65 b'A'
+        13 b'\r'
+
+        9 b'\t'
+        9 b'\t'
+        9 b'\t'
+
+        %
+
+    """
 
     @staticmethod
     def show_nanos() -> None:
-        """Print your input bytes (and when they arrived)"""
+        """Print your input bytes (and how quickly they arrived)"""
 
-        was = LAUNCH_NANO
+        # Launch (and prompt just once and early)
+
+        print("Press Return three times quickly, to quit")
+        print()
+
+        before = GlassWorker.nano_launch
+
         with TerminalBoss() as tb:
-
-            print("Press Return three times quickly, to quit", end="\r\n")
-            print(end="\r\n")
-
             ibk = ByteKeeper()
-            while True:
-                b = tb.read_one_byte()
-                after = time.perf_counter_ns()
 
+            while True:
+
+                # Read
+
+                b = tb.read_one_byte_if()
+                if not b:
+                    break
+
+                after = time.perf_counter_ns()
                 ibk.append_one_byte(b, nano=after)
 
+                # Print, and separate on request
+
                 code = ord(b)
-                between = after - was
-                was = after
+                between = after - before
+                before = after
 
                 print(f"{between:_}", code, repr(b), end="\r\n")
+                if b == b"\r":
+                    print()
+
+                # Quit on request
 
                 if ibk.is_quitting_bytes():
                     break
 
+    _ = r"""
+
+        % pylitglass/litpyglass.py --egg=nanos
+
+        Press Return three times quickly, to quit
+
+        600_288_333 27 b'\x1b'
+        120_500 91 b'['
+        25_250 65 b'A'
+        553_496_542 13 b'\r'
+
+        1_492_019_167 3 b'\x03'
+        185_701_041 3 b'\x03'
+        248_232_584 3 b'\x03'
+
+        %
+
+    """
+
     @staticmethod
     def show_frames() -> None:
-        """Print your input byte frames (and when they started and ended)"""
+        """Print your input byte frames (and how quickly they arrived)"""
 
-        was = LAUNCH_NANO
+        # Launch
+
+        print("Press Return three times quickly, to quit")
+        print()
+
         with TerminalBoss() as tb:
-
-            print("Press Return three times quickly, to quit", end="\r\n")
-            print(end="\r\n")
-
             ifk = TerminalFrameKeeper()
+
+            before = time.perf_counter_ns()  # doesn't measure time to launch
+            cells: list[object] = list()
+
             while True:
-                b = tb.read_one_byte()
+
+                # Prompt after each Byte
+
+                open_data = ifk.frame.to_frame_bytes()  # maybe empty
+                GlassWorker.frame_print(open_data, cells=cells, end=" ")
+
+                # Flush writes to the Terminal
+
+                sys.stdout.flush()
+                sys.stderr.flush()
+
+                # Wait for Byte, but then fetch the Byte, and start the next Wait for Byte
+
+                after = before
+
+                hit = tb.stdio_select_select(0)
+                while not hit:
+                    time.sleep(1e-9)  # slightly limits loop rate
+
+                    hit = tb.stdio_select_select(0)
+                    after = time.perf_counter_ns()
+
+                waited = after - before
+                before = after
+
+                b = tb.read_one_byte_if()  # doesn't measure time to read
+                if not b:
+                    break
+
                 ifk.keep_one_byte(b)
+                cells.append(waited)
+                cells.append(b)
+
+                # Print each new Closed Frame, if any
 
                 triples = ifk.pull_frame_triples()
-                for triple in triples:
-                    before, after, data = triple
+                for triple in triples:  # maybe empty
+                    start, end, data = triple
 
-                    between = before - was
-                    across = after - before
-                    was = after
+                    length = 2 * len(data)  # two cells per Byte
+                    assert len(cells) >= length, (len(cells), length, data)
 
-                    print(f"{between:_}", f"{across:_}", repr(data), end="\r\n")
+                    byte_cells = cells[:length]
+                    GlassWorker.frame_print(data, cells=byte_cells, end="\r\n")
+                    if data == b"\r":
+                        print()
+
+                    del cells[:length]
 
                 if ifk.is_quitting_frames():
                     break
+
+    @staticmethod
+    def frame_print(data: bytes, cells: list[object], end: str) -> None:
+        """Print 'data = cell cell ...' as a whole line, or as the start of one"""
+
+        start = "\r" "\033[K"  # tested by:  start = "\n¤"
+
+        def ns(n: int) -> str:  # reps Int's as counting Nanoseconds
+            m = tuple("nµm") + ("",) + tuple("kMGTPEZYRQ")  # reps 42*10**9 as '42s'
+            rep = decimal_int_chop_to_eng_metric(n, multipliers=m, unit="s")
+            return rep
+
+        piths = [c for (i, c) in enumerate(cells) if (i == 0) or (c != 0)]  # drops adds of '0ns'
+        reps = [(ns(p) if isinstance(p, int) else str(p)) for p in piths]
+
+        text = " ".join([f"{data!r} ="] + reps)
+        print(f"{start}{text}{end}", end="")
+
+        # known: "\r" snaps back the Terminal Column X only until the Terminal Row overflows
+        # known: inject wide texts to overflow thin terminals
+
+    _ = r"""
+
+        % pylitglass/litpyglass.py --egg=frames
+
+        Press Return three times quickly, to quit
+
+        b'\x1b[A' = 1.46s b'\x1b' 369ms b'[' 346ms b'A'
+        b'\x1b[A' = 3.20s b'\x1b' b'[' b'A'
+        b'\r' = 3.32s b'\r'
+
+        b'\x1c' = 3.78s b'\x1c'
+        b'\x1c' = 175ms b'\x1c'
+        b'\x1c' = 171ms b'\x1c'
+
+        %
+
+    """
 
 
 #
@@ -199,39 +356,47 @@ class TerminalBoss:
     """Wrap one Terminal"""
 
     stdio: io.TextIOWrapper
+    isatty: bool
     fileno: int  # often 2 == sys.__stderr__.fileno()
     tcgetattr: list[int | list[bytes | int]]  # replaced by .__enter__
 
     def __init__(self) -> None:
 
-        assert sys.__stderr__, (sys.__stderr__,)
-        stdio = sys.__stderr__  # todo: stdin, tty
+        assert sys.__stdin__, (sys.__stdin__,)
+        stdio = sys.__stdin__  # todo: stderr, tty
+        isatty = stdio.isatty()
         fileno = stdio.fileno()
 
         self.stdio = stdio
+        self.isatty = isatty
         self.fileno = fileno
         self.tcgetattr = list()
 
     def __enter__(self) -> TerminalBoss:
         r"""Pause line-buffering Input, pause taking \n Output as \r\n, etc"""
 
+        isatty = self.isatty
         fileno = self.fileno
         tcgetattr = self.tcgetattr
 
         if tcgetattr:  # enters at most once, to make truthy
             return self
 
-        # Flush output()
+        # Flush writes to the Terminal
 
         sys.stdout.flush()
+        sys.stderr.flush()
 
         # Back up Input Mode before, drain Input, & choose Input Mode after
 
-        truthy_attributes = termios.tcgetattr(fileno)
+        widened_list_int: list[int | list[bytes | int]] = [20261010]  # arbitrary 20261010
+
+        truthy_attributes = termios.tcgetattr(fileno) if isatty else widened_list_int
         assert truthy_attributes, (truthy_attributes,)
         self.tcgetattr = truthy_attributes  # replaces falsey with truthy
 
-        tty.setraw(fileno, when=termios.TCSADRAIN)
+        if isatty:
+            tty.setraw(fileno, when=termios.TCSADRAIN)
 
         # Succeed
 
@@ -245,22 +410,25 @@ class TerminalBoss:
     def __exit__(self, *exc_info: object) -> None:
         r"""Resume line-buffering Input, resume taking \n Output as \r\n, etc"""
 
+        isatty = self.isatty
         fileno = self.fileno
         tcgetattr = self.tcgetattr
 
         if not tcgetattr:  # exits at most once, to make falsey
             return
 
-        # Flush output()
+        # Flush writes to the Terminal
 
         sys.stdout.flush()
+        sys.stderr.flush()
 
         # Drain Input, restore Input Mode, & clear Input Mode backup
 
         fd = fileno
         when = termios.TCSADRAIN
         attributes = tcgetattr  # truthy here too
-        termios.tcsetattr(fd, when, attributes)
+        if isatty:
+            termios.tcsetattr(fd, when, attributes)
 
         self.tcgetattr = list()  # replaces truthy with falsey
 
@@ -268,20 +436,48 @@ class TerminalBoss:
 
         # todo: try termios.TCSAFLUSH to discard Input while exiting
 
+    def stdio_select_select(self, timeout: float | None) -> bool:
+        """Block till next Input Byte, else till Timeout, else till forever"""
+
+        fileno = self.fileno
+
+        assert self.tcgetattr, (self.tcgetattr,)
+
+        r, w, x = select.select([fileno], [], [], timeout)
+
+        hit = fileno in r
+
+        return hit
+
+        # a la msvcrt.kbhit
+
+    def read_one_byte_if(self) -> bytes:
+        """Read one byte and return it, else return b''"""
+
+        try:
+            b = self.read_one_byte()
+        except AssertionError:
+            raise
+        except OSError:
+            return b""
+
+        assert len(b) == 1, (b,)
+        return b
+
     def read_one_byte(self) -> bytes:
-        """Read one byte and return it"""
+        """Read one byte and return it, else raise Exception"""
 
         fileno = self.fileno
 
         fd = fileno
         length = 1
-        read = os.read(fd, length)
+        b = os.read(fd, length)
 
-        if not read:  # read == b'' only from input stream closed by macOS
+        if not b:  # b == b'' only from input stream closed by macOS
             raise OSError(errno.EIO, os.strerror(errno.EIO))  # as Linux does for b''
 
-        assert len(read) == 1, (read,)
-        return read
+        assert len(b) == 1, (b,)
+        return b
 
 
 #
@@ -319,21 +515,44 @@ class ByteKeeper:
         ba = self.ba
         nano_list = self.nano_list
 
-        nano = time.perf_counter_ns()
+        firsts = range(max(0, len(ba) - 4), len(ba))
+        pairs = [(nano_list[i], bytes(ba[i : i + 1])) for i in firsts]
 
-        quitters = ba[-3:]
-        if quitters:
-            if quitters == (3 * quitters[-1:]):  # three strikes
-                age = nano - nano_list[-3]
+        if is_quitting_shape(pairs):
+            if ord(" ") <= ba[-1] <= ord("~"):  # US Ascii Printable, and not \t \n \r etc
+                return False
 
-                if age < _3_GIGA_NANOS_IS_FOREVER_:  # three seconds
-
-                    if ord(" ") <= ba[-1] <= ord("~"):
-                        return False
-
-                    return True
+            return True
 
         return False
+
+
+def is_quitting_shape(pairs: list[tuple[int, bytes]]) -> bool:
+    """Quits when given same Bytes, 3 times in a row, but >= 100ms apart, across < 3s"""
+
+    nano = time.perf_counter_ns()
+
+    nl = [n for (n, _) in pairs]  # when the last Byte of each arrived
+    data_list = [data for (_, data) in pairs]
+
+    last3 = data_list[-3:]
+    if not last3:
+        return False
+
+    if last3 != (3 * last3[-1:]):  # three in a row
+        return False
+
+    age = nano - nl[-3]
+    early_gaps = (nl[-3] - nl[-4],) if (len(nl) > 3) else ()
+    late_gaps = (nl[-2] - nl[-3], nl[-1] - nl[-2])
+
+    if age >= _3_GIGA_NANOS_IS_TOO_SLOW_:  # as a burst, not just now and then
+        return False
+
+    if min(early_gaps + late_gaps) < _100_MEGA_NANOS_IS_TOO_FAST_:  # held, or pasted
+        return False
+
+    return True
 
 
 #
@@ -444,26 +663,29 @@ class TerminalFrameKeeper:
 
         open_length = len(frame.to_frame_bytes())
         pulls_length = sum(len(_.to_frame_bytes()) for _ in pulls)
-        first = len(ba) - open_length - pulls_length
+        first_index = len(ba) - open_length - pulls_length
 
         # Say when each started and ended, while walking forward over them
 
         triples_list: list[tuple[int, int, bytes]] = list()
 
-        start = first
+        start_index = first_index
         for pull in pulls:
             data = pull.to_frame_bytes()
-            end = start + len(data)
+            stop_index = start_index + len(data)
 
-            _data_ = ba[start:end]
-            assert _data_ == data, (_data_, data, start, end)
+            kept = bytes(ba[start_index:stop_index])
+            assert kept == data, (kept, data, start_index, stop_index)
 
-            triple = (nano_list[start], nano_list[end - 1], data)
+            start = nano_list[start_index]
+            end = nano_list[stop_index - 1]
+
+            triple = (start, end, data)
             triples_list.append(triple)
 
-            start = end
+            start_index = stop_index
 
-        assert start == (len(ba) - open_length), (start, len(ba), open_length)
+        assert start_index == (len(ba) - open_length), (start_index, len(ba), open_length)
 
         triples = tuple(triples_list)
         return triples
@@ -478,23 +700,23 @@ class TerminalFrameKeeper:
         ba = bk.ba
         nano_list = bk.nano_list
 
-        nano = time.perf_counter_ns()
+        # Hand down the last 4 Closed Frames, each with when its last Byte arrived
 
-        quitters = frames[-3:]
-        if quitters:
-            if quitters == (3 * quitters[-1:]):  # three strikes
-                open_length = len(frame.to_frame_bytes())
-                quitters_length = sum(len(_.to_frame_bytes()) for _ in quitters)
-                start = len(ba) - open_length - quitters_length
+        stop = len(ba) - len(frame.to_frame_bytes())  # back past the Open Frame
 
-                age = nano - nano_list[start]
-                if age < _3_GIGA_NANOS_IS_FOREVER_:  # three seconds
-                    quitter = quitters[-1]
+        pairs_list = list()
+        for closed in reversed(frames[-4:]):
+            data = closed.to_frame_bytes()
+            pairs_list.append((nano_list[stop - 1], data))
+            stop -= len(data)
 
-                    if quitter.encodes:  # is text frame
-                        return False
+        pairs = list(reversed(pairs_list))  # oldest first, as for Bytes
 
-                    return True
+        if is_quitting_shape(pairs):
+            if frames[-1].encodes:  # is text frame
+                return False
+
+            return True
 
         return False
 
@@ -1147,6 +1369,66 @@ _SouthwestArrow_ = "\033[↙"
 _ = _MAX_PN_32100_
 _ = _SouthArrow_, _EastArrow_, _WestArrow_
 _ = _NorthwestArrow_, _SoutheastArrow_, _SouthwestArrow_
+
+
+#
+# Amp up Import Decimal
+#
+
+
+_ = "qryzafpnµm"  # also 'u' for 'µ'
+_ = "kMGTPEZYRQ"
+
+
+def decimal_int_chop_to_eng_metric(n: int, multipliers: typing.Sequence[str], unit: str) -> str:
+    """Convert 9876 to '9.87ns' and so on"""
+
+    clip = decimal_int_chop_to_eng(n)
+    digits, e, ms = clip.partition("e")
+
+    if not e:
+        assert not ms, (ms, digits, e, clip)
+
+        m = multipliers[0]
+        rep = digits + m + unit
+        return rep
+
+    exp = int(ms)
+    assert (exp % 3) == 0, (exp, digits, e, ms, clip, n)
+
+    i = exp // 3
+    assert i >= 1, (i, exp, digits, e, ms, clip, n)
+
+    m = multipliers[i]  # (m) may be Empty Str
+    rep = digits + m + unit  # (m + unit) may be Empty Str
+    return rep
+
+
+def decimal_int_chop_to_eng(n: int) -> str:
+    """Rep the exact Int, else chop down to 3 Digits at an explicit Multiple-of-Three Exponent"""
+
+    i = int(repr(n))  # raises ValueError when a Float breaks our ': int' contract
+    ctx = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)  # the towards-zero kind of "Down"
+    D = ctx.create_decimal  # truncating is not ceiling, floor, half down/up, half even, nor 0 5 up
+
+    clip = D(i).to_eng_string().lower().replace("e+", "e")
+
+    if -(2**53) < i < 2**53:
+        aif = abs(int(float(clip)))
+        assert aif <= abs(i), (aif, abs(i), i, n)
+
+    return clip  # int(float(clip)) == n, or near to n but a little closer to zero
+
+    # raises ValueError above n = 10**4300 - 1
+
+    # '-9.99e3'  # '-2'  # '0'  # '1'  # '987'  # '1.00e3'  # '9.87e3'  # '98.7e3'  # '987e3'
+    # as if repr of float, int, int, int, int, float, float, float, float
+    # with the unsigned 'e' standing in place of the int digits we did chop off
+
+    # Python's hex int("987e3", 0x10) == 0x9_87E3 does nearly collide with our '987e3' lacking '.'
+    # Python Floats overflow out beyond '179e306', but we correctly clip '180 * 10**306' and above
+
+    # 'def decimal_int_chop_to_eng' last modified for py2def.py on 2026-08-25 or later
 
 
 #
