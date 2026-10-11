@@ -17,7 +17,7 @@ examples:
   pylitglass/litpyglass.py --  # pick a demo and run it
   pylitglass/litpyglass.py --egg=bytes  # print your input bytes, on screen
   pylitglass/litpyglass.py --egg=nanos  # print your input bytes and when they arrived
-  pylitglass/litpyglass.py --egg=frames  # print your inputs split into frames
+  pylitglass/litpyglass.py --egg=frames  # print your inputs split into frames, named when known
 """
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -29,6 +29,7 @@ import collections
 import dataclasses
 import decimal
 import errno
+import functools
 import io
 import os
 import re
@@ -102,6 +103,7 @@ def main() -> None:
     # Self-test quickly, and succeed
 
     _try_terminal_byte_frame_()
+    _try_keyboard_decoder_()
 
     print()
 
@@ -243,7 +245,7 @@ class GlassWorker:
 
     @staticmethod
     def show_frames() -> None:
-        """Print your input byte frames (and how quickly they arrived)"""
+        """Print your input byte frames, as Key Caps when known, and how quickly they arrived"""
 
         # Launch
 
@@ -260,7 +262,8 @@ class GlassWorker:
 
                 # Prompt after each Byte
 
-                open_data = ifk.frame.to_frame_bytes()  # maybe empty
+                frame = ifk.frame
+                open_data = frame.to_frame_bytes()  # maybe empty
                 GlassWorker.frame_print(open_data, cells=cells, end=" ")
 
                 # Flush writes to the Terminal
@@ -311,7 +314,9 @@ class GlassWorker:
 
     @staticmethod
     def frame_print(data: bytes, cells: list[object], end: str) -> None:
-        """Print 'data = cell cell ...' as a whole line, or as the start of one"""
+        """Print 'caps data = cell cell ...' as a whole line, or as the start of one"""
+
+        kd = keyboard_decoder()
 
         start = "\r" "\033[K"  # tested by:  start = "\n¤"
 
@@ -323,7 +328,15 @@ class GlassWorker:
         piths = [c for (i, c) in enumerate(cells) if (i == 0) or (c != 0)]  # drops adds of '0ns'
         reps = [(ns(p) if isinstance(p, int) else str(p)) for p in piths]
 
-        text = " ".join([f"{data!r} ="] + reps)
+        caps = kd.bytes_to_key_caps_if(data)  # ⎋, ⎋[, ↑ when typed slowly
+
+        words: list[str] = list()
+        if caps:
+            words.append(caps)  # names the Key Caps struck, when known
+        words.append(f"{data!r} =")
+        words.extend(reps)
+
+        text = " ".join(words)
         print(f"{start}{text}{end}", end="")
 
         # known: "\r" snaps back the Terminal Column X only until the Terminal Row overflows
@@ -335,13 +348,15 @@ class GlassWorker:
 
         Press Return three times quickly, to quit
 
-        b'\x1b[A' = 1.46s b'\x1b' 369ms b'[' 346ms b'A'
-        b'\x1b[A' = 3.20s b'\x1b' b'[' b'A'
-        b'\r' = 3.32s b'\r'
+        ⌥E J b'j\xcc\x81' = 3.00s b'j' b'\xcc' b'\x81'
+        ⇥ b'\t' = 1.11s b'\t'
+        ⌥E E b'\xc3\xa9' = 507ms b'\xc3' b'\xa9'
+        ↑ b'\x1b[A' = 706ms b'\x1b' b'[' b'A'
+        ⏎ b'\r' = 434ms b'\r'
 
-        b'\x1c' = 3.78s b'\x1c'
-        b'\x1c' = 175ms b'\x1c'
-        b'\x1c' = 171ms b'\x1c'
+        ⏎ b'\r' = 162ms b'\r'
+
+        ⏎ b'\r' = 163ms b'\r'
 
         %
 
@@ -1300,6 +1315,58 @@ class TerminalByteFrame:
 #
 
 
+def _try_keyboard_decoder_() -> None:
+    """Try KeyboardDecoder things"""
+
+    kd = keyboard_decoder()
+
+    # Pair up Bytes with the Key Caps struck to send them, else with an Empty Str
+
+    pairs = (
+        #
+        (b"", ""),  # nothing struck
+        (b"\t", "⇥"),  # a Control Byte
+        (b"\r", "⏎"),
+        (b"\001", "⌃A"),
+        (b"\033", "⎋"),
+        (b"\033[A", "↑"),  # an Esc Sequence
+        (b"\033[1;2C", "⇧→"),
+        (b"\033[", "⎋["),  # ⎋ struck before [
+        (b"\033[1", "⎋ [ 1"),  # three Key Caps struck, no Chord sends these Bytes
+        (b"\033[a", "⎋ [ A"),  # three Key Caps struck, though a closes the Esc Sequence
+        (b" ", "␢"),  # a Printable Char
+        (b"j", "J"),
+        (b"J", "⇧J"),
+        (b"abc", "A B C"),  # a Paste
+        (b"\377", ""),  # an Undecodable Byte
+        #
+        ("é".encode(), "⌥E E"),  # 'é' as 1 Char  # NFD would split out a Combining Acute Accent
+        ("j́".encode(), "⌥E J"),  # 'j' before Combining Acute Accent, from Dead Key & then J Key
+        ("´".encode(), "⌥⇧E"),  # the Spacing Acute Accent, as struck
+        ("\u0301".encode(), ""),  # the Combining Acute Accent by itself, which no Key sends
+        ("a\u0301\u0308".encode(), ""),  # two Combining Marks on one Char, which no Key sends
+        #
+    )
+
+    for data, want in pairs:
+        caps = kd.bytes_to_key_caps_if(data)
+        assert caps == want, (caps, want, data)
+
+    # Show Unicode tells Apple that the Dead Key should accent the Char struck after it
+
+    dead_key_echo_by_combining = KeyboardDecoder.DeadKeyEchoByCombining
+    for t in dead_key_echo_by_combining.keys():
+        assert unicodedata.combining(t), (t,)
+
+
+@functools.cache
+def keyboard_decoder() -> KeyboardDecoder:
+    """Build the one KeyboardDecoder, once, and hand it back on each later call"""
+
+    kd = KeyboardDecoder()
+    return kd
+
+
 class KeyboardDecoder:
     """Speak of a Byte Sequence as a Strike of Key Caps at a macBook"""
 
@@ -1331,6 +1398,14 @@ class KeyboardDecoder:
     FamiliarShifts = ("", "⇧", "⌃", "⌥", "⌃⇧", "⌥⇧", "⌃⌥", "⌃⌥⇧", "⎋", "⎋⇧", "⎋⌃", "⎋⌃⇧")
 
     assert sorted(ShortcutShifts) == sorted(FamiliarShifts)
+
+    DeadKeyEchoByCombining = {  # Typists say Dead Keys do not step the Cursor forward
+        "\u0300": "⌥`",  # Combining Grave Accent
+        "\u0301": "⌥E",  # Combining Acute Accent
+        "\u0302": "⌥I",  # Combining Circumflex Accent
+        "\u0303": "⌥N",  # Combining Tilde
+        "\u0308": "⌥U",  # Combining Diaeresis
+    }
 
     def __init__(self) -> None:
 
@@ -1381,7 +1456,7 @@ class KeyboardDecoder:
             001 023 004 006 007 010 012 013 014 ... ... ...
             032 030 003 026 002 016 015 ... ... ...
             000 ... ... ... ...
-        """
+        """  # the '...' in here mark Key Strikes that send no Bytes: a Bell, the ⌃⏎ Menu, or macOS
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
@@ -1395,7 +1470,7 @@ class KeyboardDecoder:
             å ß ∂ ƒ © ˙ ∆ ˚ ¬ … æ 015
             Ω ≈ ç √ ∫ ¤ µ ≤ ≥ ÷
             302.240 ⎋B ⎋⎋[⇧A ⎋F ⎋⎋[⇧B
-        """
+        """  # the five ¤ splats in here mark Dead Keys that do not step the Cursor forward
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
@@ -1409,21 +1484,21 @@ class KeyboardDecoder:
             ... ... ... ... ... ... ... ... ... ... ... ...
             ... ... ... ... ... ... ... ... ... ...
             000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
-        """
+        """  # the '...' in here mark Key Strikes that send no Bytes: a Bell, or the ⌃⇧⏎ Menu
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
         # 6 ⌥⇧
 
-        shifts = "⌥⇧"  # ⌥⇧K sends the Apple Logo, coded here as 
+        shifts = "⌥⇧"  # ⌥⇧K sends the Apple Logo, coded here as \uf8ff
         strikes = """
             033
             140 ⁄ € ‹ › ﬁ ﬂ ‡ ° · ‚ — ± 177
             ⎋[⇧Z Œ „ ´ ‰ ˇ Á ¨ ˆ Ø ∏ ” ’ »
-            Å Í Î Ï ˝ Ó Ô  Ò Ú Æ 015
+            Å Í Î Ï ˝ Ó Ô \uf8ff Ò Ú Æ 015
             ¸ ˛ Ç ◊ ı ˜ Â ¯ ˘ ¿
             302.240 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
-        """
+        """  # can't be = r""", because \u inside.
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
@@ -1450,7 +1525,7 @@ class KeyboardDecoder:
             001 023 004 ... 007 010 012 013 014 ; ' 015
             032 030 003 026 ... 016 015 , . /
             000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
-        """
+        """  # the '...' in here mark Key Strikes that send no Bytes: a Bell instead
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
         # 9 ⎋
@@ -1468,7 +1543,7 @@ class KeyboardDecoder:
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
-        # 10 ⎋⇧  # 033.117 ⎋O stops without closing its Key Byte Frame
+        # 10 ⎋⇧
 
         shifts = "⎋⇧"
         strikes = """
@@ -1478,7 +1553,7 @@ class KeyboardDecoder:
             ⎋⇧A ⎋⇧S ⎋⇧D ⎋⇧F ⎋⇧G ⎋⇧H ⎋⇧J ⎋⇧K ⎋⇧L ⎋⇧: ⎋⇧" 033.015
             ⎋⇧Z ⎋⇧X ⎋⇧C ⎋⇧V ⎋⇧B ⎋⇧N ⎋⇧M ⎋⇧< ⎋⇧> ⎋⇧?
             033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
-        """
+        """  # 033.117 ⎋O stops without closing its Frame (like could be ⎋OP)
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
@@ -1539,7 +1614,7 @@ class KeyboardDecoder:
 
         assert len(echo.split()) == 1, (len(echo.split()), echo)
 
-        if cap_strikes in ("...", "¤"):
+        if cap_strikes in ("...", "¤"):  # splats of width 3 and width 1
             return ""
 
         ba = bytearray()
@@ -1668,6 +1743,52 @@ class KeyboardDecoder:
     # Speak of a Byte Encoding as a Sequence of Chords of Key Caps
     #
 
+    def bytes_to_key_caps_if(self, data: bytes) -> str:
+        """Name the Key Caps struck to send these Bytes, else an Empty Str when unsure"""
+
+        dead_key_echo_by_combining = KeyboardDecoder.DeadKeyEchoByCombining
+
+        # Give up on Undecodable Bytes
+
+        text = TerminalByteFrame.bytes_decode_if(data)
+        if not text:
+            return ""
+
+        # Name the one Chord of Key Caps that sends the whole Text, when there is one
+
+        echoes = self.bytes_to_echoes_if(data)
+        if echoes:
+            echo = echoes[0]
+            return echo  # ⇥  # ⏎  # ↑  # ⌃A  # ⌥⇧E
+
+        # Else name one Chord per Char, with each ⌥ Dead Key struck before the Char it accents
+
+        nfd = unicodedata.normalize("NFD", text)  # splits é into e plus Combining Acute Accent
+
+        words: list[str] = list()
+        dead_key_echo = ""
+        for t in nfd:
+
+            if t in dead_key_echo_by_combining.keys():
+                if (not words) or dead_key_echo:
+                    return ""  # a Combining Mark pasted alone or doubled, which no Key sends
+
+                dead_key_echo = dead_key_echo_by_combining[t]
+                words.insert(len(words) - 1, dead_key_echo)  # before the Char, as struck
+                continue
+
+            dead_key_echo = ""
+
+            t_echoes = self.bytes_to_echoes_if(t.encode())
+            if not t_echoes:
+                return ""  # such as a Char that no macBook Keyboard sends
+
+            t_echo = t_echoes[0]
+            words.append(t_echo)
+
+        caps = " ".join(words)
+        return caps  # ⌥E J  # ⌥E E  # A B C
+
     def bytes_to_echoes_if(self, data: bytes) -> tuple[str, ...]:
         """Speak of a Byte Encoding as Sequences of Chords of Key Caps"""
 
@@ -1750,16 +1871,19 @@ _SouthArrow_ = "\033[B"
 _EastArrow_ = "\033[C"
 _WestArrow_ = "\033[D"
 
-
 _NorthwestArrow_ = "\033[↖"  # ⎋[ ↖↗↘↙  # not yet standard
 _NortheastArrow_ = "\033[↗"
 _SoutheastArrow_ = "\033[↘"
 _SouthwestArrow_ = "\033[↙"
 
-
 _ = _MAX_PN_32100_
 _ = _SouthArrow_, _EastArrow_, _WestArrow_
 _ = _NorthwestArrow_, _SoutheastArrow_, _SouthwestArrow_
+
+
+AppleLogo = "\uf8ff"  # Apple Logo occupies U+F8FF = end of U+E000 .. U+F8FF Private Use Area (PUA)
+_ = AppleLogo
+# todo: every mention of  in Source makes Code Patches difficult to send across platforms
 
 
 #
