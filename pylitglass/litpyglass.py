@@ -318,24 +318,35 @@ class GlassWorker:
 
         kd = keyboard_decoder()
 
-        start = "\r" "\033[K"  # tested by:  start = "\n¤"
-
         def ns(n: int) -> str:  # reps Int's as counting Nanoseconds
             m = tuple("nµm") + ("",) + tuple("kMGTPEZYRQ")  # reps 42*10**9 as '42s'
             rep = decimal_int_chop_to_eng_metric(n, multipliers=m, unit="s")
             return rep
 
-        piths = [c for (i, c) in enumerate(cells) if (i == 0) or (c != 0)]  # drops adds of '0ns'
-        reps = [(ns(p) if isinstance(p, int) else str(p)) for p in piths]
+        words: list[str] = list()
+
+        # Choose the words
 
         caps = kd.bytes_to_key_caps_if(data)  # ⎋, ⎋[, ↑ when typed slowly
-
-        words: list[str] = list()
         if caps:
-            words.append(caps)  # names the Key Caps struck, when known
+            words.append(caps)
+
+        decode = TerminalByteFrame.bytes_decode_if(data)
+        if decode:
+            if decode.isprintable() and (decode.strip() == decode):
+                words.append(decode)
+            else:
+                words.append(repr(decode))
+
         words.append(f"{data!r} =")
+
+        piths = [c for (i, c) in enumerate(cells) if (i == 0) or (c != 0)]  # drops adds of '0ns'
+        reps = [(ns(p) if isinstance(p, int) else str(p)) for p in piths]
         words.extend(reps)
 
+        # Print the words
+
+        start = "\r" "\033[K"  # tested by:  start = "\n¤"
         text = " ".join(words)
         print(f"{start}{text}{end}", end="")
 
@@ -348,15 +359,19 @@ class GlassWorker:
 
         Press Return three times quickly, to quit
 
-        ⌥E J b'j\xcc\x81' = 3.00s b'j' b'\xcc' b'\x81'
-        ⇥ b'\t' = 1.11s b'\t'
-        ⌥E E b'\xc3\xa9' = 507ms b'\xc3' b'\xa9'
-        ↑ b'\x1b[A' = 706ms b'\x1b' b'[' b'A'
-        ⏎ b'\r' = 434ms b'\r'
+        ⌥E J j́ b'j\xcc\x81' = 3.00s b'j' b'\xcc' b'\x81'
+        ⇥ '\t' b'\t' = 1.11s b'\t'
+        ⌥P π b'\xcf\x80' = 507ms b'\xcf' b'\x80'
+        ⌥E E é b'\xc3\xa9' = 507ms b'\xc3' b'\xa9'
+        Q q b'q' = 434ms b'q'
+        ⇧Q Q b'Q' = 434ms b'Q'
+        ␢ ' ' b' ' = 434ms b' '
+        ↑ '\x1b[A' b'\x1b[A' = 706ms b'\x1b' b'[' b'A'
+        ⏎ '\r' b'\r' = 434ms b'\r'
 
-        ⏎ b'\r' = 162ms b'\r'
+        ⏎ '\r' b'\r' = 162ms b'\r'
 
-        ⏎ b'\r' = 163ms b'\r'
+        ⏎ '\r' b'\r' = 163ms b'\r'
 
         %
 
