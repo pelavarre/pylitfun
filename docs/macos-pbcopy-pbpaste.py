@@ -23,7 +23,7 @@ def main() -> None:
 
     try:
         try_main()
-    except Exception, KeyboardInterrupt:  # BrokenPipeError # never SystemExit
+    except (Exception, KeyboardInterrupt):  # BrokenPipeError # never SystemExit
         # TerminalBoss.selves[-1].__exit__()  # todo6:
         sys_excepthook_pdb_pm(*sys.exc_info())
 

@@ -28,6 +28,8 @@ examples:
 # code reviewed by people and by Black, Flake8, Mypy-Strict, & Pylance-Standard
 
 
+from __future__ import annotations  # backports new Datatype Syntaxes into old Pythons
+
 import argparse
 import collections.abc  # .collections.abc != .abc, .collections.abc.Callable != typing.Callable
 import dataclasses
