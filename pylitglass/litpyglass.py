@@ -1668,6 +1668,15 @@ class KeyboardDecoder:
                 ba.append(int(octet, base=0o010))  # raises ValueError when > 0o377
                 continue
 
+            # Accept simple Ss3 Sequences spoken as ⎋O... ⇧...
+
+            m = re.fullmatch(r"(⎋)⇧(O)⇧([PQRS])", string=octet)
+            if m:  # ⎋⇧O⇧S
+                octet_data = b"\033"
+                octet_data += m.group(2).encode() + m.group(3).encode()
+                ba.extend(octet_data)
+                continue
+
             # Accept simple Csi Sequences spoken as ⎋[... ⇧..., even when preceded by one extra ⎋
 
             m = re.fullmatch(r"(⎋|⎋⎋)(\[)([0-9;]*)⇧([ABCDPQRSZ~])", string=octet)
@@ -1694,6 +1703,118 @@ class KeyboardDecoder:
 
         assert echo not in decode_by_echo.keys(), (echo, decode_by_echo[echo])
         decode_by_echo[echo] = decode
+
+    def _form_apple_terminal_keyboards_(self) -> None:
+        """Form an Apple macOS Terminal Keyboard, out of Octets"""
+
+        # 1 ''
+
+        self._add_ten_fn_()
+        self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
+
+        # 2 ⇧  # Sideband Bells on ⌃ F1 F2 F3 F4
+
+        shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2D and ⎋[1;2C
+
+        caps = "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"  # without "F1 F2 F3 F4" + " " +
+        strikes = """
+            ⎋[25⇧~ ⎋[26⇧~ ⎋[28⇧~ ⎋[29⇧~
+            ⎋[31⇧~ ⎋[32⇧~ ⎋[33⇧~ ⎋[34⇧~
+        """  # omitting ⎋[27⇧~
+
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+        # 3 ⌃  # Sideband Bells on ⌃ F2 F3 F4 F5 F6, ⌃ F9 F10 F11 F12  # No Codes on ⌃ F7 F8
+
+        pass
+
+        # 4 ⌥
+
+        shifts = "⌥"
+
+        meta_caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
+        meta_strikes = """
+            ⎋[17⇧~ ⎋[18⇧~ ⎋[19⇧~ ⎋[20⇧~
+            ⎋[21⇧~ ⎋[23⇧~ ⎋[24⇧~ ⎋[25⇧~
+            ⎋[26⇧~ ⎋[28⇧~ ⎋[29⇧~ ⎋[31⇧~
+        """  # omitting ⎋[22⇧~ ⎋[27⇧~
+
+        self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
+
+        # 5 ⌃⇧  # Sideband Bells on ⌥⇧ F1..F6, ⌥⇧ F8..F12  # No Codes on ⌥⇧ F7
+        # 6 ⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
+        # 7 ⌃⌥  # Sideband Bells on ⌃⌥ F1..F12
+        # 8 ⌃⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
+
+        pass
+
+        # 9 ⎋
+
+        shifts = "⎋"
+        self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
+
+        # 10 ⎋⇧
+
+        shifts = "⎋⇧"
+        self._add_twelve_fn_meta_control_p_(shifts=shifts)  # only via 'Use Option As Meta Key'
+
+        # 11 ⎋⌃
+
+        shifts = "⎋⌃"
+        self._add_twelve_fn_meta_control_p_(shifts=shifts)  # only via 'Use Option As Meta Key'
+
+        # 12 ⎋⌃⇧
+
+        shifts = "⎋⌃⇧"
+        self._add_twelve_fn_meta_control_p_(shifts=shifts)  # only via 'Use Option As Meta Key'
+
+        # Terminal ⇧Fn = ⎋[ 25 26 28 29 ⇧~, ⎋[ 31 32 33 34 ⇧~,
+        # no encodes of ⇧F1 ⇧F2 ⇧F3 ⇧F4 in Apple Terminal without distributing configuration
+
+    def _add_ten_fn_(self) -> None:
+        """Add the first Ten F Keys, held in common across all our Unshifted Keyboards"""
+
+        shifts = ""
+
+        caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10"  # without " F11 F12"
+        strikes = """
+            ⎋⇧O⇧P ⎋⇧O⇧Q ⎋⇧O⇧R ⎋⇧O⇧S
+            ⎋[15⇧~ ⎋[17⇧~ ⎋[18⇧~ ⎋[19⇧~
+            ⎋[20⇧~ ⎋[21⇧~
+        """  # omitting ⎋[16~  # not-colliding with ⎋[ ⇧R
+
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+        # ⎋OP ⎋OQ ⎋OR ⎋OS  # ⎋[15~ ⎋[17~ ⎋[18~ ⎋[19~  # ⎋[20~ ⎋[21
+
+    def _keyboard_add_some_(self, caps: str, strikes: str, shifts: str) -> None:
+        """Add some Key Caps at Strikes to a Keyboard"""
+
+        caps_split = caps.split()
+        strikes_split = strikes.split()
+        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
+
+        assert len(caps_split) == len(strikes_split), (len(caps_split), len(strikes_split))
+        for cap, cap_strikes in zip(caps_split, strikes_split):
+            echo = shifts + cap
+            self._keyboard_add_(echo, cap_strikes=cap_strikes)
+
+    def _keyboard_add_(self, echo: str, cap_strikes: str) -> None:
+        """Add a Key Cap and its Octets to a Keyboard"""
+
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
+
+        decode = self._cap_strikes_to_decode_(cap_strikes, echo=echo)
+        self._keyboard_add_decode_(decode, echo=echo)
+
+    def _add_twelve_fn_meta_control_p_(self, shifts: str) -> None:
+        """Add the Twelve F Keys at the one Decode"""
+
+        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
+
+        caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
+        strikes = 12 * " 033.020"  # ⎋⌃P
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
     def _form_echoes_by_decode_(self) -> dict[str, tuple[str, ...]]:
         """Sort and invert our Decode_by_Echo Dict"""
