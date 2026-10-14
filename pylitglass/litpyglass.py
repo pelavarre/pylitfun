@@ -759,59 +759,63 @@ class TerminalFrameKeeper:
 #
 
 
-def _try_terminal_byte_frame_() -> None:
-    """Try TerminalByteFrame things"""
+_ = r"""
 
-    assert DL_Y == "\033[" "{}M"
-    assert _CLICK3_ == "\033[M"
-    assert _NorthArrow_ == "\033[A"
-    assert ST == "\033\134"
-    assert _NortheastArrow_ == "\033[↗"
+In the leftmost Column are the Bytes in the Frame, from before you offered one more.
 
-    # Do nothing with grace & elegance
+The Frames ending with '+' were still open, the others were already closed.
 
-    TerminalByteFrame(b"")
+    Frame    \a      ⇥       ⎋       ;       A       ́       €       \xff
 
-    # Speak well of ↑ and ⎋↑
+    '' +     close   close   open    open    open    open    open    close
 
-    f = TerminalByteFrame(b"\033[A")
-    assert f.to_frame_bytes() == b"\033[A", (f,)
-    assert f.closed, (f,)
+    'ab' +   bounce  bounce  bounce  open    open    open    open    bounce
 
-    f = TerminalByteFrame(b"\033\033[A")
-    assert f.to_frame_bytes() == b"\033\033[A", (f,)
-    assert f.closed, (f,)
+    ⎋ +      close   close   open    close   close   close   close   close
+    ⎋⎋ +     close   close   close   close   close   close   close   close
+    ⎋O +     close   close   close   close   close   close   close   close
+    ⎋[M +    open    open    open    open    open    open    close6  open
+    ⎋[M␢! +  close6  close6  close6  close6  close6  close6  close6  close6
 
-    # Dance well with the _CLICK3_ clash into DL_Y without Pn
+    ⎋[ +     bounce  bounce  bounce  open    close   close   close   bounce
+    ⎋[1;5 +  bounce  bounce  bounce  open    close   close   close   bounce
+    ⎋[␢ +    bounce  bounce  bounce  bounce  close   close   close   bounce
 
-    f = TerminalByteFrame(b"\033[M")
-    assert f.to_frame_bytes() == b"\033[M", (f,)
-    assert not f.closed, (f,)  # because could be ⎋[⇧M{b}{x}{y}
+    ⎋] +     close   bounce  open    open    open    open    open    bounce
+    ⎋]0;x +  close   bounce  open    open    open    open    open    bounce
 
-    f = TerminalByteFrame(b"\033[Mabc")
-    assert f.to_frame_bytes() == b"\033[Mabc", (f,)
-    assert f.closed, (f,)
+    ⎋j       bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
+    ⎋Oj      bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
+    ⎋[A      bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
+    ⎋⇥       bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
 
-    f = TerminalByteFrame(b"\033[Mab\xff")
-    assert f.to_frame_bytes() == b"\033[Mab\xff", (f,)
-    assert f.closed, (f,)
+As you feed Byte after Byte into a Terminal Byte Frame, it must decide when to:
 
-    # Accept ↖↗↘↙ Intercardinal Arrows, not just ←↑→↓ Cardinal Arrows
+i ) Open = Take the Byte and keep the Frame open
+ii ) Bounce = Reject the Byte and leave the Frame unchanged
+iii ) Close = Take the Byte and close the Frame
+iv ) Close6 = Take the 6 Bytes and bounce anything after (at ⎋[M legacy)
 
-    f = TerminalByteFrame("\033[↗".encode())  # not yet standard
-    assert f.to_frame_bytes() == "\033[↗".encode(), (f,)
-    assert f.closed, (f,)
+Relevant standards include:
 
-    # Accept the ⎋\ String Terminator (ST) to close an ⎋] Osc Frame
+    ECMA-35_6th_edition_december_1994.pdf
+    ECMA-48_5th_edition_june_1991.pdf
 
-    f = TerminalByteFrame(b"\033]11;?\033\\")
-    assert f.to_frame_bytes() == b"\033]11;?\033\\", (f,)
-    assert f.closed, (f,)
+However they only clearly solve 7-bit Bytes. We solve 8-bit Bytes reasonably well.
 
-    #
-    # todo: port in more TerminalByteFrame tests from ._try_key_pack_ of
-    #   https://github.com/pelavarre/less-beeps/blob/1009pl/bin/less-beeps.py
-    #
+The b'\a' Bel is as special as String Terminator (ST) for ⎋] an Operating System Command (Osc).
+The b'\033' ⎋ Esc is special after just one of itself.
+
+The \a ⇥ ⎋ \xff are not printable, the ; A  ́ € are printable.
+The € is a printable encoded as 3 Bytes, vs the ; A  ́ are printable encoded as 1 or 2 bytes.
+
+The ; is a Parameter Byte of ⎋[ Control Sequence Introducer (Csi).
+The ␢ is an Intermediate Byte of ⎋[ Csi, expected before A is an example Final Byte.
+The  ́ is a Combining Mark Character that can merge back into the Printable before it.
+
+The \xff is an example of Undecodable UTF-8.
+
+"""
 
 
 @dataclasses.dataclass(order=True)  # , frozen=True)
@@ -1373,61 +1377,285 @@ class TerminalByteFrame:
     # todo: invent UTF-8'ish Encoding beyond 1..4 Bytes for Unicode Codes > 0x10_FFFF ?
 
 
+def _try_terminal_byte_frame_() -> None:
+    """Try TerminalByteFrame things"""
+
+    _try_terminal_byte_frame_1_()
+    _try_terminal_byte_frame_2_()
+
+    # todo: merge our two 'def _try_terminal_byte_frame_...' well
+
+
+def _try_terminal_byte_frame_1_() -> None:
+    """Run slow and quick Self-Test's of TerminalByteFrame"""
+
+    _try_open_(b"")  # empty
+    _try_headbook_()
+    _try_ends_later_()  # ~200ms
+    _try_one_more_kbyte_()
+    _try_some_control_()
+
+
+def _try_headbook_() -> None:
+    """Accept the Bytes of any Head of the Headbook, without closing the Pack"""
+
+    headbook = (b"\033", b"\033O", b"\033[", b"\033]")  # ⎋ ⎋⇧O ⎋[ ⎋]
+    # assert headbook == TerminalByteFrame.Headbook  # differs: Headbook here adds ⎋⎋ ⎋⎋O ⎋⎋[ ⎋[M
+
+    assert OSC == "\033]", (OSC,)
+
+    for head in headbook:
+        _try_open_(head)
+
+        if head == b"\033":
+            _try_open_(head + b"\033")
+            _try_close_(head, b"\t")
+            _try_close_(head, "\u20ac".encode())
+            _try_close_(head, b"\xf4\x8f\xbf\xff")
+        elif head == b"\033O":
+            # not yet: ⎋ bounces off ⎋O
+            # _try_extra_(head, extra=b"\033")
+            _try_close_(head, b"\t")
+            _try_close_(head, "\u20ac".encode())
+            _try_close_(head, b"\xf4\x8f\xbf\xff")
+        elif head == b"\033[":
+            _try_close_(head, "\u20ac".encode())  # ruled: Chars close ⎋[
+            # not yet: a bounce leaves ⎋[ open
+            # _try_extra_(head, extra=b"\033")
+            # _try_extra_(head, extra=b"\t")
+            # _try_extra_(head, extra=b"\xf4\x8f\xbf\xff")
+        elif head == b"\033]":
+            _try_open_(head, b"\033")
+            _try_open_(head, "\u20ac".encode())
+            # not yet: ⎋] gives back its held ⎋
+            # _try_extra_(head, extra=head)
+            # not yet: a bounce leaves ⎋] open
+            # _try_extra_(head, extra=b"\t")
+            # _try_extra_(head, extra=b"\xf4\x8f\xbf\xff")
+        else:
+            assert False, (head,)
+
+
+StartBytes = tuple(bytes([_]) for _ in range(0xC2, 0xF4 + 1))  # what UTF-8 completes
+
+
+def _try_ends_later_() -> None:
+    """Require each StartsWith accepted by .bytes_to_later_decode via the Endswiths"""
+
+    start_set = set()
+    for cp in range(0x110000):
+        if 0xD800 <= cp <= 0xDFFF:  # skips surrogates
+            continue
+        kbytes = chr(cp).encode()
+        for index in range(1, len(kbytes)):
+            start = kbytes[:index]
+            start_set.add(start)
+
+    start_byte_set = set()
+    for start in start_set:
+        assert TerminalByteFrame.bytes_to_later_decode_if(start), (start,)
+        start_byte_set.add(start[:1])
+
+    start_bytes = tuple(sorted(start_byte_set))
+    assert start_bytes == StartBytes, (
+        start_bytes,
+        StartBytes,
+    )
+
+
+def _try_one_more_kbyte_() -> None:
+    """Try some Packets open to, or closed against, taking more Bytes"""
+
+    # Decline Bytes after Closed
+
+    _try_open_(b"")
+    _try_extra_(b"\t", extra=b"\x41")
+
+    # Take Bytes into Stash, while could be decodable
+
+    _try_open_("Superb", b"\xc2")
+    _try_open_(b"\xed\x80")  # Head of >= 3 Byte UTF-8 Encoding
+    _try_open_(b"\xf4\x80\x80")  # Head of >= 4 Byte UTF-8 Encoding
+
+    # Take 6 Bytes into a Mouse Report, never decoded, then bounce the rest  # ruled: close6
+
+    _try_open_(b"\033[M", b"\xff\xff")  # 5 Undecodable Bytes
+    _try_close_(b"\033[M", b".\xc2\xa3")  # 6 Bytes, 2 Chars
+    _try_close_(b"\033[M", b"\xf4\x8f\xbf")  # 6 Bytes, unfinished Char
+
+    _try_close_(b"\033[M", b"\xc2\x80\xff")  # 6 Undecodable Bytes
+    _try_close_(b"\033[M", b"\xff\xff\xc2")  # 6 Bytes, \xc2 unfinished
+
+    _try_extra_(b"\033[M" b"\xf4\x8f\xbf", extra=b"\xbf")  # bounces past 6
+    _try_extra_(b"\033[M" b"\xff\xff\xc2", extra=b"\x80")  # bounces past 6
+
+    # Take Bytes into Text
+
+    _try_open_("\u20ac", "\ufffd".encode()[:-1])
+
+    # Decline 1..4 Unprintable Bytes after Text
+
+    # not yet: a bounce leaves Text open
+    # _try_extra_(b"Text", extra=b"\x7f")
+    # _try_extra_(b"Plain", extra="\uffff".encode())
+
+
+def _try_some_control_() -> None:
+
+    # Take & close 1 Unprintable Char or 1..4 Undecodable Bytes as an Alt Head
+
+    _try_close_(b"\n")  # 7-bit Control Byte as Head alone
+    _try_close_(b"\xc0")  # 8-bit Control Byte as Head alone
+    _try_close_(b"\xc2\xad")  # 2 Byte UTF-8 of U+00AD Soft-Hyphen Control as Head alone
+    _try_close_(b"\xf5")  # 1 Byte Undecodable as Head alone
+    _try_close_(b"\xff")  # 1 Byte Undecodable as Head alone
+    _try_close_(b"\xf4\x8f\xbf\xc0")  # 4 Bytes Undecodable as Head alone
+
+    # Take & close 1 Printable Char escaped by a Head simpler than Csi, Esc Csi, and Osc
+
+    _try_close_(b"\033", b"A")  # Head & Text Tail of a Two-Byte Esc Sequence
+    _try_close_(b"\033O", b"P")  # Head & Text Tail of a Three-Byte Ss3 Sequence
+
+    # Take & close 1 Unprintable Char or 1..4 Undecodable Bytes escaped by a Simpler Head
+
+    _try_close_(b"\033", b"\t")  # Head & Control Tail of a Two-Byte Esc Sequence
+
+    # Take or don't take 1 Decodable Char escaped by Osc or Csi or Esc Csi
+
+    _try_open_(b"\033[", b"6", b" ")  # Csi Head with Neck and Back but no Tail
+
+    _try_close_(b"\033[", b"1", b"M")  # Csi Tail ⇧M that isn't ⎋[⇧M Head
+    _try_close_(b"\033\033[", b"3;5", b"~")  # Esc Csi Head with Neck and Tail, no Back
+    _try_close_(b"\033[", b"3;5", b"H")  # Csi Head with Neck and Tail, no Back
+    _try_close_(b"\033[", b"6", b" q")  # Csi Head with Neck and Back & Tail
+
+    _try_close_(b"\033]", b"\x07")  # Osc with 007 Bel as Tail
+    _try_close_(b"\033]", b"\x1b" b"\\")  # Osc with ⎋\ String Terminator (ST) as Tail
+
+    # Decline 1..4 Undecodable Bytes, when escaped by Csi or Esc Csi or Osc
+    # Decline 1 Bytes of Unprintable or Multi-Byte Char
+    # todo8: cleanup/ synch the English in these comments :P
+
+    _try_close_(b"\x1b[", "\u20ac".encode())  # ruled: Chars close ⎋[
+    _try_open_(b"\x1b]", "\u20ac".encode())
+
+    # not yet: a bounce leaves ⎋[ and ⎋] open
+    # _try_extra_(b"\x1b[", extra=b"\t")
+    # _try_extra_(b"\x1b]", extra=b"\t")
+    # _try_extra_(b"\x1b[", extra=b"\xf4\x8f\xff")
+    # _try_extra_(b"\x1b]", extra=b"\xf4\x8f\xff")
+
+    # Try some commonly recurring choices
+
+    assert _END_PASTE_ == "\033[" "201~"
+
+    _try_close_(b"\x1b[", b"201", b"~")
+
+
+def _try_extra_(kbytes: bytes, extra: bytes) -> None:
+    """Require the Pack to reject these Bytes, after closing itself if need be"""
+
+    kpack = TerminalByteFrame(kbytes)
+    closed = kpack.closed
+
+    returned_extra = kpack.take_data_if(extra)
+    assert returned_extra == extra, (returned_extra, extra, str(kpack))
+
+    assert kpack.closed == closed, (kpack.closed, closed, extra, kpack)
+    assert kpack == TerminalByteFrame(kbytes), (kpack, TerminalByteFrame(kbytes))
+
+
+def _try_open_(*args: str | bytes) -> None:
+    """Require the Eval of the Str of the Pack equals its Bytes"""
+
+    kpack = _try_bytes_(*args)
+    assert not kpack.closed, (kpack,)
+
+
+def _try_close_(*args: bytes) -> None:
+    """Require the Eval of the Str of the Pack equals its Bytes"""
+
+    kpack = _try_bytes_(*args)
+    assert kpack.closed, (kpack,)
+
+
+def _try_bytes_(*args: str | bytes) -> TerminalByteFrame:
+    """Require the Eval of the Str of the Pack equals its Bytes"""
+
+    kbytes = b""
+    for arg in args:
+        if isinstance(arg, str):
+            kbytes += arg.encode()
+        else:
+            kbytes += arg
+
+    join = " ".join(repr(_) for _ in args)
+
+    kpack = TerminalByteFrame(kbytes)
+    kpack_kbytes = kpack.to_frame_bytes()
+    kpack_str = str(kpack)
+
+    join_plus = join if kpack.closed else (join + " +")  # ' +' marks an Open Frame
+
+    assert kpack_kbytes == kbytes, (kpack_kbytes, kbytes)
+    assert kpack_str == join_plus, (kpack_str, join_plus)
+
+    return kpack
+
+
+def _try_terminal_byte_frame_2_() -> None:
+    """Try some Frames: ↑ ⎋↑ ⎋[M ⎋[↗ and the ⎋\\ String Terminator"""
+
+    assert DL_Y == "\033[" "{}M"
+    assert _CLICK3_ == "\033[M"
+    assert _NorthArrow_ == "\033[A"
+    assert ST == "\033\134"
+    assert _NortheastArrow_ == "\033[↗"
+
+    # Do nothing with grace & elegance
+
+    TerminalByteFrame(b"")
+
+    # Speak well of ↑ and ⎋↑
+
+    f = TerminalByteFrame(b"\033[A")
+    assert f.to_frame_bytes() == b"\033[A", (f,)
+    assert f.closed, (f,)
+
+    f = TerminalByteFrame(b"\033\033[A")
+    assert f.to_frame_bytes() == b"\033\033[A", (f,)
+    assert f.closed, (f,)
+
+    # Dance well with the _CLICK3_ clash into DL_Y without Pn
+
+    f = TerminalByteFrame(b"\033[M")
+    assert f.to_frame_bytes() == b"\033[M", (f,)
+    assert not f.closed, (f,)  # because could be ⎋[⇧M{b}{x}{y}
+
+    f = TerminalByteFrame(b"\033[Mabc")
+    assert f.to_frame_bytes() == b"\033[Mabc", (f,)
+    assert f.closed, (f,)
+
+    f = TerminalByteFrame(b"\033[Mab\xff")
+    assert f.to_frame_bytes() == b"\033[Mab\xff", (f,)
+    assert f.closed, (f,)
+
+    # Accept ↖↗↘↙ Intercardinal Arrows, not just ←↑→↓ Cardinal Arrows
+
+    f = TerminalByteFrame("\033[↗".encode())  # not yet standard
+    assert f.to_frame_bytes() == "\033[↗".encode(), (f,)
+    assert f.closed, (f,)
+
+    # Accept the ⎋\ String Terminator (ST) to close an ⎋] Osc Frame
+
+    f = TerminalByteFrame(b"\033]11;?\033\\")
+    assert f.to_frame_bytes() == b"\033]11;?\033\\", (f,)
+    assert f.closed, (f,)
+
+
 #
 # Speak of a Byte Sequence as a Strike of Key Caps at a macBook
 #
-
-
-def _try_keyboard_decoder_() -> None:
-    """Try KeyboardDecoder things"""
-
-    kd = keyboard_decoder()
-
-    # Pair up Bytes with the Key Caps struck to send them, else with an Empty Str
-
-    pairs = (
-        #
-        (b"", ""),  # nothing struck
-        (b"\t", "⇥"),  # a Control Byte
-        (b"\r", "⏎"),
-        (b"\001", "⌃A"),
-        (b"\033", "⎋"),
-        (b"\033[A", "↑"),  # a Csi Sequence
-        (b"\033[1;2C", "⇧→"),
-        (b"\033[", "⎋["),  # ⎋ struck before [
-        (b"\033[1", "⎋ [ 1"),  # three Key Caps struck, though no Chord sends these Bytes
-        (b"\033[a", "⎋ [ A"),  # three Key Caps struck, and the trailing b'a' closes the Frame
-        (b" ", "␢"),  # a Printable Char
-        (b"j", "J"),
-        (b"J", "⇧J"),
-        (b"ABC", "⇧A ⇧B ⇧C"),  # a Paste
-        (b"\377", ""),  # an Undecodable Byte
-        #
-        ("é".encode(), "⌥E E"),  # 'é' as 1 Char  # NFD would split out a Combining Acute Accent
-        ("j́".encode(), "⌥E J"),  # 'j' before Combining Acute Accent, from Dead Key & then J Key
-        ("´".encode(), "⌥⇧E"),  # the Spacing Acute Accent, as struck
-        ("\u0301".encode(), ""),  # the Combining Acute Accent by itself, which no Key sends
-        ("a\u0301\u0308".encode(), ""),  # two Combining Marks on one Char, which no Key sends
-        #
-        (b"\033OP", "F1"),  # an Ss3 Sequence
-        (b"\033[17~", "F6"),  # F6 over ⌥F1 or ⎋F1, which send the same Bytes
-        (b"\033[23~", "⌥F6"),  # ⌥F6 because macOS Mission Control often steals F11
-        (b"\033[24~", "F12"),  # F12 over ⌥F7 or ⎋F7
-        (b"\033[25~", "⇧F5"),  # ⇧F5 over ⌥F8 or ⎋F8
-        (b"\033[22~", "⎋ [ 2 2 ⇧~"),  # no F Key sends ⎋[22~  # F10 sends 21, F11 sends 23
-        (b"\033\020", "⎋⌃P"),  # ⎋⌃P over ⎋⇧F1 .. ⎋⌃⇧F12, which send the same Bytes
-        #
-    )
-
-    for data, want in pairs:
-        caps = kd.bytes_to_key_caps_if(data)
-        assert caps == want, (caps, want, data)
-
-    # Show Unicode tells Apple that the Dead Key should accent the Char struck after it
-
-    dead_key_echo_by_combining = KeyboardDecoder.DeadKeyEchoByCombining
-    for t in dead_key_echo_by_combining.keys():
-        assert unicodedata.combining(t), (t,)
 
 
 @functools.cache
@@ -1998,6 +2226,58 @@ class KeyboardDecoder:
         return tuple()
 
 
+def _try_keyboard_decoder_() -> None:
+    """Try KeyboardDecoder things"""
+
+    kd = keyboard_decoder()
+
+    # Pair up Bytes with the Key Caps struck to send them, else with an Empty Str
+
+    pairs = (
+        #
+        (b"", ""),  # nothing struck
+        (b"\t", "⇥"),  # a Control Byte
+        (b"\r", "⏎"),
+        (b"\001", "⌃A"),
+        (b"\033", "⎋"),
+        (b"\033[A", "↑"),  # a Csi Sequence
+        (b"\033[1;2C", "⇧→"),
+        (b"\033[", "⎋["),  # ⎋ struck before [
+        (b"\033[1", "⎋ [ 1"),  # three Key Caps struck, though no Chord sends these Bytes
+        (b"\033[a", "⎋ [ A"),  # three Key Caps struck, and the trailing b'a' closes the Frame
+        (b" ", "␢"),  # a Printable Char
+        (b"j", "J"),
+        (b"J", "⇧J"),
+        (b"ABC", "⇧A ⇧B ⇧C"),  # a Paste
+        (b"\377", ""),  # an Undecodable Byte
+        #
+        ("é".encode(), "⌥E E"),  # 'é' as 1 Char  # NFD would split out a Combining Acute Accent
+        ("j́".encode(), "⌥E J"),  # 'j' before Combining Acute Accent, from Dead Key & then J Key
+        ("´".encode(), "⌥⇧E"),  # the Spacing Acute Accent, as struck
+        ("\u0301".encode(), ""),  # the Combining Acute Accent by itself, which no Key sends
+        ("a\u0301\u0308".encode(), ""),  # two Combining Marks on one Char, which no Key sends
+        #
+        (b"\033OP", "F1"),  # an Ss3 Sequence
+        (b"\033[17~", "F6"),  # F6 over ⌥F1 or ⎋F1, which send the same Bytes
+        (b"\033[23~", "⌥F6"),  # ⌥F6 because macOS Mission Control often steals F11
+        (b"\033[24~", "F12"),  # F12 over ⌥F7 or ⎋F7
+        (b"\033[25~", "⇧F5"),  # ⇧F5 over ⌥F8 or ⎋F8
+        (b"\033[22~", "⎋ [ 2 2 ⇧~"),  # no F Key sends ⎋[22~  # F10 sends 21, F11 sends 23
+        (b"\033\020", "⎋⌃P"),  # ⎋⌃P over ⎋⇧F1 .. ⎋⌃⇧F12, which send the same Bytes
+        #
+    )
+
+    for data, want in pairs:
+        caps = kd.bytes_to_key_caps_if(data)
+        assert caps == want, (caps, want, data)
+
+    # Show Unicode tells Apple that the Dead Key should accent the Char struck after it
+
+    dead_key_echo_by_combining = KeyboardDecoder.DeadKeyEchoByCombining
+    for t in dead_key_echo_by_combining.keys():
+        assert unicodedata.combining(t), (t,)
+
+
 #
 # Name the more basic Terminal Encodings
 #
@@ -2024,6 +2304,9 @@ PN1 = 1  # default Csi Pn = 1 for others
 _MAX_PN_32100_ = 32100  # max Csi Pn = 32100 exceeds the .x_wide .y_high of most Terminal Screens
 
 
+DECIC_X = "\033[" "{}" "'}}"  # Csi 07/13 [DEC] Insert Column [Pn]
+DECDC_X = "\033[" "{}" "'~"  # Csi 07/14 [DEC] Delete Column [Pn]
+
 ICH_X = "\033[" "{}" "@"  # Csi 04/00 [Insert] Cursor Horizontal [Pn] [Columns]
 CUU_Y = "\033[" "{}" "A"  # Csi 04/01 Cursor Up [Pn] [Rows]
 CUF_X = "\033[" "{}" "C"  # Csi 04/03 Cursor Forward [Pn] [Columns]
@@ -2034,16 +2317,13 @@ EL_PS = "\033[" "{}" "K"  # CSI 04/11 Erase in Line [Row]  # 0 Tail # 1 Head # 2
 IL_Y = "\033[" "{}" "L"  # Csi 04/12 Insert Line [Row]
 _CLICK3_ = "\033[M"  # ⎋[⇧M{b}{x}{y} Click Press/ Release
 DL_Y = "\033[" "{}M"  # Csi 04/13 Delete Line [Row]
-
 DCH_X = "\033[" "{}" "P"  # Csi 05/00 [Delete] Cursor Horizontal [Pn] [Columns]
 SU_Y = "\033[" "{}S"  # CSI 05/03 Scroll Up [Into Scrollback]
 
+_START_PASTE_ = "\033[" "200~"  # ⎋[200⇧~ Start of Bracketed Paste
+_END_PASTE_ = "\033[" "201~"  # ⎋[201⇧~ End of Bracketed Paste
+
 VPA_Y = "\033[" "{}" "d"  # Csi 06/04 Vertical Position Absolute [Row]
-
-DECIC_X = "\033[" "{}" "'}}"  # Csi 07/13 [DEC] Insert Column [Pn]
-DECDC_X = "\033[" "{}" "'~"  # Csi 07/14 [DEC] Delete Column [Pn]
-
-
 SM_PS = "\033[" "{}" "h"  # CSI 06/08 4 Set Mode
 RM_PS = "\033[" "{}" "l"  # CSI 06/12 4 Reset Mode
 SGR_PS = "\033[" "{}" "m"  # CSI 06/13 Select Graphic Rendition [Text Style]
@@ -2069,7 +2349,9 @@ _NortheastArrow_ = "\033[↗"
 _SoutheastArrow_ = "\033[↘"
 _SouthwestArrow_ = "\033[↙"
 
+
 _ = _MAX_PN_32100_
+_ = _START_PASTE_
 _ = _SouthArrow_, _EastArrow_, _WestArrow_
 _ = _NorthwestArrow_, _SoutheastArrow_, _SouthwestArrow_
 
