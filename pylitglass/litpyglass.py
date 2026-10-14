@@ -821,7 +821,7 @@ class TerminalByteFrame:
 
     head: bytearray  # b''  # N * ESC  # N * ESC + CSI  # N * ESC + SS3  # OSC
     neck: bytearray  # b''  # Csi Params  # Osc Payload
-    backtail: bytearray  # b''  # Csi Intermediates and Final  # Osc Terminator
+    backtail: bytearray  # b''  # Csi Intermediates and Final  # Osc Terminator  # Esc or Ss3 Char
 
     stash: bytearray  # b''  # 1..3 Bytes taken while not printable
 
@@ -1118,6 +1118,7 @@ class TerminalByteFrame:
         """Take 1..4 more Bytes in, after ⎋ Esc, else return what doesn't fit"""
 
         head = self.head
+        backtail = self.backtail
 
         # Take one of the ⎋ Esc Head's, without closing the Frame
 
@@ -1133,16 +1134,16 @@ class TerminalByteFrame:
 
         # Take ⎋ Esc as an Emacs Meta Byte before 1..4 Bytes
 
-        head.extend(data)
+        backtail.extend(data)
         self.close_frame()
         return b""
 
     def _take_after_ss3_if_(self, data: bytes) -> bytes:
         """Take 1..4 more Bytes in, after ⎋O SS3, else return what doesn't fit"""
 
-        head = self.head
+        backtail = self.backtail
 
-        head.extend(data)
+        backtail.extend(data)
         self.close_frame()
         return b""
 
