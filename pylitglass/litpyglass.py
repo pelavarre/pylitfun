@@ -600,8 +600,8 @@ class TerminalFrameKeeper:
     bk: ByteKeeper  # the Bytes, and when each arrived
 
     frame: TerminalByteFrame  # the Open Frame
-    frames: list[TerminalByteFrame]  # the Closed Frames
-    index: int  # how many Closed Frames pulled
+    frames: list[TerminalByteFrame]  # the Kept Frames, each closed as complete, or bounced
+    index: int  # how many Kept Frames pulled
 
     def __init__(self) -> None:
 
@@ -612,7 +612,7 @@ class TerminalFrameKeeper:
         self.index = 0
 
     def keep_one_byte(self, b: bytes) -> None:
-        """Say 1 more Byte arrived now, and keep each Frame as it closes"""
+        """Say 1 more Byte arrived now, and keep each Frame as it closes or bounces"""
 
         bk = self.bk
 
@@ -628,7 +628,7 @@ class TerminalFrameKeeper:
             return
 
         _frame_ = self.frame
-        assert not _frame_, (_frame_,)  # bounced from Closed Frame means replaced Frame
+        assert not _frame_, (_frame_,)  # bounced means the Frame was kept and replaced
 
         # Split the Bytes that bounced, if Bytes bounced
 
@@ -647,22 +647,21 @@ class TerminalFrameKeeper:
         assert not _extras_, (_extras_, extras)  # an Empty Frame never bounces
 
     def _frame_take_data_if_(self, data: bytes) -> bytes:
-        """Grow the Frame, replace the Frame if it closes, and do return the bounced Bytes, if any"""
+        """Grow the Frame, replace it if it closes or bounces, and return the bounced Bytes, if any"""
 
         frame = self.frame
         frames = self.frames
 
         assert not frame.closed, (frame,)
 
-        # Grow the Open Frame, or grow it & close it, or close it
+        # Grow the Open Frame, or grow it & close it, or leave it as it was and bounce
 
         extras = frame.take_data_if(data)
-        assert (not extras) or frame.closed, (extras, frame)  # bounces extras only when closed
 
-        # Keep & replace the Frame if it closed
+        # Keep & replace the Frame if it closed as complete, or if it bounced while incomplete
 
         _frame_ = frame
-        if frame.closed:
+        if frame.closed or extras:
             frames.append(frame)
 
             _frame_ = TerminalByteFrame(b"")  # empty and open
@@ -677,7 +676,7 @@ class TerminalFrameKeeper:
         return extras
 
     def pull_frame_triples(self) -> tuple[tuple[int, int, bytes], ...]:
-        """Read and clear the (before, after, bytes) triples of Frames closed since last sampled"""
+        """Read and clear the (before, after, bytes) triples of Frames kept since last sampled"""
 
         bk = self.bk
         frame = self.frame
@@ -687,7 +686,7 @@ class TerminalFrameKeeper:
         ba = bk.ba
         nano_list = bk.nano_list
 
-        # Pull the Closed Frames not yet pulled
+        # Pull the Kept Frames not yet pulled
 
         pulls = frames[index:]
         self.index = len(frames)
@@ -733,13 +732,13 @@ class TerminalFrameKeeper:
         ba = bk.ba
         nano_list = bk.nano_list
 
-        # Hand down the last 4 Closed Frames, each with when its last Byte arrived
+        # Hand down the last 4 Kept Frames, each with when its last Byte arrived
 
         stop = len(ba) - len(frame.to_frame_bytes())  # back past the Open Frame
 
         pairs_list = list()
-        for closed in reversed(frames[-4:]):
-            data = closed.to_frame_bytes()
+        for kept in reversed(frames[-4:]):
+            data = kept.to_frame_bytes()
             pairs_list.append((nano_list[stop - 1], data))
             stop -= len(data)
 
@@ -1132,10 +1131,9 @@ class TerminalByteFrame:
                 encodes.extend(data)
                 return b""
 
-        # End a Text Frame before Unprintable or Undecodable Bytes
+        # Bounce Unprintable or Undecodable Bytes off a Text Frame, leaving it open
 
         if encodes:
-            self.close_frame()
             return data
 
         # Take 1..4 Unprintable or Undecodable Bytes as Head
@@ -1249,9 +1247,8 @@ class TerminalByteFrame:
                     neck.extend(data)
                     return b""
 
-                # Close before more Params, if Backtail has started
+                # Bounce more Params, if Backtail has started, leaving the Frame open
 
-                self.close_frame()
                 return data
 
             # Grow the Backtail
@@ -1268,9 +1265,8 @@ class TerminalByteFrame:
             self.close_frame()
             return b""
 
-        # Close the ⎋[ Csi Frame before Unprintable or Undecodable Bytes
+        # Bounce Unprintable or Undecodable Bytes off the ⎋[ Csi Frame, leaving it open
 
-        self.close_frame()
         return data
 
     def _take_after_osc_if_(self, data: bytes, text: str) -> bytes:
@@ -1309,9 +1305,8 @@ class TerminalByteFrame:
 
             # todo: how should other Bytes past "\033" close an ⎋] Osc Frame?
 
-        # Close the ⎋] Osc Frame before Unprintable or Undecodable Bytes
+        # Bounce Unprintable or Undecodable Bytes off the ⎋] Osc Frame, leaving it open
 
-        self.close_frame()
         return data
 
     #
@@ -1420,18 +1415,16 @@ def _try_headbook_() -> None:
             _try_close_(head, b"\xf4\x8f\xbf\xff")
         elif head == b"\033[":
             _try_close_(head, "\u20ac".encode())  # ruled: Chars close ⎋[
-            # not yet: a bounce leaves ⎋[ open
-            # _try_extra_(head, extra=b"\033")
-            # _try_extra_(head, extra=b"\t")
-            # _try_extra_(head, extra=b"\xf4\x8f\xbf\xff")
+            _try_extra_(head, extra=b"\033")
+            _try_extra_(head, extra=b"\t")
+            _try_extra_(head, extra=b"\xf4\x8f\xbf\xff")
         elif head == b"\033]":
             _try_open_(head, b"\033")
             _try_open_(head, "\u20ac".encode())
             # not yet: ⎋] gives back its held ⎋
             # _try_extra_(head, extra=head)
-            # not yet: a bounce leaves ⎋] open
-            # _try_extra_(head, extra=b"\t")
-            # _try_extra_(head, extra=b"\xf4\x8f\xbf\xff")
+            _try_extra_(head, extra=b"\t")
+            _try_extra_(head, extra=b"\xf4\x8f\xbf\xff")
         else:
             assert False, (head,)
 
@@ -1495,9 +1488,8 @@ def _try_one_more_kbyte_() -> None:
 
     # Decline 1..4 Unprintable Bytes after Text
 
-    # not yet: a bounce leaves Text open
-    # _try_extra_(b"Text", extra=b"\x7f")
-    # _try_extra_(b"Plain", extra="\uffff".encode())
+    _try_extra_(b"Text", extra=b"\x7f")
+    _try_extra_(b"Plain", extra="\uffff".encode())
 
 
 def _try_some_control_() -> None:
@@ -1539,11 +1531,10 @@ def _try_some_control_() -> None:
     _try_close_(b"\x1b[", "\u20ac".encode())  # ruled: Chars close ⎋[
     _try_open_(b"\x1b]", "\u20ac".encode())
 
-    # not yet: a bounce leaves ⎋[ and ⎋] open
-    # _try_extra_(b"\x1b[", extra=b"\t")
-    # _try_extra_(b"\x1b]", extra=b"\t")
-    # _try_extra_(b"\x1b[", extra=b"\xf4\x8f\xff")
-    # _try_extra_(b"\x1b]", extra=b"\xf4\x8f\xff")
+    _try_extra_(b"\x1b[", extra=b"\t")
+    _try_extra_(b"\x1b]", extra=b"\t")
+    _try_extra_(b"\x1b[", extra=b"\xf4\x8f\xff")
+    _try_extra_(b"\x1b]", extra=b"\xf4\x8f\xff")
 
     # Try some commonly recurring choices
 
