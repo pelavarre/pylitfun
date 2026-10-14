@@ -771,8 +771,8 @@ The Frames ending with '+' were still open, the others were already closed.
     'ab' +   bounce  bounce  bounce  open    open    open    open    bounce
 
     ⎋ +      close   close   open    close   close   close   close   close
-    ⎋⎋ +     close   close   close   close   close   close   close   close
-    ⎋O +     close   close   close   close   close   close   close   close
+    ⎋⎋ +     close   close   bounce  close   close   close   close   close
+    ⎋O +     close   close   bounce  close   close   close   close   close
     ⎋[M +    open    open    open    open    open    open    close6  open
     ⎋[M␢! +  close6  close6  close6  close6  close6  close6  close6  close6
 
@@ -1181,6 +1181,11 @@ class TerminalByteFrame:
 
             # doesn't take ⇧M after \⎋[ here
 
+        # Bounce an ⎋ Esc that grows no Headbook Head, leaving the Frame open, as ⎋O does
+
+        if data == b"\033":
+            return data
+
         # Take ⎋ Esc as an Emacs Meta Byte before 1..4 Bytes
 
         backtail.extend(data)
@@ -1191,6 +1196,13 @@ class TerminalByteFrame:
         """Take 1..4 more Bytes in, after ⎋O SS3, else return what doesn't fit"""
 
         backtail = self.backtail
+
+        # Bounce an ⎋ Esc off the ⎋O Ss3 Frame, leaving it open, to start the next Frame
+
+        if data == b"\033":
+            return data
+
+        # Take 1 Char or 1..4 Bytes as the Final
 
         backtail.extend(data)
         self.close_frame()
@@ -1404,12 +1416,12 @@ def _try_headbook_() -> None:
 
         if head == b"\033":
             _try_open_(head + b"\033")
+            _try_extra_(head + b"\033", extra=b"\033")
             _try_close_(head, b"\t")
             _try_close_(head, "\u20ac".encode())
             _try_close_(head, b"\xf4\x8f\xbf\xff")
         elif head == b"\033O":
-            # not yet: ⎋ bounces off ⎋O
-            # _try_extra_(head, extra=b"\033")
+            _try_extra_(head, extra=b"\033")
             _try_close_(head, b"\t")
             _try_close_(head, "\u20ac".encode())
             _try_close_(head, b"\xf4\x8f\xbf\xff")
