@@ -264,7 +264,8 @@ class GlassWorker:
 
                 frame = ifk.frame
                 open_data = frame.to_frame_bytes()  # maybe empty
-                GlassWorker.frame_print(open_data, cells=cells, end=" ")
+                _end_ = " + " if not frame.closed else " "  # ' +' while open, as str(Frame) has it
+                GlassWorker.frame_print(open_data, cells=cells, end=_end_)
 
                 # Flush writes to the Terminal
 
@@ -853,7 +854,53 @@ class TerminalByteFrame:
         truthy = self != TerminalByteFrame(b"")
         return truthy
 
-    # def __str__(self) -> str:  # todo9: add for Class TerminalByteFrame
+    def __str__(self) -> str:
+        """Speak of the Frame as its Parts, each a Repr of Bytes, plus ' +' while open"""
+
+        encodes = self.encodes
+
+        head = self.head
+        neck = self.neck
+        backtail = self.backtail
+
+        stash = self.stash
+
+        closed = self.closed
+
+        # Speak of Text as a Repr of Str, with the Repr of Bytes of an unfinished Char after it
+
+        if encodes:
+            text = encodes.decode()
+            join = repr(text)  # "'abc'"
+            if stash:
+                join += " " + repr(bytes(stash))  # "'abc' b'\xc0'"
+
+        # Speak of no Head as the Repr of Bytes stashed, else as b''
+
+        elif not head:
+            join = repr(bytes(stash))  # "b'\xc0'"  # "b''"
+
+        # Speak of the Head, then the Neck, then the Back & Tail, if any
+
+        else:
+            parts = [bytes(head)]
+
+            if neck:
+                parts.append(bytes(neck))  # Csi Params  # Osc Payload
+            if backtail or stash:
+                parts.append(bytes(backtail + stash))  # Csi Back & Tail  # Osc Terminator
+
+            join = " ".join(repr(_) for _ in parts)
+
+        # Mark an Open Frame with ' +', since more Bytes may yet arrive
+
+        if not closed:
+            join += " +"
+
+        assert join.isprintable(), (join,)
+        return join
+
+        # "b'\x1b[' b'6' b' q'"  # "b'\x1b' b'A'"  # "b'\x1b[M' b'\xc2\x80\xff'"  # "b'\x1b[' +"
 
     def clear_frame(self) -> None:
         """Start again"""
