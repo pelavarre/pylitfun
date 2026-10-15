@@ -1094,14 +1094,10 @@ class TerminalByteFrame:
 
         escapes = len(head) - len(head.lstrip(b"\033"))
         escapes = (escapes - 1) if escapes else 0
-        undented_head = head[escapes:]
+        undented_head = bytes(head[escapes:])
 
-        if undented_head == b"\033":
-            extras = self._take_after_esc_if_(data, text=text)
-            return extras
-
-        elif undented_head == b"\033O":
-            extras = self._take_after_ss3_if_(data, text=text)
+        if undented_head in (b"\033", b"\033O"):
+            extras = self._take_after_ss3_or_esc_if_(data, text=text)
             return extras
 
         elif undented_head == b"\033[M":
@@ -1163,8 +1159,8 @@ class TerminalByteFrame:
         b"\033]",  # ⎋ OSC
     )
 
-    def _take_after_esc_if_(self, data: bytes, text: str) -> bytes:
-        """Take 1..4 more Bytes in, after ⎋ Esc, else return what doesn't fit"""
+    def _take_after_ss3_or_esc_if_(self, data: bytes, text: str) -> bytes:
+        """Take 1..4 more Bytes in, after ⎋ Esc or ⎋O Ss3, else return what doesn't fit"""
 
         head = self.head
         backtail = self.backtail
@@ -1173,6 +1169,8 @@ class TerminalByteFrame:
 
         head_plus = head + data
         if head_plus in TerminalByteFrame.Headbook:
+            assert head != b"\033O", (head,)
+
             lstrip = head_plus.lstrip(b"\033")
             assert len(lstrip) <= 1, (head_plus,)
 
@@ -1181,38 +1179,17 @@ class TerminalByteFrame:
 
             # doesn't take ⇧M after \⎋[ here
 
-        # Bounce an ⎋ Esc that grows no Headbook Head, leaving the Frame open, as ⎋O does
+        # Bounce an ⎋ Esc that grows no Headbook Head, leaving the Frame open
 
         if data == b"\033":
             return data
 
-        # Bounce Undecodable Bytes off the ⎋ Esc Frame, leaving it open, to start a Frame of their own
+        # Bounce Undecodable Bytes off the Frame, leaving it open, to start a Frame of their own
 
         if not text:
             return data
 
-        # Take ⎋ Esc as an Emacs Meta Byte before 1 Char
-
-        backtail.extend(data)
-        self.close_frame()
-        return b""
-
-    def _take_after_ss3_if_(self, data: bytes, text: str) -> bytes:
-        """Take 1..4 more Bytes in, after ⎋O SS3, else return what doesn't fit"""
-
-        backtail = self.backtail
-
-        # Bounce an ⎋ Esc off the ⎋O Ss3 Frame, leaving it open, to start the next Frame
-
-        if data == b"\033":
-            return data
-
-        # Bounce Undecodable Bytes off the ⎋O Ss3 Frame, leaving it open, to start a Frame of their own
-
-        if not text:
-            return data
-
-        # Take 1 Char as the Final
+        # Take 1 Char, as the Emacs Meta Char after ⎋ Esc, or as the Final after ⎋O Ss3
 
         backtail.extend(data)
         self.close_frame()
