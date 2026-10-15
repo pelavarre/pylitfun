@@ -614,37 +614,38 @@ class TerminalFrameKeeper:
     def keep_one_byte(self, b: bytes) -> None:
         """Say 1 more Byte arrived now, and keep each Frame as it closes or bounces"""
 
-        bk = self.bk
+        # Stamp the Byte with Now
 
-        # Stamp the Byte with Now, and grow-close-replace, or just grow the Frame
+        bk = self.bk
 
         assert len(b) == 1, (len(b), b)
         nano = time.perf_counter_ns()
 
         bk.append_one_byte(b, nano=nano)
 
-        extras = self._frame_take_data_if_(b)
-        if not extras:
+        # Grow the Frame, or grow and keep, or don't grow and keep
+
+        frame = self.frame  # early
+        extras1 = self._frame_take_data_if_(b)
+
+        if not extras1:
             return
 
-        _frame_ = self.frame
-        assert not _frame_, (_frame_,)  # bounced means the Frame was kept and replaced
+        _frame_ = self.frame  # late
 
-        # Split the Bytes that bounced, if Bytes bounced
+        assert _frame_ is not frame, (_frame_, frame)  # new Empty Frame, because the Extras bounced
+        assert not _frame_, (_frame_,)
 
-        prefix = extras[:-1]
-        last = extras[-1:]
-        assert last == b, (last, extras, b)
+        # Add enough more Frames to keep all the Bytes
 
-        if prefix:
-            assert TerminalByteFrame.bytes_to_later_decode_if(prefix), (prefix, b, extras)
+        extras2 = self._frame_take_data_if_(extras1)
+        if extras2:
 
-            # not yet a Char alone, though prefix + last may be one, bounced from a non-empty Frame
+            extras3 = self._frame_take_data_if_(extras2)
+            assert not extras3, (extras3,)
 
-        # Place the Bytes that bounced into their own Frame, and replace it only if it closes
-
-        _extras_ = self._frame_take_data_if_(extras)
-        assert not _extras_, (_extras_, extras)  # an Empty Frame never bounces
+            # Three calls of ._frame_take_data_if_ are always enough,
+            # because post-conditions at ._frame_take_data_if_ > .take_data_if > .take_one_byte_if
 
     def _frame_take_data_if_(self, data: bytes) -> bytes:
         """Grow the Frame, replace it if it closes or bounces, and return the bounced Bytes, if any"""
@@ -782,6 +783,7 @@ The Frames ending with '+' were still open, the others were already closed.
 
     ⎋] +     close   bounce  open    open    open    open    open    bounce
     ⎋]0;x +  close   bounce  open    open    open    open    open    bounce
+    ⎋]0;x⎋ + bounce2 bounce2 bounce2 bounce2 bounce2 bounce2 bounce2 bounce2
 
     ⎋j       bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
     ⎋Oj      bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
@@ -794,13 +796,18 @@ i ) Open = Take the Byte and keep the Frame open
 ii ) Bounce = Reject the Byte and leave the Frame unchanged
 iii ) Close = Take the Byte and close the Frame
 iv ) Close6 = Take the 6 Bytes and bounce anything after (at ⎋[M legacy)
+v ) Bounce2 = Reject the Byte and give back the held ⎋ with it (at ⎋] awaiting the \ of ⎋\)
 
 Relevant standards include:
 
     ECMA-35_6th_edition_december_1994.pdf
     ECMA-48_5th_edition_june_1991.pdf
 
-However they only clearly solve 7-bit Bytes. We solve 8-bit Bytes reasonably well.
+However the public standards only clearly solve 7-bit Bytes.
+
+We solve 8-bit Bytes reasonably well. We tell every Open Frame to accept the 1..4 Bytes
+of any Printable Text Char, except that our Open ⎋[M Frames only take 1..3 Bytes, and
+our Open ⎋] Osc Frames can bounce 1..5 Bytes because they only take Reverse-Solidus \ after Esc ⎋.
 
 The b'\a' Bel is as special as String Terminator (ST) for ⎋] an Operating System Command (Osc).
 The b'\033' ⎋ Esc is special after just one of itself.
@@ -1013,7 +1020,7 @@ class TerminalByteFrame:
         # todo9: give examples of corners of .to_csi_marks_ints_if
 
     #
-    # Take 1 Byte in and return 0 Bytes, else return 1..4 Bytes that don't fit
+    # Take 1 Byte in and return 0 Bytes, else return 1..5 Bytes that don't fit
     #
 
     def take_data_if(self, data: bytes) -> bytes:
@@ -1031,24 +1038,54 @@ class TerminalByteFrame:
         return b""
 
     def take_one_byte_if(self, b: bytes) -> bytes:
-        """Take 1 Byte in and return 0 Bytes, else return 1..4 Bytes that don't fit"""
+        """Take 1 Byte in and return 0 Bytes, else return 1..5 Bytes that don't fit"""
 
         assert len(b) == 1, (b,)
 
+        backtail = self.backtail
+        stash = self.stash
+
+        # Do the work
+
         extras = self._take_one_byte_if_(b)
 
-        # Promise to bounce this Byte last, if at all, after the 0..3 Bytes of 1 unfinished Char
+        # Sharply limit its results
 
-        assert extras[-1:] in (b"", b), (extras, b)
+        assert ESC == "\033"
+        assert OSC == "\033]"
 
-        prefix = extras[:-1]
-        o = (prefix, extras, b)
-        assert (not prefix) or TerminalByteFrame.bytes_to_later_decode_if(prefix), o
+        if extras:
+            assert extras[-1:] == b, (extras, b)  # every Bounce bounces the new Byte last
+
+            start = extras[:-1]
+            if start:
+                end = extras[1:]
+
+                # Pass back 1 Frame of Bytes, decodable or not
+
+                if not start.startswith(b"\033"):
+                    assert 1 <= len(extras) <= 4, (len(extras), extras, b)
+                    assert TerminalByteFrame.bytes_to_later_decode_if(start), (start, extras, b)
+
+                # Else pass back 1 Frame of ⎋ and then 1 Frame of Un/Decodable not ending ⎋\
+
+                else:
+                    assert 1 <= len(extras) <= 5, (len(extras), extras, b)
+                    tail = TerminalByteFrame.bytes_decode_if(end)
+                    assert (not tail) or ((len(tail) == 1) and (tail != "\\")), (end, extras, b)
+
+                    data = self.to_frame_bytes()
+                    o = (data, backtail, stash, extras, b)
+                    assert data.startswith(b"\033]") and (not backtail) and (not stash), o
+
+        # Succeed
 
         return extras
 
+        # never more than 2 Frames of Extras
+
     def _take_one_byte_if_(self, b: bytes) -> bytes:
-        """Take 1 Byte in and return 0 Bytes, else return 1..4 Bytes that don't fit, unchecked"""
+        """Take 1 Byte in and return 0 Bytes, else return 1..5 Bytes that don't fit, unchecked"""
 
         encodes = self.encodes
         head = self.head
@@ -1269,7 +1306,7 @@ class TerminalByteFrame:
         return data
 
     def _take_after_osc_if_(self, data: bytes, text: str) -> bytes:
-        """Take 1..4 more Bytes in, after ⎋] OSC, else return what doesn't fit"""
+        """Take 1..4 more Bytes in, after ⎋] OSC, else return the 1..5 that don't fit"""
 
         neck = self.neck
         backtail = self.backtail
@@ -1277,32 +1314,36 @@ class TerminalByteFrame:
         assert BEL == "\007"
         assert ST == "\033\134"
 
-        # Grow the ⎋] Osc Frame with 1 Decoded Printable Char
+        # Close the ⎋] Osc Frame with ⎋\ ST, or bounce a held ⎋, or hold ⎋ till ⎋\ ST or Bounce
 
-        if not backtail:
-            if text and text.isprintable():
-                neck.extend(data)
+        if backtail == b"\033":
+
+            if text == "\134":
+                backtail.extend(data)
+                self.close_frame()
                 return b""
 
-        # Close the ⎋] Osc Frame with BEL or ST
+            backtail.clear()
+            return b"\033" + data
+
+        assert not backtail, (backtail,)
+
+        if text == "\033":
+            backtail.extend(data)
+            return b""
+
+        # Close the ⎋] Osc Frame with BEL
 
         if text == "\007":
             backtail.extend(data)
             self.close_frame()
             return b""
 
-        if not backtail:
-            if text == "\033":
-                backtail.extend(data)
-                return b""
+        # Grow the ⎋] Osc Frame with 1 Decoded Printable Char
 
-        if backtail == b"\033":
-            if text == "\134":
-                backtail.extend(data)
-                self.close_frame()
-                return b""
-
-            # todo: how should other Bytes past "\033" close an ⎋] Osc Frame?
+        if text and text.isprintable():
+            neck.extend(data)
+            return b""
 
         # Bounce Unprintable or Undecodable Bytes off the ⎋] Osc Frame, leaving it open
 
@@ -1314,11 +1355,11 @@ class TerminalByteFrame:
 
     @staticmethod
     def bytes_decode_if(data: bytes) -> str:
-        """Say if printable"""
+        """Say if decodable"""
 
         try:
             text = data.decode()
-            return text  # returns first found
+            return text  # maybe empty
         except UnicodeDecodeError:
             pass
 
@@ -1374,7 +1415,17 @@ class TerminalByteFrame:
 def _try_terminal_byte_frame_() -> None:
     """Try TerminalByteFrame things"""
 
+    assert "\u20ac" == "€"  # a popular Printable Character with a 3 Byte Encoding
+    assert "\U0001f602" == "😂"  # a popular Printable Character with a 4 Byte Encoding
+
+    try:
+        b"\xf4\x8f\xbf\xff".decode()
+        assert False
+    except UnicodeDecodeError:
+        pass
+
     _try_terminal_byte_frame_1_()
+
     _try_terminal_byte_frame_2_()
 
     # todo: merge our two 'def _try_terminal_byte_frame_...' well
@@ -1421,8 +1472,7 @@ def _try_headbook_() -> None:
         elif head == b"\033]":
             _try_open_(head, b"\033")
             _try_open_(head, "\u20ac".encode())
-            # not yet: ⎋] gives back its held ⎋
-            # _try_extra_(head, extra=head)
+            _try_extra_(head, extra=head)
             _try_extra_(head, extra=b"\t")
             _try_extra_(head, extra=b"\xf4\x8f\xbf\xff")
         else:
@@ -1526,15 +1576,16 @@ def _try_some_control_() -> None:
 
     # Decline 1..4 Undecodable Bytes, when escaped by Csi or Esc Csi or Osc
     # Decline 1 Bytes of Unprintable or Multi-Byte Char
-    # todo8: cleanup/ synch the English in these comments :P
 
-    _try_close_(b"\x1b[", "\u20ac".encode())  # ruled: Chars close ⎋[
-    _try_open_(b"\x1b]", "\u20ac".encode())
+    _try_close_(b"\x1b[", "\u20ac".encode())  # Csi ends with Multi-Byte Char
+    _try_open_(b"\x1b]", "\u20ac".encode())  # Osc ends with Multi-Byte Char
 
-    _try_extra_(b"\x1b[", extra=b"\t")
-    _try_extra_(b"\x1b]", extra=b"\t")
-    _try_extra_(b"\x1b[", extra=b"\xf4\x8f\xff")
-    _try_extra_(b"\x1b]", extra=b"\xf4\x8f\xff")
+    _try_extra_(b"\x1b[", extra=b"\t")  # Csi bounces Unprintable
+    _try_extra_(b"\x1b[", extra=b"\xf4\x8f\xff")  # Csi bounces Undecodable
+
+    _try_extra_(b"\x1b]", extra=b"\t")  # Osc bounces Unprintable
+    _try_extra_(b"\x1b]", extra="\033\u20ac".encode())  # Osc bounces 3 Byte Encoding
+    _try_extra_(b"\x1b]", extra="\033\U0001f602".encode())  # Osc bounces 4 Byte Encoding
 
     # Try some commonly recurring choices
 
