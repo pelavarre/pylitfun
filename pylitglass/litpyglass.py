@@ -770,9 +770,9 @@ The Frames ending with '+' were still open, the others were already closed.
 
     'ab' +   bounce  bounce  bounce  open    open    open    open    bounce
 
-    ⎋ +      close   close   open    close   close   close   close   close
-    ⎋⎋ +     close   close   bounce  close   close   close   close   close
-    ⎋O +     close   close   bounce  close   close   close   close   close
+    ⎋ +      close   close   open    close   close   close   close   bounce
+    ⎋⎋ +     close   close   bounce  close   close   close   close   bounce
+    ⎋O +     close   close   bounce  close   close   close   close   bounce
     ⎋[M +    open    open    open    open    open    open    close6  open
     ⎋[M␢! +  close6  close6  close6  close6  close6  close6  close6  close6
 
@@ -1097,11 +1097,11 @@ class TerminalByteFrame:
         undented_head = head[escapes:]
 
         if undented_head == b"\033":
-            extras = self._take_after_esc_if_(data)
+            extras = self._take_after_esc_if_(data, text=text)
             return extras
 
         elif undented_head == b"\033O":
-            extras = self._take_after_ss3_if_(data)
+            extras = self._take_after_ss3_if_(data, text=text)
             return extras
 
         elif undented_head == b"\033[M":
@@ -1163,7 +1163,7 @@ class TerminalByteFrame:
         b"\033]",  # ⎋ OSC
     )
 
-    def _take_after_esc_if_(self, data: bytes) -> bytes:
+    def _take_after_esc_if_(self, data: bytes, text: str) -> bytes:
         """Take 1..4 more Bytes in, after ⎋ Esc, else return what doesn't fit"""
 
         head = self.head
@@ -1186,13 +1186,18 @@ class TerminalByteFrame:
         if data == b"\033":
             return data
 
-        # Take ⎋ Esc as an Emacs Meta Byte before 1..4 Bytes
+        # Bounce Undecodable Bytes off the ⎋ Esc Frame, leaving it open, to start a Frame of their own
+
+        if not text:
+            return data
+
+        # Take ⎋ Esc as an Emacs Meta Byte before 1 Char
 
         backtail.extend(data)
         self.close_frame()
         return b""
 
-    def _take_after_ss3_if_(self, data: bytes) -> bytes:
+    def _take_after_ss3_if_(self, data: bytes, text: str) -> bytes:
         """Take 1..4 more Bytes in, after ⎋O SS3, else return what doesn't fit"""
 
         backtail = self.backtail
@@ -1202,7 +1207,12 @@ class TerminalByteFrame:
         if data == b"\033":
             return data
 
-        # Take 1 Char or 1..4 Bytes as the Final
+        # Bounce Undecodable Bytes off the ⎋O Ss3 Frame, leaving it open, to start a Frame of their own
+
+        if not text:
+            return data
+
+        # Take 1 Char as the Final
 
         backtail.extend(data)
         self.close_frame()
@@ -1419,12 +1429,13 @@ def _try_headbook_() -> None:
             _try_extra_(head + b"\033", extra=b"\033")
             _try_close_(head, b"\t")
             _try_close_(head, "\u20ac".encode())
-            _try_close_(head, b"\xf4\x8f\xbf\xff")
+            _try_extra_(head, extra=b"\xf4\x8f\xbf\xff")
+            _try_extra_(head + b"\033", extra=b"\xf4\x8f\xbf\xff")
         elif head == b"\033O":
             _try_extra_(head, extra=b"\033")
             _try_close_(head, b"\t")
             _try_close_(head, "\u20ac".encode())
-            _try_close_(head, b"\xf4\x8f\xbf\xff")
+            _try_extra_(head, extra=b"\xf4\x8f\xbf\xff")
         elif head == b"\033[":
             _try_close_(head, "\u20ac".encode())  # ruled: Chars close ⎋[
             _try_extra_(head, extra=b"\033")
@@ -1520,7 +1531,7 @@ def _try_some_control_() -> None:
     _try_close_(b"\033", b"A")  # Head & Text Tail of a Two-Byte Esc Sequence
     _try_close_(b"\033O", b"P")  # Head & Text Tail of a Three-Byte Ss3 Sequence
 
-    # Take & close 1 Unprintable Char or 1..4 Undecodable Bytes escaped by a Simpler Head
+    # Take & close 1 Unprintable Char escaped by a Simpler Head
 
     _try_close_(b"\033", b"\t")  # Head & Control Tail of a Two-Byte Esc Sequence
 
