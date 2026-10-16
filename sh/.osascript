@@ -1,0 +1,3 @@
+# sh/.osascript = Tint the Terminal Tab per Host, but for now only print the Args
+
+printf "%s\n" "$*"
