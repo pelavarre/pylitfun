@@ -1,1 +1,5 @@
+'sh/.diff a b' could mean 'd a b'
+
+solve '.gg abc' when not at git worktree root
+
 write a /bin/sh emulate to bypass n*twork sec*rity attacks injecting latency at each shline
