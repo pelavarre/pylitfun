@@ -89,14 +89,15 @@ def main() -> None:
     if not eggs:
         eggs.append("bytes")
 
-    GlassWorker.nano_launch = time.perf_counter_ns()
+    gw = GlassWorker()
+    gw.nano_launch = time.perf_counter_ns()
 
     if "bytes" in eggs:
-        GlassWorker.show_bytes()
+        gw.show_bytes()
     elif "nanos" in eggs:
-        GlassWorker.show_nanos()
+        gw.show_nanos()
     elif "frames" in eggs:
-        GlassWorker.show_frames()
+        gw.show_frames()
     else:
         assert False, (eggs,)
 
@@ -130,10 +131,13 @@ def _main_doc_scrape_closing_() -> str:
 class GlassWorker:
     """Show off one Terminal feature and another"""
 
-    nano_launch = -1
+    nano_launch: int  # when the Process launched, in Nanoseconds of time.perf_counter_ns
 
-    @staticmethod
-    def show_bytes() -> None:
+    def __init__(self) -> None:
+
+        self.nano_launch = -1
+
+    def show_bytes(self) -> None:
         """Print your input bytes on screen"""
 
         # Launch (and prompt just once and early)
@@ -184,8 +188,7 @@ class GlassWorker:
 
     """
 
-    @staticmethod
-    def show_nanos() -> None:
+    def show_nanos(self) -> None:
         """Print your input bytes (and how quickly they arrived)"""
 
         # Launch (and prompt just once and early)
@@ -193,7 +196,7 @@ class GlassWorker:
         print("Press Return three times quickly, to quit")
         print()
 
-        before = GlassWorker.nano_launch
+        before = self.nano_launch
 
         with TerminalBoss() as tb:
             ibk = ByteKeeper()
@@ -243,8 +246,7 @@ class GlassWorker:
 
     """
 
-    @staticmethod
-    def show_frames() -> None:
+    def show_frames(self) -> None:
         """Print your input byte frames, as Key Caps when known, and how quickly they arrived"""
 
         # Launch
@@ -265,7 +267,7 @@ class GlassWorker:
                 frame = ifk.frame
                 open_data = frame.to_frame_bytes()  # maybe empty
                 _end_ = " + " if not frame.closed else " "  # ' +' while open, as str(Frame) has it
-                GlassWorker.frame_print(open_data, cells=cells, end=_end_)
+                self.frame_print(open_data, cells=cells, end=_end_)
 
                 # Flush writes to the Terminal
 
@@ -274,25 +276,26 @@ class GlassWorker:
 
                 # Wait for Byte, but then fetch the Byte, and start the next Wait for Byte
 
-                after = before
+                data = tb.read_some_bytes_if()
+                if not data:
+                    break
 
-                hit = tb.stdio_select_select(0)
-                while not hit:
-                    time.sleep(1e-9)  # slightly limits loop rate
-
-                    hit = tb.stdio_select_select(0)
-                    after = time.perf_counter_ns()
-
+                after = time.perf_counter_ns()  # time to read Bytes counts as waiting for them
                 waited = after - before
                 before = after
 
-                b = tb.read_one_byte_if()  # doesn't measure time to read
-                if not b:
-                    break
+                # Feed out the Bytes one at a time, all stamped alike, as arrived all at once
 
-                ifk.keep_one_byte(b)
-                cells.append(waited)
-                cells.append(b)
+                nano = time.perf_counter_ns()
+
+                for d in data:
+                    b = bytes([d])
+
+                    ifk.keep_one_byte(b, nano=nano)
+                    cells.append(waited)
+                    cells.append(b)
+
+                    waited = 0  # waited some ns only for the first Byte of these
 
                 # Print each new Closed Frame, if any
 
@@ -304,7 +307,7 @@ class GlassWorker:
                     assert len(cells) >= length, (len(cells), length, data)
 
                     byte_cells = cells[:length]
-                    GlassWorker.frame_print(data, cells=byte_cells, end="\r\n")
+                    self.frame_print(data, cells=byte_cells, end="\r\n")
                     if data == b"\r":
                         print()
 
@@ -313,8 +316,7 @@ class GlassWorker:
                 if ifk.is_quitting_frames():
                     break
 
-    @staticmethod
-    def frame_print(data: bytes, cells: list[object], end: str) -> None:
+    def frame_print(self, data: bytes, cells: list[object], end: str) -> None:
         """Print 'caps data = cell cell ...' as a whole line, or as the start of one"""
 
         kd = keyboard_decoder()
@@ -484,6 +486,35 @@ class TerminalBoss:
 
         # a la msvcrt.kbhit
 
+    # def poll_till_bytes_available(self) -> None:
+    #     """Block till Bytes Available"""
+    #
+    #     while not self.stdio_select_select(timeout=0e0):
+    #         time.sleep(1e-9)  # slightly limits loop rate
+
+    def read_some_bytes_if(self) -> bytes:
+        """Read as many Bytes as arrived all at once, else return b''"""
+
+        ba = bytearray()
+
+        while True:
+
+            # Read one Byte, else quit at End-of-Input
+
+            b = self.read_one_byte_if()
+            if not b:
+                break
+
+            ba.extend(b)
+
+            # Quit when no more Bytes have arrived yet
+
+            if not self.stdio_select_select(timeout=0e0):
+                break
+
+        data = bytes(ba)
+        return data  # b'j\xcc\x81' from ⌥E J, or a whole ⌘V Paste, or one Byte, or b''
+
     def read_one_byte_if(self) -> bytes:
         """Read one byte and return it, else return b''"""
 
@@ -611,17 +642,17 @@ class TerminalFrameKeeper:
         self.frames = list()
         self.index = 0
 
-    def keep_one_byte(self, b: bytes) -> None:
-        """Say 1 more Byte arrived now, and keep each Frame as it closes or bounces"""
-
-        # Stamp the Byte with Now
+    def keep_one_byte(self, b: bytes, nano: int | None = None) -> None:
+        """Say 1 more Byte arrived, now or when, and keep each Frame as it closes or bounces"""
 
         bk = self.bk
 
-        assert len(b) == 1, (len(b), b)
-        nano = time.perf_counter_ns()
+        # Stamp the Byte with Now, else with when it arrived
 
-        bk.append_one_byte(b, nano=nano)
+        assert len(b) == 1, (len(b), b)
+
+        _nano_ = time.perf_counter_ns() if (nano is None) else nano
+        bk.append_one_byte(b, nano=_nano_)
 
         # Grow the Frame, or grow and keep, or don't grow and keep
 
@@ -1026,9 +1057,9 @@ class TerminalByteFrame:
     def take_data_if(self, data: bytes) -> bytes:
         """Try to take X Bytes in and return 0 <= Y <= X Bytes that don't fit"""
 
-        for index in range(len(data)):
-            b = data[index:][:1]
-            beyond = data[index:][1:]
+        for i in range(len(data)):
+            b = data[i:][:1]
+            beyond = data[i:][1:]
 
             extras = self.take_one_byte_if(b)
             if extras:
@@ -1350,7 +1381,7 @@ class TerminalByteFrame:
         return data
 
     #
-    # Work with Decodable and Undecodable Bytes
+    # Work with Decodable and Undecodable Bytes: bytes_decode_if|bytes_to_later_decode_if
     #
 
     @staticmethod
@@ -1486,12 +1517,14 @@ def _try_ends_later_() -> None:
     """Require each StartsWith accepted by .bytes_to_later_decode via the Endswiths"""
 
     start_set = set()
-    for cp in range(0x110000):
-        if 0xD800 <= cp <= 0xDFFF:  # skips surrogates
+    for cp in range(0x110000):  # from 0 up to before first Chr ValueError
+        if 0xD800 <= cp <= 0xDFFF:  # skips Surrogates
             continue
-        kbytes = chr(cp).encode()
-        for index in range(1, len(kbytes)):
-            start = kbytes[:index]
+
+        kbytes = chr(cp).encode()  # only Surrogate Chr would raise UnicodeEncodeError
+
+        for i in range(1, len(kbytes)):
+            start = kbytes[:i]
             start_set.add(start)
 
     start_byte_set = set()
@@ -1500,10 +1533,7 @@ def _try_ends_later_() -> None:
         start_byte_set.add(start[:1])
 
     start_bytes = tuple(sorted(start_byte_set))
-    assert start_bytes == StartBytes, (
-        start_bytes,
-        StartBytes,
-    )
+    assert start_bytes == StartBytes, (start_bytes, StartBytes)
 
 
 def _try_one_more_kbyte_() -> None:
