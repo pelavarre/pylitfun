@@ -284,18 +284,34 @@ class GlassWorker:
                 waited = after - before
                 before = after
 
-                # Feed out the Bytes one at a time, all stamped alike, as arrived all at once
+                # Forward the Bytes one at a time, all stamped with precisely the same arrival time
 
                 nano = time.perf_counter_ns()
 
-                for d in data:
-                    b = bytes([d])
+                for i in range(len(data)):
+                    b = data[i:][:1]
+                    beyond = data[i:][1:]
 
-                    ifk.keep_one_byte(b, nano=nano)
+                    # Ask if we've already fetched a Combining Mark to complete Frame EndsWith Text
+
+                    peek = ""
+                    for n in range(1, 5):  # accepts 1..4 Bytes of UTF-8
+                        text = TerminalByteFrame.bytes_decode_if(beyond[:n])
+                        if text:
+                            if unicodedata.category(text) in ("Mn", "Mc", "Me"):
+                                peek = text  # Mark & (Non-Spacing | Combining/Spacing | Enclosing)
+                            break
+
+                    # Keep the Byte (but leave Frame EndsWith Text open if Combining Mark peeked)
+
+                    ifk.keep_one_byte(b, nano=nano, peek=peek)
+
+                    # Trace the Byte
+
                     cells.append(waited)
-                    cells.append(b)
-
                     waited = 0  # waited some ns only for the first Byte of these
+
+                    cells.append(b)
 
                 # Print each new Closed Frame, if any
 
@@ -642,7 +658,7 @@ class TerminalFrameKeeper:
         self.frames = list()
         self.index = 0
 
-    def keep_one_byte(self, b: bytes, nano: int | None = None) -> None:
+    def keep_one_byte(self, b: bytes, nano: int | None = None, peek: str = "") -> None:
         """Say 1 more Byte arrived, now or when, and keep each Frame as it closes or bounces"""
 
         bk = self.bk
@@ -657,7 +673,7 @@ class TerminalFrameKeeper:
         # Grow the Frame, or grow and keep, or don't grow and keep
 
         frame = self.frame  # early
-        extras1 = self._frame_take_data_if_(b)
+        extras1 = self._frame_take_data_if_(b, peek=peek)  # .peek passes through
 
         if not extras1:
             return
@@ -669,16 +685,16 @@ class TerminalFrameKeeper:
 
         # Add enough more Frames to keep all the Bytes
 
-        extras2 = self._frame_take_data_if_(extras1)
+        extras2 = self._frame_take_data_if_(extras1, peek=peek)  # .peek passes through
         if extras2:
 
-            extras3 = self._frame_take_data_if_(extras2)
+            extras3 = self._frame_take_data_if_(extras2, peek=peek)  # .peek passes through
             assert not extras3, (extras3,)
 
             # Three calls of ._frame_take_data_if_ are always enough,
             # because post-conditions at ._frame_take_data_if_ > .take_data_if > .take_one_byte_if
 
-    def _frame_take_data_if_(self, data: bytes) -> bytes:
+    def _frame_take_data_if_(self, data: bytes, peek: str) -> bytes:
         """Grow the Frame, replace it if it closes or bounces, and return the bounced Bytes, if any"""
 
         frame = self.frame
@@ -688,7 +704,7 @@ class TerminalFrameKeeper:
 
         # Grow the Open Frame, or grow it & close it, or leave it as it was and bounce
 
-        extras = frame.take_data_if(data)
+        extras = frame.take_data_if(data, peek=peek)  # .peek passes through
 
         # Keep & replace the Frame if it closed as complete, or if it bounced while incomplete
 
@@ -828,6 +844,9 @@ ii ) Bounce = Reject the Byte and leave the Frame unchanged
 iii ) Close = Take the Byte and close the Frame
 iv ) Close6 = Take the 6 Bytes and bounce anything after (at ⎋[M legacy)
 v ) Bounce2 = Reject the Byte and give back the held ⎋ with it (at ⎋] awaiting the \ of ⎋\)
+
+Given a Peek at a Combining Mark already fetched in the same burst of Bytes, as ⌥E J sends,
+a Printable Char opens rather than closes the ⎋ ⎋⎋ ⎋O ⎋[ ⎋[1;5 ⎋[␢ Rows, and the Mark then closes.
 
 Relevant standards include:
 
@@ -1054,21 +1073,23 @@ class TerminalByteFrame:
     # Take 1 Byte in and return 0 Bytes, else return 1..5 Bytes that don't fit
     #
 
-    def take_data_if(self, data: bytes) -> bytes:
+    def take_data_if(self, data: bytes, peek: str) -> bytes:
         """Try to take X Bytes in and return 0 <= Y <= X Bytes that don't fit"""
 
         for i in range(len(data)):
             b = data[i:][:1]
             beyond = data[i:][1:]
 
-            extras = self.take_one_byte_if(b)
+            _peek_ = peek if (not beyond) else ""  # blocks the .peek except just after last Byte
+
+            extras = self.take_one_byte_if(b, peek=_peek_)
             if extras:
                 extras_plus = extras + beyond
                 return extras_plus
 
         return b""
 
-    def take_one_byte_if(self, b: bytes) -> bytes:
+    def take_one_byte_if(self, b: bytes, peek: str = "") -> bytes:
         """Take 1 Byte in and return 0 Bytes, else return 1..5 Bytes that don't fit"""
 
         assert len(b) == 1, (b,)
@@ -1078,7 +1099,7 @@ class TerminalByteFrame:
 
         # Do the work
 
-        extras = self._take_one_byte_if_(b)
+        extras = self._take_one_byte_if_(b, peek=peek)  # .peek passes through
 
         # Sharply limit its results
 
@@ -1115,7 +1136,7 @@ class TerminalByteFrame:
 
         # never more than 2 Frames of Extras
 
-    def _take_one_byte_if_(self, b: bytes) -> bytes:
+    def _take_one_byte_if_(self, b: bytes, peek: str) -> bytes:
         """Take 1 Byte in and return 0 Bytes, else return 1..5 Bytes that don't fit, unchecked"""
 
         encodes = self.encodes
@@ -1164,16 +1185,16 @@ class TerminalByteFrame:
         escapes = (escapes - 1) if escapes else 0
         undented_head = bytes(head[escapes:])
 
-        if undented_head in (b"\033", b"\033O"):
-            extras = self._take_after_ss3_or_esc_if_(data, text=text)
+        if undented_head in (b"\033", b"\033O"):  # .peek passes through
+            extras = self._take_after_ss3_or_esc_if_(data, text=text, peek=peek)
             return extras
 
         elif undented_head == b"\033[M":
             extras = self._take_after_csi_m_if_(data)
             return extras
 
-        elif undented_head == b"\033[":
-            extras = self._take_after_csi_if_(data, text=text)
+        elif undented_head == b"\033[":  # .peek passes through
+            extras = self._take_after_csi_if_(data, text=text, peek=peek)
             return extras
 
         elif undented_head == b"\033]":
@@ -1227,7 +1248,7 @@ class TerminalByteFrame:
         b"\033]",  # ⎋ OSC
     )
 
-    def _take_after_ss3_or_esc_if_(self, data: bytes, text: str) -> bytes:
+    def _take_after_ss3_or_esc_if_(self, data: bytes, text: str, peek: str) -> bytes:
         """Take 1..4 more Bytes in, after ⎋ Esc or ⎋O Ss3, else return what doesn't fit"""
 
         head = self.head
@@ -1260,6 +1281,10 @@ class TerminalByteFrame:
         # Take 1 Char, as the Emacs Meta Char after ⎋ Esc, or as the Final after ⎋O Ss3
 
         backtail.extend(data)
+
+        if text.isprintable() and peek:  # stays open to complete Printable Text later
+            return b""
+
         self.close_frame()
         return b""
 
@@ -1282,7 +1307,7 @@ class TerminalByteFrame:
 
         # ⎋[?1005h Utf-8 Mouse Coords never enabled here, so never decoded here
 
-    def _take_after_csi_if_(self, data: bytes, text: str) -> bytes:
+    def _take_after_csi_if_(self, data: bytes, text: str, peek: str) -> bytes:
         """Take 1..4 more Bytes in, after ⎋[ CSI, else return what doesn't fit"""
 
         head = self.head
@@ -1329,6 +1354,11 @@ class TerminalByteFrame:
             assert code >= 0x40, (code, text, data)  # 63 Final Codes  # @A Z[\\]^_`a z{|}~
 
             backtail.extend(data)
+
+            if peek:  # stays open to complete Printable Text later
+                assert text.isprintable(), (text,)  # because already tested far above
+                return b""
+
             self.close_frame()
             return b""
 
@@ -1470,6 +1500,7 @@ def _try_terminal_byte_frame_1_() -> None:
     _try_ends_later_()  # ~200ms
     _try_one_more_kbyte_()
     _try_some_control_()
+    _try_peeks_()
 
 
 def _try_headbook_() -> None:
@@ -1624,13 +1655,49 @@ def _try_some_control_() -> None:
     _try_close_(b"\x1b[", b"201", b"~")
 
 
+def _try_peeks_() -> None:
+    """Stay open for the Combining Mark already fetched, where a Printable Char would close"""
+
+    peek = "\u0301"  # Combining Acute Accent, as ⌥E J sends it after the J
+    encode = peek.encode()
+
+    # Stay open after the Printable Char that would have closed, and then close on the Mark
+
+    for kbytes in (b"\033j", b"\033\033j", b"\033Oj", b"\033[A", b"\033[1;5A", b"\033[ q"):
+        f = TerminalByteFrame(b"")
+        extras = f.take_data_if(kbytes, peek=peek)
+        assert (not extras) and (not f.closed), (extras, f, kbytes)
+
+        extras = f.take_data_if(encode, peek="")
+        assert (not extras) and f.closed, (extras, f, kbytes)
+        assert f.to_frame_bytes() == (kbytes + encode), (f, kbytes)
+
+    # Close anyway, after an Unprintable Char, or after the 6 raw Bytes of ⎋[M
+
+    for kbytes in (b"\t", b"\033\t", b"\033[M !\xff"):
+        f = TerminalByteFrame(b"")
+        extras = f.take_data_if(kbytes, peek=peek)
+        assert (not extras) and f.closed, (extras, f, kbytes)
+
+    # Stay open anyway, as Text, or as ⎋] Osc, and take the Mark
+
+    for kbytes in (b"j", b"\033]0;x"):
+        f = TerminalByteFrame(b"")
+        extras = f.take_data_if(kbytes, peek=peek)
+        assert (not extras) and (not f.closed), (extras, f, kbytes)
+
+        extras = f.take_data_if(encode, peek="")
+        assert (not extras) and (not f.closed), (extras, f, kbytes)
+        assert f.to_frame_bytes() == (kbytes + encode), (f, kbytes)
+
+
 def _try_extra_(kbytes: bytes, extra: bytes) -> None:
     """Require the Pack to reject these Bytes, after closing itself if need be"""
 
     kpack = TerminalByteFrame(kbytes)
     closed = kpack.closed
 
-    returned_extra = kpack.take_data_if(extra)
+    returned_extra = kpack.take_data_if(extra, peek="")
     assert returned_extra == extra, (returned_extra, extra, str(kpack))
 
     assert kpack.closed == closed, (kpack.closed, closed, extra, kpack)
