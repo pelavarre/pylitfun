@@ -131,11 +131,7 @@ def _main_doc_scrape_closing_() -> str:
 class GlassWorker:
     """Show off one Terminal feature and another"""
 
-    nano_launch: int  # when the Process launched, in Nanoseconds of time.perf_counter_ns
-
-    def __init__(self) -> None:
-
-        self.nano_launch = -1
+    nano_launch: int = -1  # -1, else sampled at Process Launch
 
     def show_bytes(self) -> None:
         """Print your input bytes on screen"""
@@ -151,6 +147,9 @@ class GlassWorker:
             while True:
 
                 # Read
+
+                sys.stdout.flush()  # flushes well-known outputs before blocking on well-known input
+                sys.stderr.flush()
 
                 b = tb.read_one_byte_if()
                 if not b:
@@ -171,22 +170,22 @@ class GlassWorker:
 
     _ = r"""
 
-        % pylitglass/litpyglass.py --egg=bytes
+        ] % pylitglass/litpyglass.py --egg=bytes
+        ]
+        ] Press Return three times quickly, to quit
+        ]
+        ] 27 b'\x1b'
+        ] 91 b'['
+        ] 65 b'A'
+        ] 13 b'\r'
+        ]
+        ] 9 b'\t'
+        ] 9 b'\t'
+        ] 9 b'\t'
+        ]
+        ] %
 
-        Press Return three times quickly, to quit
-
-        27 b'\x1b'
-        91 b'['
-        65 b'A'
-        13 b'\r'
-
-        9 b'\t'
-        9 b'\t'
-        9 b'\t'
-
-        %
-
-    """
+    """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
     def show_nanos(self) -> None:
         """Print your input bytes (and how quickly they arrived)"""
@@ -204,6 +203,9 @@ class GlassWorker:
             while True:
 
                 # Read
+
+                sys.stdout.flush()  # flushes well-known outputs before blocking on well-known input
+                sys.stderr.flush()
 
                 b = tb.read_one_byte_if()
                 if not b:
@@ -229,22 +231,22 @@ class GlassWorker:
 
     _ = r"""
 
-        % pylitglass/litpyglass.py --egg=nanos
+        ] % pylitglass/litpyglass.py --egg=nanos
+        ]
+        ] Press Return three times quickly, to quit
+        ]
+        ] 600_288_333 27 b'\x1b'
+        ] 120_500 91 b'['
+        ] 25_250 65 b'A'
+        ] 553_496_542 13 b'\r'
+        ]
+        ] 1_492_019_167 3 b'\x03'
+        ] 185_701_041 3 b'\x03'
+        ] 248_232_584 3 b'\x03'
+        ]
+        ] %
 
-        Press Return three times quickly, to quit
-
-        600_288_333 27 b'\x1b'
-        120_500 91 b'['
-        25_250 65 b'A'
-        553_496_542 13 b'\r'
-
-        1_492_019_167 3 b'\x03'
-        185_701_041 3 b'\x03'
-        248_232_584 3 b'\x03'
-
-        %
-
-    """
+    """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
     def show_frames(self) -> None:
         """Print your input byte frames, as Key Caps when known, and how quickly they arrived"""
@@ -255,82 +257,24 @@ class GlassWorker:
         print()
 
         with TerminalBoss() as tb:
-            ifk = TerminalFrameKeeper()
+            tfr = TerminalFrameReader()
 
-            before = time.perf_counter_ns()  # doesn't measure time to launch
-            cells: list[object] = list()
+            for taken, frame, cells in tfr.take_frames(tb):
+                data = frame.to_frame_bytes()  # maybe empty
 
-            while True:
+                # Prompt for next Byte, while growing the Frame
 
-                # Prompt after each Byte
+                if not taken:
+                    self.frame_print(data, cells=cells, end=" + ")
 
-                frame = ifk.frame
-                open_data = frame.to_frame_bytes()  # maybe empty
-                _end_ = " + " if not frame.closed else " "  # ' +' while open, as str(Frame) has it
-                self.frame_print(open_data, cells=cells, end=_end_)
+                    continue
 
-                # Flush writes to the Terminal
+                # Print each Frame taken as a line
 
-                sys.stdout.flush()
-                sys.stderr.flush()
+                self.frame_print(data, cells=cells, end="\r\n")
 
-                # Wait for Byte, but then fetch the Byte, and start the next Wait for Byte
-
-                data = tb.read_some_bytes_if()
-                if not data:
-                    break
-
-                after = time.perf_counter_ns()  # time to read Bytes counts as waiting for them
-                waited = after - before
-                before = after
-
-                # Forward the Bytes one at a time, all stamped with precisely the same arrival time
-
-                nano = time.perf_counter_ns()
-
-                for i in range(len(data)):
-                    b = data[i:][:1]
-                    beyond = data[i:][1:]
-
-                    # Ask if we've already fetched a Combining Mark to complete Frame EndsWith Text
-
-                    peek = ""
-                    for n in range(1, 5):  # accepts 1..4 Bytes of UTF-8
-                        text = TerminalByteFrame.bytes_decode_if(beyond[:n])
-                        if text:
-                            if unicodedata.category(text) in ("Mn", "Mc", "Me"):
-                                peek = text  # Mark & (Non-Spacing | Combining/Spacing | Enclosing)
-                            break
-
-                    # Keep the Byte (but leave Frame EndsWith Text open if Combining Mark peeked)
-
-                    ifk.keep_one_byte(b, nano=nano, peek=peek)
-
-                    # Trace the Byte
-
-                    cells.append(waited)
-                    waited = 0  # waited some ns only for the first Byte of these
-
-                    cells.append(b)
-
-                # Print each new Closed Frame, if any
-
-                triples = ifk.pull_frame_triples()
-                for triple in triples:  # maybe empty
-                    start, end, data = triple
-
-                    length = 2 * len(data)  # two cells per Byte
-                    assert len(cells) >= length, (len(cells), length, data)
-
-                    byte_cells = cells[:length]
-                    self.frame_print(data, cells=byte_cells, end="\r\n")
-                    if data == b"\r":
-                        print()
-
-                    del cells[:length]
-
-                if ifk.is_quitting_frames():
-                    break
+                if data == b"\r":  # pressing Return splits Frame Lines into paragraphs
+                    print()
 
     def frame_print(self, data: bytes, cells: list[object], end: str) -> None:
         """Print 'caps data = cell cell ...' as a whole line, or as the start of one"""
@@ -374,27 +318,127 @@ class GlassWorker:
 
     _ = r"""
 
-        % pylitglass/litpyglass.py --egg=frames
+        ] % pylitglass/litpyglass.py --egg=frames
+        ]
+        ] Press Return three times quickly, to quit
+        ]
+        ] ⌥E J j́ b'j\xcc\x81' = 3.00s b'j' b'\xcc' b'\x81'
+        ] ⇥ '\t' b'\t' = 1.11s b'\t'
+        ] ⌥P π b'\xcf\x80' = 507ms b'\xcf' b'\x80'
+        ] ⌥E E é b'\xc3\xa9' = 507ms b'\xc3' b'\xa9'
+        ] Q q b'q' = 434ms b'q'
+        ] ⇧Q Q b'Q' = 434ms b'Q'
+        ] ␢ ' ' b' ' = 434ms b' '
+        ] ↑ '\x1b[A' b'\x1b[A' = 706ms b'\x1b' b'[' b'A'
+        ] ⏎ '\r' b'\r' = 434ms b'\r'
+        ]
+        ] ⏎ '\r' b'\r' = 162ms b'\r'
+        ]
+        ] ⏎ '\r' b'\r' = 163ms b'\r'
+        ]
+        ] %
 
-        Press Return three times quickly, to quit
+    """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
-        ⌥E J j́ b'j\xcc\x81' = 3.00s b'j' b'\xcc' b'\x81'
-        ⇥ '\t' b'\t' = 1.11s b'\t'
-        ⌥P π b'\xcf\x80' = 507ms b'\xcf' b'\x80'
-        ⌥E E é b'\xc3\xa9' = 507ms b'\xc3' b'\xa9'
-        Q q b'q' = 434ms b'q'
-        ⇧Q Q b'Q' = 434ms b'Q'
-        ␢ ' ' b' ' = 434ms b' '
-        ↑ '\x1b[A' b'\x1b[A' = 706ms b'\x1b' b'[' b'A'
-        ⏎ '\r' b'\r' = 434ms b'\r'
 
-        ⏎ '\r' b'\r' = 162ms b'\r'
+#
+# Read Bytes from a Terminal, place them into Frames, and say when each Byte arrived
+#
 
-        ⏎ '\r' b'\r' = 163ms b'\r'
 
-        %
+class TerminalFrameReader:
+    """Read Bytes from a Terminal, place them into Frames, and say when each Byte arrived"""
 
-    """
+    ifk: TerminalFrameKeeper  # the Frames kept so far, and the Open Frame
+    cells: list[object]  # the Nanos waited and the Bytes read, not yet handed out with a Frame
+
+    def __init__(self) -> None:
+
+        self.ifk = TerminalFrameKeeper()
+        self.cells = list()
+
+    def take_frames(
+        self, tb: TerminalBoss
+    ) -> typing.Iterator[tuple[bool, TerminalByteFrame, list[object]]]:
+        """Yield (False, Open Frame, Cells) before each Read, and (True, Taken Frame, Cells) after"""
+
+        ifk = self.ifk
+        cells = self.cells
+
+        before = time.perf_counter_ns()  # doesn't measure time to launch
+
+        while True:
+
+            # Yield the Open Frame before each Read, as a Frame not yet taken
+
+            taken = False
+            yield (taken, ifk.frame, cells)
+
+            # Block to fetch >= 1 Bytes
+
+            sys.stdout.flush()  # flushes well-known outputs before blocking on well-known input
+            sys.stderr.flush()
+
+            data = tb.read_some_bytes_if()
+            if not data:
+                return
+
+            after = time.perf_counter_ns()  # counts time-to-read Bytes as waiting for next Bytes
+            waited = after - before
+            before = after
+
+            # Place each Byte into the first Frame or a later Frame, and mark how slowly it arrived
+
+            nano = time.perf_counter_ns()
+
+            for i in range(len(data)):
+                b = data[i:][:1]
+                beyond = data[i:][1:]
+
+                # Ask if we've already fetched a Combining Mark to complete a Frame EndsWith Text
+
+                peek = ""
+                for n in range(1, 5):  # accepts 1..4 Bytes of UTF-8
+                    text = TerminalByteFrame.bytes_decode_if(beyond[:n])
+                    if text:
+                        if unicodedata.category(text) in ("Mn", "Mc", "Me"):
+                            peek = text  # Mark & (Non-Spacing | Combining/Spacing | Enclosing)
+                        break
+
+                # Keep the Byte (but leave a Frame EndsWith Text open if Combining Mark peeked)
+
+                ifk.keep_one_byte(b, nano=nano, peek=peek)
+
+                # Mark how slowly this Byte arrived
+
+                cells.append(waited)
+                waited = 0  # waited some ns only for the first Byte of these
+
+                cells.append(b)
+
+            # Yield each Frame taken to place these Bytes
+
+            frames = ifk.frames[ifk.index :]  # the Taken Frames not yet pulled
+            triples = ifk.pull_frame_triples()
+            assert len(triples) == len(frames), (len(triples), len(frames))
+
+            for frame, triple in zip(frames, triples):
+                start, end, data = triple
+                assert data == frame.to_frame_bytes(), (data, frame)
+
+                length = 2 * len(data)  # two cells per Byte
+                assert len(cells) >= length, (len(cells), length, data)
+
+                _cells_ = cells[:length]
+                del cells[:length]
+
+                taken = True
+                yield (taken, frame, _cells_)
+
+            # Quit when the Frames say to quit
+
+            if ifk.is_quitting_frames():
+                return
 
 
 #
@@ -414,7 +458,7 @@ class TerminalBoss:
     def __init__(self) -> None:
 
         assert sys.__stdin__, (sys.__stdin__,)
-        stdio = sys.__stdin__  # todo: stderr, tty
+        stdio = sys.__stdin__  # todo: /dev/stderr, /dev/tty
         isatty = stdio.isatty()
         fileno = stdio.fileno()
 
