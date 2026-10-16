@@ -1,3 +1,25 @@
-# sh/.osascript = Tint the Terminal Tab per Host, but for now only print the Args
+# sh/.osascript = Tint the Terminal Tab of our own Tty, as in:  .osascript draw-on-color LABEL R G B
 
-printf "%s\n" "$*"
+if [ "$1" != draw-on-color ] || [ $# != 5 ]; then
+    echo "usage: .osascript draw-on-color LABEL R G B  # R G B in 0..65535" >&2
+    exit 2
+fi
+
+T=$(tty 2>/dev/null) || T=  # empty Tty means tint the front Window's selected Tab
+
+osascript - "$T" "$3" "$4" "$5" <<'EOF'
+on run argv
+    set rgb to {(item 2 of argv) as integer, (item 3 of argv) as integer, (item 4 of argv) as integer}
+    tell application "Terminal"
+        if (item 1 of argv) is "" then
+            set background color of selected tab of front window to rgb
+        else
+            repeat with w in windows
+                repeat with t in tabs of w
+                    if tty of t is (item 1 of argv) then set background color of t to rgb
+                end repeat
+            end repeat
+        end if
+    end tell
+end run
+EOF
