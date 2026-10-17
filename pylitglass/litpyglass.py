@@ -342,6 +342,631 @@ class GlassWorker:
 
 
 #
+# Speak of a Byte Sequence as a Strike of Key Caps at a macBook
+#
+
+
+@functools.cache
+def keyboard_decoder() -> KeyboardDecoder:
+    """Build the one KeyboardDecoder, once, and hand it back on each later call"""
+
+    kd = KeyboardDecoder()
+    return kd
+
+
+class KeyboardDecoder:
+    """Speak of a Byte Sequence as a Strike of Key Caps at a macBook"""
+
+    decode_by_echo: dict[str, str]
+    echoes_by_decode: dict[str, tuple[str, ...]]
+
+    PlainCapsWithoutFn = r"""
+        ⎋
+        ` 1 2 3 4 5 6 7 8 9 0 - = ⌫
+        ⇥ Q W E R T Y U I O P [ ] \
+        A S D F G H J K L ; ' ⏎
+        Z X C V B N M , . /
+        ␢ ← ↑ → ↓
+    """  # Plain Caps apart from F1 .. F12 etc
+
+    ShiftCapsWithoutFn = """
+        ⎋
+        ~ ! @ # $ % ^ & * ( ) _ + ⌫
+        ⇥ Q W E R T Y U I O P { } |
+        A S D F G H J K L : " ⏎
+        Z X C V B N M < > ?
+        ␢ ← ↑ → ↓
+    """  # Shift Caps apart from ⇧ F1 .. ⇧ F12 etc
+
+    ShortcutShifts: tuple[str, ...]  # ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧ ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧
+    ShortcutShifts = ("", "⌃", "⌥", "⌃⌥", "⇧", "⌃⇧", "⌥⇧", "⌃⌥⇧", "⎋", "⎋⌃", "⎋⇧", "⎋⌃⇧")
+
+    FamiliarShifts: tuple[str, ...]  # ⇧ ⌃ ⌥ ⌃⇧ ⌥⇧ ⌃⌥ ⌃⌥⇧ ⎋ ⎋⇧ ⎋⌃ ⎋⌃⇧
+    FamiliarShifts = ("", "⇧", "⌃", "⌥", "⌃⇧", "⌥⇧", "⌃⌥", "⌃⌥⇧", "⎋", "⎋⇧", "⎋⌃", "⎋⌃⇧")
+
+    assert sorted(ShortcutShifts) == sorted(FamiliarShifts)
+
+    DeadKeyEchoByCombining = {  # Typists say Dead Keys do not step the Cursor forward
+        "\u0300": "⌥`",  # Combining Grave Accent
+        "\u0301": "⌥E",  # Combining Acute Accent
+        "\u0302": "⌥I",  # Combining Circumflex Accent
+        "\u0303": "⌥N",  # Combining Tilde
+        "\u0308": "⌥U",  # Combining Diaeresis
+    }
+
+    def __init__(self) -> None:
+
+        self.decode_by_echo = dict()
+        self._form_macos_keyboards_()
+        self._form_apple_terminal_keyboards_()
+
+        self.echoes_by_decode = self._form_echoes_by_decode_()
+
+    def _form_macos_keyboards_(self) -> None:
+        """Form the ordinary Apple macBook Keyboards of Codes sent by Caps"""
+
+        # 1 ''
+
+        shifts = ""
+        strikes = r"""
+            033
+            140 1 2 3 4 5 6 7 8 9 0 - = 177
+            011 q w e r t y u i o p [ ] \
+            a s d f g h j k l ; ' 015
+            z x c v b n m , . /
+            040 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 2 ⇧
+
+        shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2D and ⎋[1;2C
+
+        strikes = """
+            033
+            176 ! @ # $ % ^ & * ( ) _ + 177
+            ⎋[⇧Z Q W E R T Y U I O P { } |
+            A S D F G H J K L : " 015
+            Z X C V B N M < > ?
+            040 ⎋[1;2⇧D ⎋[⇧A ⎋[1;2⇧C ⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 3 ⌃
+
+        shifts = "⌃"
+        strikes = """
+            033
+            ... ... ... ... ... ... ... ... ... ... ... 037 ... 177
+            011 021 027 005 022 024 031 025 011 017 020 033 035 034
+            001 023 004 006 007 010 012 013 014 ... ... ...
+            032 030 003 026 002 016 015 ... ... ...
+            000 ... ... ... ...
+        """  # the '...' in here mark Key Strikes that send no Bytes: a Bell, the ⌃⏎ Menu, or macOS
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 4 ⌥
+
+        shifts = "⌥"  # ⌥Y sends \, coded here as r""" \ """
+        strikes = r"""
+            033
+            ¤ ¡ ™ £ ¢ ∞ § ¶ • ª º – ≠ 177
+            011 œ ∑ ¤ ® † \ ¤ ¤ ø π “ ‘ «
+            å ß ∂ ƒ © ˙ ∆ ˚ ¬ … æ 015
+            Ω ≈ ç √ ∫ ¤ µ ≤ ≥ ÷
+            302.240 ⎋B ⎋⎋[⇧A ⎋F ⎋⎋[⇧B
+        """  # the five ¤ splats in here mark Dead Keys that do not step the Cursor forward
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 5 ⌃⇧
+
+        shifts = "⌃⇧"
+        strikes = """
+            033
+            ... ... 000 ... ... ... 036 ... ... ... ... 037 ... 177
+            ⎋[⇧Z ... ... ... ... ... ... ... ... ... ... 033 035 034
+            ... ... ... ... ... ... ... ... ... ... ... ...
+            ... ... ... ... ... ... ... ... ... ...
+            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """  # the '...' in here mark Key Strikes that send no Bytes: a Bell, or the ⌃⇧⏎ Menu
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 6 ⌥⇧
+
+        shifts = "⌥⇧"  # ⌥⇧K sends the Apple Logo, coded here as \uf8ff
+        strikes = """
+            033
+            140 ⁄ € ‹ › ﬁ ﬂ ‡ ° · ‚ — ± 177
+            ⎋[⇧Z Œ „ ´ ‰ ˇ Á ¨ ˆ Ø ∏ ” ’ »
+            Å Í Î Ï ˝ Ó Ô \uf8ff Ò Ú Æ 015
+            ¸ ˛ Ç ◊ ı ˜ Â ¯ ˘ ¿
+            302.240 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """  # can't be = r""", because \u inside.
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 7 ⌃⌥
+
+        shifts = "⌃⌥"
+        strikes = """
+            033
+            140 1 2 3 4 5 6 7 8 9 0 037 = 177
+            011 021 027 005 022 024 031 025 011 017 020 033 035 034
+            001 023 004 006 007 010 012 013 014 ; ' 015
+            032 030 003 026 002 016 015 , . /
+            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 8 ⌃⌥⇧
+
+        shifts = "⌃⌥⇧"
+        strikes = """
+            033
+            140 1 000 3 4 5 036 7 8 9 0 037 = 177
+            ⎋[⇧Z 021 027 005 022 024 031 025 011 017 020 033 035 034
+            001 023 004 ... 007 010 012 013 014 ; ' 015
+            032 030 003 026 ... 016 015 , . /
+            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
+        """  # the '...' in here mark Key Strikes that send no Bytes: a Bell instead
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 9 ⎋
+
+        shifts = "⎋"
+
+        strikes = r"""
+            ⎋⎋
+            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 ⎋- ⎋= 033.177
+            033.011 ⎋Q ⎋W ⎋E ⎋R ⎋T ⎋Y ⎋U ⎋I ⎋O ⎋P ⎋[ ⎋] ⎋\
+            ⎋A ⎋S ⎋D ⎋F ⎋G ⎋H ⎋J ⎋K ⎋L ⎋; ⎋' 033.015
+            ⎋Z ⎋X ⎋C ⎋V ⎋B ⎋N ⎋M ⎋, ⎋. ⎋/
+            033.040 ⎋B ⎋⎋[⇧A ⎋F ⎋⎋[⇧B
+        """  # ⎋B ⎋F, not ⎋⎋[⇧D ⎋⎋[⇧C
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 10 ⎋⇧
+
+        shifts = "⎋⇧"
+        strikes = """
+            033.033
+            033.176 ⎋⇧! ⎋⇧@ ⎋⇧# ⎋⇧$ ⎋⇧% ⎋⇧^ ⎋⇧& ⎋⇧* ⎋⇧( ⎋⇧) ⎋⇧_ ⎋⇧+ 033.010
+            ⎋⎋[⇧Z ⎋⇧Q ⎋⇧W ⎋⇧E ⎋⇧R ⎋⇧T ⎋⇧Y ⎋⇧U ⎋⇧I ⎋⇧O ⎋⇧P ⎋⇧{ ⎋⇧} ⎋⇧|
+            ⎋⇧A ⎋⇧S ⎋⇧D ⎋⇧F ⎋⇧G ⎋⇧H ⎋⇧J ⎋⇧K ⎋⇧L ⎋⇧: ⎋⇧" 033.015
+            ⎋⇧Z ⎋⇧X ⎋⇧C ⎋⇧V ⎋⇧B ⎋⇧N ⎋⇧M ⎋⇧< ⎋⇧> ⎋⇧?
+            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
+        """  # 033.117 ⎋O stops without closing its Frame (like could be ⎋OP)
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 11 ⎋⌃
+
+        shifts = "⎋⌃"
+
+        strikes = """
+            033.033
+            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 033.037 ⎋= 033.010
+            033.011 033.021 033.027 033.005 033.022 033.024 033.031 033.025 033.011 033.017 033.020 033.033 033.035 033.034
+            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
+            033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
+            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # 12 ⎋⌃⇧
+
+        shifts = "⎋⌃⇧"
+        strikes = """
+            033.033
+            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 033.037 ⎋= 033.010
+            ⎋⎋[⇧Z 033.021 033.027 033.005 033.022 033.024 033.031 033.025 033.011 033.017 033.020 033.033 033.035 033.034
+            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
+            033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
+            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
+        """
+
+        self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+    def _add_keyboard_(self, shifts: str, strikes: str) -> None:
+        """Add in 1 Keyboard of Key Caps and their Strikes"""
+
+        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
+
+        strikes_split = strikes.split()
+        if not strikes_split:
+            return
+
+        plain_caps = tuple(KeyboardDecoder.PlainCapsWithoutFn.split())
+        shift_caps = tuple(KeyboardDecoder.ShiftCapsWithoutFn.split())
+
+        o = (len(plain_caps), len(shift_caps), len(strikes_split))
+        assert len(plain_caps) == len(shift_caps) == len(strikes_split), o
+
+        caps = shift_caps if ("⇧" in shifts) else plain_caps
+        for cap, cap_strikes in zip(caps, strikes_split):
+            echo = shifts + cap
+            decode = self._cap_strikes_to_decode_(cap_strikes, echo=echo)
+            if decode:
+
+                self._keyboard_add_decode_(decode, echo=echo)
+
+    def _cap_strikes_to_decode_(self, cap_strikes: str, echo: str) -> str:
+        """Convert to Decode of Byte Encoding of Key Strike"""
+
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
+
+        if cap_strikes in ("...", "¤"):  # splats of width 3 and width 1
+            return ""
+
+        ba = bytearray()
+
+        octets = [cap_strikes]
+        if cap_strikes not in (".", "⎋."):
+            octets = cap_strikes.split(".")
+
+        for octet in octets:
+
+            # Accept single Characters
+
+            if len(octet) == 1:  # '€'
+                t = octet
+                assert t not in ("⎋⌃⌥⇧" "`~"), (octet, octets, cap_strikes, echo)
+                octet_data = octet.encode()
+                ba.extend(octet_data)
+                continue
+
+            # Accept single Characters escaped, no matter if shifted or not
+
+            if octet == "⎋⎋":  # ⎋⎋
+                octet_data = b"\033\033"
+                ba.extend(octet_data)
+                continue
+
+            if octet.startswith("⎋") and (len(octet) == 2):  # ⎋Z  # ⎋/
+                t = octet[1:]
+                if t not in (string.digits + string.ascii_uppercase):
+                    assert t in ("-=" "[]\\" ";'" ",./"), (t, octet, cap_strikes, echo)
+                octet_data = b"\033" + t.lower().encode()
+                ba.extend(octet_data)
+                continue
+
+                # rejects ⎋`
+
+            if octet.startswith("⎋⇧") and (len(octet) == 3):  # ⎋⇧Z  # ⎋⇧?
+                t = octet[2:]
+                if t not in string.ascii_uppercase:
+                    assert t in ("!@#$%^&*()_+" "{}|" ':"' "<>?"), (t, octet, cap_strikes, echo)
+                octet_data = b"\033" + t.encode()
+                ba.extend(octet_data)
+                continue
+
+                # rejects ⎋⇧~
+
+            # Accept three Octal Digits as an Octet
+
+            m = re.fullmatch(r"[0-7][0-7][0-7]", string=octet)
+            if m:  # 177
+                ba.append(int(octet, base=0o010))  # raises ValueError when > 0o377
+                continue
+
+            # Accept simple Ss3 Sequences spoken as ⎋O... ⇧...
+
+            m = re.fullmatch(r"(⎋)⇧(O)⇧([PQRS])", string=octet)
+            if m:  # ⎋⇧O⇧S
+                octet_data = b"\033"
+                octet_data += m.group(2).encode() + m.group(3).encode()
+                ba.extend(octet_data)
+                continue
+
+            # Accept simple Csi Sequences spoken as ⎋[... ⇧..., even when preceded by one extra ⎋
+
+            m = re.fullmatch(r"(⎋|⎋⎋)(\[)([0-9;]*)⇧([ABCDPQRSZ~])", string=octet)
+            if m:  # ⎋[⇧Z  # ⎋[1;2⇧C  # ⎋⎋[⇧D  # ⎋[17⇧~
+                octet_data = len(m.group(1)) * b"\033"
+                octet_data += m.group(2).encode() + m.group(3).encode() + m.group(4).encode()
+                ba.extend(octet_data)
+                continue
+
+            assert False, (octet, octets, cap_strikes, echo)
+
+        decode = ba.decode()
+        assert ba and decode, (ba, decode)
+
+        return decode
+
+    def _keyboard_add_decode_(self, decode: str, echo: str) -> None:
+        """Add a Key Cap and its Byte Encoding to a Keyboard"""
+
+        assert decode, (decode, echo)
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
+
+        decode_by_echo = self.decode_by_echo
+
+        assert echo not in decode_by_echo.keys(), (echo, decode_by_echo[echo])
+        decode_by_echo[echo] = decode
+
+    def _form_apple_terminal_keyboards_(self) -> None:
+        """Form an Apple macOS Terminal Keyboard, out of Octets"""
+
+        # 1 ''
+
+        self._add_ten_fn_()
+        self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
+
+        # 2 ⇧  # Sideband Bells on ⌃ F1 F2 F3 F4
+
+        shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2D and ⎋[1;2C
+
+        caps = "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"  # without "F1 F2 F3 F4" + " " +
+        strikes = """
+            ⎋[25⇧~ ⎋[26⇧~ ⎋[28⇧~ ⎋[29⇧~
+            ⎋[31⇧~ ⎋[32⇧~ ⎋[33⇧~ ⎋[34⇧~
+        """  # omitting ⎋[27⇧~
+
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+        # 3 ⌃  # Sideband Bells on ⌃ F2 F3 F4 F5 F6, ⌃ F9 F10 F11 F12  # No Codes on ⌃ F7 F8
+
+        pass
+
+        # 4 ⌥
+
+        shifts = "⌥"
+
+        meta_caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
+        meta_strikes = """
+            ⎋[17⇧~ ⎋[18⇧~ ⎋[19⇧~ ⎋[20⇧~
+            ⎋[21⇧~ ⎋[23⇧~ ⎋[24⇧~ ⎋[25⇧~
+            ⎋[26⇧~ ⎋[28⇧~ ⎋[29⇧~ ⎋[31⇧~
+        """  # omitting ⎋[22⇧~ ⎋[27⇧~
+
+        self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
+
+        # 5 ⌃⇧  # Sideband Bells on ⌥⇧ F1..F6, ⌥⇧ F8..F12  # No Codes on ⌥⇧ F7
+        # 6 ⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
+        # 7 ⌃⌥  # Sideband Bells on ⌃⌥ F1..F12
+        # 8 ⌃⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
+
+        pass
+
+        # 9 ⎋
+
+        shifts = "⎋"
+        self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
+
+        # 10 ⎋⇧
+
+        shifts = "⎋⇧"
+        self._add_twelve_fn_meta_control_p_(shifts=shifts)  # only via 'Use Option As Meta Key'
+
+        # 11 ⎋⌃
+
+        shifts = "⎋⌃"
+        self._add_twelve_fn_meta_control_p_(shifts=shifts)  # only via 'Use Option As Meta Key'
+
+        # 12 ⎋⌃⇧
+
+        shifts = "⎋⌃⇧"
+        self._add_twelve_fn_meta_control_p_(shifts=shifts)  # only via 'Use Option As Meta Key'
+
+        # Terminal ⇧Fn = ⎋[ 25 26 28 29 ⇧~, ⎋[ 31 32 33 34 ⇧~,
+        # no encodes of ⇧F1 ⇧F2 ⇧F3 ⇧F4 in Apple Terminal without distributing configuration
+
+    def _add_ten_fn_(self) -> None:
+        """Add the first Ten F Keys, held in common across all our Unshifted Keyboards"""
+
+        shifts = ""
+
+        caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10"  # without " F11 F12"
+        strikes = """
+            ⎋⇧O⇧P ⎋⇧O⇧Q ⎋⇧O⇧R ⎋⇧O⇧S
+            ⎋[15⇧~ ⎋[17⇧~ ⎋[18⇧~ ⎋[19⇧~
+            ⎋[20⇧~ ⎋[21⇧~
+        """  # omitting ⎋[16~  # not-colliding with ⎋[ ⇧R
+
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+        # ⎋OP ⎋OQ ⎋OR ⎋OS  # ⎋[15~ ⎋[17~ ⎋[18~ ⎋[19~  # ⎋[20~ ⎋[21
+
+    def _keyboard_add_some_(self, caps: str, strikes: str, shifts: str) -> None:
+        """Add some Key Caps at Strikes to a Keyboard"""
+
+        caps_split = caps.split()
+        strikes_split = strikes.split()
+        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
+
+        assert len(caps_split) == len(strikes_split), (len(caps_split), len(strikes_split))
+        for cap, cap_strikes in zip(caps_split, strikes_split):
+            echo = shifts + cap
+            self._keyboard_add_(echo, cap_strikes=cap_strikes)
+
+    def _keyboard_add_(self, echo: str, cap_strikes: str) -> None:
+        """Add a Key Cap and its Octets to a Keyboard"""
+
+        assert len(echo.split()) == 1, (len(echo.split()), echo)
+
+        decode = self._cap_strikes_to_decode_(cap_strikes, echo=echo)
+        self._keyboard_add_decode_(decode, echo=echo)
+
+    def _add_twelve_fn_meta_control_p_(self, shifts: str) -> None:
+        """Add the Twelve F Keys at the one Decode"""
+
+        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
+
+        caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
+        strikes = 12 * " 033.020"  # ⎋⌃P
+        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+
+    def _form_echoes_by_decode_(self) -> dict[str, tuple[str, ...]]:
+        """Sort and invert our Decode_by_Echo Dict"""
+
+        decode_by_echo = self.decode_by_echo
+
+        familiar_shifts = KeyboardDecoder.FamiliarShifts
+
+        def echo_to_echo_key(echo: str) -> tuple[str, ...]:
+            """Sort Key Caps from least to most celebrated"""
+
+            assert len(echo.split()) == 1, (len(echo.split()), echo)
+
+            lstrip = echo.lstrip("⎋⌃⌥⇧")
+            cap = lstrip if lstrip else echo[-1:]
+
+            shifts = echo[: -len(cap)]
+            chr_index = chr(familiar_shifts.index(shifts))
+
+            chr_wide_cap = chr(len(cap) > 1)
+            chr_len_cap = chr(len(cap))
+
+            echo_key = (chr_wide_cap, chr_index, chr_len_cap, cap)
+            return echo_key
+
+            # ⎋⌃P ⎋⌃⇧P before ⎋⇧F2 before ⎋⇧F12, for example
+
+        vxk = decode_by_echo
+
+        kkxv = collections.defaultdict(list)
+        for k, v in vxk.items():
+            assert k and v, (k, v)
+            kkxv[v].append(k)
+
+        assert "" not in vxk.keys()
+
+        d = dict()
+        for v, kk in kkxv.items():
+            assert kk, (v, kk)
+            d[v] = tuple(sorted(kk, key=echo_to_echo_key))
+
+        assert "" not in d.keys()
+
+        return d
+
+    #
+    # Speak of a Byte Encoding as a Sequence of Chords of Key Caps
+    #
+
+    def bytes_to_key_caps_if(self, data: bytes) -> str:
+        """Name the Key Caps struck to send these Bytes, else an Empty Str when unsure"""
+
+        dead_key_echo_by_combining = KeyboardDecoder.DeadKeyEchoByCombining
+
+        # Give up on Undecodable Bytes
+
+        text = TerminalByteFrame.bytes_decode_if(data)
+        if not text:
+            return ""
+
+        # Name the one Chord of Key Caps that sends the whole Text, when there is one
+
+        echoes = self.bytes_to_echoes_if(data)
+        if echoes:
+            echo = echoes[0]
+            return echo  # ⇥  # ⏎  # ↑  # ⌃A  # ⌥⇧E
+
+        # Else name one Chord per Char, with each ⌥ Dead Key struck before the Char it accents
+
+        nfd = unicodedata.normalize("NFD", text)  # splits é into e plus Combining Acute Accent
+
+        words: list[str] = list()
+        dead_key_echo = ""
+        for t in nfd:
+
+            if t in dead_key_echo_by_combining.keys():
+                if (not words) or dead_key_echo:
+                    return ""  # a Combining Mark pasted alone or doubled, which no Key sends
+
+                dead_key_echo = dead_key_echo_by_combining[t]
+                words.insert(len(words) - 1, dead_key_echo)  # before the Char, as struck
+                continue
+
+            dead_key_echo = ""
+
+            t_echoes = self.bytes_to_echoes_if(t.encode())
+            if not t_echoes:
+                return ""  # such as a Char that no macBook Keyboard sends
+
+            t_echo = t_echoes[0]
+            words.append(t_echo)
+
+        caps = " ".join(words)
+        return caps  # ⌥E J  # ⌥E E  # ⇧A ⇧B ⇧C
+
+    def bytes_to_echoes_if(self, data: bytes) -> tuple[str, ...]:
+        """Speak of a Byte Encoding as Sequences of Chords of Key Caps"""
+
+        text = data.decode()
+
+        echoes_by_decode = self.echoes_by_decode
+
+        if text in echoes_by_decode.keys():
+            echoes = echoes_by_decode[text]
+            return echoes
+
+            # tuple of '⎋', of '␢', of '⌥⇧⇥', of '⌃⌥⇧Fn'
+
+        return tuple()
+
+
+def _try_keyboard_decoder_() -> None:
+    """Try KeyboardDecoder things"""
+
+    kd = keyboard_decoder()
+
+    # Pair up Bytes with the Key Caps struck to send them, else with an Empty Str
+
+    pairs = (
+        #
+        (b"", ""),  # nothing struck
+        (b"\t", "⇥"),  # a Control Byte
+        (b"\r", "⏎"),
+        (b"\001", "⌃A"),
+        (b"\033", "⎋"),
+        (b"\033[A", "↑"),  # a Csi Sequence
+        (b"\033[1;2C", "⇧→"),
+        (b"\033[", "⎋["),  # ⎋ struck before [
+        (b"\033[1", "⎋ [ 1"),  # three Key Caps struck, though no Chord sends these Bytes
+        (b"\033[a", "⎋ [ A"),  # three Key Caps struck, and the trailing b'a' closes the Frame
+        (b" ", "␢"),  # a Printable Char
+        (b"j", "J"),
+        (b"J", "⇧J"),
+        (b"ABC", "⇧A ⇧B ⇧C"),  # a Paste
+        (b"\377", ""),  # an Undecodable Byte
+        #
+        ("é".encode(), "⌥E E"),  # 'é' as 1 Char  # NFD would split out a Combining Acute Accent
+        ("j́".encode(), "⌥E J"),  # 'j' before Combining Acute Accent, from Dead Key & then J Key
+        ("´".encode(), "⌥⇧E"),  # the Spacing Acute Accent, as struck
+        ("\u0301".encode(), ""),  # the Combining Acute Accent by itself, which no Key sends
+        ("a\u0301\u0308".encode(), ""),  # two Combining Marks on one Char, which no Key sends
+        #
+        (b"\033OP", "F1"),  # an Ss3 Sequence
+        (b"\033[17~", "F6"),  # F6 over ⌥F1 or ⎋F1, which send the same Bytes
+        (b"\033[23~", "⌥F6"),  # ⌥F6 because macOS Mission Control often steals F11
+        (b"\033[24~", "F12"),  # F12 over ⌥F7 or ⎋F7
+        (b"\033[25~", "⇧F5"),  # ⇧F5 over ⌥F8 or ⎋F8
+        (b"\033[22~", "⎋ [ 2 2 ⇧~"),  # no F Key sends ⎋[22~  # F10 sends 21, F11 sends 23
+        (b"\033\020", "⎋⌃P"),  # ⎋⌃P over ⎋⇧F1 .. ⎋⌃⇧F12, which send the same Bytes
+        #
+    )
+
+    for data, want in pairs:
+        caps = kd.bytes_to_key_caps_if(data)
+        assert caps == want, (caps, want, data)
+
+    # Show Unicode tells Apple that the Dead Key should accent the Char struck after it
+
+    dead_key_echo_by_combining = KeyboardDecoder.DeadKeyEchoByCombining
+    for t in dead_key_echo_by_combining.keys():
+        assert unicodedata.combining(t), (t,)
+
+
+#
 # Read Bytes from a Terminal, place them into Frames, and say when each Byte arrived
 #
 
@@ -439,244 +1064,6 @@ class TerminalFrameReader:
 
             if ifk.is_quitting_frames():
                 return
-
-
-#
-# Wrap one Terminal
-#
-
-
-@dataclasses.dataclass(order=True)  # , frozen=True)
-class TerminalBoss:
-    """Wrap one Terminal"""
-
-    stdio: io.TextIOWrapper
-    isatty: bool
-    fileno: int  # often 2 == sys.__stderr__.fileno()
-    tcgetattr: list[int | list[bytes | int]]  # replaced by .__enter__
-
-    def __init__(self) -> None:
-
-        assert sys.__stdin__, (sys.__stdin__,)
-        stdio = sys.__stdin__  # todo: /dev/stderr, /dev/tty
-        isatty = stdio.isatty()
-        fileno = stdio.fileno()
-
-        self.stdio = stdio
-        self.isatty = isatty
-        self.fileno = fileno
-        self.tcgetattr = list()
-
-    def __enter__(self) -> TerminalBoss:
-        r"""Pause line-buffering Input, pause taking \n Output as \r\n, etc"""
-
-        isatty = self.isatty
-        fileno = self.fileno
-        tcgetattr = self.tcgetattr
-
-        if tcgetattr:  # enters at most once, to make truthy
-            return self
-
-        # Flush writes to the Terminal
-
-        sys.stdout.flush()
-        sys.stderr.flush()
-
-        # Back up Input Mode before, drain Input, & choose Input Mode after
-
-        widened_list_int: list[int | list[bytes | int]] = [20261010]  # arbitrary 20261010
-
-        truthy_attributes = termios.tcgetattr(fileno) if isatty else widened_list_int
-        assert truthy_attributes, (truthy_attributes,)
-        self.tcgetattr = truthy_attributes  # replaces falsey with truthy
-
-        if isatty:
-            tty.setraw(fileno, when=termios.TCSADRAIN)
-
-        # Succeed
-
-        return self
-
-        # also pauses Return Key meaning ⌃J b'\n', switches to ⌃M b'\r'
-
-        # todo: swap tty.setcbreak in for tty.setraw to change what ⌃C means
-        # todo: try termios.TCSAFLUSH to discard Input while entering
-
-    def __exit__(self, *exc_info: object) -> None:
-        r"""Resume line-buffering Input, resume taking \n Output as \r\n, etc"""
-
-        isatty = self.isatty
-        fileno = self.fileno
-        tcgetattr = self.tcgetattr
-
-        if not tcgetattr:  # exits at most once, to make falsey
-            return
-
-        # Flush writes to the Terminal
-
-        sys.stdout.flush()
-        sys.stderr.flush()
-
-        # Drain Input, restore Input Mode, & clear Input Mode backup
-
-        fd = fileno
-        when = termios.TCSADRAIN
-        attributes = tcgetattr  # truthy here too
-        if isatty:
-            termios.tcsetattr(fd, when, attributes)
-
-        self.tcgetattr = list()  # replaces truthy with falsey
-
-        # also resumes Return Key meaning ⌃J b'\n', switches from ⌃M b'\r'
-
-        # todo: try termios.TCSAFLUSH to discard Input while exiting
-
-    def stdio_select_select(self, timeout: float | None) -> bool:
-        """Block till next Input Byte, else till Timeout, else till forever"""
-
-        fileno = self.fileno
-
-        assert self.tcgetattr, (self.tcgetattr,)
-
-        r, w, x = select.select([fileno], [], [], timeout)
-
-        hit = fileno in r
-
-        return hit
-
-        # a la msvcrt.kbhit
-
-    # def poll_till_bytes_available(self) -> None:
-    #     """Block till Bytes Available"""
-    #
-    #     while not self.stdio_select_select(timeout=0e0):
-    #         time.sleep(1e-9)  # slightly limits loop rate
-
-    def read_some_bytes_if(self) -> bytes:
-        """Read as many Bytes as arrived all at once, else return b''"""
-
-        ba = bytearray()
-
-        while True:
-
-            # Read one Byte, else quit at End-of-Input
-
-            b = self.read_one_byte_if()
-            if not b:
-                break
-
-            ba.extend(b)
-
-            # Quit when no more Bytes have arrived yet
-
-            if not self.stdio_select_select(timeout=0e0):
-                break
-
-        data = bytes(ba)
-        return data  # b'j\xcc\x81' from ⌥E J, or a whole ⌘V Paste, or one Byte, or b''
-
-    def read_one_byte_if(self) -> bytes:
-        """Read one byte and return it, else return b''"""
-
-        try:
-            b = self.read_one_byte()
-        except AssertionError:
-            raise
-        except OSError:
-            return b""
-
-        assert len(b) == 1, (b,)
-        return b
-
-    def read_one_byte(self) -> bytes:
-        """Read one byte and return it, else raise Exception"""
-
-        fileno = self.fileno
-
-        fd = fileno
-        length = 1
-        b = os.read(fd, length)
-
-        if not b:  # b == b'' only from input stream closed by macOS
-            raise OSError(errno.EIO, os.strerror(errno.EIO))  # as Linux does for b''
-
-        assert len(b) == 1, (b,)
-        return b
-
-
-#
-# Collect Bytes and track when they arrived
-#
-
-
-@dataclasses.dataclass(order=True)  # , frozen=True)
-class ByteKeeper:
-    """Collect Bytes, and track when they arrived"""
-
-    ba: bytearray  # the Bytes
-    nano_list: list[int]  # when the Bytes arrived
-
-    def __init__(self) -> None:
-
-        self.ba = bytearray()
-        self.nano_list = list()
-
-    def append_one_byte(self, b: bytes, nano: int | None = None) -> None:
-        """Say 1 more Byte arrived, and when"""
-
-        assert len(b) == 1, (len(b), b)
-        _nano_ = time.perf_counter_ns() if (nano is None) else nano
-
-        ba = self.ba
-        nano_list = self.nano_list
-
-        ba.extend(b)
-        nano_list.append(_nano_)
-
-    def is_quitting_bytes(self) -> bool:
-        """Say if the Bytes have said please quit soon"""
-
-        ba = self.ba
-        nano_list = self.nano_list
-
-        firsts = range(max(0, len(ba) - 4), len(ba))
-        pairs = [(nano_list[i], bytes(ba[i : i + 1])) for i in firsts]
-
-        if is_quitting_shape(pairs):
-            if ord(" ") <= ba[-1] <= ord("~"):  # US Ascii Printable, and not \t \n \r etc
-                return False
-
-            return True
-
-        return False
-
-
-def is_quitting_shape(pairs: list[tuple[int, bytes]]) -> bool:
-    """Quits when given same Bytes, 3 times in a row, but >= 100ms apart, across < 3s"""
-
-    nano = time.perf_counter_ns()
-
-    nl = [n for (n, _) in pairs]  # when the last Byte of each arrived
-    data_list = [data for (_, data) in pairs]
-
-    last3 = data_list[-3:]
-    if not last3:
-        return False
-
-    if last3 != (3 * last3[-1:]):  # three in a row
-        return False
-
-    age = nano - nl[-3]
-    early_gaps = (nl[-3] - nl[-4],) if (len(nl) > 3) else ()
-    late_gaps = (nl[-2] - nl[-3], nl[-1] - nl[-2])
-
-    if age >= _3_GIGA_NANOS_IS_TOO_SLOW_:  # as a burst, not just now and then
-        return False
-
-    if min(early_gaps + late_gaps) < _100_MEGA_NANOS_IS_TOO_FAST_:  # held, or pasted
-        return False
-
-    return True
 
 
 #
@@ -843,6 +1230,34 @@ class TerminalFrameKeeper:
             return True
 
         return False
+
+
+def is_quitting_shape(pairs: list[tuple[int, bytes]]) -> bool:
+    """Quits when given same Bytes, 3 times in a row, but >= 100ms apart, across < 3s"""
+
+    nano = time.perf_counter_ns()
+
+    nl = [n for (n, _) in pairs]  # when the last Byte of each arrived
+    data_list = [data for (_, data) in pairs]
+
+    last3 = data_list[-3:]
+    if not last3:
+        return False
+
+    if last3 != (3 * last3[-1:]):  # three in a row
+        return False
+
+    age = nano - nl[-3]
+    early_gaps = (nl[-3] - nl[-4],) if (len(nl) > 3) else ()
+    late_gaps = (nl[-2] - nl[-3], nl[-1] - nl[-2])
+
+    if age >= _3_GIGA_NANOS_IS_TOO_SLOW_:  # as a burst, not just now and then
+        return False
+
+    if min(early_gaps + late_gaps) < _100_MEGA_NANOS_IS_TOO_FAST_:  # held, or pasted
+        return False
+
+    return True
 
 
 #
@@ -1841,628 +2256,213 @@ def _try_terminal_byte_frame_2_() -> None:
 
 
 #
-# Speak of a Byte Sequence as a Strike of Key Caps at a macBook
+# Wrap one Terminal
 #
 
 
-@functools.cache
-def keyboard_decoder() -> KeyboardDecoder:
-    """Build the one KeyboardDecoder, once, and hand it back on each later call"""
+@dataclasses.dataclass(order=True)  # , frozen=True)
+class TerminalBoss:
+    """Wrap one Terminal"""
 
-    kd = KeyboardDecoder()
-    return kd
-
-
-class KeyboardDecoder:
-    """Speak of a Byte Sequence as a Strike of Key Caps at a macBook"""
-
-    decode_by_echo: dict[str, str]
-    echoes_by_decode: dict[str, tuple[str, ...]]
-
-    PlainCapsWithoutFn = r"""
-        ⎋
-        ` 1 2 3 4 5 6 7 8 9 0 - = ⌫
-        ⇥ Q W E R T Y U I O P [ ] \
-        A S D F G H J K L ; ' ⏎
-        Z X C V B N M , . /
-        ␢ ← ↑ → ↓
-    """  # Plain Caps apart from F1 .. F12 etc
-
-    ShiftCapsWithoutFn = """
-        ⎋
-        ~ ! @ # $ % ^ & * ( ) _ + ⌫
-        ⇥ Q W E R T Y U I O P { } |
-        A S D F G H J K L : " ⏎
-        Z X C V B N M < > ?
-        ␢ ← ↑ → ↓
-    """  # Shift Caps apart from ⇧ F1 .. ⇧ F12 etc
-
-    ShortcutShifts: tuple[str, ...]  # ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧ ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧
-    ShortcutShifts = ("", "⌃", "⌥", "⌃⌥", "⇧", "⌃⇧", "⌥⇧", "⌃⌥⇧", "⎋", "⎋⌃", "⎋⇧", "⎋⌃⇧")
-
-    FamiliarShifts: tuple[str, ...]  # ⇧ ⌃ ⌥ ⌃⇧ ⌥⇧ ⌃⌥ ⌃⌥⇧ ⎋ ⎋⇧ ⎋⌃ ⎋⌃⇧
-    FamiliarShifts = ("", "⇧", "⌃", "⌥", "⌃⇧", "⌥⇧", "⌃⌥", "⌃⌥⇧", "⎋", "⎋⇧", "⎋⌃", "⎋⌃⇧")
-
-    assert sorted(ShortcutShifts) == sorted(FamiliarShifts)
-
-    DeadKeyEchoByCombining = {  # Typists say Dead Keys do not step the Cursor forward
-        "\u0300": "⌥`",  # Combining Grave Accent
-        "\u0301": "⌥E",  # Combining Acute Accent
-        "\u0302": "⌥I",  # Combining Circumflex Accent
-        "\u0303": "⌥N",  # Combining Tilde
-        "\u0308": "⌥U",  # Combining Diaeresis
-    }
+    stdio: io.TextIOWrapper
+    isatty: bool
+    fileno: int  # often 2 == sys.__stderr__.fileno()
+    tcgetattr: list[int | list[bytes | int]]  # replaced by .__enter__
 
     def __init__(self) -> None:
 
-        self.decode_by_echo = dict()
-        self._form_macos_keyboards_()
-        self._form_apple_terminal_keyboards_()
+        assert sys.__stdin__, (sys.__stdin__,)
+        stdio = sys.__stdin__  # todo: /dev/stderr, /dev/tty
+        isatty = stdio.isatty()
+        fileno = stdio.fileno()
 
-        self.echoes_by_decode = self._form_echoes_by_decode_()
+        self.stdio = stdio
+        self.isatty = isatty
+        self.fileno = fileno
+        self.tcgetattr = list()
 
-    def _form_macos_keyboards_(self) -> None:
-        """Form the ordinary Apple macBook Keyboards of Codes sent by Caps"""
+    def __enter__(self) -> TerminalBoss:
+        r"""Pause line-buffering Input, pause taking \n Output as \r\n, etc"""
 
-        # 1 ''
+        isatty = self.isatty
+        fileno = self.fileno
+        tcgetattr = self.tcgetattr
 
-        shifts = ""
-        strikes = r"""
-            033
-            140 1 2 3 4 5 6 7 8 9 0 - = 177
-            011 q w e r t y u i o p [ ] \
-            a s d f g h j k l ; ' 015
-            z x c v b n m , . /
-            040 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
-        """
+        if tcgetattr:  # enters at most once, to make truthy
+            return self
 
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
+        # Flush writes to the Terminal
 
-        # 2 ⇧
+        sys.stdout.flush()
+        sys.stderr.flush()
 
-        shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2D and ⎋[1;2C
+        # Back up Input Mode before, drain Input, & choose Input Mode after
 
-        strikes = """
-            033
-            176 ! @ # $ % ^ & * ( ) _ + 177
-            ⎋[⇧Z Q W E R T Y U I O P { } |
-            A S D F G H J K L : " 015
-            Z X C V B N M < > ?
-            040 ⎋[1;2⇧D ⎋[⇧A ⎋[1;2⇧C ⎋[⇧B
-        """
+        widened_list_int: list[int | list[bytes | int]] = [20261010]  # arbitrary 20261010
 
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
+        truthy_attributes = termios.tcgetattr(fileno) if isatty else widened_list_int
+        assert truthy_attributes, (truthy_attributes,)
+        self.tcgetattr = truthy_attributes  # replaces falsey with truthy
 
-        # 3 ⌃
+        if isatty:
+            tty.setraw(fileno, when=termios.TCSADRAIN)
 
-        shifts = "⌃"
-        strikes = """
-            033
-            ... ... ... ... ... ... ... ... ... ... ... 037 ... 177
-            011 021 027 005 022 024 031 025 011 017 020 033 035 034
-            001 023 004 006 007 010 012 013 014 ... ... ...
-            032 030 003 026 002 016 015 ... ... ...
-            000 ... ... ... ...
-        """  # the '...' in here mark Key Strikes that send no Bytes: a Bell, the ⌃⏎ Menu, or macOS
+        # Succeed
 
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
+        return self
 
-        # 4 ⌥
+        # also pauses Return Key meaning ⌃J b'\n', switches to ⌃M b'\r'
 
-        shifts = "⌥"  # ⌥Y sends \, coded here as r""" \ """
-        strikes = r"""
-            033
-            ¤ ¡ ™ £ ¢ ∞ § ¶ • ª º – ≠ 177
-            011 œ ∑ ¤ ® † \ ¤ ¤ ø π “ ‘ «
-            å ß ∂ ƒ © ˙ ∆ ˚ ¬ … æ 015
-            Ω ≈ ç √ ∫ ¤ µ ≤ ≥ ÷
-            302.240 ⎋B ⎋⎋[⇧A ⎋F ⎋⎋[⇧B
-        """  # the five ¤ splats in here mark Dead Keys that do not step the Cursor forward
+        # todo: swap tty.setcbreak in for tty.setraw to change what ⌃C means
+        # todo: try termios.TCSAFLUSH to discard Input while entering
 
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
+    def __exit__(self, *exc_info: object) -> None:
+        r"""Resume line-buffering Input, resume taking \n Output as \r\n, etc"""
 
-        # 5 ⌃⇧
+        isatty = self.isatty
+        fileno = self.fileno
+        tcgetattr = self.tcgetattr
 
-        shifts = "⌃⇧"
-        strikes = """
-            033
-            ... ... 000 ... ... ... 036 ... ... ... ... 037 ... 177
-            ⎋[⇧Z ... ... ... ... ... ... ... ... ... ... 033 035 034
-            ... ... ... ... ... ... ... ... ... ... ... ...
-            ... ... ... ... ... ... ... ... ... ...
-            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
-        """  # the '...' in here mark Key Strikes that send no Bytes: a Bell, or the ⌃⇧⏎ Menu
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 6 ⌥⇧
-
-        shifts = "⌥⇧"  # ⌥⇧K sends the Apple Logo, coded here as \uf8ff
-        strikes = """
-            033
-            140 ⁄ € ‹ › ﬁ ﬂ ‡ ° · ‚ — ± 177
-            ⎋[⇧Z Œ „ ´ ‰ ˇ Á ¨ ˆ Ø ∏ ” ’ »
-            Å Í Î Ï ˝ Ó Ô \uf8ff Ò Ú Æ 015
-            ¸ ˛ Ç ◊ ı ˜ Â ¯ ˘ ¿
-            302.240 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
-        """  # can't be = r""", because \u inside.
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 7 ⌃⌥
-
-        shifts = "⌃⌥"
-        strikes = """
-            033
-            140 1 2 3 4 5 6 7 8 9 0 037 = 177
-            011 021 027 005 022 024 031 025 011 017 020 033 035 034
-            001 023 004 006 007 010 012 013 014 ; ' 015
-            032 030 003 026 002 016 015 , . /
-            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
-        """
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 8 ⌃⌥⇧
-
-        shifts = "⌃⌥⇧"
-        strikes = """
-            033
-            140 1 000 3 4 5 036 7 8 9 0 037 = 177
-            ⎋[⇧Z 021 027 005 022 024 031 025 011 017 020 033 035 034
-            001 023 004 ... 007 010 012 013 014 ; ' 015
-            032 030 003 026 ... 016 015 , . /
-            000 ⎋[⇧D ⎋[⇧A ⎋[⇧C ⎋[⇧B
-        """  # the '...' in here mark Key Strikes that send no Bytes: a Bell instead
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 9 ⎋
-
-        shifts = "⎋"
-
-        strikes = r"""
-            ⎋⎋
-            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 ⎋- ⎋= 033.177
-            033.011 ⎋Q ⎋W ⎋E ⎋R ⎋T ⎋Y ⎋U ⎋I ⎋O ⎋P ⎋[ ⎋] ⎋\
-            ⎋A ⎋S ⎋D ⎋F ⎋G ⎋H ⎋J ⎋K ⎋L ⎋; ⎋' 033.015
-            ⎋Z ⎋X ⎋C ⎋V ⎋B ⎋N ⎋M ⎋, ⎋. ⎋/
-            033.040 ⎋B ⎋⎋[⇧A ⎋F ⎋⎋[⇧B
-        """  # ⎋B ⎋F, not ⎋⎋[⇧D ⎋⎋[⇧C
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 10 ⎋⇧
-
-        shifts = "⎋⇧"
-        strikes = """
-            033.033
-            033.176 ⎋⇧! ⎋⇧@ ⎋⇧# ⎋⇧$ ⎋⇧% ⎋⇧^ ⎋⇧& ⎋⇧* ⎋⇧( ⎋⇧) ⎋⇧_ ⎋⇧+ 033.010
-            ⎋⎋[⇧Z ⎋⇧Q ⎋⇧W ⎋⇧E ⎋⇧R ⎋⇧T ⎋⇧Y ⎋⇧U ⎋⇧I ⎋⇧O ⎋⇧P ⎋⇧{ ⎋⇧} ⎋⇧|
-            ⎋⇧A ⎋⇧S ⎋⇧D ⎋⇧F ⎋⇧G ⎋⇧H ⎋⇧J ⎋⇧K ⎋⇧L ⎋⇧: ⎋⇧" 033.015
-            ⎋⇧Z ⎋⇧X ⎋⇧C ⎋⇧V ⎋⇧B ⎋⇧N ⎋⇧M ⎋⇧< ⎋⇧> ⎋⇧?
-            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
-        """  # 033.117 ⎋O stops without closing its Frame (like could be ⎋OP)
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 11 ⎋⌃
-
-        shifts = "⎋⌃"
-
-        strikes = """
-            033.033
-            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 033.037 ⎋= 033.010
-            033.011 033.021 033.027 033.005 033.022 033.024 033.031 033.025 033.011 033.017 033.020 033.033 033.035 033.034
-            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
-            033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
-            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
-        """
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-        # 12 ⎋⌃⇧
-
-        shifts = "⎋⌃⇧"
-        strikes = """
-            033.033
-            033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 033.037 ⎋= 033.010
-            ⎋⎋[⇧Z 033.021 033.027 033.005 033.022 033.024 033.031 033.025 033.011 033.017 033.020 033.033 033.035 033.034
-            033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
-            033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
-            033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
-        """
-
-        self._add_keyboard_(shifts=shifts, strikes=strikes)
-
-    def _add_keyboard_(self, shifts: str, strikes: str) -> None:
-        """Add in 1 Keyboard of Key Caps and their Strikes"""
-
-        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
-
-        strikes_split = strikes.split()
-        if not strikes_split:
+        if not tcgetattr:  # exits at most once, to make falsey
             return
 
-        plain_caps = tuple(KeyboardDecoder.PlainCapsWithoutFn.split())
-        shift_caps = tuple(KeyboardDecoder.ShiftCapsWithoutFn.split())
+        # Flush writes to the Terminal
 
-        o = (len(plain_caps), len(shift_caps), len(strikes_split))
-        assert len(plain_caps) == len(shift_caps) == len(strikes_split), o
+        sys.stdout.flush()
+        sys.stderr.flush()
 
-        caps = shift_caps if ("⇧" in shifts) else plain_caps
-        for cap, cap_strikes in zip(caps, strikes_split):
-            echo = shifts + cap
-            decode = self._cap_strikes_to_decode_(cap_strikes, echo=echo)
-            if decode:
+        # Drain Input, restore Input Mode, & clear Input Mode backup
 
-                self._keyboard_add_decode_(decode, echo=echo)
+        fd = fileno
+        when = termios.TCSADRAIN
+        attributes = tcgetattr  # truthy here too
+        if isatty:
+            termios.tcsetattr(fd, when, attributes)
 
-    def _cap_strikes_to_decode_(self, cap_strikes: str, echo: str) -> str:
-        """Convert to Decode of Byte Encoding of Key Strike"""
+        self.tcgetattr = list()  # replaces truthy with falsey
 
-        assert len(echo.split()) == 1, (len(echo.split()), echo)
+        # also resumes Return Key meaning ⌃J b'\n', switches from ⌃M b'\r'
 
-        if cap_strikes in ("...", "¤"):  # splats of width 3 and width 1
-            return ""
+        # todo: try termios.TCSAFLUSH to discard Input while exiting
+
+    def stdio_select_select(self, timeout: float | None) -> bool:
+        """Block till next Input Byte, else till Timeout, else till forever"""
+
+        fileno = self.fileno
+
+        assert self.tcgetattr, (self.tcgetattr,)
+
+        r, w, x = select.select([fileno], [], [], timeout)
+
+        hit = fileno in r
+
+        return hit
+
+        # a la msvcrt.kbhit
+
+    # def poll_till_bytes_available(self) -> None:
+    #     """Block till Bytes Available"""
+    #
+    #     while not self.stdio_select_select(timeout=0e0):
+    #         time.sleep(1e-9)  # slightly limits loop rate
+
+    def read_some_bytes_if(self) -> bytes:
+        """Read as many Bytes as arrived all at once, else return b''"""
 
         ba = bytearray()
 
-        octets = [cap_strikes]
-        if cap_strikes not in (".", "⎋."):
-            octets = cap_strikes.split(".")
+        while True:
 
-        for octet in octets:
+            # Read one Byte, else quit at End-of-Input
 
-            # Accept single Characters
+            b = self.read_one_byte_if()
+            if not b:
+                break
 
-            if len(octet) == 1:  # '€'
-                t = octet
-                assert t not in ("⎋⌃⌥⇧" "`~"), (octet, octets, cap_strikes, echo)
-                octet_data = octet.encode()
-                ba.extend(octet_data)
-                continue
+            ba.extend(b)
 
-            # Accept single Characters escaped, no matter if shifted or not
+            # Quit when no more Bytes have arrived yet
 
-            if octet == "⎋⎋":  # ⎋⎋
-                octet_data = b"\033\033"
-                ba.extend(octet_data)
-                continue
+            if not self.stdio_select_select(timeout=0e0):
+                break
 
-            if octet.startswith("⎋") and (len(octet) == 2):  # ⎋Z  # ⎋/
-                t = octet[1:]
-                if t not in (string.digits + string.ascii_uppercase):
-                    assert t in ("-=" "[]\\" ";'" ",./"), (t, octet, cap_strikes, echo)
-                octet_data = b"\033" + t.lower().encode()
-                ba.extend(octet_data)
-                continue
+        data = bytes(ba)
+        return data  # b'j\xcc\x81' from ⌥E J, or a whole ⌘V Paste, or one Byte, or b''
 
-                # rejects ⎋`
+    def read_one_byte_if(self) -> bytes:
+        """Read one byte and return it, else return b''"""
 
-            if octet.startswith("⎋⇧") and (len(octet) == 3):  # ⎋⇧Z  # ⎋⇧?
-                t = octet[2:]
-                if t not in string.ascii_uppercase:
-                    assert t in ("!@#$%^&*()_+" "{}|" ':"' "<>?"), (t, octet, cap_strikes, echo)
-                octet_data = b"\033" + t.encode()
-                ba.extend(octet_data)
-                continue
+        try:
+            b = self.read_one_byte()
+        except AssertionError:
+            raise
+        except OSError:
+            return b""
 
-                # rejects ⎋⇧~
+        assert len(b) == 1, (b,)
+        return b
 
-            # Accept three Octal Digits as an Octet
+    def read_one_byte(self) -> bytes:
+        """Read one byte and return it, else raise Exception"""
 
-            m = re.fullmatch(r"[0-7][0-7][0-7]", string=octet)
-            if m:  # 177
-                ba.append(int(octet, base=0o010))  # raises ValueError when > 0o377
-                continue
+        fileno = self.fileno
 
-            # Accept simple Ss3 Sequences spoken as ⎋O... ⇧...
+        fd = fileno
+        length = 1
+        b = os.read(fd, length)
 
-            m = re.fullmatch(r"(⎋)⇧(O)⇧([PQRS])", string=octet)
-            if m:  # ⎋⇧O⇧S
-                octet_data = b"\033"
-                octet_data += m.group(2).encode() + m.group(3).encode()
-                ba.extend(octet_data)
-                continue
+        if not b:  # b == b'' only from input stream closed by macOS
+            raise OSError(errno.EIO, os.strerror(errno.EIO))  # as Linux does for b''
 
-            # Accept simple Csi Sequences spoken as ⎋[... ⇧..., even when preceded by one extra ⎋
+        assert len(b) == 1, (b,)
+        return b
 
-            m = re.fullmatch(r"(⎋|⎋⎋)(\[)([0-9;]*)⇧([ABCDPQRSZ~])", string=octet)
-            if m:  # ⎋[⇧Z  # ⎋[1;2⇧C  # ⎋⎋[⇧D  # ⎋[17⇧~
-                octet_data = len(m.group(1)) * b"\033"
-                octet_data += m.group(2).encode() + m.group(3).encode() + m.group(4).encode()
-                ba.extend(octet_data)
-                continue
 
-            assert False, (octet, octets, cap_strikes, echo)
+#
+# Collect Bytes and track when they arrived
+#
 
-        decode = ba.decode()
-        assert ba and decode, (ba, decode)
 
-        return decode
+@dataclasses.dataclass(order=True)  # , frozen=True)
+class ByteKeeper:
+    """Collect Bytes, and track when they arrived"""
 
-    def _keyboard_add_decode_(self, decode: str, echo: str) -> None:
-        """Add a Key Cap and its Byte Encoding to a Keyboard"""
+    ba: bytearray  # the Bytes
+    nano_list: list[int]  # when the Bytes arrived
 
-        assert decode, (decode, echo)
-        assert len(echo.split()) == 1, (len(echo.split()), echo)
+    def __init__(self) -> None:
 
-        decode_by_echo = self.decode_by_echo
+        self.ba = bytearray()
+        self.nano_list = list()
 
-        assert echo not in decode_by_echo.keys(), (echo, decode_by_echo[echo])
-        decode_by_echo[echo] = decode
+    def append_one_byte(self, b: bytes, nano: int | None = None) -> None:
+        """Say 1 more Byte arrived, and when"""
 
-    def _form_apple_terminal_keyboards_(self) -> None:
-        """Form an Apple macOS Terminal Keyboard, out of Octets"""
+        assert len(b) == 1, (len(b), b)
+        _nano_ = time.perf_counter_ns() if (nano is None) else nano
 
-        # 1 ''
+        ba = self.ba
+        nano_list = self.nano_list
 
-        self._add_ten_fn_()
-        self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
+        ba.extend(b)
+        nano_list.append(_nano_)
 
-        # 2 ⇧  # Sideband Bells on ⌃ F1 F2 F3 F4
+    def is_quitting_bytes(self) -> bool:
+        """Say if the Bytes have said please quit soon"""
 
-        shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2D and ⎋[1;2C
+        ba = self.ba
+        nano_list = self.nano_list
 
-        caps = "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"  # without "F1 F2 F3 F4" + " " +
-        strikes = """
-            ⎋[25⇧~ ⎋[26⇧~ ⎋[28⇧~ ⎋[29⇧~
-            ⎋[31⇧~ ⎋[32⇧~ ⎋[33⇧~ ⎋[34⇧~
-        """  # omitting ⎋[27⇧~
+        firsts = range(max(0, len(ba) - 4), len(ba))
+        pairs = [(nano_list[i], bytes(ba[i : i + 1])) for i in firsts]
 
-        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
+        if is_quitting_shape(pairs):
+            if ord(" ") <= ba[-1] <= ord("~"):  # US Ascii Printable, and not \t \n \r etc
+                return False
 
-        # 3 ⌃  # Sideband Bells on ⌃ F2 F3 F4 F5 F6, ⌃ F9 F10 F11 F12  # No Codes on ⌃ F7 F8
+            return True
 
-        pass
-
-        # 4 ⌥
-
-        shifts = "⌥"
-
-        meta_caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
-        meta_strikes = """
-            ⎋[17⇧~ ⎋[18⇧~ ⎋[19⇧~ ⎋[20⇧~
-            ⎋[21⇧~ ⎋[23⇧~ ⎋[24⇧~ ⎋[25⇧~
-            ⎋[26⇧~ ⎋[28⇧~ ⎋[29⇧~ ⎋[31⇧~
-        """  # omitting ⎋[22⇧~ ⎋[27⇧~
-
-        self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
-
-        # 5 ⌃⇧  # Sideband Bells on ⌥⇧ F1..F6, ⌥⇧ F8..F12  # No Codes on ⌥⇧ F7
-        # 6 ⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
-        # 7 ⌃⌥  # Sideband Bells on ⌃⌥ F1..F12
-        # 8 ⌃⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
-
-        pass
-
-        # 9 ⎋
-
-        shifts = "⎋"
-        self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
-
-        # 10 ⎋⇧
-
-        shifts = "⎋⇧"
-        self._add_twelve_fn_meta_control_p_(shifts=shifts)  # only via 'Use Option As Meta Key'
-
-        # 11 ⎋⌃
-
-        shifts = "⎋⌃"
-        self._add_twelve_fn_meta_control_p_(shifts=shifts)  # only via 'Use Option As Meta Key'
-
-        # 12 ⎋⌃⇧
-
-        shifts = "⎋⌃⇧"
-        self._add_twelve_fn_meta_control_p_(shifts=shifts)  # only via 'Use Option As Meta Key'
-
-        # Terminal ⇧Fn = ⎋[ 25 26 28 29 ⇧~, ⎋[ 31 32 33 34 ⇧~,
-        # no encodes of ⇧F1 ⇧F2 ⇧F3 ⇧F4 in Apple Terminal without distributing configuration
-
-    def _add_ten_fn_(self) -> None:
-        """Add the first Ten F Keys, held in common across all our Unshifted Keyboards"""
-
-        shifts = ""
-
-        caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10"  # without " F11 F12"
-        strikes = """
-            ⎋⇧O⇧P ⎋⇧O⇧Q ⎋⇧O⇧R ⎋⇧O⇧S
-            ⎋[15⇧~ ⎋[17⇧~ ⎋[18⇧~ ⎋[19⇧~
-            ⎋[20⇧~ ⎋[21⇧~
-        """  # omitting ⎋[16~  # not-colliding with ⎋[ ⇧R
-
-        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
-
-        # ⎋OP ⎋OQ ⎋OR ⎋OS  # ⎋[15~ ⎋[17~ ⎋[18~ ⎋[19~  # ⎋[20~ ⎋[21
-
-    def _keyboard_add_some_(self, caps: str, strikes: str, shifts: str) -> None:
-        """Add some Key Caps at Strikes to a Keyboard"""
-
-        caps_split = caps.split()
-        strikes_split = strikes.split()
-        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
-
-        assert len(caps_split) == len(strikes_split), (len(caps_split), len(strikes_split))
-        for cap, cap_strikes in zip(caps_split, strikes_split):
-            echo = shifts + cap
-            self._keyboard_add_(echo, cap_strikes=cap_strikes)
-
-    def _keyboard_add_(self, echo: str, cap_strikes: str) -> None:
-        """Add a Key Cap and its Octets to a Keyboard"""
-
-        assert len(echo.split()) == 1, (len(echo.split()), echo)
-
-        decode = self._cap_strikes_to_decode_(cap_strikes, echo=echo)
-        self._keyboard_add_decode_(decode, echo=echo)
-
-    def _add_twelve_fn_meta_control_p_(self, shifts: str) -> None:
-        """Add the Twelve F Keys at the one Decode"""
-
-        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
-
-        caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
-        strikes = 12 * " 033.020"  # ⎋⌃P
-        self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
-
-    def _form_echoes_by_decode_(self) -> dict[str, tuple[str, ...]]:
-        """Sort and invert our Decode_by_Echo Dict"""
-
-        decode_by_echo = self.decode_by_echo
-
-        familiar_shifts = KeyboardDecoder.FamiliarShifts
-
-        def echo_to_echo_key(echo: str) -> tuple[str, ...]:
-            """Sort Key Caps from least to most celebrated"""
-
-            assert len(echo.split()) == 1, (len(echo.split()), echo)
-
-            lstrip = echo.lstrip("⎋⌃⌥⇧")
-            cap = lstrip if lstrip else echo[-1:]
-
-            shifts = echo[: -len(cap)]
-            chr_index = chr(familiar_shifts.index(shifts))
-
-            chr_wide_cap = chr(len(cap) > 1)
-            chr_len_cap = chr(len(cap))
-
-            echo_key = (chr_wide_cap, chr_index, chr_len_cap, cap)
-            return echo_key
-
-            # ⎋⌃P ⎋⌃⇧P before ⎋⇧F2 before ⎋⇧F12, for example
-
-        vxk = decode_by_echo
-
-        kkxv = collections.defaultdict(list)
-        for k, v in vxk.items():
-            assert k and v, (k, v)
-            kkxv[v].append(k)
-
-        assert "" not in vxk.keys()
-
-        d = dict()
-        for v, kk in kkxv.items():
-            assert kk, (v, kk)
-            d[v] = tuple(sorted(kk, key=echo_to_echo_key))
-
-        assert "" not in d.keys()
-
-        return d
-
-    #
-    # Speak of a Byte Encoding as a Sequence of Chords of Key Caps
-    #
-
-    def bytes_to_key_caps_if(self, data: bytes) -> str:
-        """Name the Key Caps struck to send these Bytes, else an Empty Str when unsure"""
-
-        dead_key_echo_by_combining = KeyboardDecoder.DeadKeyEchoByCombining
-
-        # Give up on Undecodable Bytes
-
-        text = TerminalByteFrame.bytes_decode_if(data)
-        if not text:
-            return ""
-
-        # Name the one Chord of Key Caps that sends the whole Text, when there is one
-
-        echoes = self.bytes_to_echoes_if(data)
-        if echoes:
-            echo = echoes[0]
-            return echo  # ⇥  # ⏎  # ↑  # ⌃A  # ⌥⇧E
-
-        # Else name one Chord per Char, with each ⌥ Dead Key struck before the Char it accents
-
-        nfd = unicodedata.normalize("NFD", text)  # splits é into e plus Combining Acute Accent
-
-        words: list[str] = list()
-        dead_key_echo = ""
-        for t in nfd:
-
-            if t in dead_key_echo_by_combining.keys():
-                if (not words) or dead_key_echo:
-                    return ""  # a Combining Mark pasted alone or doubled, which no Key sends
-
-                dead_key_echo = dead_key_echo_by_combining[t]
-                words.insert(len(words) - 1, dead_key_echo)  # before the Char, as struck
-                continue
-
-            dead_key_echo = ""
-
-            t_echoes = self.bytes_to_echoes_if(t.encode())
-            if not t_echoes:
-                return ""  # such as a Char that no macBook Keyboard sends
-
-            t_echo = t_echoes[0]
-            words.append(t_echo)
-
-        caps = " ".join(words)
-        return caps  # ⌥E J  # ⌥E E  # ⇧A ⇧B ⇧C
-
-    def bytes_to_echoes_if(self, data: bytes) -> tuple[str, ...]:
-        """Speak of a Byte Encoding as Sequences of Chords of Key Caps"""
-
-        text = data.decode()
-
-        echoes_by_decode = self.echoes_by_decode
-
-        if text in echoes_by_decode.keys():
-            echoes = echoes_by_decode[text]
-            return echoes
-
-            # tuple of '⎋', of '␢', of '⌥⇧⇥', of '⌃⌥⇧Fn'
-
-        return tuple()
-
-
-def _try_keyboard_decoder_() -> None:
-    """Try KeyboardDecoder things"""
-
-    kd = keyboard_decoder()
-
-    # Pair up Bytes with the Key Caps struck to send them, else with an Empty Str
-
-    pairs = (
-        #
-        (b"", ""),  # nothing struck
-        (b"\t", "⇥"),  # a Control Byte
-        (b"\r", "⏎"),
-        (b"\001", "⌃A"),
-        (b"\033", "⎋"),
-        (b"\033[A", "↑"),  # a Csi Sequence
-        (b"\033[1;2C", "⇧→"),
-        (b"\033[", "⎋["),  # ⎋ struck before [
-        (b"\033[1", "⎋ [ 1"),  # three Key Caps struck, though no Chord sends these Bytes
-        (b"\033[a", "⎋ [ A"),  # three Key Caps struck, and the trailing b'a' closes the Frame
-        (b" ", "␢"),  # a Printable Char
-        (b"j", "J"),
-        (b"J", "⇧J"),
-        (b"ABC", "⇧A ⇧B ⇧C"),  # a Paste
-        (b"\377", ""),  # an Undecodable Byte
-        #
-        ("é".encode(), "⌥E E"),  # 'é' as 1 Char  # NFD would split out a Combining Acute Accent
-        ("j́".encode(), "⌥E J"),  # 'j' before Combining Acute Accent, from Dead Key & then J Key
-        ("´".encode(), "⌥⇧E"),  # the Spacing Acute Accent, as struck
-        ("\u0301".encode(), ""),  # the Combining Acute Accent by itself, which no Key sends
-        ("a\u0301\u0308".encode(), ""),  # two Combining Marks on one Char, which no Key sends
-        #
-        (b"\033OP", "F1"),  # an Ss3 Sequence
-        (b"\033[17~", "F6"),  # F6 over ⌥F1 or ⎋F1, which send the same Bytes
-        (b"\033[23~", "⌥F6"),  # ⌥F6 because macOS Mission Control often steals F11
-        (b"\033[24~", "F12"),  # F12 over ⌥F7 or ⎋F7
-        (b"\033[25~", "⇧F5"),  # ⇧F5 over ⌥F8 or ⎋F8
-        (b"\033[22~", "⎋ [ 2 2 ⇧~"),  # no F Key sends ⎋[22~  # F10 sends 21, F11 sends 23
-        (b"\033\020", "⎋⌃P"),  # ⎋⌃P over ⎋⇧F1 .. ⎋⌃⇧F12, which send the same Bytes
-        #
-    )
-
-    for data, want in pairs:
-        caps = kd.bytes_to_key_caps_if(data)
-        assert caps == want, (caps, want, data)
-
-    # Show Unicode tells Apple that the Dead Key should accent the Char struck after it
-
-    dead_key_echo_by_combining = KeyboardDecoder.DeadKeyEchoByCombining
-    for t in dead_key_echo_by_combining.keys():
-        assert unicodedata.combining(t), (t,)
+        return False
 
 
 #
