@@ -159,7 +159,7 @@ class GlassWorker:
 
                 # Print, and separate on request
 
-                print(ord(b), repr(b), end="\r\n")
+                print(ord(b), bytes_repr(b), end="\r\n")
                 if b == b"\r":
                     print()
 
@@ -174,7 +174,7 @@ class GlassWorker:
         ]
         ] Press Return three times quickly, to quit
         ]
-        ] 27 b'\x1b'
+        ] 27 b'\033'
         ] 91 b'['
         ] 65 b'A'
         ] 13 b'\r'
@@ -220,7 +220,7 @@ class GlassWorker:
                 between = after - before
                 before = after
 
-                print(f"{between:_}", code, repr(b), end="\r\n")
+                print(f"{between:_}", code, bytes_repr(b), end="\r\n")
                 if b == b"\r":
                     print()
 
@@ -235,14 +235,14 @@ class GlassWorker:
         ]
         ] Press Return three times quickly, to quit
         ]
-        ] 600_288_333 27 b'\x1b'
+        ] 600_288_333 27 b'\033'
         ] 120_500 91 b'['
         ] 25_250 65 b'A'
         ] 553_496_542 13 b'\r'
         ]
-        ] 1_492_019_167 3 b'\x03'
-        ] 185_701_041 3 b'\x03'
-        ] 248_232_584 3 b'\x03'
+        ] 1_492_019_167 3 b'\003'
+        ] 185_701_041 3 b'\003'
+        ] 248_232_584 3 b'\003'
         ]
         ] %
 
@@ -276,7 +276,7 @@ class GlassWorker:
                 if data == b"\r":  # pressing Return splits Frame Lines into paragraphs
                     print()
 
-    def frame_print(self, data: bytes, cells: list[object], end: str) -> None:
+    def frame_print(self, data: bytes, cells: list[int | bytes], end: str) -> None:
         """Print 'caps data = cell cell ...' as a whole line, or as the start of one"""
 
         kd = keyboard_decoder()
@@ -299,12 +299,12 @@ class GlassWorker:
             if decode.isprintable() and (decode.strip() == decode):
                 words.append(decode)
             else:
-                words.append(repr(decode))
+                words.append(str_repr(decode))
 
-        words.append(f"{data!r} =")
+        words.append(f"{bytes_repr(data)} =")
 
         piths = [c for (i, c) in enumerate(cells) if (i == 0) or (c != 0)]  # drops adds of '0ns'
-        reps = [(ns(p) if isinstance(p, int) else str(p)) for p in piths]
+        reps = [(ns(p) if isinstance(p, int) else bytes_repr(p)) for p in piths]
         words.extend(reps)
 
         # Print the words
@@ -322,14 +322,14 @@ class GlassWorker:
         ]
         ] Press Return three times quickly, to quit
         ]
-        ] ⌥E J j́ b'j\xcc\x81' = 3.00s b'j' b'\xcc' b'\x81'
+        ] ⌥E J j́ b'j\314\201' = 3.00s b'j' b'\314' b'\201'
         ] ⇥ '\t' b'\t' = 1.11s b'\t'
-        ] ⌥P π b'\xcf\x80' = 507ms b'\xcf' b'\x80'
-        ] ⌥E E é b'\xc3\xa9' = 507ms b'\xc3' b'\xa9'
+        ] ⌥P π b'\317\200' = 507ms b'\317' b'\200'
+        ] ⌥E E é b'\303\251' = 507ms b'\303' b'\251'
         ] Q q b'q' = 434ms b'q'
         ] ⇧Q Q b'Q' = 434ms b'Q'
         ] ␢ ' ' b' ' = 434ms b' '
-        ] ↑ '\x1b[A' b'\x1b[A' = 706ms b'\x1b' b'[' b'A'
+        ] ↑ '\033[A' b'\033[A' = 706ms b'\033' b'[' b'A'
         ] ⏎ '\r' b'\r' = 434ms b'\r'
         ]
         ] ⏎ '\r' b'\r' = 162ms b'\r'
@@ -350,7 +350,7 @@ class TerminalFrameReader:
     """Read Bytes from a Terminal, place them into Frames, and say when each Byte arrived"""
 
     ifk: TerminalFrameKeeper  # the Frames kept so far, and the Open Frame
-    cells: list[object]  # the Nanos waited and the Bytes read, not yet handed out with a Frame
+    cells: list[int | bytes]  # the Nanos waited and the Bytes read, not yet handed out with a Frame
 
     def __init__(self) -> None:
 
@@ -359,7 +359,7 @@ class TerminalFrameReader:
 
     def take_frames(
         self, tb: TerminalBoss
-    ) -> typing.Iterator[tuple[bool, TerminalByteFrame, list[object]]]:
+    ) -> typing.Iterator[tuple[bool, TerminalByteFrame, list[int | bytes]]]:
         """Yield (False, Open Frame, Cells) before each Read, and (True, Taken Frame, Cells) after"""
 
         ifk = self.ifk
@@ -975,14 +975,14 @@ class TerminalByteFrame:
 
         if encodes:
             text = encodes.decode()
-            join = repr(text)  # "'abc'"
+            join = str_repr(text)  # "'abc'"
             if stash:
-                join += " " + repr(bytes(stash))  # "'abc' b'\xc0'"
+                join += " " + bytes_repr(bytes(stash))  # "'abc' b'\300'"
 
         # Speak of no Head as the Repr of Bytes stashed, else as b''
 
         elif not head:
-            join = repr(bytes(stash))  # "b'\xc0'"  # "b''"
+            join = bytes_repr(bytes(stash))  # "b'\300'"  # "b''"
 
         # Speak of the Head, then the Neck, then the Back & Tail, if any
 
@@ -994,7 +994,7 @@ class TerminalByteFrame:
             if backtail or stash:
                 parts.append(bytes(backtail + stash))  # Csi Back & Tail  # Osc Terminator
 
-            join = " ".join(repr(_) for _ in parts)
+            join = " ".join(bytes_repr(_) for _ in parts)
 
         # Mark an Open Frame with ' +', since more Bytes may yet arrive
 
@@ -1004,7 +1004,7 @@ class TerminalByteFrame:
         assert join.isprintable(), (join,)
         return join
 
-        # "b'\x1b[' b'6' b' q'"  # "b'\x1b' b'A'"  # "b'\x1b[M' b'\xc2\x80\xff'"  # "b'\x1b[' +"
+        # "b'\033[' b'6' b' q'"  # "b'\033' b'A'"  # "b'\033[M' b'\302\200\377'"  # "b'\033[' +"
 
     def clear_frame(self) -> None:
         """Start again"""
@@ -1765,14 +1765,18 @@ def _try_close_(*args: bytes) -> None:
 def _try_bytes_(*args: str | bytes) -> TerminalByteFrame:
     """Require the Eval of the Str of the Pack equals its Bytes"""
 
-    kbytes = b""
+    bytes_list = list()
     for arg in args:
         if isinstance(arg, str):
-            kbytes += arg.encode()
+            bytes_list.append(arg.encode())
         else:
-            kbytes += arg
+            bytes_list.append(arg)
 
-    join = " ".join(repr(_) for _ in args)
+    join = " ".join((str_repr(_) if isinstance(_, str) else bytes_repr(_)) for _ in args)
+
+    kbytes = b""
+    for data in bytes_list:
+        kbytes += data
 
     kpack = TerminalByteFrame(kbytes)
     kpack_kbytes = kpack.to_frame_bytes()
@@ -2542,6 +2546,59 @@ _ = _NorthwestArrow_, _SoutheastArrow_, _SouthwestArrow_
 AppleLogo = "\uf8ff"  # Apple Logo occupies U+F8FF = end of U+E000 .. U+F8FF Private Use Area (PUA)
 _ = AppleLogo
 # todo: every mention of  in Source makes Code Patches difficult to send across platforms
+
+
+#
+# Amp up Import BuiltIns
+#
+
+
+def bytes_repr(data: bytes) -> str:
+    """Repr the Bytes, but with Octal not Upper/Lower Hex as the escape for Unprintables"""
+
+    _repr_ = repr(data)
+    sub = _repr_hex_to_octal_(_repr_)
+
+    return sub
+
+    # b'\342\202\254' for the "€".encode() that PyPi Black spells as b"\xe2\x82\xac"
+
+
+def str_repr(s: str) -> str:
+    """Repr the Str, but with Octal not Upper/Lower Hex as the escape for Unprintables"""
+
+    _repr_ = repr(s)
+    sub = _repr_hex_to_octal_(_repr_)
+
+    return sub
+
+    # '\033[A' for the ↑ that PyPi Black spells as "\x1b[A"
+    # '\ufeff' unchanged, no Octal form
+
+
+def _repr_hex_to_octal_(_repr_: str) -> str:
+    """Rewrite each \\x Escape of a Repr as a 3-Digit Octal Escape, and leave the rest alone"""
+
+    def _repl_(m: re.Match[str]) -> str:
+
+        escape = m.group(0)
+        if escape.startswith("\\x"):
+            nybbles = escape.removeprefix("\\x")
+
+            d = int(nybbles, 0x10)
+            octal_escape = f"\\{d:03o}"  # 3 Digits always, else r'\7' + '1' would read as r'\71'
+
+            return octal_escape
+
+            # r'\xe2' -> r'\342'  # r'\x07' -> r'\007'
+
+        return escape
+
+        # r'\n' r'\\' r"\'" r'\u2028' r'\U0001f600' unchanged
+
+    sub = re.sub(r"\\(x..|u....|U........|.)", repl=_repl_, string=_repr_)
+
+    return sub
 
 
 #
