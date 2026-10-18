@@ -54,7 +54,7 @@ if not __debug__:
 #
 
 
-_3_GIGA_NANOS_IS_TOO_SLOW_ = 3 * 10**9  # to slow to take 3 same inputs in a row as a quit request
+_3_GIGA_NANOS_IS_TOO_SLOW_ = 3 * 10**9  # too slow to take 3 same inputs in a row as a quit request
 _100_MEGA_NANOS_IS_TOO_FAST_ = 100 * 10**6  # too fast to take 3 in a row as a quit request
 
 
@@ -155,7 +155,8 @@ class GlassWorker:
                 if not b:
                     break
 
-                ibk.append_one_byte(b)
+                nano = time.perf_counter_ns()
+                ibk.append_one_byte(b, nano=nano)
 
                 # Print, and separate on request
 
@@ -974,12 +975,12 @@ def _try_keyboard_decoder_() -> None:
 class TerminalFrameReader:
     """Read Bytes from a Terminal, place them into Frames, and say when each Byte arrived"""
 
-    ifk: TerminalFrameKeeper  # the Frames kept so far, and the Open Frame
+    tft: TerminalFrameTaker  # the Frames taken so far, and the Open Frame
     cells: list[int | bytes]  # the Nanos waited and the Bytes read, not yet handed out with a Frame
 
     def __init__(self) -> None:
 
-        self.ifk = TerminalFrameKeeper()
+        self.tft = TerminalFrameTaker()
         self.cells = list()
 
     def take_frames(
@@ -987,7 +988,7 @@ class TerminalFrameReader:
     ) -> typing.Iterator[tuple[bool, TerminalByteFrame, list[int | bytes]]]:
         """Yield (False, Open Frame, Cells) before each Read, and (True, Taken Frame, Cells) after"""
 
-        ifk = self.ifk
+        tft = self.tft
         cells = self.cells
 
         before = time.perf_counter_ns()  # doesn't measure time to launch
@@ -997,7 +998,7 @@ class TerminalFrameReader:
             # Yield the Open Frame before each Read, as a Frame not yet taken
 
             taken = False
-            yield (taken, ifk.frame, cells)
+            yield (taken, tft.frame, cells)
 
             # Block to fetch >= 1 Bytes
 
@@ -1030,9 +1031,9 @@ class TerminalFrameReader:
                             peek = text  # Mark & (Non-Spacing | Combining/Spacing | Enclosing)
                         break
 
-                # Keep the Byte (but leave a Frame EndsWith Text open if Combining Mark peeked)
+                # Take the Byte (but leave a Frame EndsWith Text open if Combining Mark peeked)
 
-                ifk.keep_one_byte(b, nano=nano, peek=peek)
+                tft.take_one_byte(b, nano=nano, peek=peek)
 
                 # Mark how slowly this Byte arrived
 
@@ -1043,8 +1044,8 @@ class TerminalFrameReader:
 
             # Yield each Frame taken to place these Bytes
 
-            frames = ifk.frames[ifk.index :]  # the Taken Frames not yet pulled
-            triples = ifk.pull_frame_triples()
+            frames = tft.frames[tft.index :]  # the Taken Frames not yet pulled
+            triples = tft.pull_frame_triples()
             assert len(triples) == len(frames), (len(triples), len(frames))
 
             for frame, triple in zip(frames, triples):
@@ -1062,24 +1063,24 @@ class TerminalFrameReader:
 
             # Quit when the Frames say to quit
 
-            if ifk.is_quitting_frames():
+            if tft.is_quitting_frames():
                 return
 
 
 #
-# Collect TerminalByteFrame's and track when they arrived
+# Take Frames out of the Bytes arriving, and track when each Byte arrived
 #
 
 
 @dataclasses.dataclass(order=True)  # , frozen=True)
-class TerminalFrameKeeper:
-    """Collect TerminalByteFrame's and track when they arrived"""
+class TerminalFrameTaker:
+    """Take Frames out of the Bytes arriving, and track when each Byte arrived"""
 
     bk: ByteKeeper  # the Bytes, and when each arrived
 
     frame: TerminalByteFrame  # the Open Frame
-    frames: list[TerminalByteFrame]  # the Kept Frames, each closed as complete, or bounced
-    index: int  # how many Kept Frames pulled
+    frames: list[TerminalByteFrame]  # the Taken Frames, each closed as complete, or bounced
+    index: int  # how many Taken Frames also pulled
 
     def __init__(self) -> None:
 
@@ -1089,19 +1090,18 @@ class TerminalFrameKeeper:
         self.frames = list()
         self.index = 0
 
-    def keep_one_byte(self, b: bytes, nano: int | None = None, peek: str = "") -> None:
-        """Say 1 more Byte arrived, now or when, and keep each Frame as it closes or bounces"""
+    def take_one_byte(self, b: bytes, nano: int, peek: str) -> None:
+        """Say 1 more Byte arrived, and when, and take each Frame as it closes or bounces"""
 
         bk = self.bk
 
-        # Stamp the Byte with Now, else with when it arrived
+        # Stamp the Byte with when it arrived
 
         assert len(b) == 1, (len(b), b)
 
-        _nano_ = time.perf_counter_ns() if (nano is None) else nano
-        bk.append_one_byte(b, nano=_nano_)
+        bk.append_one_byte(b, nano=nano)
 
-        # Grow the Frame, or grow and keep, or don't grow and keep
+        # Grow the Frame, or grow and take, or don't grow but do take, or shrink and take
 
         frame = self.frame  # early
         extras1 = self._frame_take_data_if_(b, peek=peek)  # .peek passes through
@@ -1114,7 +1114,7 @@ class TerminalFrameKeeper:
         assert _frame_ is not frame, (_frame_, frame)  # new Empty Frame, because the Extras bounced
         assert not _frame_, (_frame_,)
 
-        # Add enough more Frames to keep all the Bytes
+        # Add enough more Frames to place all the Bytes
 
         extras2 = self._frame_take_data_if_(extras1, peek=peek)  # .peek passes through
         if extras2:
@@ -1137,7 +1137,7 @@ class TerminalFrameKeeper:
 
         extras = frame.take_data_if(data, peek=peek)  # .peek passes through
 
-        # Keep & replace the Frame if it closed as complete, or if it bounced while incomplete
+        # Take & replace the Frame if it closed as complete, or if it bounced while incomplete
 
         _frame_ = frame
         if frame.closed or extras:
@@ -1155,7 +1155,7 @@ class TerminalFrameKeeper:
         return extras
 
     def pull_frame_triples(self) -> tuple[tuple[int, int, bytes], ...]:
-        """Read and clear the (before, after, bytes) triples of Frames kept since last sampled"""
+        """Read and clear the (start, end, bytes) triples of Frames taken since last called"""
 
         bk = self.bk
         frame = self.frame
@@ -1165,7 +1165,7 @@ class TerminalFrameKeeper:
         ba = bk.ba
         nano_list = bk.nano_list
 
-        # Pull the Kept Frames not yet pulled
+        # Pull the Taken Frames not yet pulled
 
         pulls = frames[index:]
         self.index = len(frames)
@@ -1185,8 +1185,8 @@ class TerminalFrameKeeper:
             data = pull.to_frame_bytes()
             stop_index = start_index + len(data)
 
-            kept = bytes(ba[start_index:stop_index])
-            assert kept == data, (kept, data, start_index, stop_index)
+            indexed = bytes(ba[start_index:stop_index])
+            assert indexed == data, (indexed, data, start_index, stop_index)
 
             start = nano_list[start_index]
             end = nano_list[stop_index - 1]
@@ -1211,20 +1211,20 @@ class TerminalFrameKeeper:
         ba = bk.ba
         nano_list = bk.nano_list
 
-        # Hand down the last 4 Kept Frames, each with when its last Byte arrived
+        # Hand down the last 4 Taken Frames, each with when its last Byte arrived
 
         stop = len(ba) - len(frame.to_frame_bytes())  # back past the Open Frame
 
         pairs_list = list()
-        for kept in reversed(frames[-4:]):
-            data = kept.to_frame_bytes()
+        for taken in reversed(frames[-4:]):
+            data = taken.to_frame_bytes()
             pairs_list.append((nano_list[stop - 1], data))
             stop -= len(data)
 
         pairs = list(reversed(pairs_list))  # oldest first, as for Bytes
 
         if is_quitting_shape(pairs):
-            if frames[-1].encodes:  # is text frame
+            if frames[-1].encodes:  # is a Text Frame
                 return False
 
             return True
@@ -1261,7 +1261,7 @@ def is_quitting_shape(pairs: list[tuple[int, bytes]]) -> bool:
 
 
 #
-# Frame Bytes of Input, as an ⎋ Esc Sequence, else simply
+# Frame Bytes of Terminal Input as alone, or as catenated Printable Text, or as Esc Sequence
 #
 
 
@@ -1335,7 +1335,7 @@ The \xff is an example of Undecodable UTF-8.
 
 @dataclasses.dataclass(order=True)  # , frozen=True)
 class TerminalByteFrame:
-    """Frame Bytes of Input, as an ⎋ Esc Sequence, else simply"""
+    """Frame Bytes of Terminal Input as alone, or as catenated Printable Text, or as Esc Sequence"""
 
     encodes: bytearray  # b''  # Decodable Printable Text
 
@@ -1364,7 +1364,7 @@ class TerminalByteFrame:
         for d in data:
             b = bytes([d])
 
-            extras = self.take_one_byte_if(b)
+            extras = self.take_one_byte_if(b, peek="")
             if extras:
                 raise ValueError(extras, b, self)
 
@@ -1421,7 +1421,7 @@ class TerminalByteFrame:
 
         # "b'\033[' b'6' b' q'"  # "b'\033' b'A'"  # "b'\033[M' b'\302\200\377'"  # "b'\033[' +"
 
-    def clear_frame(self) -> None:
+    def clear_frame(self) -> None:  # todo: add 1st call
         """Start again"""
 
         encodes = self.encodes
@@ -1438,7 +1438,7 @@ class TerminalByteFrame:
 
         self.closed = False
 
-    def tilt_to_close_frame(self) -> None:
+    def tilt_to_close_frame(self) -> None:  # todo: add 1st call
         """Transform into a Closed DL_Y without explicit Pn, if it was _CLICK3_ and no Stash"""
 
         encodes = self.encodes
@@ -1494,11 +1494,11 @@ class TerminalByteFrame:
         self.closed = True
 
     #
-    # Pick apart a Esc Csi Sequence into its Marks and Ints
+    # Pick apart an Esc Csi Escape into its Marks and Ints
     #
 
-    def to_csi_marks_ints_if(self) -> tuple[bytes, tuple[int, ...]]:
-        """Pick out the Nonnegative Int Literals of a Csi Escape Sequence"""
+    def to_csi_marks_ints_if(self) -> tuple[bytes, tuple[int, ...]]:  # todo: add 1st call
+        """Pick out the Nonnegative Int Literals of a Csi Escape"""
 
         encodes = self.encodes
         head = self.head
@@ -1548,7 +1548,7 @@ class TerminalByteFrame:
 
         return b""
 
-    def take_one_byte_if(self, b: bytes, peek: str = "") -> bytes:
+    def take_one_byte_if(self, b: bytes, peek: str) -> bytes:
         """Take 1 Byte in and return 0 Bytes, else return 1..5 Bytes that don't fit"""
 
         assert len(b) == 1, (b,)
@@ -1704,7 +1704,7 @@ class TerminalByteFrame:
         b"\033O",  # ⎋O SS3
         b"\033[",  # ⎋[ CSI
         b"\033[M",  # ⎋[⇧M Click Press/ Release
-        b"\033]",  # ⎋ OSC
+        b"\033]",  # ⎋] OSC
     )
 
     def _take_after_ss3_or_esc_if_(self, data: bytes, text: str, peek: str) -> bytes:
@@ -1767,7 +1767,7 @@ class TerminalByteFrame:
         # ⎋[?1005h Utf-8 Mouse Coords never enabled here, so never decoded here
 
     def _take_after_csi_if_(self, data: bytes, text: str, peek: str) -> bytes:
-        """Take 1..4 more Bytes in, after ⎋[ CSI, else return what doesn't fit"""
+        """Take 1..4 more Bytes in, after ⎋[ Csi, else return what doesn't fit"""
 
         head = self.head
         neck = self.neck
@@ -1826,7 +1826,7 @@ class TerminalByteFrame:
         return data
 
     def _take_after_osc_if_(self, data: bytes, text: str) -> bytes:
-        """Take 1..4 more Bytes in, after ⎋] OSC, else return the 1..5 that don't fit"""
+        """Take 1..4 more Bytes in, after ⎋] Osc, else return the 1..5 that don't fit"""
 
         neck = self.neck
         backtail = self.backtail
@@ -1963,7 +1963,7 @@ def _try_terminal_byte_frame_1_() -> None:
 
 
 def _try_headbook_() -> None:
-    """Accept the Bytes of any Head of the Headbook, without closing the Pack"""
+    """Accept the Bytes of any Head of the Headbook, without closing the Frame"""
 
     headbook = (b"\033", b"\033O", b"\033[", b"\033]")  # ⎋ ⎋⇧O ⎋[ ⎋]
     # assert headbook == TerminalByteFrame.Headbook  # differs: Headbook here adds ⎋⎋ ⎋⎋O ⎋⎋[ ⎋[M
@@ -2004,17 +2004,17 @@ StartBytes = tuple(bytes([_]) for _ in range(0xC2, 0xF4 + 1))  # what UTF-8 comp
 
 
 def _try_ends_later_() -> None:
-    """Require each StartsWith accepted by .bytes_to_later_decode via the Endswiths"""
+    """Require each StartsWith accepted by .bytes_to_later_decode_if via the Endswiths"""
 
     start_set = set()
     for cp in range(0x110000):  # from 0 up to before first Chr ValueError
         if 0xD800 <= cp <= 0xDFFF:  # skips Surrogates
             continue
 
-        kbytes = chr(cp).encode()  # only Surrogate Chr would raise UnicodeEncodeError
+        encode = chr(cp).encode()  # only Surrogate Chr would raise UnicodeEncodeError
 
-        for i in range(1, len(kbytes)):
-            start = kbytes[:i]
+        for i in range(1, len(encode)):
+            start = encode[:i]
             start_set.add(start)
 
     start_byte_set = set()
@@ -2027,7 +2027,7 @@ def _try_ends_later_() -> None:
 
 
 def _try_one_more_kbyte_() -> None:
-    """Try some Packets open to, or closed against, taking more Bytes"""
+    """Try some Frames open to, or closed against, taking more Bytes"""
 
     # Decline Bytes after Closed
 
@@ -2063,6 +2063,7 @@ def _try_one_more_kbyte_() -> None:
 
 
 def _try_some_control_() -> None:
+    """Try closing on Unprintable or Undecodable Bytes alone, and on each kind of Head"""
 
     # Take & close 1 Unprintable Char or 1..4 Undecodable Bytes as an Alt Head
 
@@ -2122,87 +2123,87 @@ def _try_peeks_() -> None:
 
     # Stay open after the Printable Char that would have closed, and then close on the Mark
 
-    for kbytes in (b"\033j", b"\033\033j", b"\033Oj", b"\033[A", b"\033[1;5A", b"\033[ q"):
+    for data in (b"\033j", b"\033\033j", b"\033Oj", b"\033[A", b"\033[1;5A", b"\033[ q"):
         f = TerminalByteFrame(b"")
-        extras = f.take_data_if(kbytes, peek=peek)
-        assert (not extras) and (not f.closed), (extras, f, kbytes)
+        extras = f.take_data_if(data, peek=peek)
+        assert (not extras) and (not f.closed), (extras, f, data)
 
         extras = f.take_data_if(encode, peek="")
-        assert (not extras) and f.closed, (extras, f, kbytes)
-        assert f.to_frame_bytes() == (kbytes + encode), (f, kbytes)
+        assert (not extras) and f.closed, (extras, f, data)
+        assert f.to_frame_bytes() == (data + encode), (f, data)
 
     # Close anyway, after an Unprintable Char, or after the 6 raw Bytes of ⎋[M
 
-    for kbytes in (b"\t", b"\033\t", b"\033[M !\xff"):
+    for data in (b"\t", b"\033\t", b"\033[M !\xff"):
         f = TerminalByteFrame(b"")
-        extras = f.take_data_if(kbytes, peek=peek)
-        assert (not extras) and f.closed, (extras, f, kbytes)
+        extras = f.take_data_if(data, peek=peek)
+        assert (not extras) and f.closed, (extras, f, data)
 
     # Stay open anyway, as Text, or as ⎋] Osc, and take the Mark
 
-    for kbytes in (b"j", b"\033]0;x"):
+    for data in (b"j", b"\033]0;x"):
         f = TerminalByteFrame(b"")
-        extras = f.take_data_if(kbytes, peek=peek)
-        assert (not extras) and (not f.closed), (extras, f, kbytes)
+        extras = f.take_data_if(data, peek=peek)
+        assert (not extras) and (not f.closed), (extras, f, data)
 
         extras = f.take_data_if(encode, peek="")
-        assert (not extras) and (not f.closed), (extras, f, kbytes)
-        assert f.to_frame_bytes() == (kbytes + encode), (f, kbytes)
+        assert (not extras) and (not f.closed), (extras, f, data)
+        assert f.to_frame_bytes() == (data + encode), (f, data)
 
 
-def _try_extra_(kbytes: bytes, extra: bytes) -> None:
-    """Require the Pack to reject these Bytes, after closing itself if need be"""
+def _try_extra_(data: bytes, extra: bytes) -> None:
+    """Require the Frame to bounce these Bytes, and to stay as it was"""
 
-    kpack = TerminalByteFrame(kbytes)
-    closed = kpack.closed
+    f = TerminalByteFrame(data)
+    closed = f.closed
 
-    returned_extra = kpack.take_data_if(extra, peek="")
-    assert returned_extra == extra, (returned_extra, extra, str(kpack))
+    returned_extra = f.take_data_if(extra, peek="")
+    assert returned_extra == extra, (returned_extra, extra, str(f))
 
-    assert kpack.closed == closed, (kpack.closed, closed, extra, kpack)
-    assert kpack == TerminalByteFrame(kbytes), (kpack, TerminalByteFrame(kbytes))
+    assert f.closed == closed, (f.closed, closed, extra, f)
+    assert f == TerminalByteFrame(data), (f, TerminalByteFrame(data))
 
 
 def _try_open_(*args: str | bytes) -> None:
-    """Require the Eval of the Str of the Pack equals its Bytes"""
+    """Frame these Bytes, and require the Frame still open"""
 
-    kpack = _try_bytes_(*args)
-    assert not kpack.closed, (kpack,)
+    f = _try_bytes_(*args)
+    assert not f.closed, (f,)
 
 
 def _try_close_(*args: bytes) -> None:
-    """Require the Eval of the Str of the Pack equals its Bytes"""
+    """Frame these Bytes, and require the Frame closed"""
 
-    kpack = _try_bytes_(*args)
-    assert kpack.closed, (kpack,)
+    f = _try_bytes_(*args)
+    assert f.closed, (f,)
 
 
 def _try_bytes_(*args: str | bytes) -> TerminalByteFrame:
-    """Require the Eval of the Str of the Pack equals its Bytes"""
+    """Frame these Bytes, and require the Str of the Frame to speak each Arg as given"""
 
-    bytes_list = list()
+    data_list = list()
     for arg in args:
         if isinstance(arg, str):
-            bytes_list.append(arg.encode())
+            data_list.append(arg.encode())
         else:
-            bytes_list.append(arg)
+            data_list.append(arg)
 
     join = " ".join((str_repr(_) if isinstance(_, str) else bytes_repr(_)) for _ in args)
 
-    kbytes = b""
-    for data in bytes_list:
-        kbytes += data
+    fdata = b""
+    for data in data_list:
+        fdata += data
 
-    kpack = TerminalByteFrame(kbytes)
-    kpack_kbytes = kpack.to_frame_bytes()
-    kpack_str = str(kpack)
+    f = TerminalByteFrame(fdata)
+    fbytes = f.to_frame_bytes()
+    fstr = str(f)
 
-    join_plus = join if kpack.closed else (join + " +")  # ' +' marks an Open Frame
+    join_plus = join if f.closed else (join + " +")  # ' +' marks an Open Frame
 
-    assert kpack_kbytes == kbytes, (kpack_kbytes, kbytes)
-    assert kpack_str == join_plus, (kpack_str, join_plus)
+    assert fbytes == fdata, (fbytes, fdata)
+    assert fstr == join_plus, (fstr, join_plus)
 
-    return kpack
+    return f
 
 
 def _try_terminal_byte_frame_2_() -> None:
@@ -2425,7 +2426,7 @@ class TerminalBoss:
 
 @dataclasses.dataclass(order=True)  # , frozen=True)
 class ByteKeeper:
-    """Collect Bytes, and track when they arrived"""
+    """Collect Bytes and track when they arrived"""
 
     ba: bytearray  # the Bytes
     nano_list: list[int]  # when the Bytes arrived
@@ -2435,17 +2436,16 @@ class ByteKeeper:
         self.ba = bytearray()
         self.nano_list = list()
 
-    def append_one_byte(self, b: bytes, nano: int | None = None) -> None:
+    def append_one_byte(self, b: bytes, nano: int) -> None:
         """Say 1 more Byte arrived, and when"""
 
         assert len(b) == 1, (len(b), b)
-        _nano_ = time.perf_counter_ns() if (nano is None) else nano
 
         ba = self.ba
         nano_list = self.nano_list
 
         ba.extend(b)
-        nano_list.append(_nano_)
+        nano_list.append(nano)
 
     def is_quitting_bytes(self) -> bool:
         """Say if the Bytes have said please quit soon"""
