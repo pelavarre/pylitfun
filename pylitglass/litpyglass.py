@@ -18,6 +18,7 @@ examples:
   pylitglass/litpyglass.py --egg=bytes  # print your input bytes, on screen
   pylitglass/litpyglass.py --egg=nanos  # print your input bytes and when they arrived
   pylitglass/litpyglass.py --egg=frames  # print your inputs split into frames, named when known
+  pylitglass/litpyglass.py --egg=strikes  # print your input frames as strikes else text
 """
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -56,6 +57,11 @@ if not __debug__:
 
 _3_GIGA_NANOS_IS_TOO_SLOW_ = 3 * 10**9  # too slow to take 3 same inputs in a row as a quit request
 _100_MEGA_NANOS_IS_TOO_FAST_ = 100 * 10**6  # too fast to take 3 in a row as a quit request
+
+
+CR_EL_PS0 = "\r\n" "⎋[K "  # scrolls up the present Screen Row, starts writing the next
+CR_EL_PS0 = "\r" "\033[K"  # wipes and replaces the present Screen Row
+# last wins
 
 
 assert unicodedata.name("¤").title() == "Currency Sign"
@@ -98,6 +104,8 @@ def main() -> None:
         gw.show_nanos()
     elif "frames" in eggs:
         gw.show_frames()
+    elif "strikes" in eggs:
+        gw.show_strikes()
     else:
         assert False, (eggs,)
 
@@ -134,7 +142,7 @@ class GlassWorker:
     nano_launch: int = -1  # -1, else sampled at Process Launch
 
     def show_bytes(self) -> None:
-        """Print your input bytes on screen"""
+        """Print your Input Bytes on screen"""
 
         # Launch (and prompt just once and early)
 
@@ -189,7 +197,7 @@ class GlassWorker:
     """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
     def show_nanos(self) -> None:
-        """Print your input bytes (and how quickly they arrived)"""
+        """Print your Input Bytes (and how quickly they arrived)"""
 
         # Launch (and prompt just once and early)
 
@@ -236,21 +244,21 @@ class GlassWorker:
         ]
         ] Press Return three times quickly, to quit
         ]
-        ] 600_288_333 27 b'\033'
-        ] 120_500 91 b'['
-        ] 25_250 65 b'A'
-        ] 553_496_542 13 b'\r'
+        ] 2_001_201_167 27 b'\033'
+        ] 536_090_125 91 b'['
+        ] 529_302_167 65 b'A'
+        ] 639_591_500 13 b'\r'
         ]
-        ] 1_492_019_167 3 b'\003'
-        ] 185_701_041 3 b'\003'
-        ] 248_232_584 3 b'\003'
+        ] 1_229_210_041 3 b'\003'
+        ] 330_829_750 3 b'\003'
+        ] 327_861_042 3 b'\003'
         ]
         ] %
 
     """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
     def show_frames(self) -> None:
-        """Print your input byte frames, as Key Caps when known, and how quickly they arrived"""
+        """Print your Input Byte Frames, as Key Caps when known, and how quickly they arrived"""
 
         # Launch
 
@@ -310,9 +318,9 @@ class GlassWorker:
 
         # Print the words
 
-        start = "\r" "\033[K"  # tested by:  start = "\n¤"
-        text = " ".join(words)
-        print(f"{start}{text}{end}", end="")
+        start = CR_EL_PS0  # often '\r' '\033[K'
+        join = " ".join(words)
+        print(f"{start}{join}{end}", end="")
 
         # known: "\r" snaps back the Terminal Column X only until the Terminal Row overflows
         # known: inject wide texts to overflow thin terminals
@@ -323,19 +331,89 @@ class GlassWorker:
         ]
         ] Press Return three times quickly, to quit
         ]
-        ] ⌥E J j́ b'j\314\201' = 3.00s b'j' b'\314' b'\201'
+        ] ⌥EJ j́ b'j\314\201' = 3.98s b'j' 572µs b'\314' b'\201'
         ] ⇥ '\t' b'\t' = 1.11s b'\t'
-        ] ⌥P π b'\317\200' = 507ms b'\317' b'\200'
-        ] ⌥E E é b'\303\251' = 507ms b'\303' b'\251'
-        ] Q q b'q' = 434ms b'q'
-        ] ⇧Q Q b'Q' = 434ms b'Q'
-        ] ␢ ' ' b' ' = 434ms b' '
-        ] ↑ '\033[A' b'\033[A' = 706ms b'\033' b'[' b'A'
-        ] ⏎ '\r' b'\r' = 434ms b'\r'
+        ] ⌥P π b'\317\200' = 535ms b'\317' b'\200'
+        ] ↑ '\033[A' b'\033[A' = 750ms b'\033' b'[' b'A'
+        ] ⌥EE é b'\303\251' = 534ms b'\303' b'\251'
+        ] ⏎ '\r' b'\r' = 537ms b'\r'
         ]
-        ] ⏎ '\r' b'\r' = 162ms b'\r'
+        ] Q ⇧Q ␢ 'qQ ' b'qQ ' = 478ms b'q' 474ms b'Q' 477ms b' '
+        ] ⏎ '\r' b'\r' = 530ms b'\r'
         ]
-        ] ⏎ '\r' b'\r' = 163ms b'\r'
+        ] ⏎ '\r' b'\r' = 161ms b'\r'
+        ]
+        ] ⏎ '\r' b'\r' = 160ms b'\r'
+        ]
+        ]
+        ] %
+
+    """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
+
+    def show_strikes(self) -> None:
+        """Print your Input Byte Frames, as Key Caps when known, and as Text when printable"""
+
+        # Launch
+
+        print("Press Return three times quickly, to quit")
+        print()
+
+        with TerminalBoss() as tb:
+            sp = ScreenProxy()
+
+            for taken, strikes, printables, frame in sp.take_strikes_else_printables(tb):
+                data = frame.to_frame_bytes()  # maybe empty
+
+                start = CR_EL_PS0  # often '\r' '\033[K'
+
+                # Prompt for the first Byte of a Frame
+
+                if not data:
+                    assert not taken, (taken, frame)
+                    print(f"{start}+ ", end="")
+
+                    continue
+
+                # Speak of the Frame as its Strikes when known, else as ⌘V, since no Key Cap sends it
+
+                words: list[str] = list()
+
+                words.append(strikes if strikes else "⌘V")
+                words.append(str_repr(printables))
+                words.append(bytes_repr(data))
+
+                join = " ".join(words)
+
+                # Prompt for next Byte, while growing the Frame
+
+                if not taken:
+                    print(f"{start}{join} + ", end="")
+
+                    continue
+
+                # Print each Frame taken as a line
+
+                print(f"{start}{join}\r\n", end="")
+
+            # Erase the Prompt left behind when Stdin Eof ends the Frames
+
+            start = CR_EL_PS0  # often '\r' '\033[K'
+            print(start, end="")
+
+    _ = r"""
+
+        ] % pylitglass/litpyglass.py --egg=strikes
+        ]
+        ] Press Return three times quickly, to quit
+        ]
+        ] ↑ '' b'\033[A'
+        ] ⌃A '' b'\001'
+        ] ⇥ '' b'\t'
+        ] Q ⇧Q ␢ ⌥P ⌥EJ ⌥⇧@ 'qQ πj́€' b'qQ \317\200j\314\201\342\202\254'
+        ] ⌘V '' b'\377'
+        ] ⏎ '' b'\r'
+        ] ⏎ '' b'\r'
+        ] ⏎ '' b'\r'
         ]
         ] %
 
@@ -343,7 +421,49 @@ class GlassWorker:
 
 
 #
-# Speak of a Byte Sequence as a Strike of Key Caps at a macBook
+# Speak of each Frame as Strikes when its Key Caps are known, and as Text when printable
+#
+
+
+class ScreenProxy:
+    """Speak of each Frame as Strikes when its Key Caps are known, and as Text when printable"""
+
+    tfr: TerminalFrameReader  # the Frames taken so far, and the Open Frame
+    kd: KeyboardDecoder  # the Key Caps known to send Bytes
+
+    def __init__(self) -> None:
+
+        self.tfr = TerminalFrameReader()
+        self.kd = keyboard_decoder()
+
+    def take_strikes_else_printables(
+        self, tb: TerminalBoss
+    ) -> typing.Iterator[tuple[bool, str, str, TerminalByteFrame]]:
+        """Yield (Taken, Strikes, Printables, Frame) per Frame open or taken, and drop its Cells"""
+
+        tfr = self.tfr
+        kd = self.kd
+
+        for taken, frame, _ in tfr.take_frames(tb):
+            data = frame.to_frame_bytes()  # maybe empty
+
+            # Speak of the Frame as Text, when its Bytes decode as Printable
+
+            printables = ""
+            decode = TerminalByteFrame.bytes_decode_if(data)
+            if decode and decode.isprintable():
+                printables = decode
+
+            # Speak of the Frame as Strikes, when the Keyboard Decoder names its Key Caps
+
+            strikes = kd.bytes_to_key_caps_if(data)  # ⎋, ⎋[, ↑ when typed slowly
+            assert strikes == strikes.strip(), (strikes, frame)
+
+            yield (taken, strikes, printables, frame)
+
+
+#
+# Speak of Byte Frames as Strikes of Key Caps at a MacBook
 #
 
 
@@ -356,7 +476,7 @@ def keyboard_decoder() -> KeyboardDecoder:
 
 
 class KeyboardDecoder:
-    """Speak of a Byte Sequence as a Strike of Key Caps at a macBook"""
+    """Speak of Byte Frames as Strikes of Key Caps at a MacBook"""
 
     decode_by_echo: dict[str, str]
     echoes_by_decode: dict[str, tuple[str, ...]]
@@ -404,7 +524,7 @@ class KeyboardDecoder:
         self.echoes_by_decode = self._form_echoes_by_decode_()
 
     def _form_macos_keyboards_(self) -> None:
-        """Form the ordinary Apple macBook Keyboards of Codes sent by Caps"""
+        """Form the ordinary Apple MacBook Keyboards of Bytes sent by Caps"""
 
         # 1 ''
 
@@ -657,7 +777,7 @@ class KeyboardDecoder:
                 ba.append(int(octet, base=0o010))  # raises ValueError when > 0o377
                 continue
 
-            # Accept simple Ss3 Sequences spoken as ⎋O... ⇧...
+            # Accept simple Ss3 Frames spoken as ⎋O... ⇧...
 
             m = re.fullmatch(r"(⎋)⇧(O)⇧([PQRS])", string=octet)
             if m:  # ⎋⇧O⇧S
@@ -666,7 +786,7 @@ class KeyboardDecoder:
                 ba.extend(octet_data)
                 continue
 
-            # Accept simple Csi Sequences spoken as ⎋[... ⇧..., even when preceded by one extra ⎋
+            # Accept simple Csi Frames spoken as ⎋[... ⇧..., even when preceded by one extra ⎋
 
             m = re.fullmatch(r"(⎋|⎋⎋)(\[)([0-9;]*)⇧([ABCDPQRSZ~])", string=octet)
             if m:  # ⎋[⇧Z  # ⎋[1;2⇧C  # ⎋⎋[⇧D  # ⎋[17⇧~
@@ -850,7 +970,7 @@ class KeyboardDecoder:
         return d
 
     #
-    # Speak of a Byte Encoding as a Sequence of Chords of Key Caps
+    # Speak of Bytes as Strikes of Key Caps at a MacBook
     #
 
     def bytes_to_key_caps_if(self, data: bytes) -> str:
@@ -884,23 +1004,23 @@ class KeyboardDecoder:
                     return ""  # a Combining Mark pasted alone or doubled, which no Key sends
 
                 dead_key_echo = dead_key_echo_by_combining[t]
-                words.insert(len(words) - 1, dead_key_echo)  # before the Char, as struck
+                words[-1] = dead_key_echo + words[-1]  # glued before the Char, as struck
                 continue
 
             dead_key_echo = ""
 
             t_echoes = self.bytes_to_echoes_if(t.encode())
             if not t_echoes:
-                return ""  # such as a Char that no macBook Keyboard sends
+                return ""  # such as a Char that no MacBook Keyboard sends
 
             t_echo = t_echoes[0]
             words.append(t_echo)
 
         caps = " ".join(words)
-        return caps  # ⌥E J  # ⌥E E  # ⇧A ⇧B ⇧C
+        return caps  # ⌥EJ  # ⌥EE  # ⇧A ⇧B ⇧C
 
     def bytes_to_echoes_if(self, data: bytes) -> tuple[str, ...]:
-        """Speak of a Byte Encoding as Sequences of Chords of Key Caps"""
+        """Speak of Bytes as Strikes of Chords of Key Caps"""
 
         text = data.decode()
 
@@ -929,7 +1049,7 @@ def _try_keyboard_decoder_() -> None:
         (b"\r", "⏎"),
         (b"\001", "⌃A"),
         (b"\033", "⎋"),
-        (b"\033[A", "↑"),  # a Csi Sequence
+        (b"\033[A", "↑"),  # a Csi Terminal Byte Frame
         (b"\033[1;2C", "⇧→"),
         (b"\033[", "⎋["),  # ⎋ struck before [
         (b"\033[1", "⎋ [ 1"),  # three Key Caps struck, though no Chord sends these Bytes
@@ -940,13 +1060,13 @@ def _try_keyboard_decoder_() -> None:
         (b"ABC", "⇧A ⇧B ⇧C"),  # a Paste
         (b"\377", ""),  # an Undecodable Byte
         #
-        ("é".encode(), "⌥E E"),  # 'é' as 1 Char  # NFD would split out a Combining Acute Accent
-        ("j́".encode(), "⌥E J"),  # 'j' before Combining Acute Accent, from Dead Key & then J Key
+        ("é".encode(), "⌥EE"),  # 'é' as 1 Char  # NFD would split out a Combining Acute Accent
+        ("j́".encode(), "⌥EJ"),  # 'j' before Combining Acute Accent, from Dead Key & then J Key
         ("´".encode(), "⌥⇧E"),  # the Spacing Acute Accent, as struck
         ("\u0301".encode(), ""),  # the Combining Acute Accent by itself, which no Key sends
         ("a\u0301\u0308".encode(), ""),  # two Combining Marks on one Char, which no Key sends
         #
-        (b"\033OP", "F1"),  # an Ss3 Sequence
+        (b"\033OP", "F1"),  # an Ss3 Terminal Byte Frame
         (b"\033[17~", "F6"),  # F6 over ⌥F1 or ⎋F1, which send the same Bytes
         (b"\033[23~", "⌥F6"),  # ⌥F6 because macOS Mission Control often steals F11
         (b"\033[24~", "F12"),  # F12 over ⌥F7 or ⎋F7
@@ -1007,7 +1127,7 @@ class TerminalFrameReader:
 
             data = tb.read_some_bytes_if()
             if not data:
-                return
+                break  # quits at Stdin Eof
 
             after = time.perf_counter_ns()  # counts time-to-read Bytes as waiting for next Bytes
             waited = after - before
@@ -1044,27 +1164,42 @@ class TerminalFrameReader:
 
             # Yield each Frame taken to place these Bytes
 
-            frames = tft.frames[tft.index :]  # the Taken Frames not yet pulled
-            triples = tft.pull_frame_triples()
-            assert len(triples) == len(frames), (len(triples), len(frames))
-
-            for frame, triple in zip(frames, triples):
-                start, end, data = triple
-                assert data == frame.to_frame_bytes(), (data, frame)
-
-                length = 2 * len(data)  # two cells per Byte
-                assert len(cells) >= length, (len(cells), length, data)
-
-                _cells_ = cells[:length]
-                del cells[:length]
-
-                taken = True
-                yield (taken, frame, _cells_)
+            yield from self._pull_frames_and_yield_each_()
 
             # Quit when the Frames say to quit
 
             if tft.is_quitting_frames():
-                return
+                break
+
+        # Take the Open Frame with the Frames taken before it, at Stdin Eof or at Quit
+
+        tft.take_open_frame_if()  # if it holds Bytes
+        yield from self._pull_frames_and_yield_each_()
+
+    def _pull_frames_and_yield_each_(
+        self,
+    ) -> typing.Iterator[tuple[bool, TerminalByteFrame, list[int | bytes]]]:
+        """Yield (True, Taken Frame, Cells) for each Frame taken since last called"""
+
+        tft = self.tft
+        cells = self.cells
+
+        frames = tft.frames[tft.index :]  # the Taken Frames not yet pulled
+        triples = tft.pull_frame_triples()
+        assert len(triples) == len(frames), (len(triples), len(frames))
+
+        for frame, triple in zip(frames, triples):
+            start, end, data = triple
+            assert data == frame.to_frame_bytes(), (data, frame)
+
+            length = 2 * len(data)  # two cells per Byte
+            assert len(cells) >= length, (len(cells), length, data)
+
+            _cells_ = cells[:length]
+            del cells[:length]
+
+            taken = True
+            yield (taken, frame, _cells_)
 
 
 #
@@ -1079,7 +1214,7 @@ class TerminalFrameTaker:
     bk: ByteKeeper  # the Bytes, and when each arrived
 
     frame: TerminalByteFrame  # the Open Frame
-    frames: list[TerminalByteFrame]  # the Taken Frames, each closed as complete, or bounced
+    frames: list[TerminalByteFrame]  # the Taken Frames, each closed, or bounced, or cut at Eof/ Quit
     index: int  # how many Taken Frames also pulled
 
     def __init__(self) -> None:
@@ -1154,6 +1289,23 @@ class TerminalFrameTaker:
 
         return extras
 
+    def take_open_frame_if(self) -> None:
+        """Take the Open Frame as cut off, unclosed, if it holds Bytes, as at Stdin Eof or at Quit"""
+
+        frame = self.frame
+        frames = self.frames
+
+        assert not frame.closed, (frame,)
+
+        data = frame.to_frame_bytes()
+        if not data:
+            return
+
+        frames.append(frame)
+
+        _frame_ = TerminalByteFrame(b"")  # empty and open
+        self.frame = _frame_
+
     def pull_frame_triples(self) -> tuple[tuple[int, int, bytes], ...]:
         """Read and clear the (start, end, bytes) triples of Frames taken since last called"""
 
@@ -1213,7 +1365,8 @@ class TerminalFrameTaker:
 
         # Hand down the last 4 Taken Frames, each with when its last Byte arrived
 
-        stop = len(ba) - len(frame.to_frame_bytes())  # back past the Open Frame
+        open_data = frame.to_frame_bytes()
+        stop = len(ba) - len(open_data)  # back past the Open Frame
 
         pairs_list = list()
         for taken in reversed(frames[-4:]):
@@ -1223,11 +1376,23 @@ class TerminalFrameTaker:
 
         pairs = list(reversed(pairs_list))  # oldest first, as for Bytes
 
+        # Quit on three same Frames taken
+
         if is_quitting_shape(pairs):
-            if frames[-1].encodes:  # is a Text Frame
+            if frames[-1].encodes:  # no quitting on repeated Text Frames
                 return False
 
             return True
+
+        # Else quit on two same Frames taken and then the same Frame still open, such as ⎋[ ⎋[ ⎋[
+
+        if open_data:
+            open_pair = (nano_list[-1], open_data)
+            if is_quitting_shape(pairs[-3:] + [open_pair]):
+                if frame.encodes:  # no quitting on repeated Text Frames
+                    return False
+
+                return True
 
         return False
 
@@ -1261,7 +1426,7 @@ def is_quitting_shape(pairs: list[tuple[int, bytes]]) -> bool:
 
 
 #
-# Frame Bytes of Terminal Input as alone, or as catenated Printable Text, or as Esc Sequence
+# Frame Bytes of Terminal Input as alone, or as catenated Printable Text, or as Esc Frame
 #
 
 
@@ -1335,7 +1500,7 @@ The \xff is an example of Undecodable UTF-8.
 
 @dataclasses.dataclass(order=True)  # , frozen=True)
 class TerminalByteFrame:
-    """Frame Bytes of Terminal Input as alone, or as catenated Printable Text, or as Esc Sequence"""
+    """Frame Bytes of Terminal Input as alone, or as catenated Printable Text, or as Esc Frame"""
 
     encodes: bytearray  # b''  # Decodable Printable Text
 
@@ -1929,7 +2094,7 @@ class TerminalByteFrame:
     # "\U0010ffff"  # b"\xf4\x8f\xbf\xbf" accepted with "\xf4\x80\x80\x80"
     #
 
-    # todo: invent UTF-8'ish Encoding beyond 1..4 Bytes for Unicode Codes > 0x10_FFFF ?
+    # known: invent UTF-8'ish Encoding beyond 1..4 Bytes for Unicode Codes > 0x10_FFFF ?
 
 
 def _try_terminal_byte_frame_() -> None:
@@ -2076,12 +2241,12 @@ def _try_some_control_() -> None:
 
     # Take & close 1 Printable Char escaped by a Head simpler than Csi, Esc Csi, and Osc
 
-    _try_close_(b"\033", b"A")  # Head & Text Tail of a Two-Byte Esc Sequence
-    _try_close_(b"\033O", b"P")  # Head & Text Tail of a Three-Byte Ss3 Sequence
+    _try_close_(b"\033", b"A")  # Head and then Text Tail of a Two-Byte Esc Frame
+    _try_close_(b"\033O", b"P")  # Head and then Text Tail of a Three-Byte Ss3 Frame
 
     # Take & close 1 Unprintable Char escaped by a Simpler Head
 
-    _try_close_(b"\033", b"\t")  # Head & Control Tail of a Two-Byte Esc Sequence
+    _try_close_(b"\033", b"\t")  # Head and then Control Tail of a Two-Byte Esc Frame
 
     # Take or don't take 1 Decodable Char escaped by Osc or Csi or Esc Csi
 
@@ -2545,7 +2710,7 @@ _ = _NorthwestArrow_, _SoutheastArrow_, _SouthwestArrow_
 
 AppleLogo = "\uf8ff"  # Apple Logo occupies U+F8FF = end of U+E000 .. U+F8FF Private Use Area (PUA)
 _ = AppleLogo
-# todo: every mention of  in Source makes Code Patches difficult to send across platforms
+# known: every mention of  in Source makes Code Patches difficult to send across platforms
 
 
 #
