@@ -2775,28 +2775,37 @@ _ = "qryzafpnµm"  # also 'u' for 'µ'
 _ = "kMGTPEZYRQ"
 
 
-def decimal_int_chop_to_eng_metric(n: int, multipliers: typing.Sequence[str], unit: str) -> str:
-    """Convert 9876 to '9.87ns' and so on"""
+_ = False
+if _:
 
-    clip = decimal_int_chop_to_eng(n)
-    digits, e, ms = clip.partition("e")
-
-    if not e:
-        assert not ms, (ms, digits, e, clip)
-
-        m = multipliers[0]
-        rep = digits + m + unit
+    def ns(n: int) -> str:  # reps Int's as counting Nanoseconds
+        m = tuple("nµm") + ("",) + tuple("kMGTPEZYRQ")  # reps 42*10**9 as '42s'
+        rep = decimal_int_chop_to_eng_metric(n, multipliers=m, unit="s")
         return rep
 
-    exp = int(ms)
-    assert (exp % 3) == 0, (exp, digits, e, ms, clip, n)
 
-    i = exp // 3
-    assert i >= 1, (i, exp, digits, e, ms, clip, n)
+def decimal_int_chop_to_eng_metric(n: int, multipliers: tuple[str, ...], unit: str) -> str:
+    """Convert 9876 to '9.87µs' and so on"""
+
+    clip = decimal_int_chop_to_eng(n)
+
+    digits, e, ms = clip.partition("e")
+    assert bool(e) == bool(ms), (e, ms, digits, clip, n)
+
+    i = 0
+    if e:
+        exp = int(ms)
+        assert (exp % 3) == 0, (exp, digits, e, ms, clip, n)
+
+        i = exp // 3
+        assert i >= 1, (i, exp, digits, e, ms, clip, n)
 
     m = multipliers[i]  # (m) may be Empty Str
     rep = digits + m + unit  # (m + unit) may be Empty Str
-    return rep
+
+    return rep  # '0Ω'  # '12ns'  # '9.87µH'  # '654ms'
+
+    # todo: accept typing.Sequence[str] without requiring an explicit conversion to Tuple
 
 
 def decimal_int_chop_to_eng(n: int) -> str:
