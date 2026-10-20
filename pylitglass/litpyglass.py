@@ -713,12 +713,11 @@ class KeyboardDecoder:
         caps = shift_caps if ("⇧" in shifts) else plain_caps
         for cap, cap_strikes in zip(caps, strikes_split):
             echo = shifts + cap
-            decode = self._cap_strikes_to_decode_(cap_strikes, echo=echo)
+            decode = self._cap_strikes_to_decode_if_(cap_strikes, echo=echo)
             if decode:
-
                 self._keyboard_add_decode_(decode, echo=echo)
 
-    def _cap_strikes_to_decode_(self, cap_strikes: str, echo: str) -> str:
+    def _cap_strikes_to_decode_if_(self, cap_strikes: str, echo: str) -> str:
         """Convert to Decode of Byte Encoding of Key Strike"""
 
         assert len(echo.split()) == 1, (len(echo.split()), echo)
@@ -726,81 +725,78 @@ class KeyboardDecoder:
         if cap_strikes in ("...", "¤"):  # splats of width 3 and width 1
             return ""
 
+        cap_strikes_split = [cap_strikes]
+        if cap_strikes not in (".", "⎋."):  # "." is in N M , . /  # "⎋." is in 033.015 ⎋, ⎋. ⎋/
+            cap_strikes_split = cap_strikes.split(".")
+
         ba = bytearray()
-
-        octets = [cap_strikes]
-        if cap_strikes not in (".", "⎋."):
-            octets = cap_strikes.split(".")
-
-        for octet in octets:
-
-            # Accept single Characters
-
-            if len(octet) == 1:  # '€'
-                t = octet
-                assert t not in ("⎋⌃⌥⇧" "`~"), (octet, octets, cap_strikes, echo)
-                octet_data = octet.encode()
-                ba.extend(octet_data)
-                continue
-
-            # Accept single Characters escaped, no matter if shifted or not
-
-            if octet == "⎋⎋":  # ⎋⎋
-                octet_data = b"\033\033"
-                ba.extend(octet_data)
-                continue
-
-            if octet.startswith("⎋") and (len(octet) == 2):  # ⎋Z  # ⎋/
-                t = octet[1:]
-                if t not in (string.digits + string.ascii_uppercase):
-                    assert t in ("-=" "[]\\" ";'" ",./"), (t, octet, cap_strikes, echo)
-                octet_data = b"\033" + t.lower().encode()
-                ba.extend(octet_data)
-                continue
-
-                # rejects ⎋`
-
-            if octet.startswith("⎋⇧") and (len(octet) == 3):  # ⎋⇧Z  # ⎋⇧?
-                t = octet[2:]
-                if t not in string.ascii_uppercase:
-                    assert t in ("!@#$%^&*()_+" "{}|" ':"' "<>?"), (t, octet, cap_strikes, echo)
-                octet_data = b"\033" + t.encode()
-                ba.extend(octet_data)
-                continue
-
-                # rejects ⎋⇧~
-
-            # Accept three Octal Digits as an Octet
-
-            m = re.fullmatch(r"[0-7][0-7][0-7]", string=octet)
-            if m:  # 177
-                ba.append(int(octet, base=0o010))  # raises ValueError when > 0o377
-                continue
-
-            # Accept simple Ss3 Frames spoken as ⎋O... ⇧...
-
-            m = re.fullmatch(r"(⎋)⇧(O)⇧([PQRS])", string=octet)
-            if m:  # ⎋⇧O⇧S
-                octet_data = b"\033"
-                octet_data += m.group(2).encode() + m.group(3).encode()
-                ba.extend(octet_data)
-                continue
-
-            # Accept simple Csi Frames spoken as ⎋[... ⇧..., even when preceded by one extra ⎋
-
-            m = re.fullmatch(r"(⎋|⎋⎋)(\[)([0-9;]*)⇧([ABCDPQRSZ~])", string=octet)
-            if m:  # ⎋[⇧Z  # ⎋[1;2⇧C  # ⎋⎋[⇧D  # ⎋[17⇧~
-                octet_data = len(m.group(1)) * b"\033"
-                octet_data += m.group(2).encode() + m.group(3).encode() + m.group(4).encode()
-                ba.extend(octet_data)
-                continue
-
-            assert False, (octet, octets, cap_strikes, echo)
+        for bytes_names in cap_strikes_split:
+            data = self._bytes_names_to_bytes_(bytes_names)
+            ba.extend(data)
 
         decode = ba.decode()
         assert ba and decode, (ba, decode)
 
-        return decode
+        return decode  # unprintable b"\177" for "177"  # unprintable b"\302\240" for "302.240"
+
+    def _bytes_names_to_bytes_(self, bytes_names: str) -> bytes:
+        """Convert one or a few Bytes Names from a Key Cap Strike to the Bytes named"""
+
+        # Accept single Characters
+
+        if len(bytes_names) == 1:  # '€'
+            t = bytes_names
+            assert t not in ("⎋⌃⌥⇧" + "`" + "~"), (t, bytes_names)
+            # not these Shifts, not these Chars
+            return bytes_names.encode()
+
+        # Accept single Characters escaped, no matter if shifted or not
+
+        if bytes_names == "⎋⎋":  # ⎋⎋
+            return b"\033\033"
+
+        if bytes_names.startswith("⎋") and (len(bytes_names) == 2):  # ⎋Z  # ⎋/  # rejects ⎋`
+            t = bytes_names[1:]
+            if t not in (string.digits + string.ascii_uppercase):
+                assert t in ("-=" + "[]\\" + ";'" + ",./"), (t, bytes_names)
+                # only also these Marks, in Keyboard Order
+
+            encode = b"\033" + t.lower().encode()
+            return encode
+
+        if bytes_names.startswith("⎋⇧") and (len(bytes_names) == 3):  # ⎋⇧Z  # ⎋⇧?  # rejects ⎋⇧~
+            t = bytes_names[2:]
+            if t not in string.ascii_uppercase:  # only these
+                assert t in ("!@#$%^&*()_+" + "{}|" + ':"' + "<>?"), (t, bytes_names)
+                # only also these Marks, in ⇧ Keyboard Order
+            encode = b"\033" + t.encode()
+            return encode
+
+        # Accept three Octal Digits as an Octet
+
+        octet = re.fullmatch(r"[0-7][0-7][0-7]", string=bytes_names)
+        if octet:  # 177  # 302  # 240
+            d = int(bytes_names, base=0o010)  # raises ValueError when > 0o377
+            encode = bytes([d])
+            return encode
+
+        # Accept simple Ss3 Frames spoken as ⎋O... ⇧...
+
+        ss3 = re.fullmatch(r"(⎋)⇧(O)⇧([PQRS])", string=bytes_names)
+        if ss3:  # ⎋⇧O⇧S
+            encode = b"\033" + ss3.group(2).encode() + ss3.group(3).encode()
+            return encode
+
+        # Accept simple Csi Frames spoken as ⎋[... ⇧..., even when preceded by one extra ⎋
+
+        csi = re.fullmatch(r"(⎋|⎋⎋)(\[)([0-9;]*)⇧([ABCDPQRSZ~])", string=bytes_names)
+        if csi:  # ⎋[⇧Z  # ⎋[1;2⇧C  # ⎋⎋[⇧D  # ⎋[17⇧~
+            encode = len(csi.group(1)) * b"\033"
+            encode += csi.group(2).encode() + csi.group(3).encode()
+            encode += csi.group(4).encode()
+            return encode
+
+        assert False, (bytes_names,)
 
     def _keyboard_add_decode_(self, decode: str, echo: str) -> None:
         """Add a Key Cap and its Byte Encoding to a Keyboard"""
@@ -814,7 +810,7 @@ class KeyboardDecoder:
         decode_by_echo[echo] = decode
 
     def _form_apple_terminal_keyboards_(self) -> None:
-        """Form an Apple macOS Terminal Keyboard, out of Octets"""
+        """Form an Apple macOS Terminal Keyboard, out of Bytes Names"""
 
         # 1 ''
 
@@ -909,18 +905,16 @@ class KeyboardDecoder:
             self._keyboard_add_(echo, cap_strikes=cap_strikes)
 
     def _keyboard_add_(self, echo: str, cap_strikes: str) -> None:
-        """Add a Key Cap and its Octets to a Keyboard"""
+        """Add a Key Cap and its Bytes Names to a Keyboard"""
 
         assert len(echo.split()) == 1, (len(echo.split()), echo)
-
-        decode = self._cap_strikes_to_decode_(cap_strikes, echo=echo)
+        decode = self._cap_strikes_to_decode_if_(cap_strikes, echo=echo)
         self._keyboard_add_decode_(decode, echo=echo)
 
     def _add_twelve_fn_meta_control_p_(self, shifts: str) -> None:
         """Add the Twelve F Keys at the one Decode"""
 
         assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
-
         caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
         strikes = 12 * " 033.020"  # ⎋⌃P
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
