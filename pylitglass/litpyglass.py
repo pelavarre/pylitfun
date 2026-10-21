@@ -291,8 +291,7 @@ class GlassWorker:
         kd = keyboard_decoder()
 
         def ns(n: int) -> str:  # reps Int's as counting Nanoseconds
-            m = tuple("nµm") + ("",) + tuple("kMGTPEZYRQ")  # reps 42*10**9 as '42s'
-            rep = decimal_int_chop_to_eng_metric(n, multipliers=m, unit="s")
+            rep = decimal_int_chop_to_eng_metric(n, one="1ns")  # reps 987*10**12 as '987ks'
             return rep
 
         words: list[str] = list()
@@ -2765,41 +2764,41 @@ def _repr_hex_to_octal_(_repr_: str) -> str:
 #
 
 
-_ = "qryzafpnµm"  # also 'u' for 'µ'
-_ = "kMGTPEZYRQ"
+def decimal_int_chop_to_eng_metric(n: int, one: str) -> str:
+    """Convert 9876 to '9.87µs' when one == '1ns', and so on"""
 
+    # Pick apart exactly how to style an 'n' of 1
 
-_ = False
-if _:
+    nqu = tuple(one)
+    numeral, quantum, unit = (nqu[0], "", nqu[-1]) if (len(nqu) == 2) else nqu
+    assert numeral == "1", (numeral, quantum, unit, nqu, one)
 
-    def ns(n: int) -> str:  # reps Int's as counting Nanoseconds
-        m = tuple("nµm") + ("",) + tuple("kMGTPEZYRQ")  # reps 42*10**9 as '42s'
-        rep = decimal_int_chop_to_eng_metric(n, multipliers=m, unit="s")
-        return rep
+    si_quanta = tuple("qryzafpnµm") + ("",) + tuple("kMGTPEZYRQ")  # the SI Prefixes since Nov/2022
+    quantum_index = si_quanta.index(quantum)  # raises ValueError vs. SI Prefix not found
+    quanta = si_quanta[quantum_index:]
 
+    # Clip the 'n' value
 
-def decimal_int_chop_to_eng_metric(n: int, multipliers: tuple[str, ...], unit: str) -> str:
-    """Convert 9876 to '9.87µs' and so on"""
-
-    clip = decimal_int_chop_to_eng(n)
+    clip = decimal_int_chop_to_eng(n)  # raises ValueError when a Float breaks our ': int' contract
 
     digits, e, ms = clip.partition("e")
     assert bool(e) == bool(ms), (e, ms, digits, clip, n)
+
+    # Restyle the clipped 'n' value
 
     i = 0
     if e:
         exp = int(ms)
         assert (exp % 3) == 0, (exp, digits, e, ms, clip, n)
-
         i = exp // 3
         assert i >= 1, (i, exp, digits, e, ms, clip, n)
 
-    m = multipliers[i]  # (m) may be Empty Str
-    rep = digits + m + unit  # (m + unit) may be Empty Str
+    q = quanta[i]  # (q) may be Empty Str
+    rep = digits + q + unit  # (q + unit) may be Empty Str
+
+    # Succeed
 
     return rep  # '0Ω'  # '12ns'  # '9.87µH'  # '654ms'
-
-    # todo: accept typing.Sequence[str] without requiring an explicit conversion to Tuple
 
 
 def decimal_int_chop_to_eng(n: int) -> str:
