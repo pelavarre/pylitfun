@@ -2781,20 +2781,20 @@ def decimal_int_chop_to_eng_metric(n: int, one: str) -> str:
 
     clip = decimal_int_chop_to_eng(n)  # raises ValueError when a Float breaks our ': int' contract
 
-    digits, e, ms = clip.partition("e")
-    assert bool(e) == bool(ms), (e, ms, digits, clip, n)
+    before, sep, after = clip.partition("e")
+    assert bool(sep) == bool(after), (sep, after, before, clip, n)
 
     # Restyle the clipped 'n' value
 
     i = 0
-    if e:
-        exp = int(ms)
-        assert (exp % 3) == 0, (exp, digits, e, ms, clip, n)
+    if sep:
+        exp = int(after)
+        assert (exp % 3) == 0, (exp, before, sep, after, clip, n)
         i = exp // 3
-        assert i >= 1, (i, exp, digits, e, ms, clip, n)
+        assert i >= 1, (i, exp, before, sep, after, clip, n)
 
     q = quanta[i]  # (q) may be Empty Str
-    rep = digits + q + unit  # (q + unit) may be Empty Str
+    rep = before + q + unit  # (q + unit) may be Empty Str
 
     # Succeed
 
