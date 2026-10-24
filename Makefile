@@ -132,6 +132,7 @@ slow: black flake8 mypy
 	: bin/litpython.py -- >/dev/null 2>/dev/null
 	: bin/litshell.py -- >/dev/null 2>/dev/null
 	bin/litsys.py -- >/dev/null 2>/dev/null
+	pylitglass/litpyglass.py -- >/dev/null 2>/dev/null
 	:
 
 

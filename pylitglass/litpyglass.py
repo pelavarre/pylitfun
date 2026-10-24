@@ -14,7 +14,7 @@ quirks:
 examples:
   python3 pylitglass/litpyglass.py  # show these examples
   chmod +x pylitglass/litpyglass.py
-  pylitglass/litpyglass.py --  # pick a demo and run it
+  pylitglass/litpyglass.py --  # pass the self-tests and exit zero, else exit nonzero
   pylitglass/litpyglass.py --egg=bytes  # print your input bytes, on screen
   pylitglass/litpyglass.py --egg=nanos  # print your input bytes and when they arrived
   pylitglass/litpyglass.py --egg=frames  # print your inputs split into frames, named when known
@@ -87,6 +87,12 @@ def main() -> None:
 
         sys.exit(0)  # exits zero after printing help
 
+    if shargv == ["--"]:
+        import tests  # beside this file, and only when asked
+
+        tests.main()
+        return
+
     print()  # signal very very quietly that we have run this far since launching
 
     # Pick a demo, else freak  # todo: tighter parsing of .shargv
@@ -108,11 +114,6 @@ def main() -> None:
         gw.show_strikes()
     else:
         assert False, (eggs,)
-
-    # Self-test quickly, and succeed
-
-    _try_terminal_byte_frame_()
-    _try_keyboard_decoder_()
 
     print()
 
@@ -358,9 +359,9 @@ class GlassWorker:
         print()
 
         with TerminalBoss() as tb:
-            sp = ScreenProxy()
+            sft = ScreenFrameTaker()
 
-            for taken, strikes, printables, frame in sp.take_strikes_else_printables(tb):
+            for taken, strikes, printables, frame in sft.take_strikes_else_printables(tb):
                 data = frame.to_frame_bytes()  # maybe empty
 
                 start = CR_EL_PS0  # often '\r' '\033[K'
@@ -424,7 +425,7 @@ class GlassWorker:
 #
 
 
-class ScreenProxy:
+class ScreenFrameTaker:
     """Speak of each Frame as Strikes when its Key Caps are known, and as Text when printable"""
 
     tfr: TerminalFrameReader  # the Frames taken so far, and the Open Frame
@@ -1026,58 +1027,6 @@ class KeyboardDecoder:
             # tuple of '⎋', of '␢', of '⌥⇧⇥', of '⌃⌥⇧Fn'
 
         return tuple()
-
-
-def _try_keyboard_decoder_() -> None:
-    """Try KeyboardDecoder things"""
-
-    kd = keyboard_decoder()
-
-    # Pair up Bytes with the Key Caps struck to send them, else with an Empty Str
-
-    pairs = (
-        #
-        (b"", ""),  # nothing struck
-        (b"\t", "⇥"),  # a Control Byte
-        (b"\r", "⏎"),
-        (b"\001", "⌃A"),
-        (b"\033", "⎋"),
-        (b"\033[A", "↑"),  # a Csi Terminal Byte Frame
-        (b"\033[1;2C", "⇧→"),
-        (b"\033[", "⎋["),  # ⎋ struck before [
-        (b"\033[1", "⎋ [ 1"),  # three Key Caps struck, though no Chord sends these Bytes
-        (b"\033[a", "⎋ [ A"),  # three Key Caps struck, and the trailing b'a' closes the Frame
-        (b" ", "␢"),  # a Printable Char
-        (b"j", "J"),
-        (b"J", "⇧J"),
-        (b"ABC", "⇧A ⇧B ⇧C"),  # a Paste
-        (b"\377", ""),  # an Undecodable Byte
-        #
-        ("é".encode(), "⌥EE"),  # 'é' as 1 Char  # NFD would split out a Combining Acute Accent
-        ("j́".encode(), "⌥EJ"),  # 'j' before Combining Acute Accent, from Dead Key & then J Key
-        ("´".encode(), "⌥⇧E"),  # the Spacing Acute Accent, as struck
-        ("\u0301".encode(), ""),  # the Combining Acute Accent by itself, which no Key sends
-        ("a\u0301\u0308".encode(), ""),  # two Combining Marks on one Char, which no Key sends
-        #
-        (b"\033OP", "F1"),  # an Ss3 Terminal Byte Frame
-        (b"\033[17~", "F6"),  # F6 over ⌥F1 or ⎋F1, which send the same Bytes
-        (b"\033[23~", "⌥F6"),  # ⌥F6 because macOS Mission Control often steals F11
-        (b"\033[24~", "F12"),  # F12 over ⌥F7 or ⎋F7
-        (b"\033[25~", "⇧F5"),  # ⇧F5 over ⌥F8 or ⎋F8
-        (b"\033[22~", "⎋ [ 2 2 ⇧~"),  # no F Key sends ⎋[22~  # F10 sends 21, F11 sends 23
-        (b"\033\020", "⎋⌃P"),  # ⎋⌃P over ⎋⇧F1 .. ⎋⌃⇧F12, which send the same Bytes
-        #
-    )
-
-    for data, want in pairs:
-        caps = kd.bytes_to_key_caps_if(data)
-        assert caps == want, (caps, want, data)
-
-    # Show Unicode tells Apple that the Dead Key should accent the Char struck after it
-
-    dead_key_echo_by_combining = KeyboardDecoder.DeadKeyEchoByCombining
-    for t in dead_key_echo_by_combining.keys():
-        assert unicodedata.combining(t), (t,)
 
 
 #
@@ -2090,328 +2039,7 @@ class TerminalByteFrame:
     # known: invent UTF-8'ish Encoding beyond 1..4 Bytes for Unicode Codes > 0x10_FFFF ?
 
 
-def _try_terminal_byte_frame_() -> None:
-    """Try TerminalByteFrame things"""
-
-    assert "\u20ac" == "€"  # a popular Printable Character with a 3 Byte Encoding
-    assert "\U0001f602" == "😂"  # a popular Printable Character with a 4 Byte Encoding
-
-    try:
-        b"\xf4\x8f\xbf\xff".decode()
-        assert False
-    except UnicodeDecodeError:
-        pass
-
-    _try_terminal_byte_frame_1_()
-
-    _try_terminal_byte_frame_2_()
-
-    # todo: merge our two 'def _try_terminal_byte_frame_...' well
-
-
-def _try_terminal_byte_frame_1_() -> None:
-    """Run slow and quick Self-Test's of TerminalByteFrame"""
-
-    _try_open_(b"")  # empty
-    _try_headbook_()
-    _try_ends_later_()  # ~200ms
-    _try_one_more_kbyte_()
-    _try_some_control_()
-    _try_peeks_()
-
-
-def _try_headbook_() -> None:
-    """Accept the Bytes of any Head of the Headbook, without closing the Frame"""
-
-    headbook = (b"\033", b"\033O", b"\033[", b"\033]")  # ⎋ ⎋⇧O ⎋[ ⎋]
-    # assert headbook == TerminalByteFrame.Headbook  # differs: Headbook here adds ⎋⎋ ⎋⎋O ⎋⎋[ ⎋[M
-
-    assert OSC == "\033]", (OSC,)
-
-    for head in headbook:
-        _try_open_(head)
-
-        if head == b"\033":
-            _try_open_(head + b"\033")
-            _try_extra_(head + b"\033", extra=b"\033")
-            _try_close_(head, b"\t")
-            _try_close_(head, "\u20ac".encode())
-            _try_extra_(head, extra=b"\xf4\x8f\xbf\xff")
-            _try_extra_(head + b"\033", extra=b"\xf4\x8f\xbf\xff")
-        elif head == b"\033O":
-            _try_extra_(head, extra=b"\033")
-            _try_close_(head, b"\t")
-            _try_close_(head, "\u20ac".encode())
-            _try_extra_(head, extra=b"\xf4\x8f\xbf\xff")
-        elif head == b"\033[":
-            _try_close_(head, "\u20ac".encode())  # ruled: Chars close ⎋[
-            _try_extra_(head, extra=b"\033")
-            _try_extra_(head, extra=b"\t")
-            _try_extra_(head, extra=b"\xf4\x8f\xbf\xff")
-        elif head == b"\033]":
-            _try_open_(head, b"\033")
-            _try_open_(head, "\u20ac".encode())
-            _try_extra_(head, extra=head)
-            _try_extra_(head, extra=b"\t")
-            _try_extra_(head, extra=b"\xf4\x8f\xbf\xff")
-        else:
-            assert False, (head,)
-
-
 StartBytes = tuple(bytes([_]) for _ in range(0xC2, 0xF4 + 1))  # what UTF-8 completes
-
-
-def _try_ends_later_() -> None:
-    """Require each StartsWith accepted by .bytes_to_later_decode_if via the Endswiths"""
-
-    start_set = set()
-    for cp in range(0x110000):  # from 0 up to before first Chr ValueError
-        if 0xD800 <= cp <= 0xDFFF:  # skips Surrogates
-            continue
-
-        encode = chr(cp).encode()  # only Surrogate Chr would raise UnicodeEncodeError
-
-        for i in range(1, len(encode)):
-            start = encode[:i]
-            start_set.add(start)
-
-    start_byte_set = set()
-    for start in start_set:
-        assert TerminalByteFrame.bytes_to_later_decode_if(start), (start,)
-        start_byte_set.add(start[:1])
-
-    start_bytes = tuple(sorted(start_byte_set))
-    assert start_bytes == StartBytes, (start_bytes, StartBytes)
-
-
-def _try_one_more_kbyte_() -> None:
-    """Try some Frames open to, or closed against, taking more Bytes"""
-
-    # Decline Bytes after Closed
-
-    _try_open_(b"")
-    _try_extra_(b"\t", extra=b"\x41")
-
-    # Take Bytes into Stash, while could be decodable
-
-    _try_open_("Superb", b"\xc2")
-    _try_open_(b"\xed\x80")  # Head of >= 3 Byte UTF-8 Encoding
-    _try_open_(b"\xf4\x80\x80")  # Head of >= 4 Byte UTF-8 Encoding
-
-    # Take 6 Bytes into a Mouse Report, never decoded, then bounce the rest  # ruled: close6
-
-    _try_open_(b"\033[M", b"\xff\xff")  # 5 Undecodable Bytes
-    _try_close_(b"\033[M", b".\xc2\xa3")  # 6 Bytes, 2 Chars
-    _try_close_(b"\033[M", b"\xf4\x8f\xbf")  # 6 Bytes, unfinished Char
-
-    _try_close_(b"\033[M", b"\xc2\x80\xff")  # 6 Undecodable Bytes
-    _try_close_(b"\033[M", b"\xff\xff\xc2")  # 6 Bytes, \xc2 unfinished
-
-    _try_extra_(b"\033[M" b"\xf4\x8f\xbf", extra=b"\xbf")  # bounces past 6
-    _try_extra_(b"\033[M" b"\xff\xff\xc2", extra=b"\x80")  # bounces past 6
-
-    # Take Bytes into Text
-
-    _try_open_("\u20ac", "\ufffd".encode()[:-1])
-
-    # Decline 1..4 Unprintable Bytes after Text
-
-    _try_extra_(b"Text", extra=b"\x7f")
-    _try_extra_(b"Plain", extra="\uffff".encode())
-
-
-def _try_some_control_() -> None:
-    """Try closing on Unprintable or Undecodable Bytes alone, and on each kind of Head"""
-
-    # Take & close 1 Unprintable Char or 1..4 Undecodable Bytes as an Alt Head
-
-    _try_close_(b"\n")  # 7-bit Control Byte as Head alone
-    _try_close_(b"\xc0")  # 8-bit Control Byte as Head alone
-    _try_close_(b"\xc2\xad")  # 2 Byte UTF-8 of U+00AD Soft-Hyphen Control as Head alone
-    _try_close_(b"\xf5")  # 1 Byte Undecodable as Head alone
-    _try_close_(b"\xff")  # 1 Byte Undecodable as Head alone
-    _try_close_(b"\xf4\x8f\xbf\xc0")  # 4 Bytes Undecodable as Head alone
-
-    # Take & close 1 Printable Char escaped by a Head simpler than Csi, Esc Csi, and Osc
-
-    _try_close_(b"\033", b"A")  # Head and then Text Tail of a Two-Byte Esc Frame
-    _try_close_(b"\033O", b"P")  # Head and then Text Tail of a Three-Byte Ss3 Frame
-
-    # Take & close 1 Unprintable Char escaped by a Simpler Head
-
-    _try_close_(b"\033", b"\t")  # Head and then Control Tail of a Two-Byte Esc Frame
-
-    # Take or don't take 1 Decodable Char escaped by Osc or Csi or Esc Csi
-
-    _try_open_(b"\033[", b"6", b" ")  # Csi Head with Neck and Back but no Tail
-
-    _try_close_(b"\033[", b"1", b"M")  # Csi Tail ⇧M that isn't ⎋[⇧M Head
-    _try_close_(b"\033\033[", b"3;5", b"~")  # Esc Csi Head with Neck and Tail, no Back
-    _try_close_(b"\033[", b"3;5", b"H")  # Csi Head with Neck and Tail, no Back
-    _try_close_(b"\033[", b"6", b" q")  # Csi Head with Neck and Back & Tail
-
-    _try_close_(b"\033]", b"\x07")  # Osc with 007 Bel as Tail
-    _try_close_(b"\033]", b"\x1b" b"\\")  # Osc with ⎋\ String Terminator (ST) as Tail
-
-    # Decline 1..4 Undecodable Bytes, when escaped by Csi or Esc Csi or Osc
-    # Decline 1 Bytes of Unprintable or Multi-Byte Char
-
-    _try_close_(b"\x1b[", "\u20ac".encode())  # Csi ends with Multi-Byte Char
-    _try_open_(b"\x1b]", "\u20ac".encode())  # Osc ends with Multi-Byte Char
-
-    _try_extra_(b"\x1b[", extra=b"\t")  # Csi bounces Unprintable
-    _try_extra_(b"\x1b[", extra=b"\xf4\x8f\xff")  # Csi bounces Undecodable
-
-    _try_extra_(b"\x1b]", extra=b"\t")  # Osc bounces Unprintable
-    _try_extra_(b"\x1b]", extra="\033\u20ac".encode())  # Osc bounces 3 Byte Encoding
-    _try_extra_(b"\x1b]", extra="\033\U0001f602".encode())  # Osc bounces 4 Byte Encoding
-
-    # Try some commonly recurring choices
-
-    assert _END_PASTE_ == "\033[" "201~"
-
-    _try_close_(b"\x1b[", b"201", b"~")
-
-
-def _try_peeks_() -> None:
-    """Stay open for the Combining Mark already fetched, where a Printable Char would close"""
-
-    peek = "\u0301"  # Combining Acute Accent, as ⌥E J sends it after the J
-    encode = peek.encode()
-
-    # Stay open after the Printable Char that would have closed, and then close on the Mark
-
-    for data in (b"\033j", b"\033\033j", b"\033Oj", b"\033[A", b"\033[1;5A", b"\033[ q"):
-        f = TerminalByteFrame(b"")
-        extras = f.take_data_if(data, peek=peek)
-        assert (not extras) and (not f.closed), (extras, f, data)
-
-        extras = f.take_data_if(encode, peek="")
-        assert (not extras) and f.closed, (extras, f, data)
-        assert f.to_frame_bytes() == (data + encode), (f, data)
-
-    # Close anyway, after an Unprintable Char, or after the 6 raw Bytes of ⎋[M
-
-    for data in (b"\t", b"\033\t", b"\033[M !\xff"):
-        f = TerminalByteFrame(b"")
-        extras = f.take_data_if(data, peek=peek)
-        assert (not extras) and f.closed, (extras, f, data)
-
-    # Stay open anyway, as Text, or as ⎋] Osc, and take the Mark
-
-    for data in (b"j", b"\033]0;x"):
-        f = TerminalByteFrame(b"")
-        extras = f.take_data_if(data, peek=peek)
-        assert (not extras) and (not f.closed), (extras, f, data)
-
-        extras = f.take_data_if(encode, peek="")
-        assert (not extras) and (not f.closed), (extras, f, data)
-        assert f.to_frame_bytes() == (data + encode), (f, data)
-
-
-def _try_extra_(data: bytes, extra: bytes) -> None:
-    """Require the Frame to bounce these Bytes, and to stay as it was"""
-
-    f = TerminalByteFrame(data)
-    closed = f.closed
-
-    returned_extra = f.take_data_if(extra, peek="")
-    assert returned_extra == extra, (returned_extra, extra, str(f))
-
-    assert f.closed == closed, (f.closed, closed, extra, f)
-    assert f == TerminalByteFrame(data), (f, TerminalByteFrame(data))
-
-
-def _try_open_(*args: str | bytes) -> None:
-    """Frame these Bytes, and require the Frame still open"""
-
-    f = _try_bytes_(*args)
-    assert not f.closed, (f,)
-
-
-def _try_close_(*args: bytes) -> None:
-    """Frame these Bytes, and require the Frame closed"""
-
-    f = _try_bytes_(*args)
-    assert f.closed, (f,)
-
-
-def _try_bytes_(*args: str | bytes) -> TerminalByteFrame:
-    """Frame these Bytes, and require the Str of the Frame to speak each Arg as given"""
-
-    data_list = list()
-    for arg in args:
-        if isinstance(arg, str):
-            data_list.append(arg.encode())
-        else:
-            data_list.append(arg)
-
-    join = " ".join((str_repr(_) if isinstance(_, str) else bytes_repr(_)) for _ in args)
-
-    fdata = b""
-    for data in data_list:
-        fdata += data
-
-    f = TerminalByteFrame(fdata)
-    fbytes = f.to_frame_bytes()
-    fstr = str(f)
-
-    join_plus = join if f.closed else (join + " +")  # ' +' marks an Open Frame
-
-    assert fbytes == fdata, (fbytes, fdata)
-    assert fstr == join_plus, (fstr, join_plus)
-
-    return f
-
-
-def _try_terminal_byte_frame_2_() -> None:
-    """Try some Frames: ↑ ⎋↑ ⎋[M ⎋[↗ and the ⎋\\ String Terminator"""
-
-    assert DL_Y == "\033[" "{}M"
-    assert _CLICK3_ == "\033[M"
-    assert _NorthArrow_ == "\033[A"
-    assert ST == "\033\134"
-    assert _NortheastArrow_ == "\033[↗"
-
-    # Do nothing with grace & elegance
-
-    TerminalByteFrame(b"")
-
-    # Speak well of ↑ and ⎋↑
-
-    f = TerminalByteFrame(b"\033[A")
-    assert f.to_frame_bytes() == b"\033[A", (f,)
-    assert f.closed, (f,)
-
-    f = TerminalByteFrame(b"\033\033[A")
-    assert f.to_frame_bytes() == b"\033\033[A", (f,)
-    assert f.closed, (f,)
-
-    # Dance well with the _CLICK3_ clash into DL_Y without Pn
-
-    f = TerminalByteFrame(b"\033[M")
-    assert f.to_frame_bytes() == b"\033[M", (f,)
-    assert not f.closed, (f,)  # because could be ⎋[⇧M{b}{x}{y}
-
-    f = TerminalByteFrame(b"\033[Mabc")
-    assert f.to_frame_bytes() == b"\033[Mabc", (f,)
-    assert f.closed, (f,)
-
-    f = TerminalByteFrame(b"\033[Mab\xff")
-    assert f.to_frame_bytes() == b"\033[Mab\xff", (f,)
-    assert f.closed, (f,)
-
-    # Accept ↖↗↘↙ Intercardinal Arrows, not just ←↑→↓ Cardinal Arrows
-
-    f = TerminalByteFrame("\033[↗".encode())  # not yet standard
-    assert f.to_frame_bytes() == "\033[↗".encode(), (f,)
-    assert f.closed, (f,)
-
-    # Accept the ⎋\ String Terminator (ST) to close an ⎋] Osc Frame
-
-    f = TerminalByteFrame(b"\033]11;?\033\\")
-    assert f.to_frame_bytes() == b"\033]11;?\033\\", (f,)
-    assert f.closed, (f,)
 
 
 #
@@ -2473,7 +2101,7 @@ class TerminalBoss:
         # also pauses Return Key meaning ⌃J b'\n', switches to ⌃M b'\r'
 
         # todo: swap tty.setcbreak in for tty.setraw to change what ⌃C means
-        # todo: try termios.TCSAFLUSH to discard Input while entering
+        # chose termios.TCSADRAIN over termios.TCSAFLUSH, per the Spec at the bottom of tests.py
 
     def __exit__(self, *exc_info: object) -> None:
         r"""Resume line-buffering Input, resume taking \n Output as \r\n, etc"""
@@ -2502,7 +2130,7 @@ class TerminalBoss:
 
         # also resumes Return Key meaning ⌃J b'\n', switches from ⌃M b'\r'
 
-        # todo: try termios.TCSAFLUSH to discard Input while exiting
+        # chose termios.TCSADRAIN here too
 
     def stdio_select_select(self, timeout: float | None) -> bool:
         """Block till next Input Byte, else till Timeout, else till forever"""
