@@ -178,7 +178,7 @@ Seven Python boundaries force us to write more code, as our Decimal Int's grow l
 
 Int Formatting getting a little less simple past 999? Not news.
 
-What is news lately in work for hire is getting into counting out 10\**15 Petabytes and 2**50 Pebibytes. This year 2026 is a good year to wake up to thes wrinkles. That kind of work drops you into Int Formatting complications as soon as 8 Pebi (above 9.00 Peta), with your next complication coming as soon as 9.99 Peta and your next complication after that as soon as 8 Exbi - 1 (above 9.22 Exa).
+What is news lately in work for hire is getting into counting out 10\*\*15 Petabytes and 2\*\*50 Pebibytes. This year 2026 is a good year to wake up to these wrinkles. That kind of work drops you into Int Formatting complications as soon as 8 Pebi (above 9.00 Peta), with your next complication coming as soon as 9.99 Peta and your next complication after that as soon as 8 Exbi - 1 (above 9.22 Exa).
 
 Two technical notes.
 
@@ -204,7 +204,7 @@ Seven Python boundaries force us to write more code, as our Binary Int's grow la
 
 To fix this problem, you pretty much just have to learn to feel it exists, and then move to fix it. Not much permission required.
 
-Tiny wins that add up well, bought for near zero techncial cost, for not much beyond awareness.
+Tiny wins that add up well, bought for near zero technical cost, for not much beyond awareness.
 
 Social costs TBD.
 
