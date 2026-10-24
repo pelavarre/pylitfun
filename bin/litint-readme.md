@@ -8,11 +8,12 @@ Contents
 - [The problem and our solution](#the-problem-and-our-solution)
   - [Every standard Int format often goes far wrong](#every-standard-int-format-often-goes-far-wrong)
   - [Python has a name for our solution](#python-has-a-name-for-our-solution)
-  - [Small systems solved similarly](#small-systems-solved-similarly)
+  - [Smaller Systems solved similarly, without Python](#smaller-systems-solved-similarly-without-python)
   - [Who ever looks at the 4th digit?](#who-ever-looks-at-the-4th-digit)
   - [No Dot as the 4th Character when counting up to the next 1 Ki](#no-dot-as-the-4th-character-when-counting-up-to-the-next-1-ki)
 - [Fourteen Compelling Tests](#fourteen-compelling-tests)
 - [Past work](#past-work)
+  - [Binary Metric Prefixes](#binary-metric-prefixes)
   - [The Engineer's answer to 2 + 2](#the-engineers-answer-to-2--2)
   - [Pi in schools](#pi-in-schools)
   - [The Python Int's created unequal](#the-python-ints-created-unequal)
@@ -22,9 +23,9 @@ Contents
 
 ### Every standard Int format often goes far wrong
 
-You can learn to see how each standard Int format often goes far wrong, and how to tell your computer to fix it.
+You can learn to see how each standard Int format often goes far wrong, and how to tell your computer to stop it from going wrong.
 
-In this table, only the **bold** is correct, and every plain text is a standard computer gone wrong in some different standard way.
+In this table, only the **bold** is correct, and every plain text is a computer gone wrong in some different standard way.
 
 | Format             | 1st Example |  2nd Example | 3rd Example | Precision                           | Clarity                             |
 |--------------------|------------:|-------------:|------------:|-------------------------------------|-------------------------------------|
@@ -33,23 +34,23 @@ In this table, only the **bold** is correct, and every plain text is a standard 
 | ls -lh .           |        288B |         3.6K |        103K | Two digits can be too few           | Hard to see "B" is not "8"          |
 | ls -l .            |     **288** |         3652 |      104999 | "999" is too much after "104"       | Hard to see "4999" is not "9999"    |
 | {_:.2f}            |      288.00 |      3652.00 |   104999.00 | Every .00 is too much               | Blurred because wide                |
-| round(_ / 1000, 2) |       0.29k |    **3.65k** |      105.0k | Two digits past dot can be too few  | How many rounded digits?            |
-| {_:.3g}            |     **288** | **3.65e+03** |    1.05e+05 | Good precision, but lacking clarity | Too exact exp & many rounded digits |
+| round(_ / 1000, 2) |       0.29k |    **3.65k** |      105.0k | Two digits past dot can be too few  | No telling how many digits rounded  |
+| {_:.3g}            |     **288** | **3.65e+03** |    1.05e+05 | Good precision, but lacking clarity | Worthless +0 & many rounded digits  |
 | eng(_)             |     **288** |   **3.65e3** |   **104e3** | **Precise enough**                  | **Wonderfully clear**               |
 
-Have your eyes already learned to see tiny problems in typography?
+Have your eyes already learned to see other tiny problems in typography?
 
-For example, bad Keming is a common problem when printing English. You thought you said to print r and then n but then you feel what you got is m because your rn characters are printing too close together, looking too much like a smudged m. Good "Kerning" is the technical term for spacing out letters well. Bad "Keming" is what you have when it's gone wrong.
+For example, bad Keming is a common problem when printing English. You thought you said to print r and then n but then you feel what you got is m because your rn is printing two characters too close together, looking too much like a smudged m, too much like one character. Good "Kerning" is the technical term for spacing out letters well. "Bad Keming" is what we say you have when it's gone wrong.
 
 The problem we solve here is similar, but for digits, not for letters.
 
-Tiny problems in typography matter because they shatter trust. Some random someone begins to trust and promote your work, but then stumbles and quits on you, just because you neglected some basic principle of typography. Too many someones too often, until you learn to do better. Before you learn to see tiny problems in typography, you can wrongly feel they don't matter, just because you can't see them. You're wrong about that, till you learn to see well.
+Tiny problems in typography matter because they shatter trust. Some random someone begins to trust and promote your work, but then stumbles and quits on you, just because you neglected some basic principle of typography. Too many people too often, and you'll learn to do better. But before you learn to see tiny problems in typography, you can wrongly feel they don't matter, just because you can't see them. You're wrong about that, until you learn to see well.
 
-You can fix all this, simply, after you learn to see it gone wrong.
+You can fix all this, simply, after you learn to let it bother you, after you come to know it matters.
 
 ### Python has a name for our solution
 
-Python includes a solution, and gives it six names. You can find this solution in Python if you can remember its six names.
+Python includes a solution, and gives it six names. You can find this solution in Python if you can remember its six names. There is a standard Python Import that does solve this problem.
 
 + decimal.Context,
 + prec=3,
@@ -58,37 +59,49 @@ Python includes a solution, and gives it six names. You can find this solution i
 + .lower()
 + .replace("e+", "e")
 
-Python's Decimal-Round-Down means Truncate. For instance, when the original was "2.489", then Truncate gives you "2.48" or "2.4" or "2". Truncate always gives you an accurate copy of what the first few digits were in the original. Python's Decimal-Round-Up is the enemy: it gives you "2.49" or "2.5" or "2", depending on where it's applied and how often it's applied. It rounds away the last few digits of the original, only sometimes or always, and never tells you how many digits it corrupted.
+Python's Decimal-Round-Down means Truncate reliably, not decide on the spot to round down or not. For instance, when the original was "2.489", then Truncate gives you "2.489" or "2.48" or "2.4" or "2". Truncate always gives you an accurate copy of what the first few digits were in the original, or all of the digits. Truncate never fabricates off-by-one digits that never were there in the original.
 
-As Python Code, this solution looks like
+Python's Decimal-Round-Up is the enemy: it gives you "2.489" or "2.49" or "2.5" or "2", depending on where it's applied and how often it's applied. It rounds away the last few digits of the original, only sometimes or always, and never tells you how many digits it has incremented.
+
+As Code, Python's solution in six names looks like
 
     i = int(repr(n))
+
     ctx = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)
     D = ctx.create_decimal
     clip = D(i).to_eng_string().lower().replace("e+", "e")
 
-We ship this solution out as a 'def decimal_int_chop_to_eng' with docstring & comments & tests added. But this is the core of it.
+We ship this solution out as a 'def decimal_int_chop_to_eng' with docstring & comments & tests added. But this is the core of it. Doing the Int Repr work in advance raises ValueError or TypeError if ever you do give it a Float or Decimal or Bool. Those can be Numeric, but they are not Int Repr's.
 
-Python does offer you more choices. Together with the faithful Round Down, Python lets you choose instead a Round Up, and a Ceiling & a Floor, & fuzzier choices of Half Down, Half Up, Half Even, and 0 5 Up. All of these choices have earned a place in one kind of numerical analysis or another. But Python's "round down" choice of words is misleading. It is word choice anchored in last century, from pre-computer people who thought of ideal infinite precision as normal and quantization as an enemy. It falsely suggests some complex hidden choices changing from one number to the next, like noticing when a digit is 0 or 5 or even or odd or between 5 and 9. We say "truncate" and "chop" to emphasize we give you accuracy in the leading digits, never any complex hidden choices. We take quantization as normal, and ideal infinite precision as expensive. We say "truncate", we let them say "round down", and we all move on.
+Out beyond those first six names, Python does offer you more choices.
 
-### Small systems solved similarly
+Together with the faithful Round Down, Python lets you choose instead a Round Up, and a Ceiling & a Floor, & fuzzier choices of Half Down, Half Up, Half Even, and 0 5 Up. All of these choices have earned a place in one kind of numerical analysis or another.
+
+Python's "round down" choice of words is misleading. It is word choice anchored in last century, from pre-computer people who thought of ideal infinite precision as normal and quantization as an enemy. It falsely suggests some evasive complex hidden "rounding" choices changing from one number to the next, like noticing when a digit is 0 or 5 or even or odd or between 5 and 9.
+
+We say "truncate" and "chop" to emphasize we give you accuracy in the leading digits, never any evasive complex hidden "rounding" choices. We take quantization as normal, and extreme ideal infinite precision as a high cost incurred for no good reason. We say "truncate", we let them say "round down", and we all move on.
+
+### Smaller Systems solved similarly, without Python
 
 Systems that work like Python but lack 'import decimal' can solve this just as well, albeit not quite as briefly. They work more directly with the Digits of the Int.
 
 We ship our copy of their alternative out as 'def repr_int_chop_to_eng'. Its core is
 
     precise = digits[:-eng] + "." + digits[-eng:]  # '120.789'
+
     nearby = precise[:4]  # '120.'  # significand, mantissa, multiplier  # with a dot included
+
     worthy = nearby.rstrip(".")  # '120' # drops a single trailing '.'
+
     clip = dash + worthy + "e" + str(eng)  # '-120e3' as a way of saying -120*10**3
 
 Still reasonably simple and small.
 
 ### Who ever looks at the 4th digit?
 
-Lots of practical work needs at least three digits, and nearly all practical work never needs more than a dot and three digits. But getting a standard format to give you three digits always is such a struggle. They love to cut you short, and they love to go on too long.
+Lots of practical work needs at least three digits, and nearly all practical work never needs more than a dot and three digits. But getting a standard computer to give you three digits always is such a struggle. They love to cut you short, and they love to go on too long.
 
-Even when they do deliver the three digits, they often get the last digit wrong. They don't let you ask to truncate the details. They insist on rounding up the last digit, and only half the time. When you don't have a copy of the original, you can't know what it said. Oops. They often go far wrong like that, and we don't.
+Even when they do deliver the three digits, they often get the last digit wrong. They don't let you ask to truncate the details. They insist on rounding up the last digit, and they insist on rounding it only half the time. When you don't have a copy of the original, you can't know what it said. Oops. They often go far wrong like that. We just don't.
 
 ### No Dot as the 4th Character when counting up to the next 1 Ki
 
@@ -98,18 +111,20 @@ After glancing across this much of our doc and tests and code, you're all set up
 
 ## Fourteen Compelling Tests
 
-We've dug up compelling test cases.
+We've dug up these fourteen compelling test cases.
 
     -9999: "-9.99e3",  # not '-1e+04'
     -2: "-2",
     0: "0",  # not '0e0'  # not '0.0'
     1: "1",
     42: "42",
+
     288: "288",  # not '2.9e+02'
     999: "999",  # not '1.00e+03'
     1000: "1.00e3",  # not '1e+03'
     3652: "3.65e3",
     9876: "9.87e3",
+
     98765: "98.7e3",
     104999: "104e3",  # not '1.05e+05'
     120789: "120e3",  # not '1.21e+05'
@@ -121,6 +136,10 @@ We do agree, our "104e3" and "120e3" and "987e3" can be misread as lowercase hex
 
 ## Past work
 
+### Binary Metric Prefixes
+
+People who adopted 1999's KiB MiB GiB early to mean 2\*\*10, 2\*\*20, 2\*\*30 triggered social blowback. As for the people who adopt our sensible three digits, truncated not rounded, ... Well, who can say. We can only hope all the people near them treat them well.
+
 ### The Engineer's answer to 2 + 2
 
 Different roles call for different conventions. A mathematician will tell you 2 + 2 is 4. A scientist more like says 4.00, calling out some exact idea of precision. An accountant will ask you what you want it to be. An engineer will tell you it's less than 5, and ask if you need to know more than that.
@@ -131,7 +150,7 @@ That's how exactly 3 digits comes out as exactly correct. Goldilocks. But your s
 
 ### Pi in schools
 
-Nearly all practical work never needs more than three digits. And all the standard formats shove excess precision at you. Why? Who can afford excess precision, in this economy? They do try to say you must distinguish 'math.pi' from 22/7. But back in real life, you just don't care, not until you need the last 0.04% of accuracy:
+Nearly all practical work never needs more than three digits. And all the standard computers shove excess precision at you. Why? Who can afford excess precision, in this economy? They do try to say you must distinguish 'math.pi' from 22/7. But back in real life, you just don't care, not until you need the last 0.04% of accuracy:
 
     >>> 100 * ((22/7 - math.pi) / math.pi)
     0.04024994347707008
@@ -157,13 +176,15 @@ Seven Python boundaries force us to write more code, as our Decimal Int's grow l
 | 6 |     179e306 | 2\*\*1024 - 2**970 - 1 | float(n) raises OverflowError                         |
 | 7 |   9.99e4299 |           10**4300 - 1 | str(n) and int(digits) and f"{:d}" raise ValueError   |
 
-Int Formatting getting a little less simple past 999? Not news. What is news lately in work for hire is getting into counting out 10\**15 Petabytes and 2**50 Pebibytes. That kind of work drops you into Int Formatting complications as soon as 8 Pebi (above 9.00 Peta), with your next complication coming as soon as 9.99 Peta and your next complication after that as soon as 8 Exbi - 1 (above 9.22 Exa). This year 2026 is a good year to wake up to these.
+Int Formatting getting a little less simple past 999? Not news.
+
+What is news lately in work for hire is getting into counting out 10\**15 Petabytes and 2**50 Pebibytes. This year 2026 is a good year to wake up to thes wrinkles. That kind of work drops you into Int Formatting complications as soon as 8 Pebi (above 9.00 Peta), with your next complication coming as soon as 9.99 Peta and your next complication after that as soon as 8 Exbi - 1 (above 9.22 Exa).
 
 Two technical notes.
 
 Note 1.
 
-Reducing your scope to speak of Python Int's only as Binary, Octal, or Hexadecimal changes the shape and consequences of the 10\*\*4300 - 1 boundary. CPython gives you MemoryError after O(N) time for binary bases, in place of ValueError before O(N*N) time for a decimal base, when you test indefinitely large Int's.
+Working with Python Int's as Binary, Octal, or Hexadecimal changes the shape and consequences of the 10\*\*4300 - 1 boundary, vs working with Decimal. For these non-decimal bases, CPython gives you MemoryError after O(N) time. For decimal bases, CPython gives you ValueError before O(N*N) time, when you test indefinitely large Int's.
 
 Note 2.
 
@@ -183,7 +204,9 @@ Seven Python boundaries force us to write more code, as our Binary Int's grow la
 
 To fix this problem, you pretty much just have to learn to feel it exists, and then move to fix it. Not much permission required.
 
-Tiny wins that add up well, bought for near zero cost, for not much beyond awareness.
+Tiny wins that add up well, bought for near zero techncial cost, for not much beyond awareness.
+
+Social costs TBD.
 
 <!--
 
