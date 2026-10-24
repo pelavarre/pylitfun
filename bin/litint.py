@@ -188,7 +188,6 @@ def _self_test_() -> None:
 
 
 _imetric_str_by_int_str_ = {
-    # return rep  # '0Ω'  # '9.87µH'  # '12ns'  # '654ms'
     (0, "1Ω"): "0Ω",
     (12, "1ns"): "12ns",
     (9879, "1nH"): "9.87µH",
