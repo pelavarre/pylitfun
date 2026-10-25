@@ -160,7 +160,7 @@ class GlassWorker:
         print("Press Return three times quickly, to quit")
         print()
 
-        with TerminalBoss(typeahead=typeahead) as tb:
+        with TerminalBoss(typeahead=typeahead, farewell=b"") as tb:
             ibk = ByteKeeper()
 
             while True:
@@ -217,7 +217,7 @@ class GlassWorker:
 
         before = self.nano_launch
 
-        with TerminalBoss(typeahead=typeahead) as tb:
+        with TerminalBoss(typeahead=typeahead, farewell=b"") as tb:
             ibk = ByteKeeper()
 
             while True:
@@ -276,7 +276,7 @@ class GlassWorker:
         print("Press Return three times quickly, to quit")
         print()
 
-        with TerminalBoss(typeahead=typeahead) as tb:
+        with TerminalBoss(typeahead=typeahead, farewell=b"") as tb:
             tfr = TerminalFrameReader()
 
             for taken, frame, cells in tfr.take_frames_and_yield_each(tb, stalwarts=()):
@@ -371,7 +371,7 @@ class GlassWorker:
         restart = CR_EL_PS0  # often '\r' '\033[K'
 
         ist = InputStrikeTaker()
-        with TerminalBoss(typeahead=typeahead) as tb:
+        with TerminalBoss(typeahead=typeahead, farewell=b"") as tb:
             for strike in ist.take_input_strikes_and_yield_each(tb, stalwarts=()):
 
                 taken = strike.taken
@@ -442,7 +442,7 @@ class GlassWorker:
         assert tuple(_.decode() for _ in stalwarts) == _CARDINAL_ENWS_ARROWS_
 
         ist = InputStrikeTaker()
-        with TerminalBoss(typeahead=typeahead) as tb:
+        with TerminalBoss(typeahead=typeahead, farewell=b"") as tb:
 
             print(" + \b\b", end="")  # writes the first Prompt, into tty.
 
@@ -2093,8 +2093,9 @@ class TerminalBoss:
     tcgetattr: list[int | list[bytes | int]]  # replaced by .__exit__ and .__enter__
 
     typeahead: bytearray  # Bytes to arrive slowly, in between >= 0 other Bytes arriving early
+    farewell: bytes  # written at .__exit__, such as to revert Cursor Style
 
-    def __init__(self, typeahead: bytes) -> None:
+    def __init__(self, typeahead: bytes, farewell: bytes) -> None:
 
         assert sys.__stdin__, (sys.__stdin__,)
         stdio = sys.__stdin__  # todo: /dev/stderr, /dev/tty
@@ -2107,6 +2108,7 @@ class TerminalBoss:
         self.tcgetattr = list()
 
         self.typeahead = bytearray(typeahead)
+        self.farewell = farewell
 
     def __enter__(self) -> TerminalBoss:
         r"""Pause line-buffering Input, pause taking \n Output as \r\n, etc"""
@@ -2114,6 +2116,8 @@ class TerminalBoss:
         isatty = self.isatty
         fileno = self.fileno
         tcgetattr = self.tcgetattr
+
+        farewell = self.farewell
 
         if tcgetattr:  # enters at most once, to make truthy
             return self
@@ -2132,16 +2136,33 @@ class TerminalBoss:
         self.tcgetattr = truthy_attributes  # replaces falsey with truthy
 
         if isatty:
-            tty.setraw(fileno, when=termios.TCSADRAIN)
+            if farewell:  # an App with a Farewell to say takes ⌃C ⌃Z ⌃\ as signals, till tty.setraw
+                tty.setcbreak(fileno, when=termios.TCSADRAIN)  # ⌃D b"\004" is Input, not Signal
+            else:
+                tty.setraw(fileno, when=termios.TCSADRAIN)  # ⌃C ⌃D ⌃Z ⌃\ are Input, not Signal
 
         # Succeed
 
         return self
 
-        # also pauses Return Key meaning ⌃J b'\n', switches to ⌃M b'\r'
+        # also pauses Return Key meaning ⌃J b'\n', switches to ⌃M b'\r', except for a farewell
 
-        # todo: swap tty.setcbreak in for tty.setraw to change what ⌃C means
         # chose termios.TCSADRAIN over termios.TCSAFLUSH, per the Spec at the bottom of tests.py
+
+    def tty_setraw_before_farewell(self) -> None:
+        r"""Stop taking ⌃C ⌃Z ⌃\ as signals, and take each Return Key as ⌃M b'\r' not ⌃J b'\n'"""
+
+        isatty = self.isatty
+        fileno = self.fileno
+        tcgetattr = self.tcgetattr
+
+        farewell = self.farewell
+
+        if isatty:
+            assert tcgetattr and farewell, (tcgetattr, farewell, isatty)
+            tty.setraw(fileno, when=termios.TCSADRAIN)  # ⌃C ⌃D ⌃Z ⌃\ are Input, not Signal
+
+        # ⌃D b"\004" is Input, not Signal, both after tty.setcbreak and after tty.setraw
 
     def __exit__(self, *exc_info: object) -> None:
         r"""Resume line-buffering Input, resume taking \n Output as \r\n, etc"""
@@ -2150,13 +2171,18 @@ class TerminalBoss:
         fileno = self.fileno
         tcgetattr = self.tcgetattr
 
+        farewell = self.farewell
+
         if not tcgetattr:  # exits at most once, to make falsey
             return
 
-        # Flush writes to the Terminal
+        # Flush writes to the Terminal, and say farewell
 
         sys.stdout.flush()
         sys.stderr.flush()
+
+        if farewell:
+            self.bytes_write_flush(farewell)
 
         # Drain Input, restore Input Mode, & clear Input Mode backup
 
@@ -2257,6 +2283,13 @@ class TerminalBoss:
 
         assert len(b) == 1, (b,)
         return b
+
+    def bytes_write_flush(self, data: bytes) -> None:
+        """Write and Flush Bytes"""
+
+        sys.stdout.flush()
+        sys.stdout.buffer.write(data)  # .buffer.write new since Dec/2008 Python 3.0
+        sys.stdout.flush()
 
 
 #

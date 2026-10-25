@@ -49,6 +49,7 @@ def main() -> None:
     _try_terminal_byte_frame_()  # ~330ms, mostly ~327ms _try_ends_later_ over every Char
     _try_keyboard_decoder_()  # ~1ms
     _try_terminal_boss_()  # ~490ms, 2 child Pythons
+    _try_terminal_boss_farewell_()  # ~100ms, 1 child Python
     _try_is_quitting_frames_()  # ~1600ms, 7 Ptys at once, the slowest 6 ⎋ at 150ms apart + 500ms
     _try_strikes_spill_()  # ~1000ms, 3 ⏎ at 150ms apart, then 300ms of reading what is left
     _try_terminal_boss_typeahead_()  # ~600ms, 150ms per Typeahead Byte
@@ -491,7 +492,7 @@ spy_stdout = FlushSpy(sys.stdout)
 spy_stderr = FlushSpy(sys.stderr)
 sys.stdout, sys.stderr = spy_stdout, spy_stderr
 
-boss = litpyglass.TerminalBoss(typeahead=b"")
+boss = litpyglass.TerminalBoss(typeahead=b"", farewell=b"")
 print("READY1", file=real_stdout, flush=True)
 os.read(sync_fileno, 1)  # 'ab' has been typed, and the Terminal still takes Cooked Input
 with boss:
@@ -527,9 +528,10 @@ import sys
 sys.path.insert(0, sys.argv[1])
 import litpyglass
 
-boss = litpyglass.TerminalBoss(typeahead=b"")
+boss = litpyglass.TerminalBoss(typeahead=b"", farewell=b"")
 with boss:
     inside = (boss.isatty, boss.tcgetattr)
+    boss.tty_setraw_before_farewell()  # does nothing off a Terminal, farewell or not
 print("RESULT", repr((inside, boss.tcgetattr)), flush=True)
 """
 
@@ -599,13 +601,88 @@ def _try_terminal_boss_() -> None:
     assert pipe_result == pipe_expected, (pipe_result, pipe_expected, run.stderr)
 
 
+_TERMINAL_BOSS_FAREWELL_CHILD_ = r"""
+import os, sys, termios
+sys.path.insert(0, sys.argv[1])
+import litpyglass
+
+real_tcsetattr = termios.tcsetattr
+
+
+def tcsetattr_after_marker(fd, when, attributes):
+    os.write(1, b"<RESTORED>")
+    real_tcsetattr(fd, when, attributes)
+
+
+def lflag_has(bit):
+    return bool(termios.tcgetattr(0)[3] & bit)
+
+
+def setraw_asserts(boss):
+    try:
+        boss.tty_setraw_before_farewell()
+    except AssertionError:
+        return True
+    return False
+
+
+before_enter = setraw_asserts(litpyglass.TerminalBoss(typeahead=b"", farewell=b"<FAREWELL>"))
+mute = litpyglass.TerminalBoss(typeahead=b"", farewell=b"")
+with mute:
+    without_farewell = setraw_asserts(mute)
+
+termios.tcsetattr = tcsetattr_after_marker
+
+boss = litpyglass.TerminalBoss(typeahead=b"", farewell=b"<FAREWELL>")
+with boss:
+    cbreak = (lflag_has(termios.ISIG), lflag_has(termios.ICANON))
+    boss.tty_setraw_before_farewell()
+    raw = (lflag_has(termios.ISIG), lflag_has(termios.ICANON))
+termios.tcsetattr = real_tcsetattr
+print("RESULT", repr((cbreak, raw, before_enter, without_farewell)), flush=True)
+"""
+
+
+def _try_terminal_boss_farewell_() -> None:
+    """Try the TerminalBoss farewell, as the Spec at the bottom of this file says"""
+
+    here = os.path.dirname(os.path.abspath(litpyglass.__file__))
+
+    pid, master_fileno = pty.fork()
+    if pid == 0:
+        os.execv(
+            sys.executable,
+            [sys.executable, "-I", "-c", _TERMINAL_BOSS_FAREWELL_CHILD_, here],
+        )
+
+    terminal_output = bytearray()
+    deadline = time.monotonic() + 10
+    while (b")\r\n" not in terminal_output) and (time.monotonic() < deadline):
+        if select.select([master_fileno], [], [], 0.05)[0]:
+            try:
+                terminal_output.extend(os.read(master_fileno, 4096))
+            except OSError:
+                break
+
+    os.waitpid(pid, 0)
+    os.close(master_fileno)
+
+    heard = bytes(terminal_output)
+    assert b"<FAREWELL><RESTORED>" in heard, (heard,)  # the farewell leaves before the restore
+
+    tty_result = ast.literal_eval(heard.split(b"RESULT ")[1].split(b"\r\n")[0].decode())
+    tty_expected = ((True, False), (False, False), True, True)  # (ISIG, ICANON) in cbreak, then
+    # after setraw, then whether setraw asserted before Enter, and without a farewell
+    assert tty_result == tty_expected, (tty_result, tty_expected)
+
+
 _TERMINAL_BOSS_TYPEAHEAD_CHILD_ = r"""
 import os, sys, time
 sys.path.insert(0, sys.argv[1])
 import litpyglass
 
 sync_fileno = int(sys.argv[2])
-boss = litpyglass.TerminalBoss(typeahead=b"ab")
+boss = litpyglass.TerminalBoss(typeahead=b"ab", farewell=b"")
 print("READY1", flush=True)
 os.read(sync_fileno, 1)  # 'X' has been typed on the Terminal
 with boss:
@@ -639,7 +716,7 @@ sys.path.insert(0, sys.argv[1])
 import litpyglass
 
 sync_fileno = int(sys.argv[2])
-boss = litpyglass.TerminalBoss(typeahead=b"ab")
+boss = litpyglass.TerminalBoss(typeahead=b"ab", farewell=b"")
 print("READY1", flush=True)
 os.read(sync_fileno, 1)  # 'XY' has been typed on the Terminal
 with boss:
@@ -911,7 +988,7 @@ def _pty_read_once_(master_fileno: int, terminal_output: bytearray) -> bool:
 
 # class TerminalBoss:
 
-_1_ = """
+_1_ = r"""
 Spec of how TerminalBoss chooses TCSADRAIN vs TCSAFLUSH in its __enter__ and __exit__
 
 Choice: Keep TCSADRAIN at Enter and at Exit of TerminalBoss.
@@ -931,6 +1008,7 @@ We meet spec as tested by _try_terminal_boss_:
 
     1. Enter saves the Terminal attributes once, then calls tty.setraw with TCSADRAIN
        so queued Output leaves, but Input already typed stays to be read.
+       Enter with a Farewell calls tty.setcbreak not tty.setraw, so ⌃C ⌃Z ⌃\ still signal.
 
     2. Enter on a Stdin that is not a Terminal saves a stand-in list, and touches no termios.
 
@@ -942,6 +1020,13 @@ We meet spec as tested by _try_terminal_boss_:
     5. Exit when not entered changes nothing, and Exit clears the save, so next Enter saves afresh.
 
     6. Enter and Exit each flush Stdout and Stderr first, before tty.setraw/ termios.tcsetattr.
+
+    7. The Farewell Bytes write at Exit, flushed, before Exit restores the saved attributes.
+
+    8. The tty_setraw_before_farewell stops ⌃C ⌃Z ⌃\ from signalling, by calling tty.setraw.
+
+    9. The tty_setraw_before_farewell on a Terminal fails an assert before Enter, and fails
+       an assert without a Farewell, and does nothing at all on a Stdin that is not a Terminal.
 """
 
 
