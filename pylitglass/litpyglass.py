@@ -20,6 +20,7 @@ examples:
   pylitglass/litpyglass.py --egg=nanos  # print your input bytes and when they arrived
   pylitglass/litpyglass.py --egg=frames  # print your inputs split into frames, named when known
   pylitglass/litpyglass.py --egg=strikes  # print your input frames as strikes else text
+  pylitglass/litpyglass.py --egg=skater  # quit after 3 strikes, drawing nothing yet
   pylitglass/litpyglass.py --typeahead="$(printf '\r\r\r')"  # quit by itself
 """
 
@@ -118,6 +119,8 @@ def main() -> None:
         gw.show_frames(typeahead=typeahead)
     elif "strikes" in eggs:
         gw.show_strikes(typeahead=typeahead)
+    elif "skater" in eggs:
+        gw.show_skater(typeahead=typeahead)
     else:
         assert False, (eggs,)
 
@@ -428,6 +431,21 @@ class GlassWorker:
         ] %
 
     """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
+
+    def show_skater(self, typeahead: bytes) -> None:
+        """Quit when the Frames say quit, such as at Return Return Return, and draw nothing yet"""
+
+        # Launch elegantly, almost silently, without printing instructions
+
+        ist = InputStrikeTaker()
+        with TerminalBoss(typeahead=typeahead) as tb:
+
+            print(" + \b\b", end="")  # writes the first Prompt, into tty.
+
+            for _ in ist.take_input_strikes_and_yield_each(tb):
+                pass
+
+            print("+\b", end="")  # puts the '+' back over the reply to the Quit Signal
 
 
 #

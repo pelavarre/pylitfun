@@ -40,7 +40,7 @@ if not __debug__:
 def main() -> None:
     """Run every self-test, and print one line when they pass"""
 
-    # ~5000ms in all, mostly waiting, not computing
+    # ~6000ms in all, mostly waiting, not computing
     #
     #   100ms: the quit rule's too-fast gap, so each strike below must wait longer than that
     #   150ms: that wait, and also the Typeahead wait per Byte, so each Byte costs 150ms
@@ -54,6 +54,7 @@ def main() -> None:
     _try_terminal_boss_typeahead_()  # ~600ms, 150ms per Typeahead Byte
     _try_terminal_boss_chunks_()  # ~460ms, 150ms per Typeahead Byte
     _try_typeahead_()  # ~550ms, 3 Typeahead ⏎ at 150ms each
+    _try_skater_quits_()  # ~1050ms, 3 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
 
     print("tests ok")
 
@@ -739,7 +740,9 @@ def _try_is_quitting_frames_() -> None:
     )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
-        results = tuple(executor.map(lambda case: _try_strikes_quit_(case[0], case[1]), cases))
+        results = tuple(
+            executor.map(lambda case: _try_egg_quit_("strikes", case[0], case[1]), cases)
+        )
 
     for case, (quit, screen_decode) in zip(cases, results):
         data, count, want, shows = case
@@ -747,11 +750,29 @@ def _try_is_quitting_frames_() -> None:
         assert shows in screen_decode, (shows, data, count, screen_decode)
 
 
-def _try_strikes_quit_(data: bytes, count: int) -> tuple[bool, str]:
-    """Run --egg=strikes on a Pty, strike these Bytes this often 150ms apart, and say if it quit"""
+def _try_skater_quits_() -> None:
+    """Try which strikes quit --egg=skater, as _5_ at the bottom of this file says"""
+
+    cases = (
+        (b"\r", 3, True),  # ⏎ ⏎ ⏎
+        (b"\r", 2, False),
+        (b"\r\r\r", 1, False),  # ⏎ ⏎ ⏎ pasted
+    )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
+        results = tuple(executor.map(lambda case: _try_egg_quit_("skater", case[0], case[1]), cases))
+
+    for case, (quit, screen_decode) in zip(cases, results):
+        data, count, want = case
+        assert quit == want, (quit, want, data, count, screen_decode)
+        assert "b'" not in screen_decode, (data, count, screen_decode)  # draws nothing yet
+
+
+def _try_egg_quit_(egg: str, data: bytes, count: int) -> tuple[bool, str]:
+    """Run --egg= on a Pty, strike these Bytes this often 150ms apart, and say if it quit"""
 
     master_fileno, slave_fileno = pty.openpty()
-    argv = [sys.executable, "-I", litpyglass.__file__, "--egg=strikes"]
+    argv = [sys.executable, "-I", litpyglass.__file__, f"--egg={egg}"]
     process = subprocess.Popen(argv, stdin=slave_fileno, stdout=slave_fileno, stderr=slave_fileno)
     os.close(slave_fileno)
 
@@ -763,7 +784,10 @@ def _try_strikes_quit_(data: bytes, count: int) -> tuple[bool, str]:
     assert b"+ " in terminal_output, (bytes(terminal_output),)
 
     for _ in range(count):
-        os.write(master_fileno, data)
+        try:
+            os.write(master_fileno, data)
+        except OSError:
+            break  # the Child has already exited, so the Pty is closed
         _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)  # over the 100ms too-fast gap
 
     _pty_read_for_seconds_(master_fileno, terminal_output, 0.5)  # long enough for a quit to show
@@ -1026,13 +1050,23 @@ The Bytes of one Strike go in, and the Key Caps struck to send them come out, el
 # class GlassWorker
 
 _5_ = r"""
-Spec of what --egg=strikes leaves in Stdin after it quits, as _try_strikes_spill_ tests it.
+Spec of GlassWorker, the demos that --egg= picks.
 
-Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with the 3 ⏎ 150 ms apart:
+Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with the 3 ⏎ 150 ms apart,
+we meet spec as tested by _try_strikes_spill_:
 
     1. When nothing is struck after the 3rd ⏎, Stdin holds nothing.
 
     2. Keys struck 150 ms after the 3rd ⏎ stay in Stdin for the next program to read.
+
+On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits_:
+
+    3. The triple of ⏎ ⏎ ⏎ struck 150 ms apart quits, as it does --egg=strikes,
+       and draws nothing yet.
+
+    4. The pair of ⏎ ⏎ does not quit.
+
+    5. The triple of ⏎ ⏎ ⏎ pasted, or struck all at once, does not quit.
 """
 
 
