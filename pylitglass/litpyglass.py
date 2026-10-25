@@ -1066,7 +1066,8 @@ class TerminalFrameReader:
             # Yield the Open Frame before each Read, as a Frame not yet taken
 
             taken = False
-            yield (taken, tft.frame, cells)
+            frame_triple = (taken, tft.frame, cells)
+            yield frame_triple
 
             # Block to fetch >= 1 Bytes
 
@@ -1147,7 +1148,8 @@ class TerminalFrameReader:
             del cells[:length]
 
             taken = True
-            yield (taken, frame, _cells_)
+            frame_triple = (taken, frame, _cells_)
+            yield frame_triple
 
 
 #
