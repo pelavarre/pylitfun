@@ -57,6 +57,7 @@ def main() -> None:
     _try_terminal_boss_typeahead_()  # ~600ms, 150ms per Typeahead Byte
     _try_terminal_boss_chunks_()  # ~460ms, 150ms per Typeahead Byte
     _try_typeahead_()  # ~550ms, 3 Typeahead ⏎ at 150ms each
+    _try_placed_input_strikes_()  # ~150ms, 1 Pty and 1 child Python off a Terminal
     _try_skater_entry_()  # ~900ms, 4 Ptys at once, and 1 child Python off a Terminal
     _try_skater_quits_()  # ~1100ms, 13 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
 
@@ -732,7 +733,7 @@ print(
 
 
 def _try_terminal_boss_typeahead_() -> None:
-    """Try TerminalBoss reading Typeahead, as _7_ at the bottom of this file says"""
+    """Try TerminalBoss reading Typeahead, as _8_ at the bottom of this file says"""
 
     result = _pty_run_child_(_TERMINAL_BOSS_TYPEAHEAD_CHILD_, terminal_bytes=b"X")
 
@@ -756,7 +757,7 @@ print("RESULT", repr(chunks), flush=True)
 
 
 def _try_terminal_boss_chunks_() -> None:
-    """Try TerminalBoss reading Typeahead in chunks, as _7_ at the bottom of this file says"""
+    """Try TerminalBoss reading Typeahead in chunks, as _8_ at the bottom of this file says"""
 
     result = _pty_run_child_(_TERMINAL_BOSS_CHUNKS_CHILD_, terminal_bytes=b"XY")
 
@@ -808,7 +809,7 @@ def _pty_run_child_(child_code: str, terminal_bytes: bytes) -> object:
 
 
 def _try_typeahead_() -> None:
-    """Try the --typeahead flag, as _7_ at the bottom of this file says"""
+    """Try the --typeahead flag, as _8_ at the bottom of this file says"""
 
     master_fileno, slave_fileno = pty.openpty()
     argv = [sys.executable, "-I", litpyglass.__file__, "--egg=strikes", "--typeahead=\r\r\r"]
@@ -858,7 +859,7 @@ def _try_is_quitting_frames_() -> None:
 
 
 def _try_skater_quits_() -> None:
-    """Try which strikes quit --egg=skater, as _6_ at the bottom of this file says"""
+    """Try which strikes quit --egg=skater, as _7_ at the bottom of this file says"""
 
     cases = (
         (b"\r", 3, True, ""),  # ⏎ ⏎ ⏎
@@ -891,8 +892,68 @@ def _try_skater_quits_() -> None:
         assert (farewell in screen_decode) == quit, (farewell, quit, data, count, screen_decode)
 
 
+_PLACED_CHILD_ = r"""
+import dataclasses, os, sys
+sys.path.insert(0, sys.argv[1])
+import litpyglass
+
+sync_fileno = int(sys.argv[2])
+ist = litpyglass.InputStrikeTaker()
+boss = litpyglass.TerminalBoss(typeahead=b"", farewell=b"<FAREWELL>")
+print("READY1", flush=True)
+os.read(sync_fileno, 1)  # ↑, a Result, a lookalike Result, a Result, and ↓ are typed
+places = list()
+with boss:
+    for isap in ist.take_placed_input_strikes_and_yield_each(boss, stalwarts=()):
+        if not isap.strike.taken:
+            continue  # the Open Frame comes before each Read, and says nothing yet
+        place = isap.place and dataclasses.astuple(isap.place)
+        places.append((isap.strike.caps, place))
+        if len(places) == 3:
+            break
+print("RESULT", repr(tuple(places)), flush=True)
+"""
+
+_PLACED_OFF_TERMINAL_CHILD_ = r"""
+import dataclasses, sys
+sys.path.insert(0, sys.argv[1])
+import litpyglass
+
+ist = litpyglass.InputStrikeTaker()
+boss = litpyglass.TerminalBoss(typeahead=b"", farewell=b"")
+places = list()
+with boss:
+    for isap in ist.take_placed_input_strikes_and_yield_each(boss, stalwarts=()):
+        if not isap.strike.taken:
+            continue  # the Open Frame comes before each Read, and says nothing yet
+        place = isap.place and dataclasses.astuple(isap.place)
+        places.append((isap.strike.caps, place))
+print("RESULT", repr(tuple(places)), flush=True)
+"""
+
+
+def _try_placed_input_strikes_() -> None:
+    """Try the Place each Strike takes, as _6_ at the bottom of this file says"""
+
+    typed = b"\033[A" + b"\033[5;7R" + b"\033[9;9R" + b"\033[8;24;80t" + b"\033[B"
+    result = _pty_run_child_(_PLACED_CHILD_, terminal_bytes=typed)
+
+    place = (7, 80, 5, 24)  # column_x, x_width, row_y, y_height
+    lookalike = "⎋ [ 9 ; 9 ⇧R"  # a second Cursor Result comes through as a Strike, in order
+    expected = (("↑", place), (lookalike, place), ("↓", place))  # the answers are no Strikes
+    assert result == expected, (result, expected)
+
+    here = os.path.dirname(os.path.abspath(litpyglass.__file__))
+    argv = [sys.executable, "-I", "-c", _PLACED_OFF_TERMINAL_CHILD_, here]
+    run = subprocess.run(argv, input=b"\033[A\033[B", capture_output=True, timeout=10)
+    assert run.returncode == 0, (run.returncode, run.stdout, run.stderr)
+
+    off_expected = "RESULT (('↑', None), ('↓', None))"  # no Terminal to ask, so no Place
+    assert off_expected in run.stdout.decode(), (run.stdout, off_expected)
+
+
 def _try_skater_entry_() -> None:
-    """Try how --egg=skater waits for the Results of its Queries, as _6_ at the bottom says"""
+    """Try how --egg=skater waits for the Results of its Queries, as _7_ at the bottom says"""
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         mute = executor.submit(_try_egg_entry_, b"", b"")  # no Results
@@ -997,7 +1058,7 @@ def _try_egg_quit_(egg: str, data: bytes, count: int) -> tuple[bool, str]:
 
 
 def _try_strikes_spill_() -> None:
-    """Try what --egg=strikes leaves in Stdin after it quits, as _6_ says at the bottom"""
+    """Try what --egg=strikes leaves in Stdin after it quits, as _7_ says at the bottom"""
 
     cases = (
         (b"", b""),  # nothing struck after the 3rd ⏎, so nothing left
@@ -1273,10 +1334,30 @@ The Bytes of one Strike go in, and the Key Caps struck to send them come out, el
 
 # class InputStrikeTaker
 
+_6_ = r"""
+Spec of InputStrikeTaker.take_placed_input_strikes_and_yield_each, as
+_try_placed_input_strikes_ tests it.
+
+We meet spec as tested by _try_placed_input_strikes_:
+
+    1. On a Terminal, the Results ⎋[5;7⇧R and ⎋[8;24;80t place each Strike at column_x 7,
+       x_width 80, row_y 5, and y_height 24: Columns come from the Cursor X and the Screen W,
+       Rows from the Cursor Y and the Screen H.
+
+    2. The Strike typed before the Results come waits for them, and then takes that same Place,
+       as does each Strike typed after.
+
+    3. The first Result of each kind is taken as the answer and not yielded as a Strike.
+       A later lookalike, such as a second ⎋[9;9⇧R pasted before the Results, comes through
+       as a Strike, and never changes the Place.
+
+    4. Off a Terminal, each Strike takes no Place, and nothing waits.
+"""
+
 
 # class GlassWorker
 
-_6_ = r"""
+_7_ = r"""
 Spec of GlassWorker, the demos that --egg= picks.
 
 Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with the 3 ⏎ 150 ms apart,
@@ -1330,7 +1411,7 @@ On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits
 
 # def main
 
-_7_ = r"""
+_8_ = r"""
 Spec of the --typeahead flag of litpyglass.py, from the flag down into TerminalBoss.
 
 Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with no key struck.
@@ -1353,7 +1434,7 @@ We meet spec as tested by _try_terminal_boss_typeahead_ and _try_terminal_boss_c
 """
 
 
-_ = _1_, _2_, _3_, _4_, _5_, _6_, _7_
+_ = _1_, _2_, _3_, _4_, _5_, _6_, _7_, _8_
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789

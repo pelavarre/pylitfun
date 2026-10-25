@@ -474,7 +474,8 @@ class GlassWorker:
 
             # Loop till quit (such as by pressing Return three times quickly)
 
-            for strike in ist.take_placed_input_strikes_and_yield_each(tb, stalwarts=stalwarts):
+            for isap in ist.take_placed_input_strikes_and_yield_each(tb, stalwarts=stalwarts):
+                strike = isap.strike
                 taken = strike.taken
                 caps = strike.caps
                 frame = strike.frame
@@ -532,7 +533,7 @@ class InputStrikeTaker:
 
     def take_placed_input_strikes_and_yield_each(
         self, tb: TerminalBoss, stalwarts: tuple[bytes, ...]
-    ) -> typing.Iterator[InputStrike]:
+    ) -> typing.Iterator[InputStrikeAtPlace]:
         """Discover X W Y H, hold other Strikes till both Results arrive, then yield each"""
 
         assert DSR6 == "\033[" "6n"
@@ -545,7 +546,8 @@ class InputStrikeTaker:
             tb.bytes_write_flush((DSR6 + XTWINOPS_18).encode())
             entering = True
 
-        tags: list[str] = list()  # "YX" and "HW" Results taken
+        ints_by_tag: dict[str, tuple[int, int]] = dict()  # "YX" and "HW" Results taken
+        place: ScreenPlace | None = None  # where the Cursor was and how big the Screen was, if told
         after_strikes: list[InputStrike] = list()  # Strikes held till after Results
 
         for strike in self.take_input_strikes_and_yield_each(tb, stalwarts=stalwarts):
@@ -553,7 +555,8 @@ class InputStrikeTaker:
             # Yield each Strike as it comes, once both answers have arrived
 
             if not entering:
-                yield strike
+                isap = InputStrikeAtPlace(strike=strike, place=place)
+                yield isap
                 continue
 
             # Wait first for answer, to where the Cursor is and how big the Screen is
@@ -570,20 +573,33 @@ class InputStrikeTaker:
             # Take both answers
 
             result = TerminalFrameDecoder.bytes_to_yx_or_hw_if(data)
-            if result:
-                tags.append(result[0])
-            else:
+            if not result:
                 after_strikes.append(strike)
+            else:
+                tag, int1, int2 = result
+                assert tag in ("YX", "HW"), (tag,)
+                if tag not in ints_by_tag.keys():
+                    ints_by_tag[tag] = (int1, int2)
+                else:
+                    after_strikes.append(strike)
 
-            if ("YX" not in tags) or ("HW" not in tags):
+            if ("YX" not in ints_by_tag.keys()) or ("HW" not in ints_by_tag.keys()):
                 continue
 
             # Stop accepting ⌃C ⌃D ⌃Z ⌃\ as reasons to quit our wait for both answers
 
             tb.tty_setraw_before_farewell()  # takes Return as b"\r", and ⌃C ⌃Z ⌃\ as Input
 
+            # Place each Held Strike
+
+            row_y, column_x = ints_by_tag["YX"]
+            y_height, x_width = ints_by_tag["HW"]
+
+            place = ScreenPlace(column_x=column_x, x_width=x_width, row_y=row_y, y_height=y_height)
+
             for held_strike in after_strikes:
-                yield held_strike
+                isap = InputStrikeAtPlace(strike=held_strike, place=place)
+                yield isap
 
             entering = False
             continue  # explicitly
@@ -629,6 +645,25 @@ class InputStrike:
     caps: str  # the Key Caps best known as sending these Bytes, else ''
     printables: str  # the Bytes decoded, if printable, else ''
     frame: TerminalByteFrame  # the Bytes, maybe none  # mutable for no reason
+
+
+@dataclasses.dataclass(order=True)  # , frozen=True)
+class InputStrikeAtPlace:
+    """Speak of one InputStrike at one Screen Place, or as not placed"""
+
+    strike: InputStrike  # what  # mutable
+    place: ScreenPlace | None  # where  # mutable
+
+
+@dataclasses.dataclass(order=True, frozen=True, kw_only=True)
+class ScreenPlace:
+    """Speak of where the Cursor was and how big the Screen was, when the Terminal answered"""
+
+    column_x: int  # the Cursor Column, counting from 1
+    x_width: int  # the Screen Columns, at least 1
+
+    row_y: int  # the Cursor Row, counting from 1
+    y_height: int  # the Screen Rows, at least 1
 
 
 #
