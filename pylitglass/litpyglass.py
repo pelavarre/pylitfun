@@ -462,8 +462,6 @@ class GlassWorker:
 
         assert BS == "\b"
         assert DECSCUSR_PS4_SKID == "\033[" "4" " q"
-        assert DSR6 == "\033[" "6n"
-        assert XTWINOPS_18 == "\033[" "18" "t"
 
         ist = InputStrikeTaker()
         with TerminalBoss(typeahead=typeahead, farewell=farewell) as tb:
@@ -471,97 +469,45 @@ class GlassWorker:
 
             print(" + \b\b", end="")  # writes the first Prompt, into tty.
 
-            # Ask where the Cursor is and how big the Screen is
-
-            entering = False
-            if tb.isatty:
-                tb.bytes_write_flush((DSR6 + XTWINOPS_18).encode())
-                entering = True
-
             digits = "0123456789"
             i = "0"  # .i is our reply to the next Byte that doesn't complete a Frame
 
             # Loop till quit (such as by pressing Return three times quickly)
 
-            tags: list[str] = list()  # the Results taken so far, each "YX" or "HW"
-            held_strikes: list[InputStrike] = list()  # the Strikes to act on
+            for strike in ist.take_placed_input_strikes_and_yield_each(tb, stalwarts=stalwarts):
+                taken = strike.taken
+                caps = strike.caps
+                frame = strike.frame
 
-            for strike in ist.take_input_strikes_and_yield_each(tb, stalwarts=stalwarts):
+                # Cycle prompt across 1234567890, in reply to Bytes of an Open Frame not taken
 
-                # Wait first for answer, to where the Cursor is and how big the Screen is
+                data = frame.to_frame_bytes()  # maybe empty
+                if not taken:
+                    assert not frame.closed, (frame,)
 
-                if not entering:
-                    held_strikes.append(strike)
-                else:
-                    if not strike.taken:
-                        continue
+                    if data:
+                        j = digits[(digits.index(i) + len(data)) % len(digits)]
+                        print(f"{j}\b", end="")
+                        # FIXME: no visible reply to pasting N * 10 bytes
 
-                    # Quit at ⌃D b"\004" as the Shell would, despite CBreak takes it as a Byte
+                    continue
 
-                    data = strike.frame.to_frame_bytes()  # maybe empty
-                    if data == b"\004":
-                        break
+                # Move the Cursor, in reply to each Arrow Key Strike
 
-                    # Take both answers
+                if caps in ("→", "↑", "←", "↓"):  # → ↑ ← ↓ ENWS
+                    decode = data.decode()
 
-                    result = TerminalFrameDecoder.bytes_to_yx_or_hw_if(data)
-                    if result:
-                        tags.append(result[0])
-                    else:
-                        held_strikes.append(strike)
+                    vertical = caps in ("↑", "↓")
+                    write = decode if vertical else (decode + decode)  # for 2x1 Terminal Cells
+                    print(f"+\b\b{write} + \b\b", end="")
 
-                    entering = not (("YX" in tags) and ("HW" in tags))
-                    if entering:
-                        continue
+                    i = "0"
+                    continue
 
-                    # Stop accepting ⌃C ⌃D ⌃Z ⌃\ as reasons to quit our wait for both answers
+                # Else cycle the Open Frame Prompt forward by as many Bytes as taken
 
-                    tb.tty_setraw_before_farewell()  # takes Return as b"\r", and ⌃C ⌃Z ⌃\ as Input
-
-                # Act on the Strikes held, the keys typed ahead first
-
-                for held_strike in held_strikes:
-                    taken = held_strike.taken
-                    caps = held_strike.caps
-                    frame = held_strike.frame
-
-                    # Cycle prompt across 1234567890, in reply to Bytes of an Open Frame not taken
-
-                    data = frame.to_frame_bytes()  # maybe empty
-                    if not taken:
-                        assert not frame.closed, (frame,)
-
-                        if data:
-                            j = digits[(digits.index(i) + len(data)) % len(digits)]
-                            print(f"{j}\b", end="")
-                            # FIXME: no visible reply to pasting N * 10 bytes
-
-                        continue
-
-                    # Move the Cursor, in reply to each Arrow Key Strike
-
-                    if caps in ("→", "↑", "←", "↓"):  # → ↑ ← ↓ ENWS
-                        decode = data.decode()
-
-                        vertical = caps in ("↑", "↓")
-                        write = decode if vertical else (decode + decode)  # for 2x1 Terminal Cells
-                        print(f"+\b\b{write} + \b\b", end="")
-
-                        i = "0"
-                        continue
-
-                    # Else cycle the Open Frame Prompt forward by as many Bytes as taken
-
-                    i = digits[(digits.index(i) + len(data)) % len(digits)]
-                    continue  # explicit
-
-                held_strikes.clear()
-
-            # Fail if got no answer to where the Cursor is and how big the Screen is
-
-            if entering:
-                print("Input ended before answering ⎋[6n with Y X and ⎋[18t with H W", end="\r\n")
-                sys.exit(1)
+                i = digits[(digits.index(i) + len(data)) % len(digits)]
+                continue  # explicitly
 
             # Succeed
 
@@ -583,6 +529,70 @@ class InputStrikeTaker:
 
         self.tfr = TerminalFrameReader()
         self.kd = keyboard_decoder()
+
+    def take_placed_input_strikes_and_yield_each(
+        self, tb: TerminalBoss, stalwarts: tuple[bytes, ...]
+    ) -> typing.Iterator[InputStrike]:
+        """Discover X W Y H, hold other Strikes till both Results arrive, then yield each"""
+
+        assert DSR6 == "\033[" "6n"
+        assert XTWINOPS_18 == "\033[" "18" "t"
+
+        # Ask where the Cursor is and how big the Screen is
+
+        entering = False
+        if tb.isatty:
+            tb.bytes_write_flush((DSR6 + XTWINOPS_18).encode())
+            entering = True
+
+        tags: list[str] = list()  # "YX" and "HW" Results taken
+        after_strikes: list[InputStrike] = list()  # Strikes held till after Results
+
+        for strike in self.take_input_strikes_and_yield_each(tb, stalwarts=stalwarts):
+
+            # Yield each Strike as it comes, once both answers have arrived
+
+            if not entering:
+                yield strike
+                continue
+
+            # Wait first for answer, to where the Cursor is and how big the Screen is
+
+            if not strike.taken:
+                continue
+
+            # Quit at ⌃D b"\004" as the Shell would, despite CBreak takes it as a Byte
+
+            data = strike.frame.to_frame_bytes()  # maybe empty
+            if data == b"\004":
+                break
+
+            # Take both answers
+
+            result = TerminalFrameDecoder.bytes_to_yx_or_hw_if(data)
+            if result:
+                tags.append(result[0])
+            else:
+                after_strikes.append(strike)
+
+            if ("YX" not in tags) or ("HW" not in tags):
+                continue
+
+            # Stop accepting ⌃C ⌃D ⌃Z ⌃\ as reasons to quit our wait for both answers
+
+            tb.tty_setraw_before_farewell()  # takes Return as b"\r", and ⌃C ⌃Z ⌃\ as Input
+
+            for held_strike in after_strikes:
+                yield held_strike
+
+            entering = False
+            continue  # explicitly
+
+        # Fail if got no answer to where the Cursor is and how big the Screen is
+
+        if entering:
+            print("Input ended before answering ⎋[6n with Y X and ⎋[18t with H W", end="\r\n")
+            sys.exit(1)
 
     def take_input_strikes_and_yield_each(
         self, tb: TerminalBoss, stalwarts: tuple[bytes, ...]
