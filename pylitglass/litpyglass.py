@@ -11,6 +11,7 @@ options:
 
 quirks:
   quits when given an unprintable, 3 times in a row, but 100ms or more apart, across less than 3s
+  --egg=skater never quits on an arrow key, since it moves the cursor instead
 
 examples:
   python3 pylitglass/litpyglass.py  # show these examples
@@ -20,7 +21,7 @@ examples:
   pylitglass/litpyglass.py --egg=nanos  # print your input bytes and when they arrived
   pylitglass/litpyglass.py --egg=frames  # print your inputs split into frames, named when known
   pylitglass/litpyglass.py --egg=strikes  # print your input frames as strikes else text
-  pylitglass/litpyglass.py --egg=skater  # quit after 3 strikes, drawing nothing yet
+  pylitglass/litpyglass.py --egg=skater  # draw a '+' wherever the arrow keys take the cursor
   pylitglass/litpyglass.py --typeahead="$(printf '\r\r\r')"  # quit by itself
 """
 
@@ -278,7 +279,7 @@ class GlassWorker:
         with TerminalBoss(typeahead=typeahead) as tb:
             tfr = TerminalFrameReader()
 
-            for taken, frame, cells in tfr.take_frames_and_yield_each(tb):
+            for taken, frame, cells in tfr.take_frames_and_yield_each(tb, stalwarts=()):
                 data = frame.to_frame_bytes()  # maybe empty
 
                 # Prompt for next Byte, while growing the Frame
@@ -371,7 +372,7 @@ class GlassWorker:
 
         ist = InputStrikeTaker()
         with TerminalBoss(typeahead=typeahead) as tb:
-            for strike in ist.take_input_strikes_and_yield_each(tb):
+            for strike in ist.take_input_strikes_and_yield_each(tb, stalwarts=()):
 
                 taken = strike.taken
                 caps = strike.caps
@@ -433,17 +434,36 @@ class GlassWorker:
     """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
     def show_skater(self, typeahead: bytes) -> None:
-        """Quit when the Frames say quit, such as at Return Return Return, and draw nothing yet"""
+        """Draw a '+' wherever the Cursor goes, and move it as the → ↑ ← ↓ Arrow Keys say"""
 
         # Launch elegantly, almost silently, without printing instructions
+
+        stalwarts = (b"\033[C", b"\033[A", b"\033[D", b"\033[B")  # → ↑ ← ↓
+        assert tuple(_.decode() for _ in stalwarts) == _CARDINAL_ENWS_ARROWS_
 
         ist = InputStrikeTaker()
         with TerminalBoss(typeahead=typeahead) as tb:
 
             print(" + \b\b", end="")  # writes the first Prompt, into tty.
 
-            for _ in ist.take_input_strikes_and_yield_each(tb):
-                pass
+            # Loop till quit (such as by pressing Return three times quickly)
+
+            for strike in ist.take_input_strikes_and_yield_each(tb, stalwarts=stalwarts):
+
+                taken = strike.taken
+                caps = strike.caps
+                frame = strike.frame
+
+                # Move the Cursor, in reply to each Arrow Key Strike
+
+                if taken and (caps in ("→", "↑", "←", "↓")):
+                    data = frame.to_frame_bytes()  # maybe empty
+                    decode = data.decode()
+
+                    vertical = caps in ("↑", "↓")
+                    write = decode if vertical else (decode + decode)  # for 2x1 Terminal Cells
+
+                    print(f"+\b\b{write} + \b\b", end="")
 
             print("+\b", end="")  # puts the '+' back over the reply to the Quit Signal
 
@@ -464,13 +484,15 @@ class InputStrikeTaker:
         self.tfr = TerminalFrameReader()
         self.kd = keyboard_decoder()
 
-    def take_input_strikes_and_yield_each(self, tb: TerminalBoss) -> typing.Iterator[InputStrike]:
+    def take_input_strikes_and_yield_each(
+        self, tb: TerminalBoss, stalwarts: tuple[bytes, ...]
+    ) -> typing.Iterator[InputStrike]:
         """Yield an InputStrike for each Frame yielded while growing or when taken"""
 
         tfr = self.tfr
         kd = self.kd
 
-        for taken, frame, _ in tfr.take_frames_and_yield_each(tb):
+        for taken, frame, _ in tfr.take_frames_and_yield_each(tb, stalwarts=stalwarts):
             data = frame.to_frame_bytes()  # maybe empty
 
             # Speak of the Frame as Text, when its Bytes decode as Printable
@@ -1083,7 +1105,7 @@ class TerminalFrameReader:
         self.cells = list()
 
     def take_frames_and_yield_each(
-        self, tb: TerminalBoss
+        self, tb: TerminalBoss, stalwarts: tuple[bytes, ...]
     ) -> typing.Iterator[tuple[bool, TerminalByteFrame, list[int | bytes]]]:
         """Yield (False, Open Frame, Cells) before taking, and (True, Taken Frame, Cells) after"""
 
@@ -1148,7 +1170,7 @@ class TerminalFrameReader:
 
             # Quit when the Frames say to quit
 
-            if tft.is_quitting_frames():
+            if tft.is_quitting_frames(stalwarts=stalwarts):
                 break
 
         # Take the Open Frame with the Frames taken before it, at Stdin Eof or at Quit
@@ -1334,8 +1356,8 @@ class TerminalFrameTaker:
         triples = tuple(triples_list)
         return triples
 
-    def is_quitting_frames(self) -> bool:
-        """Say if the Frames have said please quit soon"""
+    def is_quitting_frames(self, stalwarts: tuple[bytes, ...]) -> bool:
+        """Say if the Frames have said please quit soon, but never quit on a Stalwart"""
 
         bk = self.bk
         frame = self.frame
@@ -1362,6 +1384,9 @@ class TerminalFrameTaker:
         if is_quitting_shape(pairs):
             if frames[-1].encodes:  # no quitting on repeated Text Frames
                 return False
+
+            if frames[-1].to_frame_bytes() in stalwarts:
+                return False  # never quits on a Stalwart
 
             return True
 
@@ -2367,23 +2392,30 @@ DSR6 = "\033[" "6n"  # DSR_PS Ps 6 for CPR_Y_X
 CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R
 
 
-ClassicArrows = ("\033[A", "\033[B", "\033[C", "\033[D")
+# ← ↑ → ↓ is sorted by Codepoint
 
-_NorthArrow_ = "\033[A"  # ←↑→↓ reordered as ↑↓→←
+_NorthArrow_ = "\033[A"  # ↑ ↓ → ← NSEW is the → ↑ ← ↓ ENWS sorted by Byte Frame
 _SouthArrow_ = "\033[B"
 _EastArrow_ = "\033[C"
 _WestArrow_ = "\033[D"
+
+_CARDINAL_ENWS_ARROWS_ = (  # → ↑ ← ↓ ENWS is counterclockwise from East
+    _EastArrow_,  # C →
+    _NorthArrow_,  # A ↑
+    _WestArrow_,  # D ←
+    _SouthArrow_,  # B ↓
+)
 
 _NorthwestArrow_ = "\033[↖"  # ⎋[ ↖↗↘↙  # not yet standard
 _NortheastArrow_ = "\033[↗"
 _SoutheastArrow_ = "\033[↘"
 _SouthwestArrow_ = "\033[↙"
 
+_ = _NorthwestArrow_, _NortheastArrow_, _SoutheastArrow_, _SouthwestArrow_
+
 
 _ = _MAX_PN_32100_
 _ = _START_PASTE_
-_ = _SouthArrow_, _EastArrow_, _WestArrow_
-_ = _NorthwestArrow_, _SoutheastArrow_, _SouthwestArrow_
 
 
 AppleLogo = "\uf8ff"  # Apple Logo occupies U+F8FF = end of U+E000 .. U+F8FF Private Use Area (PUA)

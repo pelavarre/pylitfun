@@ -54,7 +54,7 @@ def main() -> None:
     _try_terminal_boss_typeahead_()  # ~600ms, 150ms per Typeahead Byte
     _try_terminal_boss_chunks_()  # ~460ms, 150ms per Typeahead Byte
     _try_typeahead_()  # ~550ms, 3 Typeahead ⏎ at 150ms each
-    _try_skater_quits_()  # ~1050ms, 3 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
+    _try_skater_quits_()  # ~1100ms, 8 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
 
     print("tests ok")
 
@@ -754,18 +754,23 @@ def _try_skater_quits_() -> None:
     """Try which strikes quit --egg=skater, as _5_ at the bottom of this file says"""
 
     cases = (
-        (b"\r", 3, True),  # ⏎ ⏎ ⏎
-        (b"\r", 2, False),
-        (b"\r\r\r", 1, False),  # ⏎ ⏎ ⏎ pasted
+        (b"\r", 3, True, ""),  # ⏎ ⏎ ⏎
+        (b"\r", 2, False, ""),
+        (b"\r\r\r", 1, False, ""),  # ⏎ ⏎ ⏎ pasted
+        (b"\033[C", 3, False, "+\b\b\033[C\033[C + \b\b"),  # → → →
+        (b"\033[A", 3, False, "+\b\b\033[A + \b\b"),  # ↑ ↑ ↑
+        (b"\033[D", 3, False, "+\b\b\033[D\033[D + \b\b"),  # ← ← ←
+        (b"\033[B", 3, False, "+\b\b\033[B + \b\b"),  # ↓ ↓ ↓
+        ("\033[↗".encode(), 3, True, ""),  # ↗ ↗ ↗, an Intercardinal Arrow, not yet a Stalwart
     )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
         results = tuple(executor.map(lambda case: _try_egg_quit_("skater", case[0], case[1]), cases))
 
     for case, (quit, screen_decode) in zip(cases, results):
-        data, count, want = case
+        data, count, want, shows = case
         assert quit == want, (quit, want, data, count, screen_decode)
-        assert "b'" not in screen_decode, (data, count, screen_decode)  # draws nothing yet
+        assert shows in screen_decode, (shows, data, count, screen_decode)
 
 
 def _try_egg_quit_(egg: str, data: bytes, count: int) -> tuple[bool, str]:
@@ -1061,12 +1066,19 @@ we meet spec as tested by _try_strikes_spill_:
 
 On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits_:
 
-    3. The triple of ⏎ ⏎ ⏎ struck 150 ms apart quits, as it does --egg=strikes,
-       and draws nothing yet.
+    3. The triple of ⏎ ⏎ ⏎ struck 150 ms apart quits, as it does --egg=strikes.
 
     4. The pair of ⏎ ⏎ does not quit.
 
     5. The triple of ⏎ ⏎ ⏎ pasted, or struck all at once, does not quit.
+
+    6. Each Cardinal Arrow moves the Cursor and redraws the '+' behind it: → and ← move
+       2 Columns, and ↑ and ↓ move 1 Row.
+
+    7. The triple of → → → does not quit, and nor do the triples of ↑ ← ↓, since an Arrow
+       moves the Cursor.
+
+    8. The triple of ⎋[↗ quits, since the Intercardinal Arrows are declared and not yet used.
 """
 
 
