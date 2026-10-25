@@ -57,6 +57,7 @@ def main() -> None:
     _try_terminal_boss_typeahead_()  # ~600ms, 150ms per Typeahead Byte
     _try_terminal_boss_chunks_()  # ~460ms, 150ms per Typeahead Byte
     _try_typeahead_()  # ~550ms, 3 Typeahead ⏎ at 150ms each
+    _try_skater_entry_()  # ~900ms, 4 Ptys at once, and 1 child Python off a Terminal
     _try_skater_quits_()  # ~1100ms, 13 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
 
     print("tests ok")
@@ -883,11 +884,73 @@ def _try_skater_quits_() -> None:
         assert quit == want, (quit, want, data, count, screen_decode)
         assert shows in screen_decode, (shows, data, count, screen_decode)
 
-        launch = "\033[4 q + \b\b"  # sets Cursor Style 4, then writes the first Prompt
+        launch = "\033[4 q + \b\b\033[6n\033[18t"  # sets Cursor Style 4, the Prompt, the Queries
         assert launch in screen_decode, (launch, data, count, screen_decode)
 
         farewell = "\r\033[ q\033[32100B\033[A"  # parks the Cursor, and reverts the Cursor Style
         assert (farewell in screen_decode) == quit, (farewell, quit, data, count, screen_decode)
+
+
+def _try_skater_entry_() -> None:
+    """Try how --egg=skater waits for the Results of its Queries, as _6_ at the bottom says"""
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        mute = executor.submit(_try_egg_entry_, b"", b"")  # no Results
+        half = executor.submit(_try_egg_entry_, b"", b"\033[1;1R")  # only the Cursor Result
+        other = executor.submit(_try_egg_entry_, b"", b"\033[8;24;80t")  # only the Size Result
+        ahead = executor.submit(_try_egg_entry_, b"\033[C", b"\033[1;1R\033[8;24;80t")  # → typed
+
+    complaint = "Input ended before answering ⎋[6n with Y X and ⎋[18t with H W"
+
+    for future in (mute, half, other):
+        screen_decode, isig, returncode = future.result()
+        assert screen_decode.index("+ ") < screen_decode.index("\033[6n"), (screen_decode,)
+        assert isig, (isig, screen_decode)  # ⌃C ⌃Z ⌃\ still signal while the hang lasts
+        assert returncode == 1, (returncode, screen_decode)  # ⌃D ends the hang
+        assert complaint in screen_decode, (complaint, screen_decode)
+
+    screen_decode, isig, returncode = ahead.result()
+    assert "+ " in screen_decode, (screen_decode,)
+    assert not isig, (isig, screen_decode)
+    assert returncode is None, (returncode, screen_decode)
+
+    moved = "+\b\b\033[C\033[C + \b\b"  # the → typed before the Results came, kept
+    assert screen_decode.index("+ ") < screen_decode.index(moved), (moved, screen_decode)
+
+    argv = [sys.executable, "-I", litpyglass.__file__, "--egg=skater"]
+    run = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10)
+    assert run.returncode == 0, (run.returncode, run.stdout, run.stderr)
+    assert "\033[6n" not in run.stdout, (run.stdout,)  # asks no Terminal, off a Terminal
+
+
+def _try_egg_entry_(typed_data: bytes, answers: bytes) -> tuple[str, bool, int | None]:
+    """Run --egg=skater on a Pty, answer its Queries as told, and say how it waits"""
+
+    master_fileno, slave_fileno = pty.openpty()
+    argv = [sys.executable, "-I", litpyglass.__file__, "--egg=skater"]
+    process = subprocess.Popen(argv, stdin=slave_fileno, stdout=slave_fileno, stderr=slave_fileno)
+    os.close(slave_fileno)
+
+    terminal_output = bytearray()
+    _pty_read_till_marker_(master_fileno, terminal_output, b"\033[6n\033[18t")
+    os.write(master_fileno, typed_data + answers)
+    _pty_read_for_seconds_(master_fileno, terminal_output, 0.5)
+
+    isig = bool(termios.tcgetattr(master_fileno)[3] & termios.ISIG)  # ⌃C ⌃Z ⌃\ signal, or not
+
+    returncode = None
+    if isig:  # still waiting, since the Terminal takes ⌃C ⌃Z ⌃\ as Signals till both Results come
+        os.write(master_fileno, b"\004")  # ⌃D
+        _pty_read_for_seconds_(master_fileno, terminal_output, 0.5)
+        returncode = process.poll()
+
+    if process.poll() is None:
+        process.kill()
+    process.wait()
+    os.close(master_fileno)
+
+    screen_decode = bytes(terminal_output).decode(errors="replace")
+    return (screen_decode, isig, returncode)
 
 
 def _try_egg_quit_(egg: str, data: bytes, count: int) -> tuple[bool, str]:
@@ -900,10 +963,17 @@ def _try_egg_quit_(egg: str, data: bytes, count: int) -> tuple[bool, str]:
 
     terminal_output = bytearray()
 
+    if egg == "skater":  # answers the Queries, as a Terminal does
+        _pty_read_till_marker_(master_fileno, terminal_output, b"\033[6n\033[18t")
+        os.write(master_fileno, b"\033[1;1R\033[8;24;80t")
+
     _pty_read_till_marker_(
         master_fileno, terminal_output, b"+ "
     )  # waits for the Prompt, since Bytes read too soon count as too fast
     assert b"+ " in terminal_output, (bytes(terminal_output),)
+
+    if egg == "skater":  # the Results count as Frames in the quit rule, so strike after the gap
+        _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)
 
     isig = termios.tcgetattr(master_fileno)[3] & termios.ISIG  # ⌃C ⌃Z ⌃\ signal, or else not
     assert not isig, (isig, egg, bytes(terminal_output))
@@ -1238,13 +1308,23 @@ On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits
     10. Quit parks the Cursor at the leftmost Column of the next-to-last Row, and reverts the
         Cursor Style to the default. No writes of a choice of Cursor Style between Launch and Quit.
 
-    11. Launch takes ⌃C ⌃Z ⌃\ as Input and not as Signals, by the time it writes the first Prompt.
+    11. Launch takes ⌃C ⌃Z ⌃\ as Input and not as Signals, once both Results have come.
 
     12. Each Byte of an Open Frame cycles the Prompt through the Digits 1234567890.
         Such as ⎋ shows 1, and ⎋[ shows 2, and ⎋[ after a Taken Frame of 1 Byte shows 3,
         and an Open Frame of 10 or 20 Bytes shows 0.
 
     13. A Taken Arrow Frame resets the count of Bytes to 0, so ⎋[ shows 2 again after it.
+
+    14. Launch on a Terminal writes the first Prompt, then the Queries ⎋[6n and ⎋[18t, and
+        waits however long it takes for both Results.
+
+    15. While waiting, ⌃C ⌃Z ⌃\ still signal, and ⌃D ends Input with a brief complaint and exit 1.
+
+    16. The keys typed before the Results come are kept, and take effect once both Results
+        have come.
+
+    17. Launch off a Terminal writes no Queries and waits for nothing.
 """
 
 

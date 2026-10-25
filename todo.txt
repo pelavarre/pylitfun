@@ -1,3 +1,5 @@
+mmm Terminal Quit is losing open Terminals?
+
 'sh/.diff a b' could mean 'd a b'
 
 solve '.gg abc' when not at git worktree root
