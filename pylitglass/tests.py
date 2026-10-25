@@ -1020,7 +1020,7 @@ The Bytes of one Strike go in, and the Key Caps struck to send them come out, el
 """
 
 
-# class ScreenFrameTaker
+# class InputStrikeTaker
 
 
 # class GlassWorker

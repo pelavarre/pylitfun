@@ -6,7 +6,7 @@ usage: litpyglass.py [--egg=EGG ...]
 loop back to write Screen after reading from Touch/ Mouse/ Key
 
 options:
-  --egg EGG  a hint of how to behave, such as 'bytes' or 'frames'
+  --egg EGG  a hint of how to behave, such as 'frames' or 'nanos'
   --typeahead BYTES  read these Bytes as typed ahead, each after 150ms of Terminal silence
 
 quirks:
@@ -20,7 +20,7 @@ examples:
   pylitglass/litpyglass.py --egg=nanos  # print your input bytes and when they arrived
   pylitglass/litpyglass.py --egg=frames  # print your inputs split into frames, named when known
   pylitglass/litpyglass.py --egg=strikes  # print your input frames as strikes else text
-  pylitglass/litpyglass.py --egg=strikes --typeahead="$(printf '\r\r\r')"  # quit by itself
+  pylitglass/litpyglass.py --typeahead="$(printf '\r\r\r')"  # quit by itself
 """
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -57,8 +57,8 @@ if not __debug__:
 #
 
 
-_3_GIGA_NANOS_IS_TOO_SLOW_ = 3 * 10**9  # too slow to take 3 same inputs in a row as a quit request
-_100_MEGA_NANOS_IS_TOO_FAST_ = 100 * 10**6  # too fast to take 3 in a row as a quit request
+_3_GIGA_NANOS_ = 3 * 10**9  # too slow to take 3 same inputs in a row as a quit request
+_100_MEGA_NANOS_ = 100 * 10**6  # too fast to take 3 in a row as a quit request
 _150_MEGA_NANOS_ = 150 * 10**6  # keys typed ahead can come about as fast as a typist's
 
 
@@ -275,7 +275,7 @@ class GlassWorker:
         with TerminalBoss(typeahead=typeahead) as tb:
             tfr = TerminalFrameReader()
 
-            for taken, frame, cells in tfr.take_frames(tb):
+            for taken, frame, cells in tfr.take_frames_and_yield_each(tb):
                 data = frame.to_frame_bytes()  # maybe empty
 
                 # Prompt for next Byte, while growing the Frame
@@ -364,19 +364,24 @@ class GlassWorker:
         print("Press Return three times quickly, to quit")
         print()
 
+        restart = CR_EL_PS0  # often '\r' '\033[K'
+
+        ist = InputStrikeTaker()
         with TerminalBoss(typeahead=typeahead) as tb:
-            sft = ScreenFrameTaker()
+            for strike in ist.take_input_strikes_and_yield_each(tb):
 
-            for taken, strikes, printables, frame in sft.take_strikes_else_printables(tb):
-                data = frame.to_frame_bytes()  # maybe empty
-
-                start = CR_EL_PS0  # often '\r' '\033[K'
+                taken = strike.taken
+                caps = strike.caps
+                printables = strike.printables
+                frame = strike.frame
 
                 # Prompt for the first Byte of a Frame
 
+                data = frame.to_frame_bytes()  # maybe empty
                 if not data:
                     assert not taken, (taken, frame)
-                    print(f"{start}+ ", end="")
+
+                    print(f"{restart}+ ", end="")
 
                     continue
 
@@ -384,7 +389,7 @@ class GlassWorker:
 
                 words: list[str] = list()
 
-                words.append(strikes if strikes else "⌘V")
+                words.append(caps if caps else "⌘V")
                 words.append(str_repr(printables))
                 words.append(bytes_repr(data))
 
@@ -393,18 +398,17 @@ class GlassWorker:
                 # Prompt for next Byte, while growing the Frame
 
                 if not taken:
-                    print(f"{start}{join} + ", end="")
+                    print(f"{restart}{join}", end=" + ")
 
                     continue
 
                 # Print each Frame taken as a line
 
-                print(f"{start}{join}\r\n", end="")
+                print(f"{restart}{join}", end="\r\n")
 
             # Erase the Prompt left behind when Stdin Eof ends the Frames
 
-            start = CR_EL_PS0  # often '\r' '\033[K'
-            print(start, end="")
+            print(restart, end="")
 
     _ = r"""
 
@@ -427,12 +431,12 @@ class GlassWorker:
 
 
 #
-# Speak of each Frame as Strikes when its Key Caps are known, and as Text when printable
+# Speak of each Frame as Printable, and/or as known Key Caps, else as ⌘V Paste
 #
 
 
-class ScreenFrameTaker:
-    """Speak of each Frame as Strikes when its Key Caps are known, and as Text when printable"""
+class InputStrikeTaker:
+    """Speak of each Frame as Printable, and/or as known Key Caps, else as ⌘V Paste"""
 
     tfr: TerminalFrameReader  # the Frames taken so far, and the Open Frame
     kd: KeyboardDecoder  # the Key Caps known to send Bytes
@@ -442,15 +446,13 @@ class ScreenFrameTaker:
         self.tfr = TerminalFrameReader()
         self.kd = keyboard_decoder()
 
-    def take_strikes_else_printables(
-        self, tb: TerminalBoss
-    ) -> typing.Iterator[tuple[bool, str, str, TerminalByteFrame]]:
-        """Yield (Taken, Strikes, Printables, Frame) per Frame open or taken, and drop its Cells"""
+    def take_input_strikes_and_yield_each(self, tb: TerminalBoss) -> typing.Iterator[InputStrike]:
+        """Yield an InputStrike for each Frame yielded while growing or when taken"""
 
         tfr = self.tfr
         kd = self.kd
 
-        for taken, frame, _ in tfr.take_frames(tb):
+        for taken, frame, _ in tfr.take_frames_and_yield_each(tb):
             data = frame.to_frame_bytes()  # maybe empty
 
             # Speak of the Frame as Text, when its Bytes decode as Printable
@@ -462,10 +464,21 @@ class ScreenFrameTaker:
 
             # Speak of the Frame as Strikes, when the Keyboard Decoder names its Key Caps
 
-            strikes = kd.bytes_to_key_caps_if(data)  # ⎋, ⎋[, ↑ when typed slowly
-            assert strikes == strikes.strip(), (strikes, frame)
+            caps = kd.bytes_to_key_caps_if(data)  # ⎋, ⎋[, ↑ when typed slowly
+            assert caps == caps.strip(), (caps, frame)
 
-            yield (taken, strikes, printables, frame)
+            strike = InputStrike(taken=taken, caps=caps, printables=printables, frame=frame)
+            yield strike
+
+
+@dataclasses.dataclass(order=True)  # , frozen=True)
+class InputStrike:
+    """Speak of one Frame as Strikes and as Text, and say if it is Taken"""
+
+    taken: bool  # closed or bounced or cut at Quit, else still the Open Frame
+    caps: str  # the Key Caps best known as sending these Bytes, else ''
+    printables: str  # the Bytes decoded, if printable, else ''
+    frame: TerminalByteFrame  # the Bytes, maybe none  # mutable for no reason
 
 
 #
@@ -1051,10 +1064,10 @@ class TerminalFrameReader:
         self.tft = TerminalFrameTaker()
         self.cells = list()
 
-    def take_frames(
+    def take_frames_and_yield_each(
         self, tb: TerminalBoss
     ) -> typing.Iterator[tuple[bool, TerminalByteFrame, list[int | bytes]]]:
-        """Yield (False, Open Frame, Cells) before each Read, and (True, Taken Frame, Cells) after"""
+        """Yield (False, Open Frame, Cells) before taking, and (True, Taken Frame, Cells) after"""
 
         tft = self.tft
         cells = self.cells
@@ -1163,9 +1176,9 @@ class TerminalFrameTaker:
 
     bk: ByteKeeper  # the Bytes, and when each arrived
 
-    frame: TerminalByteFrame  # the Open Frame
+    frame: TerminalByteFrame  # the Open Frame  # one and then another, so not frozen
     frames: list[TerminalByteFrame]  # the Taken Frames, each closed, or bounced, or cut at Eof/ Quit
-    index: int  # how many Taken Frames also pulled
+    index: int  # how many Taken Frames also pulled  # increments, so not frozen
 
     def __init__(self) -> None:
 
@@ -1347,34 +1360,6 @@ class TerminalFrameTaker:
         return False
 
 
-def is_quitting_shape(pairs: list[tuple[int, bytes]]) -> bool:
-    """Quits when given same Bytes, 3 times in a row, but >= 100ms apart, across < 3s"""
-
-    nano = time.perf_counter_ns()
-
-    nl = [n for (n, _) in pairs]  # when the last Byte of each arrived
-    data_list = [data for (_, data) in pairs]
-
-    last3 = data_list[-3:]
-    if not last3:
-        return False
-
-    if last3 != (3 * last3[-1:]):  # three in a row
-        return False
-
-    age = nano - nl[-3]
-    early_gaps = (nl[-3] - nl[-4],) if (len(nl) > 3) else ()
-    late_gaps = (nl[-2] - nl[-3], nl[-1] - nl[-2])
-
-    if age >= _3_GIGA_NANOS_IS_TOO_SLOW_:  # as a burst, not just now and then
-        return False
-
-    if min(early_gaps + late_gaps) < _100_MEGA_NANOS_IS_TOO_FAST_:  # held, or pasted
-        return False
-
-    return True
-
-
 #
 # Frame Bytes of Terminal Input as alone, or as catenated Printable Text, or as Esc Frame
 #
@@ -1460,7 +1445,7 @@ class TerminalByteFrame:
 
     stash: bytearray  # b''  # 1..3 Bytes taken while not printable
 
-    closed: bool
+    closed: bool  # False while open, True while closed till reopened
 
     def __init__(self, data: bytes) -> None:
 
@@ -2062,9 +2047,9 @@ class TerminalBoss:
     stdio: io.TextIOWrapper
     isatty: bool
     fileno: int  # often 2 == sys.__stderr__.fileno()
-    tcgetattr: list[int | list[bytes | int]]  # replaced by .__enter__
+    tcgetattr: list[int | list[bytes | int]]  # replaced by .__exit__ and .__enter__
 
-    typeahead: bytearray  # read after the Terminal's own, as from --typeahead=BYTES
+    typeahead: bytearray  # Bytes to arrive slowly, in between >= 0 other Bytes arriving early
 
     def __init__(self, typeahead: bytes) -> None:
 
@@ -2275,6 +2260,34 @@ class ByteKeeper:
             return True
 
         return False
+
+
+def is_quitting_shape(pairs: list[tuple[int, bytes]]) -> bool:
+    """Quits when given same Bytes, 3 times in a row, but >= 100ms apart, across < 3s"""
+
+    nano = time.perf_counter_ns()
+
+    nl = [n for (n, _) in pairs]  # when the last Byte of each arrived
+    data_list = [data for (_, data) in pairs]
+
+    last3 = data_list[-3:]
+    if not last3:
+        return False
+
+    if last3 != (3 * last3[-1:]):  # three in a row
+        return False
+
+    age = nano - nl[-3]
+    early_gaps = (nl[-3] - nl[-4],) if (len(nl) > 3) else ()
+    late_gaps = (nl[-2] - nl[-3], nl[-1] - nl[-2])
+
+    if age >= _3_GIGA_NANOS_:  # as a burst, not just now and then
+        return False
+
+    if min(early_gaps + late_gaps) < _100_MEGA_NANOS_:  # held, or pasted
+        return False
+
+    return True
 
 
 #
