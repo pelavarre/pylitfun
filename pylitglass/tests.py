@@ -40,11 +40,20 @@ if not __debug__:
 def main() -> None:
     """Run every self-test, and print one line when they pass"""
 
-    _try_terminal_byte_frame_()
-    _try_keyboard_decoder_()
-    _try_terminal_boss_()
-    _try_is_quitting_frames_()
-    _try_strikes_spill_()
+    # ~5000ms in all, mostly waiting, not computing
+    #
+    #   100ms: the quit rule's too-fast gap, so each strike below must wait longer than that
+    #   150ms: that wait, and also the Typeahead wait per Byte, so each Byte costs 150ms
+    #   ~50ms: to start each child Python and import litpyglass, which every Pty Test pays
+
+    _try_terminal_byte_frame_()  # ~330ms, mostly ~327ms _try_ends_later_ over every Char
+    _try_keyboard_decoder_()  # ~1ms
+    _try_terminal_boss_()  # ~490ms, 2 child Pythons
+    _try_is_quitting_frames_()  # ~1600ms, 7 Ptys at once, the slowest 6 ⎋ at 150ms apart + 500ms
+    _try_strikes_spill_()  # ~1000ms, 3 ⏎ at 150ms apart, then 300ms of reading what is left
+    _try_terminal_boss_typeahead_()  # ~600ms, 150ms per Typeahead Byte
+    _try_terminal_boss_chunks_()  # ~460ms, 150ms per Typeahead Byte
+    _try_typeahead_()  # ~550ms, 3 Typeahead ⏎ at 150ms each
 
     print("tests ok")
 
@@ -481,7 +490,7 @@ spy_stdout = FlushSpy(sys.stdout)
 spy_stderr = FlushSpy(sys.stderr)
 sys.stdout, sys.stderr = spy_stdout, spy_stderr
 
-boss = litpyglass.TerminalBoss()
+boss = litpyglass.TerminalBoss(typeahead=b"")
 print("READY1", file=real_stdout, flush=True)
 os.read(sync_fileno, 1)  # 'ab' has been typed, and the Terminal still takes Cooked Input
 with boss:
@@ -517,7 +526,7 @@ import sys
 sys.path.insert(0, sys.argv[1])
 import litpyglass
 
-boss = litpyglass.TerminalBoss()
+boss = litpyglass.TerminalBoss(typeahead=b"")
 with boss:
     inside = (boss.isatty, boss.tcgetattr)
 print("RESULT", repr((inside, boss.tcgetattr)), flush=True)
@@ -589,6 +598,132 @@ def _try_terminal_boss_() -> None:
     assert pipe_result == pipe_expected, (pipe_result, pipe_expected, run.stderr)
 
 
+_TERMINAL_BOSS_TYPEAHEAD_CHILD_ = r"""
+import os, sys, time
+sys.path.insert(0, sys.argv[1])
+import litpyglass
+
+sync_fileno = int(sys.argv[2])
+boss = litpyglass.TerminalBoss(typeahead=b"ab")
+print("READY1", flush=True)
+os.read(sync_fileno, 1)  # 'X' has been typed on the Terminal
+with boss:
+    first = boss.read_one_byte()
+    second = boss.read_one_byte()
+    selects_in_0ms = boss.stdio_select_select(timeout=0.0)
+    start = time.monotonic()
+    selects_in_1s = boss.stdio_select_select(timeout=1.0)
+    waited_about_150ms = 0.1 <= (time.monotonic() - start) < 0.6
+    third = boss.read_one_byte()
+print(
+    "RESULT",
+    repr((first, second, selects_in_0ms, selects_in_1s, waited_about_150ms, third)),
+    flush=True,
+)
+"""
+
+
+def _try_terminal_boss_typeahead_() -> None:
+    """Try TerminalBoss reading Typeahead, as _6_ at the bottom of this file says"""
+
+    result = _pty_run_child_(_TERMINAL_BOSS_TYPEAHEAD_CHILD_, terminal_bytes=b"X")
+
+    expected = (b"X", b"a", True, True, True, b"b")  # Terminal first, then Typeahead, and 2 selects
+    assert result == expected, (result, expected)
+
+
+_TERMINAL_BOSS_CHUNKS_CHILD_ = r"""
+import os, sys
+sys.path.insert(0, sys.argv[1])
+import litpyglass
+
+sync_fileno = int(sys.argv[2])
+boss = litpyglass.TerminalBoss(typeahead=b"ab")
+print("READY1", flush=True)
+os.read(sync_fileno, 1)  # 'XY' has been typed on the Terminal
+with boss:
+    chunks = tuple(boss.read_some_bytes_if() for _ in range(4))
+print("RESULT", repr(chunks), flush=True)
+"""
+
+
+def _try_terminal_boss_chunks_() -> None:
+    """Try TerminalBoss reading Typeahead in chunks, as _6_ at the bottom of this file says"""
+
+    result = _pty_run_child_(_TERMINAL_BOSS_CHUNKS_CHILD_, terminal_bytes=b"XY")
+
+    expected = (b"X", b"Y", b"a", b"b")  # each Byte alone, though 'XY' arrived all at once
+    assert result == expected, (result, expected)
+
+
+def _pty_run_child_(child_code: str, terminal_bytes: bytes) -> object:
+    """Run this Python on a Pty, type these Bytes when it says READY1, and return its RESULT"""
+
+    here = os.path.dirname(os.path.abspath(litpyglass.__file__))
+
+    sync_read_fileno, sync_write_fileno = os.pipe()
+    master_fileno, slave_fileno = pty.openpty()
+    argv = [sys.executable, "-I", "-c", child_code, here, str(sync_read_fileno)]
+    process = subprocess.Popen(
+        argv,
+        stdin=slave_fileno,
+        stdout=slave_fileno,
+        stderr=slave_fileno,
+        pass_fds=(sync_read_fileno,),
+    )
+    os.close(slave_fileno)
+
+    terminal_output = bytearray()
+
+    _pty_read_till_marker_(master_fileno, terminal_output, b"READY1")
+    os.write(master_fileno, terminal_bytes)  # typed before the Child reads Input
+    time.sleep(0.05)
+    os.write(sync_write_fileno, b"g")
+
+    _pty_read_till_marker_(master_fileno, terminal_output, b"RESULT (")
+    _pty_read_till_marker_(master_fileno, terminal_output, b")\r\n")
+    try:
+        process.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        process.kill()  # a Child that never printed its RESULT is still blocked reading Input
+        process.wait()
+    os.close(master_fileno)
+    os.close(sync_read_fileno)
+    os.close(sync_write_fileno)
+
+    screen_decode = bytes(terminal_output).decode(errors="replace")
+    assert "RESULT " in screen_decode, (screen_decode,)
+    result_decode = screen_decode.split("RESULT ")[1].split("\r\n")[0]
+    result: object = ast.literal_eval(result_decode)
+
+    return result
+
+
+def _try_typeahead_() -> None:
+    """Try the --typeahead flag, as _6_ at the bottom of this file says"""
+
+    master_fileno, slave_fileno = pty.openpty()
+    argv = [sys.executable, "-I", litpyglass.__file__, "--egg=strikes", "--typeahead=\r\r\r"]
+    process = subprocess.Popen(argv, stdin=slave_fileno, stdout=slave_fileno, stderr=slave_fileno)
+    os.close(slave_fileno)
+
+    terminal_output = bytearray()
+
+    deadline = time.monotonic() + 5
+    while (process.poll() is None) and (time.monotonic() < deadline):
+        _pty_read_once_(master_fileno, terminal_output)
+
+    returncode = process.poll()
+    if returncode is None:
+        process.kill()
+        process.wait()
+
+    os.close(master_fileno)
+
+    screen_decode = bytes(terminal_output).decode(errors="replace")
+    assert returncode == 0, (returncode, screen_decode)
+
+
 def _try_is_quitting_frames_() -> None:
     """Try which strikes quit --egg=strikes, as _3_ at the bottom of this file says"""
 
@@ -600,7 +735,7 @@ def _try_is_quitting_frames_() -> None:
         (b"\033\033", 3, True, ""),  # ⎋⎋ ⎋⎋ ⎋⎋
         (b"\033", 6, True, ""),  # ⎋ ⎋ ⎋ ⎋ ⎋ ⎋ joined in pairs
         (b"x", 3, False, ""),  # Text
-        (b"\r\r\r", 1, False, ""),  # ⏎ ⏎ ⏎ all at once
+        (b"\r\r\r", 1, False, "⏎ '' b'\\r'\r\n\r\x1b[K" * 2 + "⏎ '' b'\\r'\r\n"),  # ⏎ ⏎ ⏎ pasted
     )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
@@ -629,9 +764,9 @@ def _try_strikes_quit_(data: bytes, count: int) -> tuple[bool, str]:
 
     for _ in range(count):
         os.write(master_fileno, data)
-        _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)
+        _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)  # over the 100ms too-fast gap
 
-    _pty_read_for_seconds_(master_fileno, terminal_output, 0.5)
+    _pty_read_for_seconds_(master_fileno, terminal_output, 0.5)  # long enough for a quit to show
     quit = process.poll() is not None
     if not quit:
         process.kill()
@@ -684,7 +819,7 @@ def _try_strikes_left_(extra: bytes) -> bytes:
 
     for _ in range(3):
         os.write(master_fileno, b"\r")
-        _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)
+        _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)  # over the 100ms too-fast gap
 
     if extra:
         os.write(master_fileno, extra)
@@ -822,6 +957,7 @@ Bytes go in, and the Frame closes, stays open, or bounces back the Bytes it won'
     13. The ⎋[↗ closes as an Intercardinal Arrow, all while no merely public standard names these.
 """
 
+
 # class TerminalFrameTaker
 
 _3_ = r"""
@@ -844,8 +980,10 @@ Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with the strikes 150 
 
     6. The triple of x x x does not quit, since repeated Text never quits.
 
-    7. The triple of ⏎ ⏎ ⏎ struck all at once does not quit, since they are under 100 ms apart.
+    7. The triple of ⏎ ⏎ ⏎ pasted, or struck all at once, shows 3 closed Frames, each ⏎ '' b'\r',
+       and does not quit, since they are under 100 ms apart. So pasting blank lines is safe.
 """
+
 
 # class TerminalFrameReader
 
@@ -884,6 +1022,7 @@ The Bytes of one Strike go in, and the Key Caps struck to send them come out, el
 
 # class ScreenFrameTaker
 
+
 # class GlassWorker
 
 _5_ = r"""
@@ -897,7 +1036,32 @@ Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with the 3 ⏎ 150 ms
 """
 
 
-_ = _1_, _2_, _3_, _4_, _5_
+# def main
+
+_6_ = r"""
+Spec of the --typeahead flag of litpyglass.py, from the flag down into TerminalBoss.
+
+Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with no key struck.
+
+We meet spec as tested by _try_typeahead_:
+
+    1. The flag --typeahead of ⏎ ⏎ ⏎ quits it, since each ⏎ comes 150 ms after the last.
+
+We meet spec as tested by _try_terminal_boss_typeahead_ and _try_terminal_boss_chunks_:
+
+    2. Typeahead Bytes read as if the Terminal sent them, but only after 150 ms in which
+       the Terminal sends nothing, so a Byte the Terminal already sent comes first.
+
+    3. While Typeahead is waiting, asking if a Byte is coming always gets the answer yes.
+       The answer waits up to 150 ms for the Terminal to speak first, or only as long as
+       the caller will wait, when that is less.
+
+    4. Reading Typeahead always takes each Typeahead Byte alone, never as if pasted
+       as a burst.
+"""
+
+
+_ = _1_, _2_, _3_, _4_, _5_, _6_
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789

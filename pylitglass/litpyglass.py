@@ -7,6 +7,7 @@ loop back to write Screen after reading from Touch/ Mouse/ Key
 
 options:
   --egg EGG  a hint of how to behave, such as 'bytes' or 'frames'
+  --typeahead BYTES  read these Bytes as typed ahead, each after 150ms of Terminal silence
 
 quirks:
   quits when given an unprintable, 3 times in a row, but 100ms or more apart, across less than 3s
@@ -19,6 +20,7 @@ examples:
   pylitglass/litpyglass.py --egg=nanos  # print your input bytes and when they arrived
   pylitglass/litpyglass.py --egg=frames  # print your inputs split into frames, named when known
   pylitglass/litpyglass.py --egg=strikes  # print your input frames as strikes else text
+  pylitglass/litpyglass.py --egg=strikes --typeahead="$(printf '\r\r\r')"  # quit by itself
 """
 
 # code reviewed by People, Black, Flake8, Mypy-Strict, & Pylance-Standard
@@ -57,6 +59,7 @@ if not __debug__:
 
 _3_GIGA_NANOS_IS_TOO_SLOW_ = 3 * 10**9  # too slow to take 3 same inputs in a row as a quit request
 _100_MEGA_NANOS_IS_TOO_FAST_ = 100 * 10**6  # too fast to take 3 in a row as a quit request
+_150_MEGA_NANOS_ = 150 * 10**6  # keys typed ahead can come about as fast as a typist's
 
 
 CR_EL_PS0 = "\r\n" "⎋[K "  # scrolls up the present Screen Row, starts writing the next
@@ -101,17 +104,20 @@ def main() -> None:
     if not eggs:
         eggs.append("bytes")
 
+    typeaheads = list(_.removeprefix("--typeahead=") for _ in shargv if _.startswith("--typeahead="))
+    typeahead = os.fsencode("".join(typeaheads))  # todo: tighter parsing of .shargv
+
     gw = GlassWorker()
     gw.nano_launch = time.perf_counter_ns()
 
     if "bytes" in eggs:
-        gw.show_bytes()
+        gw.show_bytes(typeahead=typeahead)
     elif "nanos" in eggs:
-        gw.show_nanos()
+        gw.show_nanos(typeahead=typeahead)
     elif "frames" in eggs:
-        gw.show_frames()
+        gw.show_frames(typeahead=typeahead)
     elif "strikes" in eggs:
-        gw.show_strikes()
+        gw.show_strikes(typeahead=typeahead)
     else:
         assert False, (eggs,)
 
@@ -142,7 +148,7 @@ class GlassWorker:
 
     nano_launch: int = -1  # -1, else sampled at Process Launch
 
-    def show_bytes(self) -> None:
+    def show_bytes(self, typeahead: bytes) -> None:
         """Print your Input Bytes on screen"""
 
         # Launch (and prompt just once and early)
@@ -150,7 +156,7 @@ class GlassWorker:
         print("Press Return three times quickly, to quit")
         print()
 
-        with TerminalBoss() as tb:
+        with TerminalBoss(typeahead=typeahead) as tb:
             ibk = ByteKeeper()
 
             while True:
@@ -197,7 +203,7 @@ class GlassWorker:
 
     """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
-    def show_nanos(self) -> None:
+    def show_nanos(self, typeahead: bytes) -> None:
         """Print your Input Bytes (and how quickly they arrived)"""
 
         # Launch (and prompt just once and early)
@@ -207,7 +213,7 @@ class GlassWorker:
 
         before = self.nano_launch
 
-        with TerminalBoss() as tb:
+        with TerminalBoss(typeahead=typeahead) as tb:
             ibk = ByteKeeper()
 
             while True:
@@ -258,7 +264,7 @@ class GlassWorker:
 
     """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
-    def show_frames(self) -> None:
+    def show_frames(self, typeahead: bytes) -> None:
         """Print your Input Byte Frames, as Key Caps when known, and how quickly they arrived"""
 
         # Launch
@@ -266,7 +272,7 @@ class GlassWorker:
         print("Press Return three times quickly, to quit")
         print()
 
-        with TerminalBoss() as tb:
+        with TerminalBoss(typeahead=typeahead) as tb:
             tfr = TerminalFrameReader()
 
             for taken, frame, cells in tfr.take_frames(tb):
@@ -350,7 +356,7 @@ class GlassWorker:
 
     """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
-    def show_strikes(self) -> None:
+    def show_strikes(self, typeahead: bytes) -> None:
         """Print your Input Byte Frames, as Key Caps when known, and as Text when printable"""
 
         # Launch
@@ -358,7 +364,7 @@ class GlassWorker:
         print("Press Return three times quickly, to quit")
         print()
 
-        with TerminalBoss() as tb:
+        with TerminalBoss(typeahead=typeahead) as tb:
             sft = ScreenFrameTaker()
 
             for taken, strikes, printables, frame in sft.take_strikes_else_printables(tb):
@@ -2056,7 +2062,9 @@ class TerminalBoss:
     fileno: int  # often 2 == sys.__stderr__.fileno()
     tcgetattr: list[int | list[bytes | int]]  # replaced by .__enter__
 
-    def __init__(self) -> None:
+    typeahead: bytearray  # read after the Terminal's own, as from --typeahead=BYTES
+
+    def __init__(self, typeahead: bytes) -> None:
 
         assert sys.__stdin__, (sys.__stdin__,)
         stdio = sys.__stdin__  # todo: /dev/stderr, /dev/tty
@@ -2067,6 +2075,8 @@ class TerminalBoss:
         self.isatty = isatty
         self.fileno = fileno
         self.tcgetattr = list()
+
+        self.typeahead = bytearray(typeahead)
 
     def __enter__(self) -> TerminalBoss:
         r"""Pause line-buffering Input, pause taking \n Output as \r\n, etc"""
@@ -2136,25 +2146,29 @@ class TerminalBoss:
         """Block till next Input Byte, else till Timeout, else till forever"""
 
         fileno = self.fileno
+        typeahead = self.typeahead
 
         assert self.tcgetattr, (self.tcgetattr,)
 
-        r, w, x = select.select([fileno], [], [], timeout)
+        assert _150_MEGA_NANOS_ == 150 * 10**6  # keys typed ahead, about as fast as a typist's
 
-        hit = fileno in r
+        _timeout_ = timeout
+        if typeahead:  # typeahead delay can be (timeout + 150e-3) or (2 * 150e-3), if timeout
+            _timeout_ = 150e-3 if (timeout is None) else min(150e-3, timeout)
+
+            # delivering a delay of 150e-3 if timeout would require a mutable, so never mind
+
+        r, w, x = select.select([fileno], [], [], _timeout_)
+        hit = bool((fileno in r) or typeahead)
 
         return hit
 
         # a la msvcrt.kbhit
 
-    # def poll_till_bytes_available(self) -> None:
-    #     """Block till Bytes Available"""
-    #
-    #     while not self.stdio_select_select(timeout=0e0):
-    #         time.sleep(1e-9)  # slightly limits loop rate
-
     def read_some_bytes_if(self) -> bytes:
         """Read as many Bytes as arrived all at once, else return b''"""
+
+        typeahead = self.typeahead
 
         ba = bytearray()
 
@@ -2168,9 +2182,9 @@ class TerminalBoss:
 
             ba.extend(b)
 
-            # Quit when no more Bytes have arrived yet
+            # Quit after 1 Typeahead Byte arrives alone, or if no more Bytes have arrived for real
 
-            if not self.stdio_select_select(timeout=0e0):
+            if typeahead or (not self.stdio_select_select(timeout=0e0)):
                 break
 
         data = bytes(ba)
@@ -2193,6 +2207,16 @@ class TerminalBoss:
         """Read one byte and return it, else raise Exception"""
 
         fileno = self.fileno
+        typeahead = self.typeahead
+
+        # Let the Terminal speak first, else take the next Byte typed ahead
+
+        assert _150_MEGA_NANOS_ == 150 * 10**6  # keys typed ahead, about as fast as a typist's
+
+        if typeahead:
+            r, w, x = select.select([fileno], [], [], _150_MEGA_NANOS_ / 1e9)
+            if not r:
+                return bytes([typeahead.pop(0)])
 
         fd = fileno
         length = 1
