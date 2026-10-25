@@ -26,6 +26,7 @@ import pty
 import select
 import subprocess
 import sys
+import termios
 import time
 import unicodedata
 
@@ -849,6 +850,12 @@ def _try_skater_quits_() -> None:
         assert quit == want, (quit, want, data, count, screen_decode)
         assert shows in screen_decode, (shows, data, count, screen_decode)
 
+        launch = "\033[4 q + \b\b"  # sets Cursor Style 4, then writes the first Prompt
+        assert launch in screen_decode, (launch, data, count, screen_decode)
+
+        farewell = "\r\033[ q\033[32100B\033[A"  # parks the Cursor, and reverts the Cursor Style
+        assert (farewell in screen_decode) == quit, (farewell, quit, data, count, screen_decode)
+
 
 def _try_egg_quit_(egg: str, data: bytes, count: int) -> tuple[bool, str]:
     """Run --egg= on a Pty, strike these Bytes this often 150ms apart, and say if it quit"""
@@ -864,6 +871,9 @@ def _try_egg_quit_(egg: str, data: bytes, count: int) -> tuple[bool, str]:
         master_fileno, terminal_output, b"+ "
     )  # waits for the Prompt, since Bytes read too soon count as too fast
     assert b"+ " in terminal_output, (bytes(terminal_output),)
+
+    isig = termios.tcgetattr(master_fileno)[3] & termios.ISIG  # ⌃C ⌃Z ⌃\ signal, or else not
+    assert not isig, (isig, egg, bytes(terminal_output))
 
     for _ in range(count):
         try:
@@ -1164,6 +1174,14 @@ On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits
        moves the Cursor.
 
     8. The triple of ⎋[↗ quits, since the Intercardinal Arrows are declared and not yet used.
+
+    9. Launch sets the Cursor Style to Skid, a solid underline similar to a _ skid mark,
+       before it writes the first Prompt.
+
+    10. Quit parks the Cursor at the leftmost Column of the next-to-last Row, and reverts the
+        Cursor Style to the default. No writes of a choice of Cursor Style between Launch and Quit.
+
+    11. Launch takes ⌃C ⌃Z ⌃\ as Input and not as Signals, by the time it writes the first Prompt.
 """
 
 

@@ -106,7 +106,8 @@ def main() -> None:
     if not eggs:
         eggs.append("bytes")
 
-    typeaheads = list(_.removeprefix("--typeahead=") for _ in shargv if _.startswith("--typeahead="))
+    xxta = "--typeahead="
+    typeaheads = list(_.removeprefix(xxta) for _ in shargv if _.startswith(xxta))
     typeahead = os.fsencode("".join(typeaheads))  # todo: tighter parsing of .shargv
 
     gw = GlassWorker()
@@ -389,7 +390,7 @@ class GlassWorker:
 
                     continue
 
-                # Speak of the Frame as its Strikes when known, else as ⌘V, since no Key Cap sends it
+                # Speak of the Frame as its Caps, else as ⌘V when no Caps send it
 
                 words: list[str] = list()
 
@@ -436,13 +437,34 @@ class GlassWorker:
     def show_skater(self, typeahead: bytes) -> None:
         """Draw a '+' wherever the Cursor goes, and move it as the → ↑ ← ↓ Arrow Keys say"""
 
-        # Launch elegantly, almost silently, without printing instructions
-
         stalwarts = (b"\033[C", b"\033[A", b"\033[D", b"\033[B")  # → ↑ ← ↓
         assert tuple(_.decode() for _ in stalwarts) == _CARDINAL_ENWS_ARROWS_
 
+        # Ask at exit
+        # to revert to default Cursor Style (often macOS Terminal single █ Full-Block U+2588), and
+        # to park the Cursor at the leftmost Column of the next-to-last Row
+
+        assert CR == "\r"
+        assert DECSCUSR_PS_NO == "\033[" " q"
+        assert CUD_Y.format(_MAX_PN_32100_) == "\033[" "32100" "B"
+        assert CUU_Y.format("") == "\033[A"
+
+        farewells = (
+            "\r",  # warps Cursor to left of Screen Row
+            "\033[" " q",  # reverts to default Cursor Style
+            "\033[" "32100" "B",  # warps to last Screen Row
+            "\033[A",  # warps to one Screen Row up from last
+        )
+
+        farewell = "".join(farewells).encode()
+
+        # Launch elegantly, almost silently, without printing instructions
+
         ist = InputStrikeTaker()
-        with TerminalBoss(typeahead=typeahead, farewell=b"") as tb:
+        with TerminalBoss(typeahead=typeahead, farewell=farewell) as tb:
+            tb.tty_setraw_before_farewell()  # takes each Return as ⏎ b"\r", and ⌃C as Input
+
+            print(DECSCUSR_PS4_SKID, end="")
 
             print(" + \b\b", end="")  # writes the first Prompt, into tty.
 
@@ -487,7 +509,7 @@ class InputStrikeTaker:
     def take_input_strikes_and_yield_each(
         self, tb: TerminalBoss, stalwarts: tuple[bytes, ...]
     ) -> typing.Iterator[InputStrike]:
-        """Yield an InputStrike for each Frame yielded while growing or when taken"""
+        """Yield an InputStrike for each Frame yielded (while growing or when taken)"""
 
         tfr = self.tfr
         kd = self.kd
@@ -736,7 +758,7 @@ class KeyboardDecoder:
             033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
             033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
             033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
-        """
+        """  # our sourceline detailing "033.011 ... 033.034" is more than 100 Chars wide
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
@@ -750,7 +772,7 @@ class KeyboardDecoder:
             033.001 033.023 033.004 033.006 033.007 033.010 033.012 033.013 033.014 ⎋; ⎋' 033.015
             033.032 033.030 033.003 033.026 033.002 033.016 033.015 ⎋, ⎋. ⎋/
             033.040 ⎋⎋[⇧D ⎋⎋[⇧A ⎋⎋[⇧C ⎋⎋[⇧B
-        """
+        """  # our sourceline detailing "⎋⎋[⇧Z 033.021 ... 033.034" is more than 100 Chars wide
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
 
@@ -1217,7 +1239,7 @@ class TerminalFrameTaker:
     bk: ByteKeeper  # the Bytes, and when each arrived
 
     frame: TerminalByteFrame  # the Open Frame  # one and then another, so not frozen
-    frames: list[TerminalByteFrame]  # the Taken Frames, each closed, or bounced, or cut at Eof/ Quit
+    frames: list[TerminalByteFrame]  # the Taken Frames, each closed, or bounced, or cut at Quit
     index: int  # how many Taken Frames also pulled  # increments, so not frozen
 
     def __init__(self) -> None:
@@ -1264,7 +1286,7 @@ class TerminalFrameTaker:
             # because post-conditions at ._frame_take_data_if_ > .take_data_if > .take_one_byte_if
 
     def _frame_take_data_if_(self, data: bytes, peek: str) -> bytes:
-        """Grow the Frame, replace it if it closes or bounces, and return the bounced Bytes, if any"""
+        """Grow the Frame, replace it if it closes or bounces, and return any bounced Bytes"""
 
         frame = self.frame
         frames = self.frames
@@ -1293,7 +1315,7 @@ class TerminalFrameTaker:
         return extras
 
     def take_open_frame_if(self) -> None:
-        """Take the Open Frame as cut off, unclosed, if it holds Bytes, as at Stdin Eof or at Quit"""
+        """Take the Open Frame as cut off, despite unclosed, if it holds Bytes, as at Quit"""
 
         frame = self.frame
         frames = self.frames
@@ -2372,7 +2394,8 @@ def is_quitting_shape(pairs: list[tuple[int, bytes]]) -> bool:
 
 
 BEL = "\007"  # 00/07 Bell
-
+LF = "\012"  # 01/10 Line Feed \n ⏎
+CR = "\015"  # 01/13 Carriage Return \r ⏎
 ESC = "\033"  # 01/11 Escape ⎋
 
 SS3 = "\033O"  # 01/11 04/15 Single Shift Three  # ⎋O
@@ -2397,6 +2420,7 @@ DECDC_X = "\033[" "{}" "'~"  # Csi 07/14 [DEC] Delete Column [Pn]
 
 ICH_X = "\033[" "{}" "@"  # Csi 04/00 [Insert] Cursor Horizontal [Pn] [Columns]
 CUU_Y = "\033[" "{}" "A"  # Csi 04/01 Cursor Up [Pn] [Rows]
+CUD_Y = "\033[" "{}" "B"  # Csi 04/02 Cursor Down [Pn] [Rows]
 CUF_X = "\033[" "{}" "C"  # Csi 04/03 Cursor Forward [Pn] [Columns]
 CUB_X = "\033[" "{}" "D"  # Csi 04/04 Cursor Backward [Pn] [Columns]
 CUP_Y_X = "\033[" "{};{}H"  # Csi 04/08 [Choose] Cursor Position [Y and X]
@@ -2416,13 +2440,16 @@ SM_PS = "\033[" "{}" "h"  # CSI 06/08 4 Set Mode
 RM_PS = "\033[" "{}" "l"  # CSI 06/12 4 Reset Mode
 SGR_PS = "\033[" "{}" "m"  # CSI 06/13 Select Graphic Rendition [Text Style]
 DSR_PS = "\033[" "{}n"  # Csi 06/14 [Request] Device Status Report [Ps]
+
 DECSCUSR_PS = "\033[" "{}" " q"  # CSI 06/15 [DEC] Set Cursor Style [Ps]  # Two Byte Backtail
+DECSCUSR_PS4_SKID = "\033[" "4" " q"  # DECSCUSR_PS Ps 4 for steady Skid Mark
+DECSCUSR_PS_NO = "\033[" " q"  # DECSCUSR_PS Ps 0 to revert to default Cursor Style
 
-DSR0 = "\033[" "0n"  # DSR_PS Ps 0
-DSR5 = "\033[" "5n"  # DSR_PS Ps 5 for DSR0
+DSR0 = "\033[" "0n"  # DSR_PS Ps 0 for Ps 5
+DSR5 = "\033[" "5n"  # DSR_PS Ps 5 to Ps 0
+
 DSR6 = "\033[" "6n"  # DSR_PS Ps 6 for CPR_Y_X
-
-CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R
+CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R  # [ CPR 'R' Result to 'n' Query DSR_PS Ps 6 ]
 
 
 # ← ↑ → ↓ is sorted by Codepoint
@@ -2447,7 +2474,6 @@ _SouthwestArrow_ = "\033[↙"
 _ = _NorthwestArrow_, _NortheastArrow_, _SoutheastArrow_, _SouthwestArrow_
 
 
-_ = _MAX_PN_32100_
 _ = _START_PASTE_
 
 
