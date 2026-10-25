@@ -56,7 +56,7 @@ def main() -> None:
     _try_terminal_boss_typeahead_()  # ~600ms, 150ms per Typeahead Byte
     _try_terminal_boss_chunks_()  # ~460ms, 150ms per Typeahead Byte
     _try_typeahead_()  # ~550ms, 3 Typeahead ⏎ at 150ms each
-    _try_skater_quits_()  # ~1100ms, 8 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
+    _try_skater_quits_()  # ~1100ms, 13 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
 
     print("tests ok")
 
@@ -446,7 +446,7 @@ def _try_terminal_byte_frame_2_() -> None:
     assert f.to_frame_bytes() == b"\033[Mab\xff", (f,)
     assert f.closed, (f,)
 
-    # Accept ↖↗↘↙ Intercardinal Arrows, not just ←↑→↓ Cardinal Arrows
+    # Accept ↖ ↗ ↘ ↙ Intercardinal Arrows, not just → ↑ ← ↓ Cardinal Arrows
 
     f = litpyglass.TerminalByteFrame("\033[↗".encode())  # not yet standard
     assert f.to_frame_bytes() == "\033[↗".encode(), (f,)
@@ -839,6 +839,11 @@ def _try_skater_quits_() -> None:
         (b"\033[A", 3, False, "+\b\b\033[A + \b\b"),  # ↑ ↑ ↑
         (b"\033[D", 3, False, "+\b\b\033[D\033[D + \b\b"),  # ← ← ←
         (b"\033[B", 3, False, "+\b\b\033[B + \b\b"),  # ↓ ↓ ↓
+        (b"\033", 1, False, "1\b"),  # ⎋ the Open Frame of 1 Byte
+        (b"\033[", 1, False, "2\b"),  # ⎋[ the Open Frame of 2 Bytes
+        (b"\033[12345678", 1, False, "0\b"),  # ⎋[ and 8 more, the Open Frame of 10 Bytes
+        (b"x\033[", 1, False, "3\b"),  # x the Taken Frame of 1 Byte, then ⎋[ the Open Frame
+        (b"x\033[C\033[", 1, False, "2\b"),  # ⎋[C the Taken Arrow of 3 Bytes resets the count
         ("\033[↗".encode(), 3, True, ""),  # ↗ ↗ ↗, an Intercardinal Arrow, not yet a Stalwart
     )
 
@@ -1182,6 +1187,12 @@ On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits
         Cursor Style to the default. No writes of a choice of Cursor Style between Launch and Quit.
 
     11. Launch takes ⌃C ⌃Z ⌃\ as Input and not as Signals, by the time it writes the first Prompt.
+
+    12. Each Byte of an Open Frame cycles the Prompt through the Digits 1234567890.
+        Such as ⎋ shows 1, and ⎋[ shows 2, and ⎋[ after a Taken Frame of 1 Byte shows 3,
+        and an Open Frame of 10 or 20 Bytes shows 0.
+
+    13. A Taken Arrow Frame resets the count of Bytes to 0, so ⎋[ shows 2 again after it.
 """
 
 

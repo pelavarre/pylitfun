@@ -277,24 +277,24 @@ class GlassWorker:
         print("Press Return three times quickly, to quit")
         print()
 
+        tfr = TerminalFrameReader()
         with TerminalBoss(typeahead=typeahead, farewell=b"") as tb:
-            tfr = TerminalFrameReader()
-
             for taken, frame, cells in tfr.take_frames_and_yield_each(tb, stalwarts=()):
-                data = frame.to_frame_bytes()  # maybe empty
 
                 # Prompt for next Byte, while growing the Frame
 
+                data = frame.to_frame_bytes()  # maybe empty
                 if not taken:
                     self.frame_print(data, cells=cells, end=" + ")
 
                     continue
 
-                # Print each Frame taken as a line
+                # Print each Frame taken as 1 Line,
+                # Except in reply to ⏎ Return, do split Frame Lines into paragraphs
 
                 self.frame_print(data, cells=cells, end="\r\n")
 
-                if data == b"\r":  # pressing Return splits Frame Lines into paragraphs
+                if data == b"\r":
                     print()
 
     def frame_print(self, data: bytes, cells: list[int | bytes], end: str) -> None:
@@ -468,6 +468,9 @@ class GlassWorker:
 
             print(" + \b\b", end="")  # writes the first Prompt, into tty.
 
+            digits = "0123456789"
+            i = "0"  # .i is our reply to the next Byte that doesn't complete a Frame
+
             # Loop till quit (such as by pressing Return three times quickly)
 
             for strike in ist.take_input_strikes_and_yield_each(tb, stalwarts=stalwarts):
@@ -476,16 +479,34 @@ class GlassWorker:
                 caps = strike.caps
                 frame = strike.frame
 
+                # Cycle prompt across 1234567890, in reply to each Byte of an Open Frame not taken
+
+                data = frame.to_frame_bytes()  # maybe empty
+                if not taken:
+                    assert not frame.closed, (frame,)
+
+                    if data:
+                        j = digits[(digits.index(i) + len(data)) % len(digits)]
+                        print(f"{j}\b", end="")  # FIXME: no visible reply to pasting N * 10 bytes
+
+                    continue
+
                 # Move the Cursor, in reply to each Arrow Key Strike
 
-                if taken and (caps in ("→", "↑", "←", "↓")):
-                    data = frame.to_frame_bytes()  # maybe empty
+                if caps in ("→", "↑", "←", "↓"):  # → ↑ ← ↓ ENWS
                     decode = data.decode()
 
                     vertical = caps in ("↑", "↓")
                     write = decode if vertical else (decode + decode)  # for 2x1 Terminal Cells
-
                     print(f"+\b\b{write} + \b\b", end="")
+
+                    i = "0"
+                    continue
+
+                # Else cycle the Open Frame Prompt forward by as many Bytes as taken
+
+                i = digits[(digits.index(i) + len(data)) % len(digits)]
+                continue  # explicit
 
             print("+\b", end="")  # puts the '+' back over the reply to the Quit Signal
 
@@ -569,7 +590,7 @@ class KeyboardDecoder:
         A S D F G H J K L ; ' ⏎
         Z X C V B N M , . /
         ␢ ← ↑ → ↓
-    """  # Plain Caps apart from F1 .. F12 etc
+    """  # Plain Caps apart from F1 .. F12 etc  # ␢ ← ↑ → ↓ is sorted by Codepoint
 
     ShiftCapsWithoutFn = """
         ⎋
@@ -578,7 +599,7 @@ class KeyboardDecoder:
         A S D F G H J K L : " ⏎
         Z X C V B N M < > ?
         ␢ ← ↑ → ↓
-    """  # Shift Caps apart from ⇧ F1 .. ⇧ F12 etc
+    """  # Shift Caps apart from ⇧ F1 .. ⇧ F12 etc  # ␢ ← ↑ → ↓ is sorted by Codepoint
 
     ShortcutShifts: tuple[str, ...]  # ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧ ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧
     ShortcutShifts = ("", "⌃", "⌥", "⌃⌥", "⇧", "⌃⇧", "⌥⇧", "⌃⌥⇧", "⎋", "⎋⌃", "⎋⇧", "⎋⌃⇧")
@@ -2466,7 +2487,7 @@ _CARDINAL_ENWS_ARROWS_ = (  # → ↑ ← ↓ ENWS is counterclockwise from East
     _SouthArrow_,  # B ↓
 )
 
-_NorthwestArrow_ = "\033[↖"  # ⎋[ ↖↗↘↙  # not yet standard
+_NorthwestArrow_ = "\033[↖"  # ⎋[ ↖ ↗ ↘ ↙  # sorted by Codepoint  # not yet standard Byte Frames
 _NortheastArrow_ = "\033[↗"
 _SoutheastArrow_ = "\033[↘"
 _SouthwestArrow_ = "\033[↙"
