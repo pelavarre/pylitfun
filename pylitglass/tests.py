@@ -47,6 +47,7 @@ def main() -> None:
     #   150ms: that wait, and also the Typeahead wait per Byte, so each Byte costs 150ms
     #   ~50ms: to start each child Python and import litpyglass, which every Pty Test pays
 
+    _try_terminal_frame_decoder_()  # ~1ms
     _try_terminal_byte_frame_()  # ~330ms, mostly ~327ms _try_ends_later_ over every Char
     _try_keyboard_decoder_()  # ~1ms
     _try_terminal_boss_()  # ~490ms, 2 child Pythons
@@ -112,6 +113,33 @@ def _try_keyboard_decoder_() -> None:
 
     for t in dead_key_echo_by_combining.keys():
         assert unicodedata.combining(t), (t,)
+
+
+def _try_terminal_frame_decoder_() -> None:
+    """Try Results of DSR6 and XTWINOPS_18 Queries, and Frames that aren't Results"""
+
+    assert litpyglass.XTWINOPS_18 == "\033[18t"
+    assert litpyglass.DSR6 == "\033[6n"
+
+    f = litpyglass.TerminalFrameDecoder.bytes_to_yx_or_hw_if
+
+    assert f(b"\033[8;24;80t") == ("HW", 24, 80)  # Rows then Columns
+    assert f(b"\033[5;7R") == ("YX", 5, 7)  # Row then Column
+
+    assert f(b"\033[A") == ()  # an Arrow
+    assert f(b"\033\033[5;7R") == ()  # a Result with a ⎋ stuck on the front
+    assert f(b"\033[5;7R\033[5;7R") == ()  # two Results are two Frames
+    assert f(b"\033[8;24t") == ()  # too few Ints
+    assert f(b"\033[;7R") == ()  # an empty Int
+    assert f(b"\033[007;5R") == ("YX", 7, 5)  # leading 0s, which ECMA-48 would not send
+    assert f(b"") == ()
+
+    for data in (b"\033[0;7R", b"\033[5;0R", b"\033[8;0;80t", b"\033[8;24;0t"):  # a 0 Int
+        try:
+            f(data)
+        except AssertionError:
+            continue
+        assert False, (data,)
 
 
 def _try_terminal_byte_frame_() -> None:
@@ -703,7 +731,7 @@ print(
 
 
 def _try_terminal_boss_typeahead_() -> None:
-    """Try TerminalBoss reading Typeahead, as _6_ at the bottom of this file says"""
+    """Try TerminalBoss reading Typeahead, as _7_ at the bottom of this file says"""
 
     result = _pty_run_child_(_TERMINAL_BOSS_TYPEAHEAD_CHILD_, terminal_bytes=b"X")
 
@@ -727,7 +755,7 @@ print("RESULT", repr(chunks), flush=True)
 
 
 def _try_terminal_boss_chunks_() -> None:
-    """Try TerminalBoss reading Typeahead in chunks, as _6_ at the bottom of this file says"""
+    """Try TerminalBoss reading Typeahead in chunks, as _7_ at the bottom of this file says"""
 
     result = _pty_run_child_(_TERMINAL_BOSS_CHUNKS_CHILD_, terminal_bytes=b"XY")
 
@@ -779,7 +807,7 @@ def _pty_run_child_(child_code: str, terminal_bytes: bytes) -> object:
 
 
 def _try_typeahead_() -> None:
-    """Try the --typeahead flag, as _6_ at the bottom of this file says"""
+    """Try the --typeahead flag, as _7_ at the bottom of this file says"""
 
     master_fileno, slave_fileno = pty.openpty()
     argv = [sys.executable, "-I", litpyglass.__file__, "--egg=strikes", "--typeahead=\r\r\r"]
@@ -804,7 +832,7 @@ def _try_typeahead_() -> None:
 
 
 def _try_is_quitting_frames_() -> None:
-    """Try which strikes quit --egg=strikes, as _3_ at the bottom of this file says"""
+    """Try which strikes quit --egg=strikes, as _4_ at the bottom of this file says"""
 
     cases = (
         (b"\r", 3, True, ""),  # ⏎ ⏎ ⏎
@@ -829,7 +857,7 @@ def _try_is_quitting_frames_() -> None:
 
 
 def _try_skater_quits_() -> None:
-    """Try which strikes quit --egg=skater, as _5_ at the bottom of this file says"""
+    """Try which strikes quit --egg=skater, as _6_ at the bottom of this file says"""
 
     cases = (
         (b"\r", 3, True, ""),  # ⏎ ⏎ ⏎
@@ -899,7 +927,7 @@ def _try_egg_quit_(egg: str, data: bytes, count: int) -> tuple[bool, str]:
 
 
 def _try_strikes_spill_() -> None:
-    """Try what --egg=strikes leaves in Stdin after it quits, as _5_ says at the bottom"""
+    """Try what --egg=strikes leaves in Stdin after it quits, as _6_ says at the bottom"""
 
     cases = (
         (b"", b""),  # nothing struck after the 3rd ⏎, so nothing left
@@ -1087,9 +1115,33 @@ Bytes go in, and the Frame closes, stays open, or bounces back the Bytes it won'
 """
 
 
-# class TerminalFrameTaker
+# class TerminalFrameDecoder
 
 _3_ = r"""
+Spec of TerminalFrameDecoder.bytes_to_yx_or_hw_if, as _try_terminal_frame_decoder_ tests it.
+
+We meet spec as tested by _try_terminal_frame_decoder_:
+
+    1. The Frame ⎋[8;24;80t, the Result of the Query ⎋[18t, decodes as ("HW", 24, 80),
+       Row Height then Column Width.
+
+    2. The Frame ⎋[5;7⇧R, the Result of the Query ⎋[6n, decodes as ("YX", 5, 7),
+       Row Number then Column Number.
+
+    3. Any other Frame decodes as (), such as the Arrow ⎋[⇧A, or a Result with a ⎋ stuck on
+       its front, or two Results as one Frame, or a Result with too few Ints, or an empty Int,
+       or no Bytes.
+
+    4. A Frame shaped like a Result but with a 0 Int is no other Frame, so it fails an assert,
+       since Rows, Columns, Row Numbers, and Column Numbers all count from 1.
+
+    5. A Result whose Ints start with 0s, such as ⎋[007;5⇧R, decodes as ("YX", 7, 5).
+"""
+
+
+# class TerminalFrameTaker
+
+_4_ = r"""
 Spec of TerminalFrameTaker.is_quitting_frames, as _try_is_quitting_frames_ tests it.
 
 Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with the strikes 150 ms apart:
@@ -1119,7 +1171,7 @@ Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with the strikes 150 
 
 # class KeyboardDecoder
 
-_4_ = r"""
+_5_ = r"""
 Spec of KeyboardDecoder.bytes_to_key_caps_if, as _try_keyboard_decoder_ tests it
 
 The Bytes of one Strike go in, and the Key Caps struck to send them come out, else an Empty Str:
@@ -1154,7 +1206,7 @@ The Bytes of one Strike go in, and the Key Caps struck to send them come out, el
 
 # class GlassWorker
 
-_5_ = r"""
+_6_ = r"""
 Spec of GlassWorker, the demos that --egg= picks.
 
 Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with the 3 ⏎ 150 ms apart,
@@ -1198,7 +1250,7 @@ On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits
 
 # def main
 
-_6_ = r"""
+_7_ = r"""
 Spec of the --typeahead flag of litpyglass.py, from the flag down into TerminalBoss.
 
 Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with no key struck.
@@ -1221,7 +1273,7 @@ We meet spec as tested by _try_terminal_boss_typeahead_ and _try_terminal_boss_c
 """
 
 
-_ = _1_, _2_, _3_, _4_, _5_, _6_
+_ = _1_, _2_, _3_, _4_, _5_, _6_, _7_
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789

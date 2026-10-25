@@ -1447,6 +1447,44 @@ class TerminalFrameTaker:
 
 
 #
+# Decode the Bytes of a TerminalByteFrame as carrying a Payload of Int's
+#
+
+
+class TerminalFrameDecoder:
+    """Decode a Frame as the Result of a DSR6 or XTWINOPS_18 Query"""
+
+    @staticmethod
+    def bytes_to_yx_or_hw_if(data: bytes) -> tuple[()] | tuple[str, int, int]:
+        """Pick ("YX", Y, X) out of CPR, or ("HW", H, W) out if XTWINOPS_8, else ()"""
+
+        assert CPR_Y_X == "\033[" "{};{}R"  # CSI 05/02 CPR
+        assert XTWINOPS_8_H_W == "\033[" "8;{};{}" "t"  # CSI 07/04 Result Ps 8
+
+        decode = data.decode(errors="replace")
+
+        for tag, template in [("YX", CPR_Y_X), ("HW", XTWINOPS_8_H_W)]:
+            m = re.fullmatch(TerminalFrameDecoder._whxy_pattern_(template), string=decode)
+            if m:
+                i1 = int(m.group(1))  # discards leading "0", beyond ECMA specs
+                i2 = int(m.group(2))  # (same)
+
+                assert i1 >= 1, (i1, decode)
+                assert i2 >= 1, (i2, decode)
+
+                return (tag, i1, i2)
+
+        return ()
+
+    @staticmethod
+    def _whxy_pattern_(template: str) -> str:
+        """Convert to Regex of two Nonnegative Ints, such as XTWINOPS_8_H_W or CPR_Y_X"""
+
+        pattern = re.escape(template).replace(re.escape("{}"), "([0-9]+)")
+        return pattern
+
+
+#
 # Frame Bytes of Terminal Input as alone, or as catenated Printable Text, or as Esc Frame
 #
 
@@ -2471,6 +2509,9 @@ DSR5 = "\033[" "5n"  # DSR_PS Ps 5 to Ps 0
 
 DSR6 = "\033[" "6n"  # DSR_PS Ps 6 for CPR_Y_X
 CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R  # [ CPR 'R' Result to 'n' Query DSR_PS Ps 6 ]
+
+XTWINOPS_18 = "\033[" "18" "t"  # CSI 07/04 [ Query Ps 18 for Result Ps 8 ]
+XTWINOPS_8_H_W = "\033[" "8;{};{}" "t"  # ⎋[h;w⇧t  # CSI 07/04 [ Result Ps 8 to Query Ps 18 ]
 
 
 # ← ↑ → ↓ is sorted by Codepoint
