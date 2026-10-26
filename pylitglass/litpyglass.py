@@ -59,9 +59,13 @@ if not __debug__:
 #
 
 
+_2_COLUMNS_ = 2  # our Square Pixels print as two Spaces side by side
+
 _3_GIGA_NANOS_ = 3 * 10**9  # too slow to take 3 same inputs in a row as a quit request
 _100_MEGA_NANOS_ = 100 * 10**6  # too fast to take 3 in a row as a quit request
 _150_MEGA_NANOS_ = 150 * 10**6  # keys typed ahead can come about as fast as a typist's
+
+_1_ROW_ = 1  # our Square Pixels span 1 Row
 
 
 CR_EL_PS0 = "\r\n" "⎋[K "  # scrolls up the present Screen Row, starts writing the next
@@ -441,52 +445,80 @@ class GlassWorker:
     """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
     def show_skater(self, typeahead: bytes) -> None:
-        """Draw a '+' wherever the Cursor goes, and move it as the → ↑ ← ↓ Arrow Keys say"""
+        """Leave an Inverse Pixel of two Spaces behind the Cursor as the → ↑ ← ↓ Keys move it"""
 
         stalwarts = (b"\033[C", b"\033[A", b"\033[D", b"\033[B")  # → ↑ ← ↓
         assert tuple(_.decode() for _ in stalwarts) == _CARDINAL_ENWS_ARROWS_
 
         # Ask at exit
-        # to revert to default Cursor Style (often macOS Terminal single █ Full-Block U+2588), and
+        # to revert to default Cursor Style (often macOS Terminal single █ Full-Block U+2588),
+        # to show the Cursor again, and
         # to park the Cursor at the leftmost Column of the next-to-last Row
 
         assert CR == "\r"
         assert DECSCUSR_PS_NO == "\033[" " q"
+        assert SM_PS.format("?25") == "\033[" "?25h"
         assert CUD_Y.format(_MAX_PN_32100_) == "\033[" "32100" "B"
         assert CUU_Y.format("") == "\033[A"
 
         farewells = (
             "\r",  # warps Cursor to left of Screen Row
             "\033[" " q",  # reverts to default Cursor Style
+            "\033[" "?25h",  # shows the Cursor
             "\033[" "32100" "B",  # warps to last Screen Row
             "\033[A",  # warps to one Screen Row up from last
         )
 
         farewell = "".join(farewells).encode()
 
-        # Launch elegantly, almost silently, without printing instructions
+        # Work out a palette of Terminal moves
 
         assert BS == "\b"
-        assert DECSCUSR_PS4_SKID == "\033[" "4" " q"
+        assert SGR_PS.format("") == "\033[m"
+        plain = SGR_PS.format("")  # reverts all the works of SGR_PS
 
-        print()  # signal very very quietly that we have run this far since launching
+        assert DECSCUSR_PS4_SKID == "\033[" "4" " q"
+        assert RM_PS.format("?25") == "\033[" "?25l"
+        assert SGR_PS.format("7") == "\033[" "7m"
+
+        hide = RM_PS.format("?25")  # hides the Cursor
+        inverse = SGR_PS.format("7")  # swaps the foreground and background colors
+        square = "  "  # two Spaces side by side, one Square Pixel, the Cursor's own plain place
+
+        # Launch elegantly, almost silently, without printing instructions
 
         ist = InputStrikeTaker()
         with TerminalBoss(typeahead=typeahead, farewell=farewell) as tb:
             print(DECSCUSR_PS4_SKID, end="")
-
-            print(" + \b\b", end="")  # writes the first Prompt, into tty.
+            print(hide, end="")
 
             digits = "0123456789"
             i = "0"  # .i is our reply to the next Byte that doesn't complete a Frame
+            xo = "X"  # .xo is our reply to the next meaningless Frame
+
+            # Write a Plain Square Pixel at the leftmost Column, and back up to its left Cell
+
+            print(f"\r{square}\b\b", end="")
 
             # Loop till quit (such as by pressing Return three times quickly)
 
+            delta_x = 0  # Columns moved since the Terminal answered ⎋[6n DSR6 for CPR_Y_X
+            delta_y = 0  # Rows moved since the Terminal answered ⎋[6n DSR6 for CPR_Y_X
+
             for isap in ist.take_placed_input_strikes_and_yield_each(tb, stalwarts=stalwarts):
                 strike = isap.strike
+                place = isap.place
+
                 taken = strike.taken
                 caps = strike.caps
                 frame = strike.frame
+
+                # Find the Cursor where it is, else far from the edges (encoded as 9th of 99)
+
+                column_x = (place.column_x + delta_x) if place else 9
+                x_width = place.x_width if place else 99
+                row_y = (place.row_y + delta_y) if place else 9
+                y_height = place.y_height if place else 99
 
                 # Cycle prompt across 1234567890, in reply to Bytes of an Open Frame not taken
 
@@ -504,23 +536,82 @@ class GlassWorker:
                 # Move the Cursor, in reply to each Arrow Key Strike
 
                 if caps in ("→", "↑", "←", "↓"):  # → ↑ ← ↓ ENWS
-                    decode = data.decode()
 
-                    vertical = caps in ("↑", "↓")
-                    write = decode if vertical else (decode + decode)  # for 2x1 Terminal Cells
-                    print(f"+\b\b{write} + \b\b", end="")
+                    # Bounce at each edge of the Screen, lest the Arrow Key nop or spill
+
+                    assert _1_ROW_ == 1
+                    assert _2_COLUMNS_ == 2
+
+                    # Start each Pixel at an odd Column, so an odd Width of W + 1 acts as W
+
+                    room_by_caps = {
+                        "↑": row_y > 1,
+                        "↓": row_y <= (y_height - 1),
+                        "←": column_x > 2,  # the new Pixel starts at column_x - 2, at 1 or more
+                        "→": (column_x + 2) <= (x_width - 1),  # and ends at x_width or less
+                    }
+
+                    bounce_by_caps = {  # bounces, not wraps
+                        "↑": ("↓", CUD_Y.format("")),
+                        "↓": ("↑", CUU_Y.format("")),
+                        "←": ("→", CUF_X.format("")),
+                        "→": ("←", CUB_X.format("")),
+                    }
+
+                    _caps_ = caps
+                    decode = data.decode()
+                    if not room_by_caps[caps]:
+                        _caps_, decode = bounce_by_caps[caps]
+
+                    # Write and count the move
+
+                    vertical = _caps_ in ("↑", "↓")
+                    warp = decode if vertical else (decode + decode)  # for 2x1 Terminal Cells
+
+                    step_by_caps = {
+                        "↑": (0, -1),
+                        "↓": (0, 1),
+                        "←": (-2, 0),
+                        "→": (2, 0),
+                    }
+
+                    step_x, step_y = step_by_caps[_caps_]
+
+                    # Calculate how {plain}{leave} and {square}{arrive} can leave the Cursor unmoved
+
+                    leave = "\b\b"  # writing two Spaces moves the Cursor 1 or 2 Columns right
+                    if (column_x + 1) == x_width:
+                        leave = "\b"
+
+                    arrive = "\b\b"
+                    if (column_x + step_x + 1) == x_width:
+                        arrive = "\b"
+
+                    # Leave an Inverse Pixel where we were, and arrive with a Plain Pixel
+
+                    print(f"{inverse}{square}{plain}{leave}{warp}{square}{arrive}", end="")
+
+                    delta_x += step_x
+                    delta_y += step_y
+
+                    # Reset the Prompt Cycle
 
                     i = "0"
                     continue
 
-                # Else cycle the Open Frame Prompt forward by as many Bytes as taken
+                # Else reply to the meaningless Frame, between X and O,
+                # and cycle the Open Frame Prompt forward by as many Bytes as taken
+
+                print(f"{xo}\b", end="")
+
+                xo = "O" if (xo == "X") else "X"
 
                 i = digits[(digits.index(i) + len(data)) % len(digits)]
                 continue  # explicitly
 
-            # Succeed
+            # Quit happy
 
-            print("+\b", end="")  # redraw the '+' Plus Mark to replace our reply to the Quit Signal
+            print(" \b", end="")  # redraw the left Cell over our Quit Signal reply
 
 
 #

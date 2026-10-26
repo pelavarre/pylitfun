@@ -23,6 +23,7 @@ import ast
 import concurrent.futures
 import os
 import pty
+import re
 import select
 import subprocess
 import sys
@@ -60,6 +61,7 @@ def main() -> None:
     _try_placed_input_strikes_()  # ~150ms, 1 Pty and 1 child Python off a Terminal
     _try_skater_entry_()  # ~900ms, 4 Ptys at once, and 1 child Python off a Terminal
     _try_skater_quits_()  # ~1100ms, 13 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
+    _try_skater_edge_()  # ~2500ms, 4 Ptys at once, the slowest 10 → at 150ms apart + 500ms
 
     print("tests ok")
 
@@ -849,7 +851,7 @@ def _try_is_quitting_frames_() -> None:
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
         results = tuple(
-            executor.map(lambda case: _try_egg_quit_("strikes", case[0], case[1]), cases)
+            executor.map(lambda case: _try_egg_quit_("strikes", case[0], case[1], b""), cases)
         )
 
     for case, (quit, screen_decode) in zip(cases, results):
@@ -858,38 +860,148 @@ def _try_is_quitting_frames_() -> None:
         assert shows in screen_decode, (shows, data, count, screen_decode)
 
 
+def _skater_move_(warp: str) -> str:
+    """Spell what --egg=skater writes to move one pixel, away from every edge of the Screen"""
+
+    return "\033[7m  \033[m\b\b" + warp + "  \b\b"  # inverse behind, plain ahead
+
+
 def _try_skater_quits_() -> None:
     """Try which strikes quit --egg=skater, as _7_ at the bottom of this file says"""
 
     cases = (
-        (b"\r", 3, True, ""),  # ⏎ ⏎ ⏎
-        (b"\r", 2, False, ""),
-        (b"\r\r\r", 1, False, ""),  # ⏎ ⏎ ⏎ pasted
-        (b"\033[C", 3, False, "+\b\b\033[C\033[C + \b\b"),  # → → →
-        (b"\033[A", 3, False, "+\b\b\033[A + \b\b"),  # ↑ ↑ ↑
-        (b"\033[D", 3, False, "+\b\b\033[D\033[D + \b\b"),  # ← ← ←
-        (b"\033[B", 3, False, "+\b\b\033[B + \b\b"),  # ↓ ↓ ↓
+        (b"\r", 3, True, "X\bO\b"),  # ⏎ ⏎ ⏎
+        (b"\r", 2, False, "X\bO\b"),
+        (b"\r\r\r", 1, False, "X\bO\bX\b"),  # ⏎ ⏎ ⏎ pasted
+        (b"x\033[C", 1, False, "X\b" + _skater_move_("\033[C\033[C")),  # x the Taken Frame, then →
+        (b"\033[C", 3, False, _skater_move_("\033[C\033[C")),  # → → →
+        (b"\033[A", 3, False, _skater_move_("\033[A")),  # ↑ ↑ ↑
+        (b"\033[D", 3, False, _skater_move_("\033[D\033[D")),  # ← ← ←
+        (b"\033[B", 3, False, _skater_move_("\033[B")),  # ↓ ↓ ↓
         (b"\033", 1, False, "1\b"),  # ⎋ the Open Frame of 1 Byte
         (b"\033[", 1, False, "2\b"),  # ⎋[ the Open Frame of 2 Bytes
-        (b"\033[12345678", 1, False, "0\b"),  # ⎋[ and 8 more, the Open Frame of 10 Bytes
-        (b"x\033[", 1, False, "3\b"),  # x the Taken Frame of 1 Byte, then ⎋[ the Open Frame
-        (b"x\033[C\033[", 1, False, "2\b"),  # ⎋[C the Taken Arrow of 3 Bytes resets the count
-        ("\033[↗".encode(), 3, True, ""),  # ↗ ↗ ↗, an Intercardinal Arrow, not yet a Stalwart
+        (b"\033[12345678", 1, False, "0\b"),  # ⎋[ and 8 more, 10 Bytes
+        (b"x\033[", 1, False, "3\b"),  # x the Taken Frame of 1 Byte, then ⎋[
+        (b"x\033[C\033[", 1, False, "2\b"),  # ⎋[C the Taken Arrow resets the count
+        ("\033[↗".encode(), 3, True, "X\bO\b"),  # ↗ ↗ ↗, an Intercardinal Arrow, not yet a Stalwart
     )
 
+    results24x80 = b"\033[1;1R\033[8;24;80t"  # the Terminal answers Row 1 Column 1, and 24 x 80
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
-        results = tuple(executor.map(lambda case: _try_egg_quit_("skater", case[0], case[1]), cases))
+        results = tuple(
+            executor.map(
+                lambda case: _try_egg_quit_("skater", case[0], case[1], results24x80), cases
+            )
+        )
 
     for case, (quit, screen_decode) in zip(cases, results):
         data, count, want, shows = case
         assert quit == want, (quit, want, data, count, screen_decode)
         assert shows in screen_decode, (shows, data, count, screen_decode)
 
-        launch = "\033[4 q + \b\b\033[6n\033[18t"  # sets Cursor Style 4, the Prompt, the Queries
+        launch = "\033[4 q\033[?25l\r  \b\b\033[6n\033[18t"
+        # sets Cursor Style 4, hides the Cursor, draws the first pixel plain, asks the Queries
         assert launch in screen_decode, (launch, data, count, screen_decode)
 
-        farewell = "\r\033[ q\033[32100B\033[A"  # parks the Cursor, and reverts the Cursor Style
+        farewell = "\r\033[ q\033[?25h\033[32100B\033[A"  # reverts Style, shows Cursor, parks it
         assert (farewell in screen_decode) == quit, (farewell, quit, data, count, screen_decode)
+
+
+def _try_skater_edge_() -> None:
+    """Try --egg=skater at the far East Column, as _7_ at the bottom of this file says"""
+
+    results20 = b"\033[1;1R\033[8;5;20t"  # Row 1 Column 1, and a Screen 5 high, 20 wide
+    results21 = b"\033[1;1R\033[8;5;21t"  # the same, 21 wide
+
+    cases = (
+        (20, results20, 9),  # → x 9 reaches the pixel at Columns 19 and 20
+        (20, results20, 10),  # → x 10 bounces off the East edge to the pixel at 17 and 18
+        (21, results21, 9),  # an odd Width acts as the even Width below it
+        (21, results21, 10),
+    )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
+        results = tuple(
+            executor.map(lambda case: _try_egg_quit_("skater", b"\033[C", case[2], case[1]), cases)
+        )
+
+    for case, (quit, screen_decode) in zip(cases, results):
+        screen_width, _, count = case
+        assert not quit, (quit, screen_width, count, screen_decode)
+
+        screen_cells, row_y, column_x, wrap_pending = _screen_of_(
+            screen_decode, screen_width=screen_width, screen_height=5
+        )
+        here = (row_y, column_x, wrap_pending)
+
+        want_x = 19 if (count == 9) else 17  # the left Cell of the plain pixel
+        assert here == (1, want_x, False), (here, want_x, screen_width, count, screen_decode)
+
+        row1 = screen_cells[0]  # (Character, Inverse) per Column
+        plains = list(x for (x, cell) in enumerate(row1, start=1) if not cell[1])
+        want_plains = [want_x, want_x + 1] + list(
+            range(21, screen_width + 1)
+        )  # Column 21 never written
+        assert plains == want_plains, (plains, want_plains, screen_width, count, screen_decode)
+
+        below = list(c for row in screen_cells[1:] for c in row if c != (" ", False))
+        assert not below, (below, screen_width, count, screen_decode)  # no spill into Row 2
+
+
+def _screen_of_(
+    screen_decode: str, screen_width: int, screen_height: int
+) -> tuple[list[list[tuple[str, bool]]], int, int, bool]:
+    """Replay the Bytes onto a Screen that waits to wrap, as macOS Terminal does, from Row 1"""
+
+    screen_cells = list(
+        list((" ", False) for _ in range(screen_width)) for _ in range(screen_height)
+    )
+    row_y = 1
+    column_x = 1
+    wrap_pending = False  # true after a write into the last Column, till the next write or move
+    inverse = False
+
+    pattern = re.compile(r"\033\[([?0-9;]*)([ -/]*[@-~])|.", re.DOTALL)
+    for match in pattern.finditer(screen_decode):
+        text = match.group(0)
+        if text.startswith("\033["):
+            ps = match.group(1)
+            final = text[-1]
+            n = int(ps) if ps.isdigit() else 1
+            if final == "m":
+                inverse = ps == "7"
+            elif final == "A":
+                row_y = max(1, row_y - n)
+            elif final == "B":
+                row_y = min(screen_height, row_y + n)
+            elif final == "C":
+                column_x = min(screen_width, column_x + n)
+                wrap_pending = False
+            elif final == "D":
+                column_x = max(1, column_x - n)
+                wrap_pending = False
+            continue
+
+        if text == "\r":
+            column_x = 1
+            wrap_pending = False
+        elif text == "\b":
+            column_x = max(1, column_x - 1)
+            wrap_pending = False
+        elif text.isprintable() and (len(text) == 1):
+            if wrap_pending:
+                column_x = 1
+                row_y = min(screen_height, row_y + 1)
+                wrap_pending = False
+
+            screen_cells[row_y - 1][column_x - 1] = (text, inverse)
+            if column_x == screen_width:
+                wrap_pending = True
+            else:
+                column_x += 1
+
+    return (screen_cells, row_y, column_x, wrap_pending)
 
 
 _PLACED_CHILD_ = r"""
@@ -965,18 +1077,18 @@ def _try_skater_entry_() -> None:
 
     for future in (mute, half, other):
         screen_decode, isig, returncode = future.result()
-        assert screen_decode.index("+ ") < screen_decode.index("\033[6n"), (screen_decode,)
+        assert screen_decode.index("\r  \b\b") < screen_decode.index("\033[6n"), (screen_decode,)
         assert isig, (isig, screen_decode)  # ⌃C ⌃Z ⌃\ still signal while the hang lasts
         assert returncode == 1, (returncode, screen_decode)  # ⌃D ends the hang
         assert complaint in screen_decode, (complaint, screen_decode)
 
     screen_decode, isig, returncode = ahead.result()
-    assert "+ " in screen_decode, (screen_decode,)
+    assert "\r  \b\b" in screen_decode, (screen_decode,)
     assert not isig, (isig, screen_decode)
     assert returncode is None, (returncode, screen_decode)
 
-    moved = "+\b\b\033[C\033[C + \b\b"  # the → typed before the Results came, kept
-    assert screen_decode.index("+ ") < screen_decode.index(moved), (moved, screen_decode)
+    moved = _skater_move_("\033[C\033[C")  # the → typed before the Results came, kept
+    assert screen_decode.index("\r  \b\b") < screen_decode.index(moved), (moved, screen_decode)
 
     argv = [sys.executable, "-I", litpyglass.__file__, "--egg=skater"]
     run = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10)
@@ -1014,7 +1126,7 @@ def _try_egg_entry_(typed_data: bytes, answers: bytes) -> tuple[str, bool, int |
     return (screen_decode, isig, returncode)
 
 
-def _try_egg_quit_(egg: str, data: bytes, count: int) -> tuple[bool, str]:
+def _try_egg_quit_(egg: str, data: bytes, count: int, results: bytes) -> tuple[bool, str]:
     """Run --egg= on a Pty, strike these Bytes this often 150ms apart, and say if it quit"""
 
     master_fileno, slave_fileno = pty.openpty()
@@ -1026,12 +1138,13 @@ def _try_egg_quit_(egg: str, data: bytes, count: int) -> tuple[bool, str]:
 
     if egg == "skater":  # answers the Queries, as a Terminal does
         _pty_read_till_marker_(master_fileno, terminal_output, b"\033[6n\033[18t")
-        os.write(master_fileno, b"\033[1;1R\033[8;24;80t")
+        os.write(master_fileno, results)
 
+    prompt = b"\r  \b\b" if (egg == "skater") else b"+ "
     _pty_read_till_marker_(
-        master_fileno, terminal_output, b"+ "
+        master_fileno, terminal_output, prompt
     )  # waits for the Prompt, since Bytes read too soon count as too fast
-    assert b"+ " in terminal_output, (bytes(terminal_output),)
+    assert prompt in terminal_output, (prompt, bytes(terminal_output))
 
     if egg == "skater":  # the Results count as Frames in the quit rule, so strike after the gap
         _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)
@@ -1375,8 +1488,8 @@ On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits
 
     5. The triple of ⏎ ⏎ ⏎ pasted, or struck all at once, does not quit.
 
-    6. Each Cardinal Arrow moves the Cursor and redraws the '+' behind it: → and ← move
-       2 Columns, and ↑ and ↓ move 1 Row.
+    6. Each Cardinal Arrow moves the Cursor, leaves an inverse pair of Spaces behind it, and
+       draws a plain pair of Spaces ahead of it: → and ← move 2 Columns, and ↑ and ↓ move 1 Row.
 
     7. The triple of → → → does not quit, and nor do the triples of ↑ ← ↓, since an Arrow
        moves the Cursor.
@@ -1384,10 +1497,11 @@ On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits
     8. The triple of ⎋[↗ quits, since the Intercardinal Arrows are declared and not yet used.
 
     9. Launch sets the Cursor Style to Skid, a solid underline similar to a _ skid mark,
-       before it writes the first Prompt.
+       and hides the Cursor, before it writes the first Prompt.
 
-    10. Quit parks the Cursor at the leftmost Column of the next-to-last Row, and reverts the
-        Cursor Style to the default. No writes of a choice of Cursor Style between Launch and Quit.
+    10. Quit parks the Cursor at the leftmost Column of the next-to-last Row, shows the Cursor,
+        and reverts the Cursor Style to the default. No writes of a choice of Cursor Style
+        between Launch and Quit.
 
     11. Launch takes ⌃C ⌃Z ⌃\ as Input and not as Signals, once both Results have come.
 
@@ -1406,6 +1520,12 @@ On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits
         have come.
 
     17. Launch off a Terminal writes no Queries and waits for nothing.
+
+    18. Each Taken Frame that is no Arrow draws X, then O, then X again, in the left Cell of the
+        Cursor's pair of Spaces. Such as ⏎ ⏎ shows X then O, and x then → shows X before the move.
+
+    19. On a Screen 20 or 21 Columns wide, → fills the Row to Column 20 and then bounces back
+        off the East edge. It never writes Column 21, and never wraps to the next Row.
 """
 
 
