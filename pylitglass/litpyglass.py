@@ -2710,12 +2710,18 @@ def decimal_int_chop_to_eng_metric(n: int, one: str) -> str:
 
     # Pick apart exactly how to style an 'n' of 1
 
-    nqu = tuple(one)
-    numeral, quantum, unit = (nqu[0], "", nqu[-1]) if (len(nqu) == 2) else nqu
-    assert numeral == "1", (numeral, quantum, unit, nqu, one)
-
     si_quanta = tuple("qryzafpnµm") + ("",) + tuple("kMGTPEZYRQ")  # the SI Prefixes since Nov/2022
-    quantum_index = si_quanta.index(quantum)  # raises ValueError vs. SI Prefix not found
+
+    numeral, quantum, unit = (one[0], "", one[1:])  # from one == '1'  # from one == '1Ω'
+    if one[2:]:
+        numeral, quantum, unit = (one[0], one[1], one[2:])  # from one == '1nH'
+        if one[1] not in si_quanta:
+            numeral, quantum, unit = (one[0], "", one[1:])  # from one == '1Hz'
+
+            # caller must append 'Pa', 'min', 'mol', etc to duck P=10**15 m=10**-3 etc
+
+    assert numeral == "1", (numeral, quantum, unit, one)
+    quantum_index = si_quanta.index(quantum)
     quanta = si_quanta[quantum_index:]
 
     # Clip the 'n' value
@@ -2741,7 +2747,7 @@ def decimal_int_chop_to_eng_metric(n: int, one: str) -> str:
 
     return rep  # '0Ω'  # '12ns'  # '9.87µH'  # '654ms'
 
-    # 'def decimal_int_chop_to_eng_metric' last modified for py2def.py on 2026-10-24 or later
+    # 'def decimal_int_chop_to_eng_metric' last modified for py2def.py on 2026-10-28 or later
 
 
 def decimal_int_chop_to_eng(n: int) -> str:
