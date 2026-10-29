@@ -98,8 +98,6 @@ def main() -> None:
         tests.main()
         return
 
-    print()  # signal very very quietly that we have run this far since launching
-
     # Pick a demo, else freak  # todo: tighter parsing of .shargv
 
     eggs = list(_.removeprefix("--egg=") for _ in shargv if _.startswith("--egg="))
@@ -158,6 +156,8 @@ class GlassWorker:
 
         # Launch (and prompt just once and early)
 
+        print()  # signal very very quietly that we have run this far since launching
+
         print("Press Return three times quickly, to quit")
         print()
 
@@ -212,6 +212,8 @@ class GlassWorker:
         """Print your Input Bytes (and how quickly they arrived)"""
 
         # Launch (and prompt just once and early)
+
+        print()  # signal very very quietly that we have run this far since launching
 
         print("Press Return three times quickly, to quit")
         print()
@@ -273,6 +275,8 @@ class GlassWorker:
         """Print your Input Byte Frames, as Key Caps when known, and how quickly they arrived"""
 
         # Launch
+
+        print()  # signal very very quietly that we have run this far since launching
 
         print("Press Return three times quickly, to quit")
         print()
@@ -365,6 +369,8 @@ class GlassWorker:
         """Print your Input Byte Frames, as Key Caps when known, and as Text when printable"""
 
         # Launch
+
+        print()  # signal very very quietly that we have run this far since launching
 
         print("Press Return three times quickly, to quit")
         print()
@@ -462,6 +468,8 @@ class GlassWorker:
 
         assert BS == "\b"
         assert DECSCUSR_PS4_SKID == "\033[" "4" " q"
+
+        print()  # signal very very quietly that we have run this far since launching
 
         ist = InputStrikeTaker()
         with TerminalBoss(typeahead=typeahead, farewell=farewell) as tb:
