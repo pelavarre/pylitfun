@@ -197,7 +197,7 @@ _imetric_str_by_int_str_ = {
     (0, "1Ω"): "0Ω",
     (12, "1ns"): "12ns",
     (9879, "1nH"): "9.87µH",
-    (654654, "1µs"): "654ms",
+    (654_654, "1µs"): "654ms",
     (1000, "1"): "1.00k",  # not "1.00K"  # caller can append whatever unit
     (1000, "1Pa"): "1.00Ea",  # sadly, not "1.00kPa", caller must append such units
     (1219 * 10**6, "1Hz"): "1.21GHz",  # close to the famous 1.21GW
