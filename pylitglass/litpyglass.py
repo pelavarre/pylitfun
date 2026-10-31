@@ -445,19 +445,39 @@ class GlassWorker:
     """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
     def show_skater(self, typeahead: bytes) -> None:
-        """Leave an Inverse Pixel of two Spaces behind the Cursor as the → ↑ ← ↓ Keys move it"""
+        """Leave a Reverse Pixel of two Spaces behind the Cursor as the → ↑ ← ↓ Keys move it"""
 
         stalwarts = (b"\033[C", b"\033[A", b"\033[D", b"\033[B")  # → ↑ ← ↓
         assert tuple(_.decode() for _ in stalwarts) == _CARDINAL_ENWS_ARROWS_
+
+        # Work out a palette of Terminal moves
+
+        square = "  "  # two Spaces side by side, one Square Pixel, the Cursor's own plain place
+
+        assert NO_SGR_PS == "\033[m"
+        assert REVERSE_SGR_PS7 == "\033[" "7m"
+
+        plain = NO_SGR_PS  # reverts all the works of SGR_PS
+        reverse = REVERSE_SGR_PS7  # swaps to color B on F, from color F on B
 
         # Ask at exit
         # to revert to default Cursor Style (often macOS Terminal single █ Full-Block U+2588),
         # to show the Cursor again, and
         # to park the Cursor at the leftmost Column of the next-to-last Row
 
+        assert HIDE_CUSR_RM_PSQ25 == "\033[" "?25l"
+        assert SKID_DECSCUSR_PS4 == "\033[" "4" " q"
+
+        hails = (
+            "\033[" "4" " q",  # silly to style before hide
+            "\033[" "?25l",  # silly to hide and style
+        )
+
+        hail = "".join(hails).encode()
+
         assert CR == "\r"
-        assert DECSCUSR_PS_NO == "\033[" " q"
-        assert SM_PS.format("?25") == "\033[" "?25h"
+        assert NO_DECSCUSR_PS == "\033[" " q"
+        assert SHOW_CUSR_SM_PSQ25 == "\033[" "?25h"
         assert CUD_Y.format(_MAX_PN_32100_) == "\033[" "32100" "B"
         assert CUU_Y.format("") == "\033[A"
 
@@ -471,26 +491,13 @@ class GlassWorker:
 
         farewell = "".join(farewells).encode()
 
-        # Work out a palette of Terminal moves
+        # Launch elegantly, almost silently, without printing instructions
 
         assert BS == "\b"
-        assert SGR_PS.format("") == "\033[m"
-        plain = SGR_PS.format("")  # reverts all the works of SGR_PS
-
-        assert DECSCUSR_PS4_SKID == "\033[" "4" " q"
-        assert RM_PS.format("?25") == "\033[" "?25l"
-        assert SGR_PS.format("7") == "\033[" "7m"
-
-        hide = RM_PS.format("?25")  # hides the Cursor
-        inverse = SGR_PS.format("7")  # swaps the foreground and background colors
-        square = "  "  # two Spaces side by side, one Square Pixel, the Cursor's own plain place
-
-        # Launch elegantly, almost silently, without printing instructions
 
         ist = InputStrikeTaker()
         with TerminalBoss(typeahead=typeahead, farewell=farewell) as tb:
-            print(DECSCUSR_PS4_SKID, end="")
-            print(hide, end="")
+            print(hail.decode(), end="")
 
             digits = "0123456789"
             i = "0"  # .i is our reply to the next Byte that doesn't complete a Frame
@@ -587,9 +594,9 @@ class GlassWorker:
                     if (column_x + step_x + 1) == x_width:
                         arrive = "\b"
 
-                    # Leave an Inverse Pixel where we were, and arrive with a Plain Pixel
+                    # Leave a Reverse Pixel where we were, and arrive with a Plain Pixel
 
-                    print(f"{inverse}{square}{plain}{leave}{warp}{square}{arrive}", end="")
+                    print(f"{reverse}{square}{plain}{leave}{warp}{square}{arrive}", end="")
 
                     delta_x += step_x
                     delta_y += step_y
@@ -2697,20 +2704,30 @@ _START_PASTE_ = "\033[" "200~"  # ⎋[200⇧~ Start of Bracketed Paste
 _END_PASTE_ = "\033[" "201~"  # ⎋[201⇧~ End of Bracketed Paste
 
 VPA_Y = "\033[" "{}" "d"  # Csi 06/04 Vertical Position Absolute [Row]
+
 SM_PS = "\033[" "{}" "h"  # CSI 06/08 4 Set Mode
 RM_PS = "\033[" "{}" "l"  # CSI 06/12 4 Reset Mode
-SGR_PS = "\033[" "{}" "m"  # CSI 06/13 Select Graphic Rendition [Text Style]
-DSR_PS = "\033[" "{}n"  # Csi 06/14 [Request] Device Status Report [Ps]
+SHOW_CUSR_SM_PSQ25 = "\033[" "?25h"  # SM_PS 25 to Show Cursor
+HIDE_CUSR_RM_PSQ25 = "\033[" "?25l"  # RM_PS 25 to Hide Cursor
 
-DECSCUSR_PS = "\033[" "{}" " q"  # CSI 06/15 [DEC] Set Cursor Style [Ps]  # Two Byte Backtail
-DECSCUSR_PS4_SKID = "\033[" "4" " q"  # DECSCUSR_PS Ps 4 for steady Skid Mark
-DECSCUSR_PS_NO = "\033[" " q"  # DECSCUSR_PS Ps 0 to revert to default Cursor Style
+SGR_PS = "\033[" "{}" "m"  # CSI 06/13 Select Graphic Rendition [Text Style]
+NO_SGR_PS = "\033[" "m"  # SGR Ps None for Plain
+REVERSE_SGR_PS7 = "\033[" "7m"  # SGR_PS 7 for Reverse/Inverse Video
+
+
+DSR_PS = "\033[" "{}n"  # Csi 06/14 [Request] Device Status Report [Ps]
 
 DSR0 = "\033[" "0n"  # DSR_PS Ps 0 for Ps 5
 DSR5 = "\033[" "5n"  # DSR_PS Ps 5 to Ps 0
 
 DSR6 = "\033[" "6n"  # DSR_PS Ps 6 for CPR_Y_X
 CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R  # [ CPR 'R' Result to 'n' Query DSR_PS Ps 6 ]
+
+
+DECSCUSR_PS = "\033[" "{}" " q"  # CSI 06/15 [DEC] Set Cursor Style [Ps]  # Two Byte Backtail
+SKID_DECSCUSR_PS4 = "\033[" "4" " q"  # DECSCUSR_PS Ps 4 for steady Skid Mark
+NO_DECSCUSR_PS = "\033[" " q"  # DECSCUSR_PS Ps 0 to revert to default Cursor Style
+
 
 XTWINOPS_18 = "\033[" "18" "t"  # CSI 07/04 [ Query Ps 18 for Result Ps 8 ]
 XTWINOPS_8_H_W = "\033[" "8;{};{}" "t"  # ⎋[h;w⇧t  # CSI 07/04 [ Result Ps 8 to Query Ps 18 ]
