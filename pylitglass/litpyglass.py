@@ -460,30 +460,21 @@ class GlassWorker:
         plain = NO_SGR_PS  # reverts all the works of SGR_PS
         reverse = REVERSE_SGR_PS7  # swaps to color B on F, from color F on B
 
-        # Ask at exit
-        # to revert to default Cursor Style (often macOS Terminal single █ Full-Block U+2588),
-        # to show the Cursor again, and
-        # to park the Cursor at the leftmost Column of the next-to-last Row
+        # Choose what to ask at entry and exit
 
         assert HIDE_CUSR_RM_PSQ25 == "\033[" "?25l"
-        assert SKID_DECSCUSR_PS4 == "\033[" "4" " q"
 
-        hails = (
-            "\033[" "4" " q",  # silly to style before hide
-            "\033[" "?25l",  # silly to hide and style
-        )
+        hails = ("\033[" "?25l",)
 
         hail = "".join(hails).encode()
 
         assert CR == "\r"
-        assert NO_DECSCUSR_PS == "\033[" " q"
         assert SHOW_CUSR_SM_PSQ25 == "\033[" "?25h"
         assert CUD_Y.format(_MAX_PN_32100_) == "\033[" "32100" "B"
         assert CUU_Y.format("") == "\033[A"
 
         farewells = (
             "\r",  # warps Cursor to left of Screen Row
-            "\033[" " q",  # reverts to default Cursor Style
             "\033[" "?25h",  # shows the Cursor
             "\033[" "32100" "B",  # warps to last Screen Row
             "\033[A",  # warps to one Screen Row up from last

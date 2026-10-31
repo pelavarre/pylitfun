@@ -902,11 +902,11 @@ def _try_skater_quits_() -> None:
         assert quit == want, (quit, want, data, count, screen_decode)
         assert shows in screen_decode, (shows, data, count, screen_decode)
 
-        launch = "\033[4 q\033[?25l\r  \b\b\033[6n\033[18t"
-        # sets Cursor Style 4, hides the Cursor, draws the first pixel plain, asks the Queries
+        launch = "\033[?25l\r  \b\b\033[6n\033[18t"
+        # hides the Cursor, draws the first pixel plain, asks the Queries
         assert launch in screen_decode, (launch, data, count, screen_decode)
 
-        farewell = "\r\033[ q\033[?25h\033[32100B\033[A"  # reverts Style, shows Cursor, parks it
+        farewell = "\r\033[?25h\033[32100B\033[A"  # shows Cursor, parks it
         assert (farewell in screen_decode) == quit, (farewell, quit, data, count, screen_decode)
 
 
