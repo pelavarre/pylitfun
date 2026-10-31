@@ -644,7 +644,7 @@ class InputStrikeTaker:
             entering = True
 
         ints_by_tag: dict[str, tuple[int, int]] = dict()  # "YX" and "HW" Results taken
-        place: ScreenPlace | None = None  # where the Cursor was and how big the Screen was, if told
+        place: TerminalPlace | None = None  # where the Cursor, how big the Screen
         after_strikes: list[InputStrike] = list()  # Strikes held till after Results
 
         for strike in self.take_input_strikes_and_yield_each(tb, stalwarts=stalwarts):
@@ -692,7 +692,9 @@ class InputStrikeTaker:
             row_y, column_x = ints_by_tag["YX"]
             y_height, x_width = ints_by_tag["HW"]
 
-            place = ScreenPlace(column_x=column_x, x_width=x_width, row_y=row_y, y_height=y_height)
+            place = TerminalPlace(
+                column_x=column_x, x_width=x_width, row_y=row_y, y_height=y_height
+            )
 
             for held_strike in after_strikes:
                 isap = InputStrikeAtPlace(strike=held_strike, place=place)
@@ -749,11 +751,11 @@ class InputStrikeAtPlace:
     """Speak of one InputStrike at one Screen Place, or as not placed"""
 
     strike: InputStrike  # what  # mutable
-    place: ScreenPlace | None  # where  # mutable
+    place: TerminalPlace | None  # where  # mutable
 
 
 @dataclasses.dataclass(order=True, frozen=True, kw_only=True)
-class ScreenPlace:
+class TerminalPlace:
     """Speak of where the Cursor was and how big the Screen was, when the Terminal answered"""
 
     column_x: int  # the Cursor Column, counting from 1
