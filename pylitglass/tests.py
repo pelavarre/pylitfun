@@ -21,6 +21,8 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 
 import ast
 import concurrent.futures
+import contextlib
+import io
 import os
 import pty
 import re
@@ -60,6 +62,7 @@ def main() -> None:
     _try_terminal_boss_chunks_()  # ~460ms, 150ms per Typeahead Byte
     _try_typeahead_()  # ~550ms, 3 Typeahead ⏎ at 150ms each
     _try_frame_reader_quits_midbatch_()  # ~1ms
+    _try_pull_ends_without_answers_()  # ~1ms
     _try_placed_input_strikes_()  # ~150ms, 1 Pty and 1 child Python off a Terminal
     _try_skater_entry_()  # ~900ms, 4 Ptys at once, and 1 child Python off a Terminal
     _try_skater_quits_()  # ~1100ms, 13 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
@@ -509,16 +512,16 @@ def slurp():
 sync_fileno = int(sys.argv[2])
 
 
-class FlushSpy:
+class FlushSpy:  # stands in for sys.stdout and sys.stderr
     def __init__(self, stdio):
         self.stdio = stdio
         self.flush_count = 0
 
-    def flush(self):
+    def flush(self):  # mimics TextIO.flush
         self.flush_count += 1
         self.stdio.flush()
 
-    def write(self, text):
+    def write(self, text):  # mimics TextIO.write
         return self.stdio.write(text)
 
 
@@ -527,7 +530,7 @@ spy_stdout = FlushSpy(sys.stdout)
 spy_stderr = FlushSpy(sys.stderr)
 sys.stdout, sys.stderr = spy_stdout, spy_stderr
 
-boss = litpyglass.TerminalBoss(typeahead=b"", farewell=b"")
+boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"")
 print("READY1", file=real_stdout, flush=True)
 os.read(sync_fileno, 1)  # 'ab' has been typed, and the Terminal still takes Cooked Input
 with boss:
@@ -563,7 +566,7 @@ import sys
 sys.path.insert(0, sys.argv[1])
 import litpyglass
 
-boss = litpyglass.TerminalBoss(typeahead=b"", farewell=b"")
+boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"")
 with boss:
     inside = (boss.isatty, boss.tcgetattr)
     boss.tty_setraw_before_farewell()  # does nothing off a Terminal, farewell or not
@@ -661,14 +664,14 @@ def setraw_asserts(boss):
     return False
 
 
-before_enter = setraw_asserts(litpyglass.TerminalBoss(typeahead=b"", farewell=b"<FAREWELL>"))
-mute = litpyglass.TerminalBoss(typeahead=b"", farewell=b"")
+before_enter = setraw_asserts(litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"<FAREWELL>"))
+mute = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"")
 with mute:
     without_farewell = setraw_asserts(mute)
 
 termios.tcsetattr = tcsetattr_after_marker
 
-boss = litpyglass.TerminalBoss(typeahead=b"", farewell=b"<FAREWELL>")
+boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"<FAREWELL>")
 with boss:
     cbreak = (lflag_has(termios.ISIG), lflag_has(termios.ICANON))
     boss.tty_setraw_before_farewell()
@@ -717,7 +720,7 @@ sys.path.insert(0, sys.argv[1])
 import litpyglass
 
 sync_fileno = int(sys.argv[2])
-boss = litpyglass.TerminalBoss(typeahead=b"ab", farewell=b"")
+boss = litpyglass.TerminalBoss(typeahead=b"ab", farewell_bytes=b"")
 print("READY1", flush=True)
 os.read(sync_fileno, 1)  # 'X' has been typed on the Terminal
 with boss:
@@ -751,7 +754,7 @@ sys.path.insert(0, sys.argv[1])
 import litpyglass
 
 sync_fileno = int(sys.argv[2])
-boss = litpyglass.TerminalBoss(typeahead=b"ab", farewell=b"")
+boss = litpyglass.TerminalBoss(typeahead=b"ab", farewell_bytes=b"")
 print("READY1", flush=True)
 os.read(sync_fileno, 1)  # 'XY' has been typed on the Terminal
 with boss:
@@ -902,8 +905,8 @@ def _try_skater_quits_() -> None:
         assert quit == want, (quit, want, data, count, screen_decode)
         assert shows in screen_decode, (shows, data, count, screen_decode)
 
-        launch = "\033[?25l\r  \b\b\033[6n\033[18t"
-        # hides the Cursor, draws the first pixel plain, asks the Queries
+        launch = "\033[?25l\033[6n\033[18t\r  \b\b"
+        # hides the Cursor, asks the Queries, draws the first pixel plain
         assert launch in screen_decode, (launch, data, count, screen_decode)
 
         farewell = "\r\033[?25h\033[32100B\033[A"  # shows Cursor, parks it
@@ -1012,18 +1015,20 @@ sys.path.insert(0, sys.argv[1])
 import litpyglass
 
 sync_fileno = int(sys.argv[2])
-ist = litpyglass.InputStrikeTaker()
-boss = litpyglass.TerminalBoss(typeahead=b"", farewell=b"<FAREWELL>")
+boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"<FAREWELL>")
+ts = litpyglass.TerminalShadow(boss)
+ist = litpyglass.InputStrikeTaker(ts)
 print("READY1", flush=True)
 os.read(sync_fileno, 1)  # ↑, a Result, a lookalike Result, a Result, and ↓ are typed
 places = list()
 with boss:
-    for isap in ist.take_placed_input_strikes_and_yield_each(boss, stalwarts=()):
+    ist.pull_yx_hw_from_ts_if(stalwarts=())
+    for isap in ist.take_input_strikes_and_yield_each_placed(stalwarts=()):
         if not isap.strike.taken:
             continue  # the Open Frame comes before each Read, and says nothing yet
         place = isap.place and dataclasses.astuple(isap.place)
         places.append((isap.strike.caps, place))
-        if len(places) == 3:
+        if len(places) == 2:
             break
 print("RESULT", repr(tuple(places)), flush=True)
 """
@@ -1033,11 +1038,13 @@ import dataclasses, sys
 sys.path.insert(0, sys.argv[1])
 import litpyglass
 
-ist = litpyglass.InputStrikeTaker()
-boss = litpyglass.TerminalBoss(typeahead=b"", farewell=b"")
+boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"")
+ts = litpyglass.TerminalShadow(boss)
+ist = litpyglass.InputStrikeTaker(ts)
 places = list()
 with boss:
-    for isap in ist.take_placed_input_strikes_and_yield_each(boss, stalwarts=()):
+    ist.pull_yx_hw_from_ts_if(stalwarts=())
+    for isap in ist.take_input_strikes_and_yield_each_placed(stalwarts=()):
         if not isap.strike.taken:
             continue  # the Open Frame comes before each Read, and says nothing yet
         place = isap.place and dataclasses.astuple(isap.place)
@@ -1082,15 +1089,42 @@ def _try_frame_reader_quits_midbatch_() -> None:
     assert shows == expected, (shows, expected)
 
 
+def _try_pull_ends_without_answers_() -> None:
+    """Try that Input ending before both Results fails loudly, as _7_ at the bottom says"""
+
+    class FakeBoss:
+        isatty = True
+
+        def bytes_write_flush(self, data: bytes) -> None:
+            pass
+
+        def read_some_bytes_if(self) -> bytes:
+            return b""  # Input ends at once, with no Result
+
+    boss = typing.cast(litpyglass.TerminalBoss, FakeBoss())
+    ist = litpyglass.InputStrikeTaker(litpyglass.TerminalShadow(boss))
+
+    heard = io.StringIO()
+    with contextlib.redirect_stdout(heard):
+        try:
+            ist.pull_yx_hw_from_ts_if(stalwarts=())
+            code = None
+        except SystemExit as exc:
+            code = exc.code
+
+    complaint = "Input ended before Y X H W replies to ⎋[6n and ⎋[18t"
+    assert code == 1, (code, heard.getvalue())
+    assert complaint in heard.getvalue(), (complaint, heard.getvalue())
+
+
 def _try_placed_input_strikes_() -> None:
     """Try the Place each Strike takes, as _7_ at the bottom of this file says"""
 
     typed = b"\033[A" + b"\033[5;7R" + b"\033[9;9R" + b"\033[8;24;80t" + b"\033[B"
     result = _pty_run_child_(_PLACED_CHILD_, terminal_bytes=typed)
 
-    place = (7, 80, 5, 24)  # column_x, x_width, row_y, y_height
-    lookalike = "⎋ [ 9 ; 9 ⇧R"  # a second Cursor Result comes through as a Strike, in order
-    expected = (("↑", place), (lookalike, place), ("↓", place))  # the answers are no Strikes
+    place = (9, 80, 9, 24)  # column_x, x_width, row_y, y_height: the last Cursor Result, ⎋[9;9⇧R
+    expected = (("↑", place), ("↓", place))  # the answers are no Strikes
     assert result == expected, (result, expected)
 
     here = os.path.dirname(os.path.abspath(litpyglass.__file__))
@@ -1098,7 +1132,7 @@ def _try_placed_input_strikes_() -> None:
     run = subprocess.run(argv, input=b"\033[A\033[B", capture_output=True, timeout=10)
     assert run.returncode == 0, (run.returncode, run.stdout, run.stderr)
 
-    off_expected = "RESULT (('↑', None), ('↓', None))"  # no Terminal to ask, so no Place
+    off_expected = "RESULT (('↑', (1, 1, 1, 1)), ('↓', (1, 1, 1, 1)))"  # no Terminal to ask
     assert off_expected in run.stdout.decode(), (run.stdout, off_expected)
 
 
@@ -1110,23 +1144,30 @@ def _try_skater_entry_() -> None:
         half = executor.submit(_try_egg_entry_, b"", b"\033[1;1R")  # only the Cursor Result
         other = executor.submit(_try_egg_entry_, b"", b"\033[8;24;80t")  # only the Size Result
         ahead = executor.submit(_try_egg_entry_, b"\033[C", b"\033[1;1R\033[8;24;80t")  # → typed
+        swapped = executor.submit(_try_egg_entry_, b"", b"\033[8;24;80t\033[1;1R")  # Size first
 
-    complaint = "Input ended before answering ⎋[6n with Y X and ⎋[18t with H W"
+    complaint = "Input ended before Y X H W replies to ⎋[6n and ⎋[18t"
 
     for future in (mute, half, other):
         screen_decode, isig, returncode = future.result()
-        assert screen_decode.index("\r  \b\b") < screen_decode.index("\033[6n"), (screen_decode,)
+        assert "\r  \b\b" not in screen_decode, (screen_decode,)  # no writes while the hang lasts
         assert isig, (isig, screen_decode)  # ⌃C ⌃Z ⌃\ still signal while the hang lasts
         assert returncode == 1, (returncode, screen_decode)  # ⌃D ends the hang
         assert complaint in screen_decode, (complaint, screen_decode)
 
     screen_decode, isig, returncode = ahead.result()
     assert "\r  \b\b" in screen_decode, (screen_decode,)
+    assert screen_decode.index("\033[6n") < screen_decode.index("\r  \b\b"), (screen_decode,)
     assert not isig, (isig, screen_decode)
     assert returncode is None, (returncode, screen_decode)
 
     moved = _skater_move_("\033[C\033[C")  # the → typed before the Results came, kept
     assert screen_decode.index("\r  \b\b") < screen_decode.index(moved), (moved, screen_decode)
+
+    screen_decode, isig, returncode = swapped.result()
+    assert screen_decode.index("\033[6n") < screen_decode.index("\r  \b\b"), (screen_decode,)
+    assert not isig, (isig, screen_decode)  # the Results take either order
+    assert returncode is None, (returncode, screen_decode)
 
     argv = [sys.executable, "-I", litpyglass.__file__, "--egg=skater"]
     run = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10)
@@ -1499,23 +1540,25 @@ The Bytes of one Strike go in, and the Key Caps struck to send them come out, el
 # class InputStrikeTaker
 
 _7_ = r"""
-Spec of InputStrikeTaker.take_placed_input_strikes_and_yield_each, as
-_try_placed_input_strikes_ tests it.
+Spec of InputStrikeTaker.pull_yx_hw_from_ts_if and .take_input_strikes_and_yield_each_placed, as
+_try_placed_input_strikes_ and _try_pull_ends_without_answers_ test it.
 
-We meet spec as tested by _try_placed_input_strikes_:
+We meet spec as tested by _try_placed_input_strikes_ and _try_pull_ends_without_answers_:
 
     1. On a Terminal, the Results ⎋[5;7⇧R and ⎋[8;24;80t place each Strike at column_x 7,
        x_width 80, row_y 5, and y_height 24: Columns come from the Cursor X and the Screen W,
        Rows from the Cursor Y and the Screen H.
 
-    2. The Strike typed before the Results come waits for them, and then takes that same Place,
-       as does each Strike typed after.
+    2. The Strike typed before the Results come waits in a queue for them, and then takes that
+       same Place, as does each Strike typed after.
 
-    3. The first Result of each kind is taken as the answer and not yielded as a Strike.
-       A later lookalike, such as a second ⎋[9;9⇧R pasted before the Results, comes through
-       as a Strike, and never changes the Place.
+    3. Each Result is taken as an answer and not yielded as a Strike. A later Result of the same
+       kind, such as a second ⎋[9;9⇧R pasted before the Size Result, replaces the earlier.
 
-    4. Off a Terminal, each Strike takes no Place, and nothing waits.
+    4. Off a Terminal, nothing asks and nothing waits, so each Strike takes the Place of all 1.
+
+    5. When Input ends, or ⌃D quits the wait, before both Results have come, it prints "Input
+       ended before Y X H W replies to ⎋[6n and ⎋[18t" and exits 1.
 """
 
 
