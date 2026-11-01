@@ -1358,6 +1358,10 @@ class TerminalFrameReader:
 
         before = time.perf_counter_ns()  # doesn't measure time to launch
 
+        # Yield first each Taken Frame left behind, by a Caller who quit before it
+
+        yield from self._pull_frames_and_yield_each_()
+
         while True:
 
             # Yield the Open Frame before each Read, as a Frame not yet taken
@@ -1430,12 +1434,15 @@ class TerminalFrameReader:
         tft = self.tft
         cells = self.cells
 
-        frames = tft.frames[tft.index :]  # the Taken Frames not yet pulled
-        triples = tft.pull_frame_triples()
-        assert len(triples) == len(frames), (len(triples), len(frames))
+        while True:
 
-        for frame, triple in zip(frames, triples):
-            start, end, data = triple
+            # Pull one Frame at a time, lest a Caller who quits drop the Frames behind
+
+            pulled = tft.pull_one_frame_triple_if()
+            if not pulled:
+                break
+
+            frame, start, end, data = pulled
             assert data == frame.to_frame_bytes(), (data, frame)
 
             length = 2 * len(data)  # two cells per Byte
@@ -1553,8 +1560,8 @@ class TerminalFrameTaker:
         _frame_ = TerminalByteFrame(b"")  # empty and open
         self.frame = _frame_
 
-    def pull_frame_triples(self) -> tuple[tuple[int, int, bytes], ...]:
-        """Read and clear the (start, end, bytes) triples of Frames taken since last called"""
+    def pull_one_frame_triple_if(self) -> tuple[()] | tuple[TerminalByteFrame, int, int, bytes]:
+        """Pull the oldest Taken Frame not yet pulled, with when its Bytes started and ended"""
 
         bk = self.bk
         frame = self.frame
@@ -1564,41 +1571,34 @@ class TerminalFrameTaker:
         ba = bk.ba
         nano_list = bk.nano_list
 
-        # Pull the Taken Frames not yet pulled
+        # Pull the oldest of the Taken Frames not yet pulled, if any
 
         pulls = frames[index:]
-        self.index = len(frames)
+        if not pulls:
+            return ()
+
+        self.index = index + 1
 
         # Measure back from the end of the Bytes, to find where the oldest of them starts
 
         open_length = len(frame.to_frame_bytes())
         pulls_length = sum(len(_.to_frame_bytes()) for _ in pulls)
-        first_index = len(ba) - open_length - pulls_length
+        start_index = len(ba) - open_length - pulls_length
 
-        # Say when each started and ended, while walking forward over them
+        # Say when it started and ended
 
-        triples_list: list[tuple[int, int, bytes]] = list()
+        pull = pulls[0]
+        data = pull.to_frame_bytes()
+        stop_index = start_index + len(data)
 
-        start_index = first_index
-        for pull in pulls:
-            data = pull.to_frame_bytes()
-            stop_index = start_index + len(data)
+        indexed = bytes(ba[start_index:stop_index])
+        assert indexed == data, (indexed, data, start_index, stop_index)
 
-            indexed = bytes(ba[start_index:stop_index])
-            assert indexed == data, (indexed, data, start_index, stop_index)
+        start = nano_list[start_index]
+        end = nano_list[stop_index - 1]
 
-            start = nano_list[start_index]
-            end = nano_list[stop_index - 1]
-
-            triple = (start, end, data)
-            triples_list.append(triple)
-
-            start_index = stop_index
-
-        assert start_index == (len(ba) - open_length), (start_index, len(ba), open_length)
-
-        triples = tuple(triples_list)
-        return triples
+        triple = (pull, start, end, data)
+        return triple
 
     def is_quitting_frames(self, stalwarts: tuple[bytes, ...]) -> bool:
         """Say if the Frames have said please quit soon, but never quit on a Stalwart"""

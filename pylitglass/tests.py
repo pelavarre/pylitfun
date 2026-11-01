@@ -29,6 +29,7 @@ import subprocess
 import sys
 import termios
 import time
+import typing
 import unicodedata
 
 import litpyglass
@@ -58,6 +59,7 @@ def main() -> None:
     _try_terminal_boss_typeahead_()  # ~600ms, 150ms per Typeahead Byte
     _try_terminal_boss_chunks_()  # ~460ms, 150ms per Typeahead Byte
     _try_typeahead_()  # ~550ms, 3 Typeahead ⏎ at 150ms each
+    _try_frame_reader_quits_midbatch_()  # ~1ms
     _try_placed_input_strikes_()  # ~150ms, 1 Pty and 1 child Python off a Terminal
     _try_skater_entry_()  # ~900ms, 4 Ptys at once, and 1 child Python off a Terminal
     _try_skater_quits_()  # ~1100ms, 13 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
@@ -735,7 +737,7 @@ print(
 
 
 def _try_terminal_boss_typeahead_() -> None:
-    """Try TerminalBoss reading Typeahead, as _8_ at the bottom of this file says"""
+    """Try TerminalBoss reading Typeahead, as _9_ at the bottom of this file says"""
 
     result = _pty_run_child_(_TERMINAL_BOSS_TYPEAHEAD_CHILD_, terminal_bytes=b"X")
 
@@ -759,7 +761,7 @@ print("RESULT", repr(chunks), flush=True)
 
 
 def _try_terminal_boss_chunks_() -> None:
-    """Try TerminalBoss reading Typeahead in chunks, as _8_ at the bottom of this file says"""
+    """Try TerminalBoss reading Typeahead in chunks, as _9_ at the bottom of this file says"""
 
     result = _pty_run_child_(_TERMINAL_BOSS_CHUNKS_CHILD_, terminal_bytes=b"XY")
 
@@ -811,7 +813,7 @@ def _pty_run_child_(child_code: str, terminal_bytes: bytes) -> object:
 
 
 def _try_typeahead_() -> None:
-    """Try the --typeahead flag, as _8_ at the bottom of this file says"""
+    """Try the --typeahead flag, as _9_ at the bottom of this file says"""
 
     master_fileno, slave_fileno = pty.openpty()
     argv = [sys.executable, "-I", litpyglass.__file__, "--egg=strikes", "--typeahead=\r\r\r"]
@@ -867,7 +869,7 @@ def _skater_move_(warp: str) -> str:
 
 
 def _try_skater_quits_() -> None:
-    """Try which strikes quit --egg=skater, as _7_ at the bottom of this file says"""
+    """Try which strikes quit --egg=skater, as _8_ at the bottom of this file says"""
 
     cases = (
         (b"\r", 3, True, "X\bO\b"),  # ⏎ ⏎ ⏎
@@ -909,7 +911,7 @@ def _try_skater_quits_() -> None:
 
 
 def _try_skater_edge_() -> None:
-    """Try --egg=skater at the far East Column, as _7_ at the bottom of this file says"""
+    """Try --egg=skater at the far East Column, as _8_ at the bottom of this file says"""
 
     results20 = b"\033[1;1R\033[8;5;20t"  # Row 1 Column 1, and a Screen 5 high, 20 wide
     results21 = b"\033[1;1R\033[8;5;21t"  # the same, 21 wide
@@ -1044,8 +1046,44 @@ print("RESULT", repr(tuple(places)), flush=True)
 """
 
 
+def _try_frame_reader_quits_midbatch_() -> None:
+    """Try that a Caller who quits mid-batch leaves the later Taken Frames, as _5_ says"""
+
+    class FakeBoss:
+        def __init__(self) -> None:
+            self.reads = 0
+
+        def read_some_bytes_if(self) -> bytes:
+            self.reads += 1
+            return b"\033[1;1R\033[8;24;80t\033[B" if (self.reads == 1) else b""
+
+    boss = FakeBoss()
+    tfr = litpyglass.TerminalFrameReader()
+
+    taken_count = 0
+    for taken, frame, _ in tfr.take_frames_and_yield_each(
+        typing.cast(litpyglass.TerminalBoss, boss), stalwarts=()
+    ):
+        taken_count += int(taken)
+        if taken_count == 2:
+            break  # quits at the second Frame of three
+
+    assert boss.reads == 1, (boss.reads,)
+
+    shows = list()
+    for taken, frame, _ in tfr.take_frames_and_yield_each(
+        typing.cast(litpyglass.TerminalBoss, boss), stalwarts=()
+    ):
+        shows.append((taken, frame.to_frame_bytes(), boss.reads))
+
+    # the third Frame comes first, before the Open Frame, and before any second read
+
+    expected = [(True, b"\033[B", 1), (False, b"", 1)]
+    assert shows == expected, (shows, expected)
+
+
 def _try_placed_input_strikes_() -> None:
-    """Try the Place each Strike takes, as _6_ at the bottom of this file says"""
+    """Try the Place each Strike takes, as _7_ at the bottom of this file says"""
 
     typed = b"\033[A" + b"\033[5;7R" + b"\033[9;9R" + b"\033[8;24;80t" + b"\033[B"
     result = _pty_run_child_(_PLACED_CHILD_, terminal_bytes=typed)
@@ -1065,7 +1103,7 @@ def _try_placed_input_strikes_() -> None:
 
 
 def _try_skater_entry_() -> None:
-    """Try how --egg=skater waits for the Results of its Queries, as _7_ at the bottom says"""
+    """Try how --egg=skater waits for the Results of its Queries, as _8_ at the bottom says"""
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         mute = executor.submit(_try_egg_entry_, b"", b"")  # no Results
@@ -1171,7 +1209,7 @@ def _try_egg_quit_(egg: str, data: bytes, count: int, results: bytes) -> tuple[b
 
 
 def _try_strikes_spill_() -> None:
-    """Try what --egg=strikes leaves in Stdin after it quits, as _7_ says at the bottom"""
+    """Try what --egg=strikes leaves in Stdin after it quits, as _8_ says at the bottom"""
 
     cases = (
         (b"", b""),  # nothing struck after the 3rd ⏎, so nothing left
@@ -1412,10 +1450,23 @@ Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with the strikes 150 
 
 # class TerminalFrameReader
 
+_5_ = r"""
+Spec of TerminalFrameReader.take_frames_and_yield_each, as _try_frame_reader_quits_midbatch_
+tests it.
+
+We meet spec as tested by _try_frame_reader_quits_midbatch_:
+
+    1. A Caller who quits after the second of three Taken Frames of one read leaves the third
+       Taken Frame for the next pass.
+
+    2. The next pass yields that third Taken Frame first, before the Open Frame and before
+       any further read.
+"""
+
 
 # class KeyboardDecoder
 
-_5_ = r"""
+_6_ = r"""
 Spec of KeyboardDecoder.bytes_to_key_caps_if, as _try_keyboard_decoder_ tests it
 
 The Bytes of one Strike go in, and the Key Caps struck to send them come out, else an Empty Str:
@@ -1447,7 +1498,7 @@ The Bytes of one Strike go in, and the Key Caps struck to send them come out, el
 
 # class InputStrikeTaker
 
-_6_ = r"""
+_7_ = r"""
 Spec of InputStrikeTaker.take_placed_input_strikes_and_yield_each, as
 _try_placed_input_strikes_ tests it.
 
@@ -1470,7 +1521,7 @@ We meet spec as tested by _try_placed_input_strikes_:
 
 # class GlassWorker
 
-_7_ = r"""
+_8_ = r"""
 Spec of GlassWorker, the demos that --egg= picks.
 
 Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with the 3 ⏎ 150 ms apart,
@@ -1531,7 +1582,7 @@ On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits
 
 # def main
 
-_8_ = r"""
+_9_ = r"""
 Spec of the --typeahead flag of litpyglass.py, from the flag down into TerminalBoss.
 
 Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with no key struck.
@@ -1554,7 +1605,7 @@ We meet spec as tested by _try_terminal_boss_typeahead_ and _try_terminal_boss_c
 """
 
 
-_ = _1_, _2_, _3_, _4_, _5_, _6_, _7_, _8_
+_ = _1_, _2_, _3_, _4_, _5_, _6_, _7_, _8_, _9_
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789
