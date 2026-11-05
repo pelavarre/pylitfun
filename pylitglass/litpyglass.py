@@ -2572,7 +2572,7 @@ class TerminalBoss:
 
         # also pauses Return Key meaning ⌃J b'\n', switches to ⌃M b'\r', except for a farewell
 
-        # chose termios.TCSADRAIN over termios.TCSAFLUSH, per the Spec at the bottom of tests.py
+        # chose termios.TCSADRAIN over termios.TCSAFLUSH, per specs.md § 1
 
     def tty_setraw_before_farewell(self) -> None:
         r"""Stop taking ⌃C ⌃Z ⌃\ as signals, and take each Return Key as ⌃M b'\r' not ⌃J b'\n'"""
