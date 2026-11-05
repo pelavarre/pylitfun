@@ -32,7 +32,6 @@ import sys
 import termios
 import time
 import typing
-import unicodedata
 
 import litpyglass
 
@@ -72,9 +71,7 @@ def main() -> None:
 
 
 def _try_keyboard_decoder_() -> None:
-    """Try KeyboardDecoder things"""
-
-    dead_key_echo_by_combining = litpyglass.KeyboardDecoder.DeadKeyEchoByCombining
+    """Try KeyboardDecoder things, as specs.md § 6 says"""
 
     kd = litpyglass.keyboard_decoder()
 
@@ -100,6 +97,11 @@ def _try_keyboard_decoder_() -> None:
         #
         ("é".encode(), "⌥EE"),  # 'é' as 1 Char  # NFD would split out a Combining Acute Accent
         ("j́".encode(), "⌥EJ"),  # 'j' before Combining Acute Accent, from Dead Key & then J Key
+        ("è".encode(), "⌥`E"),  # each of the five Dead Keys, before E
+        ("ê".encode(), "⌥IE"),
+        ("ñ".encode(), "⌥NN"),  # before N, not only before a vowel
+        ("ë".encode(), "⌥UE"),
+        ("j\u0300".encode(), "⌥`J"),  # 'j' before Combining Grave Accent, from ⌥` & then J Key
         ("´".encode(), "⌥⇧E"),  # the Spacing Acute Accent, as struck
         ("\u0301".encode(), ""),  # the Combining Acute Accent by itself, which no Key sends
         ("a\u0301\u0308".encode(), ""),  # two Combining Marks on one Char, which no Key sends
@@ -117,11 +119,6 @@ def _try_keyboard_decoder_() -> None:
     for data, want in pairs:
         caps = kd.bytes_to_key_caps_if(data)
         assert caps == want, (caps, want, data)
-
-    # Show Unicode tells Apple that the Dead Key should accent the Char struck after it
-
-    for t in dead_key_echo_by_combining.keys():
-        assert unicodedata.combining(t), (t,)
 
 
 def _try_terminal_frame_decoder_() -> None:

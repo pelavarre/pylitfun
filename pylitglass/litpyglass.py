@@ -804,6 +804,9 @@ class KeyboardDecoder:
         "\u0308": "⌥U",  # Combining Diaeresis
     }
 
+    assert all(unicodedata.combining(t) for t in DeadKeyEchoByCombining.keys())
+    # Unicode tells Apple that each Dead Key should accent the Char struck after it
+
     def __init__(self) -> None:
 
         self.decode_by_echo = dict()

@@ -169,7 +169,8 @@ The Bytes of one Strike go in, and the Key Caps struck to send them come out, el
 
     5. Printable Chars give their Key Cap: ␢ J ⇧J, and a Paste of b'ABC' gives ⇧A ⇧B ⇧C.
 
-    6. A Dead Key Echo gives the Option Chord: é gives ⌥EE, j + Acute gives ⌥EJ, ´ gives ⌥⇧E.
+    6. A Dead Key Echo gives the Option Chord: è é ê ñ ë give ⌥`E ⌥EE ⌥IE ⌥NN ⌥UE, j + Acute gives
+       ⌥EJ, ´ gives ⌥⇧E.
 
     7. Where several Key Chords send the same Bytes, one reading wins:
        F6 over ⌥F1 and ⎋F1, F12 over ⌥F7 and ⎋F7, ⇧F5 over ⌥F8 and ⎋F8, ⎋⌃P over ⎋⇧F1 .. ⎋⌃⇧F12.
@@ -179,6 +180,7 @@ The Bytes of one Strike go in, and the Key Caps struck to send them come out, el
     9. b'\033[22~' gives ⎋ [ 2 2 ⇧~, since no F Key sends 22 (F10 sends 21 and F11 sends 23).
 
     10. Each Dead Key Echo names a Unicode Combining Mark, so Apple accents the Char struck next.
+        litpyglass.py asserts this itself as it loads.
 ```
 
 ## § 7 InputStrikeTaker
