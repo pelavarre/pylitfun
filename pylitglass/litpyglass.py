@@ -673,7 +673,7 @@ class InputStrikeTaker:
         # Fail loudly if Input ended, or we quit at ⌃D, before taking YX and HW
 
         if ("YX" not in tags) or ("HW" not in tags):
-            print("Input ended before Y X H W replies to ⎋[6n and ⎋[18t", end="\r\n")
+            print("Input ended before Y X H W replies to ⎋[6N and ⎋[18T", end="\r\n")
             sys.exit(1)
 
     def take_input_strikes_and_yield_each_placed(
@@ -834,7 +834,7 @@ class KeyboardDecoder:
 
         # 2 ⇧
 
-        shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2D and ⎋[1;2C
+        shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2⇧D and ⎋[1;2⇧C
 
         strikes = """
             033
@@ -1111,7 +1111,7 @@ class KeyboardDecoder:
 
         # 2 ⇧  # Sideband Bells on ⌃ F1 F2 F3 F4
 
-        shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2D and ⎋[1;2C
+        shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2⇧D and ⎋[1;2⇧C
 
         caps = "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"  # without "F1 F2 F3 F4" + " " +
         strikes = """
@@ -1842,37 +1842,37 @@ In the leftmost Column are the Bytes in the Frame, from before you offered one m
 
 The Frames ending with '+' were still open, the others were already closed.
 
-    Frame    \a      ⇥       ⎋       ;       A       ́       €       \xff
+    Frame     \a      ⇥       ⎋       ;       A       ́       €       \xff
 
-    '' +     close   close   open    open    open    open    open    close
+    '' +      close   close   open    open    open    open    open    close
 
-    'ab' +   bounce  bounce  bounce  open    open    open    open    bounce
+    'ab' +    bounce  bounce  bounce  open    open    open    open    bounce
 
-    ⎋ +      close   close   open    close   close   close   close   bounce
-    ⎋⎋ +     close   close   bounce  close   close   close   close   bounce
-    ⎋O +     close   close   bounce  close   close   close   close   bounce
-    ⎋[M +    open    open    open    open    open    open    close6  open
-    ⎋[M␢! +  close6  close6  close6  close6  close6  close6  close6  close6
+    ⎋ +       close   close   open    close   close   close   close   bounce
+    ⎋⎋ +      close   close   bounce  close   close   close   close   bounce
+    ⎋O +      close   close   bounce  close   close   close   close   bounce
+    ⎋[⇧M +    open    open    open    open    open    open    close6  open
+    ⎋[⇧M␢! +  close6  close6  close6  close6  close6  close6  close6  close6
 
-    ⎋[ +     bounce  bounce  bounce  open    close   close   close   bounce
-    ⎋[1;5 +  bounce  bounce  bounce  open    close   close   close   bounce
-    ⎋[␢ +    bounce  bounce  bounce  bounce  close   close   close   bounce
+    ⎋[ +      bounce  bounce  bounce  open    close   close   close   bounce
+    ⎋[1;5 +   bounce  bounce  bounce  open    close   close   close   bounce
+    ⎋[␢ +     bounce  bounce  bounce  bounce  close   close   close   bounce
 
-    ⎋] +     close   bounce  open    open    open    open    open    bounce
-    ⎋]0;x +  close   bounce  open    open    open    open    open    bounce
-    ⎋]0;x⎋ + bounce2 bounce2 bounce2 bounce2 bounce2 bounce2 bounce2 bounce2
+    ⎋] +      close   bounce  open    open    open    open    open    bounce
+    ⎋]0;x +   close   bounce  open    open    open    open    open    bounce
+    ⎋]0;x⎋ +  bounce2 bounce2 bounce2 bounce2 bounce2 bounce2 bounce2 bounce2
 
-    ⎋j       bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
-    ⎋Oj      bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
-    ⎋[A      bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
-    ⎋⇥       bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
+    ⎋j        bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
+    ⎋Oj       bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
+    ⎋[⇧A      bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
+    ⎋⇥        bounce  bounce  bounce  bounce  bounce  bounce  bounce  bounce
 
 As you feed Byte after Byte into a Terminal Byte Frame, it must decide when to:
 
 i ) Open = Take the Byte and keep the Frame open
 ii ) Bounce = Reject the Byte and leave the Frame unchanged
 iii ) Close = Take the Byte and close the Frame
-iv ) Close6 = Take the 6 Bytes and bounce anything after (at ⎋[M legacy)
+iv ) Close6 = Take the 6 Bytes and bounce anything after (at ⎋[⇧M legacy)
 v ) Bounce2 = Reject the Byte and give back the held ⎋ with it (at ⎋] awaiting the \ of ⎋\)
 
 Given a Peek at a Combining Mark already fetched in the same burst of Bytes, as ⌥E J sends,
@@ -1886,7 +1886,7 @@ Relevant standards include:
 However the public standards only clearly solve 7-bit Bytes.
 
 We solve 8-bit Bytes reasonably well. We tell every Open Frame to accept the 1..4 Bytes
-of any Printable Text Char, except that our Open ⎋[M Frames only take 1..3 Bytes, and
+of any Printable Text Char, except that our Open ⎋[⇧M Frames only take 1..3 Bytes, and
 our Open ⎋] Osc Frames can bounce 1..5 Bytes because they only take Reverse-Solidus \ after Esc ⎋.
 
 The b'\a' Bel is as special as String Terminator (ST) for ⎋] an Operating System Command (Osc).
@@ -2335,7 +2335,7 @@ class TerminalByteFrame:
 
         return b""
 
-        # ⎋[?1005h Utf-8 Mouse Coords never enabled here, so never decoded here
+        # ⎋[?1005H Utf-8 Mouse Coords never enabled here, so never decoded here
 
     def _take_after_csi_if_(self, data: bytes, text: str, peek: str) -> bytes:
         """Take 1..4 more Bytes in, after ⎋[ Csi, else return what doesn't fit"""
@@ -2866,7 +2866,7 @@ DSR0 = "\033[" "0n"  # DSR_PS Ps 0 for Ps 5
 DSR5 = "\033[" "5n"  # DSR_PS Ps 5 to Ps 0
 
 DSR6 = "\033[" "6n"  # DSR_PS Ps 6 for CPR_Y_X
-CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R  # [ CPR 'R' Result to 'n' Query DSR_PS Ps 6 ]
+CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R  # [ CPR ⇧R Result to N Query DSR_PS Ps 6 ]
 
 
 DECSCUSR_PS = "\033[" "{}" " q"  # CSI 06/15 [DEC] Set Cursor Style [Ps]  # Two Byte Backtail
@@ -2875,7 +2875,7 @@ NO_DECSCUSR_PS = "\033[" " q"  # DECSCUSR_PS Ps 0 to revert to default Cursor St
 
 
 XTWINOPS_18 = "\033[" "18" "t"  # CSI 07/04 [ Query Ps 18 for Result Ps 8 ]
-XTWINOPS_8_H_W = "\033[" "8;{};{}" "t"  # ⎋[h;w⇧t  # CSI 07/04 [ Result Ps 8 to Query Ps 18 ]
+XTWINOPS_8_H_W = "\033[" "8;{};{}" "t"  # ⎋[8;h;wT  # CSI 07/04 [ Result Ps 8 to Query Ps 18 ]
 
 
 # ← ↑ → ↓ is sorted by Codepoint

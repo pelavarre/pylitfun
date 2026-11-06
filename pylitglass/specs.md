@@ -206,7 +206,7 @@ We meet spec as tested by _try_placed_input_strikes_ and _try_pull_ends_without_
     4. Off a Terminal, nothing asks and nothing waits, so each Strike takes the Place of all 1.
 
     5. When Input ends, or ⌃D quits the wait, before both Results have come, it prints "Input
-       ended before Y X H W replies to ⎋[6n and ⎋[18t" and exits 1.
+       ended before Y X H W replies to ⎋[6N and ⎋[18T" and exits 1.
 ```
 
 ## § 8 GlassWorker
@@ -252,7 +252,7 @@ On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits
 
     13. A Taken Arrow Frame resets the count of Bytes to 0, so ⎋[ shows 2 again after it.
 
-    14. Launch on a Terminal writes the first Prompt, then the Queries ⎋[6n and ⎋[18t, and
+    14. Launch on a Terminal writes the first Prompt, then the Queries ⎋[6N and ⎋[18T, and
         waits however long it takes for both Results.
 
     15. While waiting, ⌃C ⌃Z ⌃\ still signal, and ⌃D ends Input with a brief complaint and exit 1.

@@ -1198,7 +1198,7 @@ def _try_pull_ends_without_answers_() -> None:
         except SystemExit as exc:
             code = exc.code
 
-    complaint = "Input ended before Y X H W replies to ⎋[6n and ⎋[18t"
+    complaint = "Input ended before Y X H W replies to ⎋[6N and ⎋[18T"
     assert code == 1, (code, heard.getvalue())
     assert complaint in heard.getvalue(), (complaint, heard.getvalue())
 
@@ -1232,7 +1232,7 @@ def _try_skater_entry_() -> None:
         ahead = executor.submit(_try_egg_entry_, b"\033[C", b"\033[1;1R\033[8;24;80t")  # → typed
         swapped = executor.submit(_try_egg_entry_, b"", b"\033[8;24;80t\033[1;1R")  # Size first
 
-    complaint = "Input ended before Y X H W replies to ⎋[6n and ⎋[18t"
+    complaint = "Input ended before Y X H W replies to ⎋[6N and ⎋[18T"
 
     for future in (mute, half, other):
         screen_decode, isig, returncode = future.result()
