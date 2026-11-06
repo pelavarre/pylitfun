@@ -22,6 +22,7 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 import ast
 import concurrent.futures
 import contextlib
+import dataclasses
 import io
 import os
 import pty
@@ -67,6 +68,7 @@ def main() -> None:
     _try_skater_entry_()  # ~900ms, 4 Ptys at once, and 1 child Python off a Terminal
     _try_skater_quits_()  # ~1100ms, 13 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
     _try_skater_edge_()  # ~2500ms, 4 Ptys at once, the slowest 10 → at 150ms apart + 500ms
+    _try_shadow_cells_()  # ~1ms
 
     print("tests ok")
 
@@ -128,18 +130,18 @@ def _try_terminal_frame_decoder_() -> None:
     assert litpyglass.XTWINOPS_18 == "\033[18t"
     assert litpyglass.DSR6 == "\033[6n"
 
-    f = litpyglass.TerminalFrameDecoder.bytes_to_yx_or_hw_if
+    f = litpyglass.TerminalFrameDecoder.bytes_to_yx_or_hw_else
 
     assert f(b"\033[8;24;80t") == ("HW", 24, 80)  # Rows then Columns
     assert f(b"\033[5;7R") == ("YX", 5, 7)  # Row then Column
 
-    assert f(b"\033[A") == ()  # an Arrow
-    assert f(b"\033\033[5;7R") == ()  # a Result with a ⎋ stuck on the front
-    assert f(b"\033[5;7R\033[5;7R") == ()  # two Results are two Frames
-    assert f(b"\033[8;24t") == ()  # too few Ints
-    assert f(b"\033[;7R") == ()  # an empty Int
+    assert f(b"\033[A") is None  # an Arrow
+    assert f(b"\033\033[5;7R") is None  # a Result with a ⎋ stuck on the front
+    assert f(b"\033[5;7R\033[5;7R") is None  # two Results are two Frames
+    assert f(b"\033[8;24t") is None  # too few Ints
+    assert f(b"\033[;7R") is None  # an empty Int
     assert f(b"\033[007;5R") == ("YX", 7, 5)  # leading 0s, which ECMA-48 would not send
-    assert f(b"") == ()
+    assert f(b"") is None
 
     for data in (b"\033[0;7R", b"\033[5;0R", b"\033[8;0;80t", b"\033[8;24;0t"):  # a 0 Int
         try:
@@ -991,8 +993,8 @@ def _try_skater_quits_() -> None:
         assert quit == want, (quit, want, data, count, screen_decode)
         assert shows in screen_decode, (shows, data, count, screen_decode)
 
-        launch = "\033[?25l\033[6n\033[18t\r  \b\b"
-        # hides the Cursor, asks the Queries, draws the first pixel plain
+        launch = "\033[6n\033[18t\033[?25l\r  \b\b"
+        # asks the Queries, hides the Cursor once the Screen is known, draws the first pixel plain
         assert launch in screen_decode, (launch, data, count, screen_decode)
 
         farewell = "\r\033[?25h\033[32100B\033[A"  # shows Cursor, parks it
@@ -1038,6 +1040,194 @@ def _try_skater_edge_() -> None:
 
         below = list(c for row in screen_cells[1:] for c in row if c != (" ", False))
         assert not below, (below, screen_width, count, screen_decode)  # no spill into Row 2
+
+
+def _try_shadow_cells_() -> None:
+    """Try TerminalShadow keeping the Cells written, as specs.md § 10 says"""
+
+    class FakeBoss:
+        def __init__(self) -> None:
+            self.writes: list[bytes] = list()
+
+        def bytes_write_flush(self, data: bytes) -> None:
+            self.writes.append(data)
+
+    fake = FakeBoss()
+    boss = typing.cast(litpyglass.TerminalBoss, fake)
+    ts = litpyglass.TerminalShadow(boss)
+    assert ts.write_by_xy == {}, ts.write_by_xy
+
+    ts.shadow_read_data_else(b"\033[2;3R")  # Row 2 Column 3
+    ts.shadow_read_data_else(b"\033[8;5;20t")  # a Screen 5 high, 20 wide
+    assert ts.write_by_xy == {}, ts.write_by_xy  # nothing written, so nothing known
+
+    no_sgr_csi = "\033[m"  # ⎋[M, which starts the Text Styles in force
+    reverse = "\033[7m"  # ⎋[7M
+
+    ts.str_write_tb(no_sgr_csi + "ab")
+    assert ts.write_by_xy == {
+        (3, 2): ((no_sgr_csi,), "a"),
+        (4, 2): ((no_sgr_csi,), "b"),
+    }, ts.write_by_xy
+
+    ts.str_write_tb("\b\b" + reverse + "  " + no_sgr_csi + "\b\b")  # two reverse Spaces over them
+    assert ts.write_by_xy[(3, 2)] == ((no_sgr_csi, reverse), " "), ts.write_by_xy
+    assert ts.write_by_xy[(4, 2)] == ((no_sgr_csi, reverse), " "), ts.write_by_xy
+    assert ts.text_styles == (no_sgr_csi,), ts.text_styles  # ⎋[M started the sequence again
+
+    ts.str_write_tb("\033[B\033[Dz")  # move down and left, then write
+    assert ts.write_by_xy[(2, 3)] == ((no_sgr_csi,), "z"), ts.write_by_xy
+    assert len(ts.write_by_xy) == 3, ts.write_by_xy
+
+    ts.str_write_tb(reverse + "q")  # leaves Reverse on
+    assert tuple(ts.text_styles) == (no_sgr_csi, reverse), ts.text_styles  # tuple() blocks narrowing
+    assert ts.write_by_xy[(3, 3)] == ((no_sgr_csi, reverse), "q"), ts.write_by_xy
+
+    ts.str_write_tb(no_sgr_csi)  # ⎋[M starts the sequence again
+    assert tuple(ts.text_styles) == (no_sgr_csi,), ts.text_styles
+
+    # ⎋[7M said twice is kept once, and an SGR we do not spell fails loudly
+
+    ts = litpyglass.TerminalShadow(boss)
+    ts.shadow_read_data_else(b"\033[1;1R")
+    ts.shadow_read_data_else(b"\033[8;5;20t")
+
+    ts.str_write_tb(no_sgr_csi + reverse + reverse + "q")
+    assert ts.write_by_xy[(1, 1)] == ((no_sgr_csi, reverse), "q"), ts.write_by_xy
+
+    try:
+        ts.str_write_tb("\033[1mr")  # Bold
+        asserted = False
+    except AssertionError:
+        asserted = True
+    assert asserted, ts.write_by_xy
+
+    # Hiding or showing the Cursor keeps nothing and steers nothing, and any other Control fails
+
+    ts = litpyglass.TerminalShadow(boss)
+    ts.shadow_read_data_else(b"\033[2;3R")
+    ts.shadow_read_data_else(b"\033[8;5;20t")
+
+    shadow_before = (dataclasses.astuple(ts.place), dict(ts.write_by_xy), ts.text_styles)
+    ts.str_write_tb("\033[?25l\033[?25h")  # ⎋[?25L ⎋[?25H
+    shadow_after = (dataclasses.astuple(ts.place), dict(ts.write_by_xy), ts.text_styles)
+    assert shadow_after == shadow_before, (shadow_after, shadow_before)
+
+    try:
+        ts.str_write_tb("\a")  # Bell
+        asserted = False
+    except AssertionError:
+        asserted = True
+    assert asserted, ts.write_by_xy
+
+    # An odd Width W+1 acts as W: the Cursor may wait in Column W+1, but we write no Char there
+
+    ts = litpyglass.TerminalShadow(boss)
+    ts.shadow_read_data_else(b"\033[1;1R")
+    ts.shadow_read_data_else(b"\033[8;5;21t")  # a Screen 5 high, 21 wide
+    assert (ts.place.x_width, ts.place.x_max) == (21, 20), ts.place
+
+    place = ts.place
+    change = ts.change_of_write_strs_else(place, text="\033[C" * 19)
+    assert change and (change.column_x, change.row_y) == (20, 1), change
+    assert ts.is_writable_place_after_strs(place, text="\033[C" * 19)
+    change = ts.change_of_write_strs_else(place, text="\033[C" * 20)  # on-screen, waiting to wrap
+    assert change and (change.column_x, change.row_y) == (21, 1), change
+    assert not ts.is_writable_place_after_strs(place, text="\033[C" * 20)
+
+    # A Char that would land in Column W+1 cannot be written, even if the Cursor then moves back,
+    # and writing it fails an assert, since we write only inside Height x x_max
+
+    inside = no_sgr_csi + "\033[C" * 19 + "a\b"  # a lands in Column 20, the last Column we write
+    outside = no_sgr_csi + "\033[C" * 19 + "ab\b\b"  # b would land in Column 21
+    change = ts.change_of_write_strs_else(place, text=inside)
+    assert change and (change.column_x, change.row_y) == (20, 1), change
+    assert ts.change_of_write_strs_else(place, text=outside) is None
+
+    before = (
+        dataclasses.astuple(ts.place),
+        dict(ts.write_by_xy),
+        ts.text_styles,
+        list(fake.writes),
+    )
+
+    try:
+        ts.str_write_tb(outside)
+        asserted = False
+    except AssertionError:
+        asserted = True
+    assert asserted, ts.write_by_xy
+    assert (21, 1) not in ts.write_by_xy, ts.write_by_xy
+
+    # The Shadow finds the problem before the Terminal hears a Byte, and is left as it was
+
+    after = (dataclasses.astuple(ts.place), dict(ts.write_by_xy), ts.text_styles, list(fake.writes))
+    assert after == before, (after, before)
+
+    ts = litpyglass.TerminalShadow(boss)
+    ts.shadow_read_data_else(b"\033[1;1R")
+    ts.shadow_read_data_else(b"\033[8;5;20t")  # an even Width acts as itself
+    assert (ts.place.x_width, ts.place.x_max) == (20, 20), ts.place
+
+    # A Move that would leave the Screen cannot be written, at each of the four edges
+
+    place = ts.place  # Row 1 Column 1 of a Screen 5 high, 20 wide
+    assert ts.change_of_write_strs_else(place, text="\033[A") is None  # ↑ off the North edge
+    assert ts.change_of_write_strs_else(place, text="\033[D") is None  # ← off the West edge
+    assert ts.change_of_write_strs_else(place, text="\b") is None  # a Backspace off the West edge
+
+    ts.shadow_read_data_else(b"\033[5;20R")
+    place = ts.place  # Row 5 Column 20, the far South East
+    assert ts.change_of_write_strs_else(place, text="\033[B") is None  # ↓ off the South edge
+    assert not ts.is_writable_place_after_strs(place, text="\033[C")  # → past x_max
+    change = ts.change_of_write_strs_else(place, text="\033[C")  # still on-screen, waiting to wrap
+    assert change and (change.column_x, change.row_y) == (21, 5), change
+    change = ts.change_of_write_strs_else(place, text="\033[A")  # ↑ back inside
+    assert change and (change.column_x, change.row_y) == (20, 4), change
+
+    # A Return lands on Column 1, even with the wrap pending after a write into the last Column
+
+    ts = litpyglass.TerminalShadow(boss)
+    ts.shadow_read_data_else(b"\033[1;20R")
+    ts.shadow_read_data_else(b"\033[8;5;20t")
+    ts.str_write_tb("a\r")  # a lands in Column 20, the last, and then Return
+    assert (ts.place.column_x, ts.place.row_y) == (1, 1), ts.place
+    assert ts.write_by_xy[(20, 1)][1] == "a", ts.write_by_xy
+
+    # A Char into the last Column of an even Width, with nothing after it, cannot be written,
+    # since the Cursor would wait to wrap past x_max, but a Backspace after it can
+
+    ts = litpyglass.TerminalShadow(boss)
+    ts.shadow_read_data_else(b"\033[1;20R")
+    ts.shadow_read_data_else(b"\033[8;5;20t")
+    place = ts.place
+    assert not ts.is_writable_place_after_strs(place, text="a")
+    assert ts.is_writable_place_after_strs(place, text="a\b")
+    change = ts.change_of_write_strs_else(place, text="a\b")
+    assert change and (change.column_x, change.row_y) == (19, 1), change
+
+    # A Char into Column W+1 of an odd Width cannot be written, since only W Columns are ours
+
+    ts = litpyglass.TerminalShadow(boss)
+    ts.shadow_read_data_else(b"\033[1;21R")
+    ts.shadow_read_data_else(b"\033[8;5;21t")
+    assert ts.change_of_write_strs_else(ts.place, text="a") is None
+
+    # Before the Terminal answers, no write can be made, not even one of no Char
+
+    early = FakeBoss()
+    ts = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, early))
+
+    for text in (no_sgr_csi, "a"):
+        try:
+            ts.str_write_tb(text)
+            asserted = False
+        except AssertionError:
+            asserted = True
+        assert asserted, (text, ts.write_by_xy)
+
+    assert early.writes == [], early.writes  # no Byte went out
+    assert ts.write_by_xy == {}, ts.write_by_xy
 
 
 def _screen_of_(
@@ -1108,7 +1298,7 @@ print("READY1", flush=True)
 os.read(sync_fileno, 1)  # ↑, a Result, a lookalike Result, a Result, and ↓ are typed
 places = list()
 with boss:
-    ist.pull_yx_hw_from_ts_if(stalwarts=())
+    ist.pull_yx_hw_from_ts_else(stalwarts=())
     for isap in ist.take_input_strikes_and_yield_each_placed(stalwarts=()):
         if not isap.strike.taken:
             continue  # the Open Frame comes before each Read, and says nothing yet
@@ -1129,7 +1319,7 @@ ts = litpyglass.TerminalShadow(boss)
 ist = litpyglass.InputStrikeTaker(ts)
 places = list()
 with boss:
-    ist.pull_yx_hw_from_ts_if(stalwarts=())
+    ist.pull_yx_hw_from_ts_else(stalwarts=())
     for isap in ist.take_input_strikes_and_yield_each_placed(stalwarts=()):
         if not isap.strike.taken:
             continue  # the Open Frame comes before each Read, and says nothing yet
@@ -1193,7 +1383,7 @@ def _try_pull_ends_without_answers_() -> None:
     heard = io.StringIO()
     with contextlib.redirect_stdout(heard):
         try:
-            ist.pull_yx_hw_from_ts_if(stalwarts=())
+            ist.pull_yx_hw_from_ts_else(stalwarts=())
             code = None
         except SystemExit as exc:
             code = exc.code
@@ -1206,20 +1396,35 @@ def _try_pull_ends_without_answers_() -> None:
 def _try_placed_input_strikes_() -> None:
     """Try the Place each Strike takes, as specs.md § 7 says"""
 
-    typed = b"\033[A" + b"\033[5;7R" + b"\033[9;9R" + b"\033[8;24;80t" + b"\033[B"
+    typed = b"\033[A" + b"\033[5;7R" + b"\033[9;9R" + b"\033[8;24;81t" + b"\033[B"
     result = _pty_run_child_(_PLACED_CHILD_, terminal_bytes=typed)
 
-    place = (9, 80, 9, 24)  # column_x, x_width, row_y, y_height: the last Cursor Result, ⎋[9;9⇧R
+    place = (9, 80, 81, 9, 24)  # column_x, x_max, x_width, row_y, y_height: the last ⎋[9;9⇧R
     expected = (("↑", place), ("↓", place))  # the answers are no Strikes
     assert result == expected, (result, expected)
 
     here = os.path.dirname(os.path.abspath(litpyglass.__file__))
     argv = [sys.executable, "-I", "-c", _PLACED_OFF_TERMINAL_CHILD_, here]
-    run = subprocess.run(argv, input=b"\033[A\033[B", capture_output=True, timeout=10)
-    assert run.returncode == 0, (run.returncode, run.stdout, run.stderr)
+    complaint = b"Input ended before Y X H W replies to"
+    yx, hw, arrows = b"\033[1;1R", b"\033[8;24;80t", b"\033[A\033[B"
+    place = (1, 80, 80, 1, 24)  # column_x, x_max, x_width, row_y, y_height from those Results
+    taken = "RESULT (('↑', %s), ('↓', %s))" % (place, place)
 
-    off_expected = "RESULT (('↑', (1, 1, 1, 1)), ('↓', (1, 1, 1, 1)))"  # no Terminal to ask
-    assert off_expected in run.stdout.decode(), (run.stdout, off_expected)
+    cases = (  # off a Terminal, nothing asks, so the Input must volunteer both Results
+        (arrows, None),  # both Results absent
+        (yx + arrows, None),  # only YX present
+        (yx + hw + arrows, taken),  # ordered
+        (hw + yx + arrows, taken),  # disordered
+    )
+
+    for data, want in cases:
+        run = subprocess.run(argv, input=data, capture_output=True, timeout=10)
+        if want is None:
+            assert run.returncode == 1, (run.returncode, run.stdout, run.stderr, data)
+            assert complaint in run.stdout, (run.stdout, data)
+        else:
+            assert run.returncode == 0, (run.returncode, run.stdout, run.stderr, data)
+            assert want in run.stdout.decode(), (run.stdout, want, data)
 
 
 def _try_skater_entry_() -> None:
@@ -1257,8 +1462,15 @@ def _try_skater_entry_() -> None:
 
     argv = [sys.executable, "-I", litpyglass.__file__, "--egg=skater"]
     run = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10)
-    assert run.returncode == 0, (run.returncode, run.stdout, run.stderr)
+    assert run.returncode == 1, (run.returncode, run.stdout, run.stderr)  # no Screen, no skating
+    assert "Input ended before Y X H W replies to" in run.stdout, (run.stdout,)
     assert "\033[6n" not in run.stdout, (run.stdout,)  # asks no Terminal, off a Terminal
+
+    results = b"\033[1;1R\033[8;24;80t"  # Input volunteers a Cursor and a Screen of 24 x 80
+    run_bytes = subprocess.run(argv, input=results + b"\r\r\r", capture_output=True, timeout=10)
+    assert run_bytes.returncode == 0, (run_bytes.returncode, run_bytes.stdout, run_bytes.stderr)
+    assert b"X\b" in run_bytes.stdout, (run_bytes.stdout,)  # skates on the Input's Results
+    assert b"\033[6n" not in run_bytes.stdout, (run_bytes.stdout,)  # and still asks no Terminal
 
 
 def _try_egg_entry_(typed_data: bytes, answers: bytes) -> tuple[str, bool, int | None]:

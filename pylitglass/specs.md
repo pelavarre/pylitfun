@@ -91,17 +91,17 @@ Bytes go in, and the Frame closes, stays open, or bounces back the Bytes it won'
 ## § 3 TerminalFrameDecoder
 
 ```
-Spec of TerminalFrameDecoder.bytes_to_yx_or_hw_if, as _try_terminal_frame_decoder_ tests it.
+Spec of TerminalFrameDecoder.bytes_to_yx_or_hw_else, as _try_terminal_frame_decoder_ tests it.
 
 We meet spec as tested by _try_terminal_frame_decoder_:
 
-    1. The Frame ⎋[8;24;80t, the Result of the Query ⎋[18t, decodes as ("HW", 24, 80),
+    1. The Frame ⎋[8;24;80T, the Result of the Query ⎋[18T, decodes as ("HW", 24, 80),
        Row Height then Column Width.
 
-    2. The Frame ⎋[5;7⇧R, the Result of the Query ⎋[6n, decodes as ("YX", 5, 7),
+    2. The Frame ⎋[5;7⇧R, the Result of the Query ⎋[6N, decodes as ("YX", 5, 7),
        Row Number then Column Number.
 
-    3. Any other Frame decodes as (), such as the Arrow ⎋[⇧A, or a Result with a ⎋ stuck on
+    3. Any other Frame decodes as None, such as the Arrow ⎋[⇧A, or a Result with a ⎋ stuck on
        its front, or two Results as one Frame, or a Result with too few Ints, or an empty Int,
        or no Bytes.
 
@@ -188,14 +188,14 @@ The Bytes of one Strike go in, and the Key Caps struck to send them come out, el
 ## § 7 InputStrikeTaker
 
 ```
-Spec of InputStrikeTaker.pull_yx_hw_from_ts_if and .take_input_strikes_and_yield_each_placed, as
+Spec of InputStrikeTaker.pull_yx_hw_from_ts_else and .take_input_strikes_and_yield_each_placed, as
 _try_placed_input_strikes_ and _try_pull_ends_without_answers_ test it.
 
 We meet spec as tested by _try_placed_input_strikes_ and _try_pull_ends_without_answers_:
 
-    1. On a Terminal, the Results ⎋[5;7⇧R and ⎋[8;24;80t place each Strike at column_x 7,
-       x_width 80, row_y 5, and y_height 24: Columns come from the Cursor X and the Screen W,
-       Rows from the Cursor Y and the Screen H.
+    1. On a Terminal, the Results ⎋[5;7⇧R and ⎋[8;24;81T place each Strike at column_x 7,
+       x_max 80, x_width 81, row_y 5, and y_height 24: Columns come from the Cursor X and the
+       Screen W, Rows from the Cursor Y and the Screen H, and the odd Width W+1 acts as 80.
 
     2. The Strike typed before the Results come waits in a queue for them, and then takes that
        same Place, as does each Strike typed after.
@@ -203,10 +203,11 @@ We meet spec as tested by _try_placed_input_strikes_ and _try_pull_ends_without_
     3. Each Result is taken as an answer and not yielded as a Strike. A later Result of the same
        kind, such as a second ⎋[9;9⇧R pasted before the Size Result, replaces the earlier.
 
-    4. Off a Terminal, nothing asks and nothing waits, so each Strike takes the Place of all 1.
+    4. Off a Terminal, nothing asks, and both Results must arrive in the Input, in either order,
+       before any Strike takes its Place.
 
     5. When Input ends, or ⌃D quits the wait, before both Results have come, it prints "Input
-       ended before Y X H W replies to ⎋[6N and ⎋[18T" and exits 1.
+       ended before Y X H W replies to ⎋[6N and ⎋[18T" and exits 1, on a Terminal or off one.
 ```
 
 ## § 8 GlassWorker
@@ -238,7 +239,7 @@ On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits
     8. The triple of ⎋[↗ quits, since the Intercardinal Arrows are declared and not yet used.
 
     9. Launch sets the Cursor Style to Skid, a solid underline similar to a _ skid mark,
-       and hides the Cursor, before it writes the first Prompt.
+       and hides the Cursor, once both Results have come and before it writes the first Prompt.
 
     10. Quit parks the Cursor at the leftmost Column of the next-to-last Row, shows the Cursor,
         and reverts the Cursor Style to the default. No writes of a choice of Cursor Style
@@ -260,7 +261,8 @@ On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits
     16. The keys typed before the Results come are kept, and take effect once both Results
         have come.
 
-    17. Launch off a Terminal writes no Queries and waits for nothing.
+    17. Launch off a Terminal writes no Queries and takes the Results from the Input, else prints
+        the same complaint as on a Terminal and exits 1.
 
     18. Each Taken Frame that is no Arrow draws X, then O, then X again, in the left Cell of the
         Cursor's pair of Spaces. Such as ⏎ ⏎ shows X then O, and x then → shows X before the move.
@@ -291,4 +293,49 @@ We meet spec as tested by _try_terminal_boss_typeahead_ and _try_terminal_boss_c
 
     4. Reading Typeahead always takes each Typeahead Byte alone, never as if pasted
        as a burst.
+```
+
+## § 10 TerminalShadow
+
+```
+Spec of TerminalShadow.write_by_xy, as _try_shadow_cells_ tests it.
+
+We meet spec as tested by _try_shadow_cells_:
+
+    1. No Cell is kept before any write, and none after only the Terminal's answers.
+
+    2. Each Printable Char written through the Shadow is kept at the (Column, Row) it lands on,
+       with the Text Styles in force then, and a later write there replaces it.
+
+    3. A Move or a Backspace keeps nothing, but steers where the next Char lands. Hiding or
+       showing the Cursor, ⎋[?25L or ⎋[?25H, keeps nothing and steers nothing. Any other Control
+       fails an assert, not silently.
+
+    4. The Text Styles in force start over at ⎋[M and carry to the next write. ⎋[7M joins them
+       once however often said. Any other SGR, such as ⎋[27M or ⎋[1M, fails an assert, not
+       silently.
+
+    5. An odd Width W+1 is real but acts as W, since a Square Pixel is 2 Columns wide and cannot
+       fit in Column W+1: no Char can be written into Column W+1, though the Cursor may wait
+       there. The wait to wrap is judged by the real Width W+1.
+
+    6. Writes land only inside the rectangle of Height by x_max: a Char that would land outside it
+       cannot be written, even if the Cursor then moves back inside, and a write that lands outside
+       it anyway fails an assert.
+
+    7. A Move or a Backspace that would leave the Screen cannot be written, at the North, West,
+       and South edges. A Move East from the last Column waits in Column W+1, still on the Screen.
+
+    8. A Return lands the Cursor on Column 1 of the same Row, even with the wrap pending after a
+       write into the last Column.
+
+    9. A write that cannot be written fails its assert before any Byte goes to the Terminal, and
+       leaves the Shadow as it was.
+
+    10. A Char into the last Column, with nothing after it, leaves the Cursor waiting to wrap
+        past x_max, so is_writable_place_after_strs says no: an even Width has no Column W+1 for
+        it, and an odd Width acts as W. A Backspace or a Return after it says yes.
+
+    11. Before the Terminal answers, no write can be made, not even one of no Char: it fails its
+        assert before any Byte goes out.
 ```

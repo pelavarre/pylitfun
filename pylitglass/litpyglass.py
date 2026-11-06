@@ -59,6 +59,7 @@ if not __debug__:
 #
 
 
+_1_COLUMN_ = 1  # smallest .column_x
 _2_COLUMNS_ = 2  # our Square Pixels print as two Spaces side by side
 _20_COLUMNS_ = 20  # macOS Terminal `stty size` always says width of 20 or more
 
@@ -66,7 +67,7 @@ _3_GIGA_NANOS_ = 3 * 10**9  # too slow to take 3 same inputs in a row as a quit 
 _100_MEGA_NANOS_ = 100 * 10**6  # too fast to take 3 in a row as a quit request
 _150_MEGA_NANOS_ = 150 * 10**6  # keys typed ahead can come about as fast as a typist's
 
-_1_ROW_ = 1  # our Square Pixels span 1 Row
+_1_ROW_ = 1  # smallest .row_y  # our Square Pixels span 1 Row
 _5_ROWS_ = 5  # macOS Terminal `stty size` always says height of 5 or more
 
 
@@ -152,18 +153,18 @@ def _main_doc_scrape_closing_() -> str:
 #
 
 
-@dataclasses.dataclass(order=True)  # , frozen=True)
+@dataclasses.dataclass(order=True)
 class GlassWorker:
     """Show off one Terminal feature and another"""
 
-    nano_launch: int = -1  # mutable  # -1, else sampled at Process Launch
+    nano_launch: int = -1  # -1, else sampled at Process Launch
 
     def show_bytes(self, typeahead: bytes) -> None:
         """Print your Input Bytes on screen"""
 
         # Launch (and prompt just once and early)
 
-        print()  # signal very very quietly that we have run this far since launching
+        print()  # signals very very quietly that we have run this far since launching
 
         print("Press Return three times quickly, to quit")
         print()
@@ -220,7 +221,7 @@ class GlassWorker:
 
         # Launch (and prompt just once and early)
 
-        print()  # signal very very quietly that we have run this far since launching
+        print()  # signals very very quietly that we have run this far since launching
 
         print("Press Return three times quickly, to quit")
         print()
@@ -283,32 +284,32 @@ class GlassWorker:
 
         # Launch
 
-        print()  # signal very very quietly that we have run this far since launching
+        print()  # signals very very quietly that we have run this far since launching
 
         print("Press Return three times quickly, to quit")
         print()
 
         tfr = TerminalFrameReader()
         with TerminalBoss(typeahead=typeahead, farewell_bytes=b"") as tb:
-            for taken, frame, cells in tfr.take_frames_and_yield_each(tb, stalwarts=()):
+            for taken, frame, nanobytes in tfr.take_frames_and_yield_each(tb, stalwarts=()):
 
                 # Prompt for next Byte, while growing the Frame
 
                 data = frame.to_frame_bytes()  # maybe empty
                 if not taken:
-                    self.frame_print(data, cells=cells, end=" + ")
+                    self.frame_print(data, nanobytes=nanobytes, end=" + ")
 
                     continue
 
                 # Print each Frame taken as 1 Line,
                 # Except in reply to ⏎ Return, do split Frame Lines into paragraphs
 
-                self.frame_print(data, cells=cells, end="\r\n")
+                self.frame_print(data, nanobytes=nanobytes, end="\r\n")
 
                 if data == b"\r":
                     print()
 
-    def frame_print(self, data: bytes, cells: list[int | bytes], end: str) -> None:
+    def frame_print(self, data: bytes, nanobytes: list[int | bytes], end: str) -> None:
         """Print 'caps data = cell cell ...' as a whole line, or as the start of one"""
 
         kd = keyboard_decoder()
@@ -334,9 +335,9 @@ class GlassWorker:
 
         words.append(f"{bytes_repr(data)} =")
 
-        piths = [c for (i, c) in enumerate(cells) if (i == 0) or (c != 0)]  # drops adds of '0ns'
-        reps = [(ns(p) if isinstance(p, int) else bytes_repr(p)) for p in piths]
-        words.extend(reps)
+        piths = list(c for (i, c) in enumerate(nanobytes) if (i == 0) or (c != 0))
+        reps = list((ns(p) if isinstance(p, int) else bytes_repr(p)) for p in piths)
+        words.extend(reps)  # drops all but the first mention of '0ns'
 
         # Print the words
 
@@ -377,7 +378,7 @@ class GlassWorker:
 
         # Launch
 
-        print()  # signal very very quietly that we have run this far since launching
+        print()  # signals very very quietly that we have run this far since launching
 
         print("Press Return three times quickly, to quit")
         print()
@@ -385,7 +386,7 @@ class GlassWorker:
         restart = CR_EL_PS0  # often '\r' '\033[K'
 
         with TerminalBoss(typeahead=typeahead, farewell_bytes=b"") as tb:
-            ts = TerminalShadow(tb)  # Shadow unneeded, when just showing Strikes
+            ts = TerminalShadow(tb)  # needs no Shadow, when just showing Strikes
             ist = InputStrikeTaker(ts)
 
             for strike in ist.take_input_strikes_and_yield_each(stalwarts=()):
@@ -464,8 +465,7 @@ class GlassWorker:
         assert HIDE_CUSR_RM_PSQ25 == "\033[" "?25l"
 
         hails = ("\033[" "?25l",)
-
-        hail = "".join(hails)
+        hail_text = "".join(hails)
 
         assert CR == "\r"
         assert SHOW_CUSR_SM_PSQ25 == "\033[" "?25h"
@@ -489,12 +489,12 @@ class GlassWorker:
             ts = TerminalShadow(tb)
             ist = InputStrikeTaker(ts)
 
-            ts.str_write_tb(hail)
-
             # Find where the Cursor is and how big the Screen is
 
-            ist.pull_yx_hw_from_ts_if(stalwarts=stalwarts)
+            ist.pull_yx_hw_from_ts_else(stalwarts=stalwarts)
             tb.tty_setraw_before_farewell()  # takes ⌃C ⌃D ⌃Z ⌃\ as Input, and Return as b"\r"
+
+            ts.str_write_tb(hail_text)  # calls to shadow Hail only after pulling X W Y H
 
             # Loop till quit (such as by pressing Return three times quickly)
 
@@ -538,14 +538,15 @@ class GlassWorker:
 
                     # Bounce at each edge of the Screen, lest the Arrow Key nop or spill
 
-                    _caps_, _decode_ = caps, data.decode()
-                    skater_move = self.form_skater_move(ts, caps=_caps_, decode=_decode_)
+                    simple_move = self.form_skater_move(ts, caps=caps, decode=data.decode())
 
+                    alt_caps, alt_decode = bounce_by_caps[caps]
+                    alt_move = self.form_skater_move(ts, caps=alt_caps, decode=alt_decode)
+
+                    skater_move = simple_move
                     if place.has_much_area():
-                        if not ts.str_forecast_xy_if(skater_move, place=place):
-
-                            _caps_, _decode_ = bounce_by_caps[caps]
-                            skater_move = self.form_skater_move(ts, caps=_caps_, decode=_decode_)
+                        if not ts.is_writable_place_after_strs(place=place, text=simple_move):
+                            skater_move = alt_move
 
                     # Write the move
 
@@ -568,13 +569,13 @@ class GlassWorker:
 
             # Quit happy
 
-            ts.str_write_tb(" \b")  # redraw the left Cell over our Quit Signal reply
+            ts.str_write_tb(" \b")  # redraws the left Cell over our Quit Signal reply
 
     def form_skater_move(self, ts: TerminalShadow, caps: str, decode: str) -> str:
         """Spell how to move one Pixel in the direction of an Arrow Key"""
 
         assert _2_COLUMNS_ == 2
-        assert NO_SGR_PS == "\033[m"
+        assert NO_SGR_PS == "\033[" "m"
         assert REVERSE_SGR_PS7 == "\033[" "7m"
 
         square = "  "  # two Spaces side by side, one Square Pixel, the Cursor's own plain place
@@ -616,11 +617,11 @@ class GlassWorker:
 #
 
 
-@dataclasses.dataclass(order=True)  # , frozen=True)
+@dataclasses.dataclass(order=True)
 class InputStrikeTaker:
     """Speak of each Frame as Printable, and/or as known Key Caps, else as ⌘V Paste"""
 
-    held_strikes: list[InputStrike]  # mutable  # Input Strikes delayed while waiting for YX HW
+    held_strikes: list[InputStrike]  # Input Strikes delayed while waiting for YX HW
     ts: TerminalShadow  # the Terminal we write through, and the Place it last reported
     tfr: TerminalFrameReader  # the Frames taken so far, and the Open Frame
 
@@ -630,19 +631,18 @@ class InputStrikeTaker:
         self.tfr = TerminalFrameReader()
         self.held_strikes = list()
 
-    def pull_yx_hw_from_ts_if(self, stalwarts: tuple[bytes, ...]) -> None:
-        r"""Find where the Cursor is and how big the Screen is, if Terminal is a Tty"""
+    def pull_yx_hw_from_ts_else(self, stalwarts: tuple[bytes, ...]) -> None:
+        r"""Find where the Cursor is and how big the Screen is, asking only a Terminal"""
 
         held_strikes = self.held_strikes
         ts = self.ts
         tb = ts.tb
 
-        if not tb.isatty:
-            return
+        isatty = tb.isatty
+        if isatty:  # asks only a Tty Terminal for YX and HW in order
+            ts.request_yx_hw_from_tb()
 
-        ts.request_yx_hw_from_tb()  # ask for YX and HW in order
         tags: list[str] = list()  # the kinds of answer taken, "YX" and "HW"
-
         for strike in self.take_input_strikes_and_yield_each(stalwarts=stalwarts):
             frame = strike.frame
             data = frame.to_frame_bytes()
@@ -659,9 +659,9 @@ class InputStrikeTaker:
 
             # Divert two or more YX HW Results, but hold the other Taken Frames
 
-            result = ts.shadow_read_data(data)
+            result = ts.shadow_read_data_else(data)
             if result:
-                tags.append(result[0])
+                tags.append(result[0])  # briefly remembers order, but accepts either order
             else:
                 held_strikes.append(strike)  # trusts other Code to yield these soon enough
 
@@ -670,11 +670,11 @@ class InputStrikeTaker:
             if ("YX" in tags) and ("HW" in tags):
                 break
 
-        # Fail loudly if Input ended, or we quit at ⌃D, before taking YX and HW
-
         if ("YX" not in tags) or ("HW" not in tags):
             print("Input ended before Y X H W replies to ⎋[6N and ⎋[18T", end="\r\n")
             sys.exit(1)
+
+            # easy to test tags as absent, present, disordered, ordered at no Terminal
 
     def take_input_strikes_and_yield_each_placed(
         self, stalwarts: tuple[bytes, ...]
@@ -697,7 +697,7 @@ class InputStrikeTaker:
         for strike in self.take_input_strikes_and_yield_each(stalwarts=stalwarts):
             data = strike.frame.to_frame_bytes()  # maybe empty
 
-            result = ts.shadow_read_data(data)
+            result = ts.shadow_read_data_else(data)
             if result:
                 continue
 
@@ -732,22 +732,22 @@ class InputStrikeTaker:
             yield strike
 
 
-@dataclasses.dataclass(order=True)  # , frozen=True)
+@dataclasses.dataclass(order=True)
 class InputStrike:
     """Speak of one Frame as Strikes and as Text, and say if it is Taken"""
 
     taken: bool  # closed or bounced or cut at Quit, else still the Open Frame
     caps: str  # the Key Caps best known as sending these Bytes, else ''
     printables: str  # the Bytes decoded, if printable, else ''
-    frame: TerminalByteFrame  # the Bytes, maybe none  # mutable for no reason
+    frame: TerminalByteFrame  # the Bytes, maybe none
 
 
-@dataclasses.dataclass(order=True)  # , frozen=True)
+@dataclasses.dataclass(order=True)
 class InputStrikeAtPlace:
     """Speak of one InputStrike at one Screen Place"""
 
-    strike: InputStrike  # mutable  # what the Input
-    place: TerminalPlace  # mutable  # where the Cursor, how big the Screen
+    strike: InputStrike  # what the Input
+    place: TerminalPlace  # where the Cursor, how big the Screen
 
 
 #
@@ -763,12 +763,12 @@ def keyboard_decoder() -> KeyboardDecoder:
     return kd
 
 
-@dataclasses.dataclass(order=True)  # , frozen=True)
+@dataclasses.dataclass(order=True)
 class KeyboardDecoder:
     """Speak of Byte Frames as Strikes of Key Caps at a MacBook"""
 
-    decode_by_echo: dict[str, str]  # mutable  # filled by .__init__
-    echoes_by_decode: dict[str, tuple[str, ...]]  # mutable  # filled by .__init__
+    decode_by_echo: dict[str, str]  # filled by .__init__
+    echoes_by_decode: dict[str, tuple[str, ...]]  # filled by .__init__
 
     PlainCapsWithoutFn = r"""
         ⎋
@@ -1326,22 +1326,26 @@ class KeyboardDecoder:
 #
 
 
-@dataclasses.dataclass(order=True)  # , frozen=True)
+@dataclasses.dataclass(order=True)
 class TerminalShadow:
     """Keep a copy of what we write to the Terminal"""
 
     tb: TerminalBoss  # the one Terminal we write through
-    place: TerminalPlace  # where the Cursor, how big the Screen, all 1 till the Terminal answers
+
+    place: TerminalPlace  # where the Cursor, how big the Screen
+    text_styles: tuple[str, ...]  # the Text Styles in force
+    write_by_xy: dict[tuple[int, int], tuple[tuple[str, ...], str]]  # (texts, t) by (x, y)
 
     def __init__(self, tb: TerminalBoss) -> None:
 
         self.tb = tb
-        self.place = TerminalPlace(column_x=1, x_width=1, row_y=1, y_height=1)
 
-    def place_has_much_area(self) -> bool:
-        """Say if the Screen Width and Height are other than 1 and 1"""
-        place = self.place
-        return place.has_much_area()  # made true by reporting some such Width W and Height H
+        place = TerminalPlace(column_x=1, x_max=1, x_width=1, row_y=1, y_height=1)
+        assert not place.has_much_area(), (place,)
+
+        self.place = place
+        self.text_styles = ()
+        self.write_by_xy = dict()
 
     def request_yx_hw_from_tb(self) -> None:
         """Ask where the Cursor is and how big the Screen is, both answered later in order"""
@@ -1351,30 +1355,52 @@ class TerminalShadow:
 
         tb = self.tb
 
-        tb.bytes_write_flush((DSR6 + XTWINOPS_18).encode())
+        queries = DSR6 + XTWINOPS_18
+        tb.bytes_write_flush(queries.encode())
 
-    def shadow_read_data(self, data: bytes) -> tuple[str, int, int] | tuple[()]:
-        """Take the Cursor Column and Row, or the Screen Width and Height, the Terminal answered"""
+    def shadow_read_data_else(self, data: bytes) -> tuple[str, int, int] | None:
+        """Take the Cursor Column and Row, or the Screen Width and Height, from the Terminal"""
 
         assert _5_ROWS_ == 5
         assert _20_COLUMNS_ == 20
 
         place = self.place
 
-        result = TerminalFrameDecoder.bytes_to_yx_or_hw_if(data)
-        if result:
-            tag, int1, int2 = result
-            assert tag in ("YX", "HW"), (tag,)
+        result = TerminalFrameDecoder.bytes_to_yx_or_hw_else(data)
+        if not result:
+            return result
 
-            if tag == "YX":
-                self.place = dataclasses.replace(place, column_x=int2, row_y=int1)
-            else:
-                assert int1 >= _5_ROWS_, (int1,)
-                assert int2 >= _20_COLUMNS_, (int2,)
+        tag, int1, int2 = result
+        assert tag in ("YX", "HW"), (tag,)
 
-                self.place = dataclasses.replace(place, x_width=int2, y_height=int1)
+        # Update the X Y with a change, or with no change
+
+        if tag == "YX":
+            assert int1 >= _1_ROW_, (int1,)
+            assert int2 >= _1_COLUMN_, (int2,)
+
+            next_place = dataclasses.replace(place, column_x=int2, row_y=int1)
+
+        # Update the W H with a change, or with no change
+
+        else:
+            assert tag == "HW", (tag,)
+            assert int1 >= _5_ROWS_, (int1,)
+            assert int2 >= _20_COLUMNS_, (int2,)
+
+            y_height = int1
+            x_width = int2
+            x_max = x_width - (x_width % 2)  # an odd Width W+1 acts as W
+
+            next_place = dataclasses.replace(place, x_max=x_max, x_width=x_width, y_height=y_height)
+
+        # Succeed
+
+        self.place = next_place  # replace with the next, no matter if equal or not
 
         return result
+
+        # todo: get unhappy when not _place_.is_onscreen_place
 
     def str_write_tb(self, text: str) -> None:
         """Write the Text and shadow the Write"""
@@ -1382,88 +1408,163 @@ class TerminalShadow:
         tb = self.tb
         place = self.place
 
+        assert place.has_much_area(), (place, text)
+
+        change = self.change_of_write_strs_else(place, text=text)
+        assert change, (change, text, place)
+
+        self.text_styles = change.text_styles  # such as the entry ⎋[M, before any Cell
+        self.place = dataclasses.replace(place, column_x=change.column_x, row_y=change.row_y)
+        for x, y, write_styles, t in change.text_writes:
+            self.write_by_xy[(x, y)] = (write_styles, t)
+
         tb.bytes_write_flush(text.encode())
 
-        if place.has_much_area():
-            xy = self.str_forecast_xy_if(text, place=place)
-            assert xy, (xy, text, place)
+    def is_writable_place_after_strs(self, place: TerminalPlace, text: str) -> bool:
+        """Say if writing the Str keeps the Terminal Cursor inside the Writable Area"""
 
+        assert place.is_writable_place(), (place,)
+
+        change = self.change_of_write_strs_else(place, text=text)
+        if not change:
+            return False
+
+        next_place = dataclasses.replace(place, column_x=change.column_x, row_y=change.row_y)
+        if not next_place.is_writable_place():
+            return False
+
+        return True
+
+    def change_of_write_strs_else(self, place: TerminalPlace, text: str) -> TerminalChange | None:
+        """Say what TerminalChange results: all the next Text Styles, Cursor, Cells"""
+
+        assert place.is_onscreen_place(), (place,)
+
+        text_styles = self.text_styles
+        assert text_styles == TerminalChange.text_styles_compress(text_styles), (text_styles,)
+
+        next_place = dataclasses.replace(place)  # clones
+        next_styles = text_styles
+        write_by_xy: dict[tuple[int, int], tuple[tuple[str, ...], str]] = dict()
+
+        for m in re.finditer(r"\033\[([0-9;?]*)([@-~])|(.)", text):
+            params, final, t = m.groups()
+            split = m.group(0)
+
+            # Fail fast
+
+            if not next_place.is_onscreen_place():
+                return None
+
+            # Shadow change of, or reaffirmation of, Text Styles
+
+            assert NO_SGR_PS == "\033[" "m"
+            assert REVERSE_SGR_PS7 == "\033[" "7m"
+
+            if final == "m":
+                assert params in ("", "7"), (params,)
+                next_styles += (split,)
+                next_styles = TerminalChange.text_styles_compress(next_styles)
+                continue
+
+            # Shadow Y X Moves
+
+            if (t in ("\b", "\r")) or (final in ("A", "B", "C", "D")):
+                assert not params, (params,)  # copes only with ⎋[A ⎋[B ⎋[C ⎋[D
+                next_place.write_str_at_place(split)
+                continue
+
+            # Shadow Printable Text Writes placed in Writable Columns on-screen
+
+            if t and t.isprintable():
+                if not next_place.is_writable_place():
+                    return None
+
+                xy = (next_place.column_x, next_place.row_y)
+                write_by_xy[xy] = (next_styles, t)  # replaces or adds
+
+                next_place.write_str_at_place(split)
+                continue
+
+            # Shadow no change for Hiding or Showing the Cursor, until we need to know if it hides
+
+            assert HIDE_CUSR_RM_PSQ25 == "\033[" "?25l"
+            assert SHOW_CUSR_SM_PSQ25 == "\033[" "?25h"
+
+            if split in (HIDE_CUSR_RM_PSQ25, SHOW_CUSR_SM_PSQ25):
+                continue
+
+            # Freak if asked to shadow anything else
+
+            assert False, (split,)
+
+        assert next_styles == TerminalChange.text_styles_compress(next_styles), (next_styles,)
+
+        # Fail even when it was the last Split that stepped off screen
+
+        if not next_place.is_onscreen_place():
+            return None
+
+        # Compress Writes, and the Styles of each, but keep Insertion Order
+
+        text_writes: list[tuple[int, int, tuple[str, ...], str]] = list()
+
+        for xy, texts_t in write_by_xy.items():
             column_x, row_y = xy
-            self.place = dataclasses.replace(place, column_x=column_x, row_y=row_y)
+            texts, t = texts_t
 
-    def str_forecast_xy_if(self, text: str, place: TerminalPlace) -> tuple[int, int] | tuple[()]:
-        """Shadow the Write of the Cursor, or else say () if it goes off the Screen"""
-
-        column_x = place.column_x
-        x_width = place.x_width
-        row_y = place.row_y
-        y_height = place.y_height
-
-        for match in re.finditer(r"\033\[([0-9;?]*)([@-~])|(.)", text):
-            params, final, char = match.groups()
-
-            # Shadow US Ascii Control Bytes
-
-            if char == "\b":
-                if x_width < column_x:
-                    column_x = x_width  # a move ends the wait to wrap
-                column_x -= 1
-
-            elif char == "\r":
-                column_x = 1
-
-            # Shadow Csi Control Sequences
-
-            elif final in ("A", "B", "C", "D"):
-                assert not params, (params,)  # no write spells a move by more than 1
-
-                if x_width < column_x:
-                    column_x = x_width  # a move ends the wait to wrap
-
-                if final == "A":
-                    row_y -= 1
-                elif final == "B":
-                    row_y += 1
-                elif final == "C":
-                    column_x += 1
-                else:
-                    assert final == "D", (final,)
-                    column_x -= 1
-
-            # Shadow writes of Printable Bytes
-
-            elif char and char.isprintable():
-                column_x += 1
-
-            # Pretend all the rest do Not move the Cursor
-
-            else:
-                pass
-
-            # Quit with () at the first Step off the Screen, or too far past the right edge
-
-            if not (1 <= column_x <= (x_width + 1)):
-                return ()
-
-            if not (1 <= row_y <= y_height):
-                return ()
-
-        # Quit with () if the Write ends just past the right edge
-
-        if x_width < column_x:
-            return ()
+            text_write = (column_x, row_y, texts, t)
+            text_writes.append(text_write)
 
         # Succeed
 
-        xy = (column_x, row_y)
-        return xy
+        tc = TerminalChange(
+            column_x=next_place.column_x,
+            row_y=next_place.row_y,
+            text_styles=next_styles,
+            text_writes=tuple(text_writes),
+        )
+
+        return tc
 
 
-@dataclasses.dataclass(order=True, frozen=True, kw_only=True)
+@dataclasses.dataclass(order=True, kw_only=True)
+class TerminalChange:
+    """Say what one Write did"""
+
+    column_x: int  # the Cursor Column, after
+    row_y: int  # the Cursor Row, after
+    text_styles: tuple[str, ...]  # the Text Styles in force, after
+    text_writes: tuple[tuple[int, int, tuple[str, ...], str], ...]  # >= 0 of (x, y, texts, t)
+
+    # may be uncompressed, with later Styles or Writes cancelling earlier Styles or Writes
+
+    @staticmethod
+    def text_styles_compress(text_styles: tuple[str, ...]) -> tuple[str, ...]:
+        """Drop each Text Style that a later ⎋[M or a repeat undoes, but keep Insertion Order"""
+
+        assert NO_SGR_PS == "\033[" "m"
+        assert REVERSE_SGR_PS7 == "\033[" "7m"
+
+        fewer_styles: list[str] = list()
+        for text_style in text_styles:
+            assert text_style in (NO_SGR_PS, REVERSE_SGR_PS7), (text_style,)
+
+            if text_style == NO_SGR_PS:
+                fewer_styles.clear()
+
+            if text_style not in fewer_styles:
+                fewer_styles.append(text_style)
+
+        return tuple(fewer_styles)
+
+
+@dataclasses.dataclass(order=True, kw_only=True)
 class TerminalPlace:
-    """Speak of where the Cursor is and how big the Screen is, as told and as we followed"""
+    """Speak of where the Cursor is and how big the Screen is"""
 
     column_x: int  # the Cursor Column, at or away from x=1 in the far West
+    x_max: int  # the Screen Columns we dare write, an even count, as if Column W+1 is not there
     x_width: int  # the Screen Columns, at least 1
 
     row_y: int  # the Cursor Row, at or away from y=1 in the far North
@@ -1475,23 +1576,68 @@ class TerminalPlace:
 
         # made true by reporting some such Width W and Height H
 
+    def write_str_at_place(self, text: str) -> None:
+        """Shadow how writing this Str moves the Terminal Cursor"""
+
+        if text.isprintable():
+            assert len(text) == 1, (text,)
+            self.column_x += 1
+            return
+
+            # todo: cope with double-wide Chars
+            # macOS Terminal moves across double-wide Chars
+            # 2026/Nov Google Cloud Terminal moves halfway into double-wide Chars
+
+        control = text
+
+        if self.column_x > self.x_width:
+            self.column_x = self.x_width  # doesn't wrap when control written
+
+        xy_step_by_split = {
+            "\b": (-1, 0),  # one step West
+            "\r": (1 - self.column_x, 0),  # far West
+            "\033[A": (0, -1),  # one step North
+            "\033[B": (0, 1),  # one step South
+            "\033[C": (1, 0),  # one step East
+            "\033[D": (-1, 0),  # one step West
+        }
+
+        step_x, step_y = xy_step_by_split[control]
+
+        self.column_x += step_x
+        self.row_y += step_y
+
+    def is_onscreen_place(self) -> bool:
+        """Say if the Cursor sits on the Screen, or just past the right edge, waiting to wrap"""
+
+        on_x = 1 <= self.column_x <= (self.x_width + 1)
+        on_y = 1 <= self.row_y <= self.y_height
+        return on_x and on_y
+
+    def is_writable_place(self) -> bool:
+        """Say if the Cursor sits where a Char may be written"""
+
+        in_x = 1 <= self.column_x <= self.x_max
+        in_y = 1 <= self.row_y <= self.y_height
+        return in_x and in_y
+
 
 #
 # Read Bytes from a Terminal, place them into Frames, and say when each Byte arrived
 #
 
 
-@dataclasses.dataclass(order=True)  # , frozen=True)
+@dataclasses.dataclass(order=True)
 class TerminalFrameReader:
     """Read Bytes from a Terminal, place them into Frames, and say when each Byte arrived"""
 
     tft: TerminalFrameTaker  # the Frames taken so far, and the Open Frame
-    cells: list[int | bytes]  # mutable  # Nanos waited and Bytes read, not yet handed out
+    nanobytes: list[int | bytes]  # Nanos waited and Bytes read
 
     def __init__(self) -> None:
 
         self.tft = TerminalFrameTaker()
-        self.cells = list()
+        self.nanobytes = list()
 
     def take_frames_and_yield_each(
         self, tb: TerminalBoss, stalwarts: tuple[bytes, ...]
@@ -1499,7 +1645,7 @@ class TerminalFrameReader:
         """Yield (False, Open Frame, Cells) before taking, and (True, Taken Frame, Cells) after"""
 
         tft = self.tft
-        cells = self.cells
+        nanobytes = self.nanobytes
 
         before = time.perf_counter_ns()  # doesn't measure time to launch
 
@@ -1512,7 +1658,7 @@ class TerminalFrameReader:
             # Yield the Open Frame before each Read, as a Frame not yet taken
 
             taken = False
-            frame_triple = (taken, tft.frame, cells)
+            frame_triple = (taken, tft.frame, nanobytes)
             yield frame_triple
 
             # Block to fetch >= 1 Bytes
@@ -1552,10 +1698,10 @@ class TerminalFrameReader:
 
                 # Mark how slowly this Byte arrived
 
-                cells.append(waited)
+                nanobytes.append(waited)
                 waited = 0  # waited some ns only for the first Byte of these
 
-                cells.append(b)
+                nanobytes.append(b)
 
             # Yield each Frame taken to place these Bytes
 
@@ -1568,7 +1714,7 @@ class TerminalFrameReader:
 
         # Take the Open Frame with the Frames taken before it, at Stdin Eof or at Quit
 
-        tft.take_open_frame_if()  # if it holds Bytes
+        tft.take_open_frame_else()  # if it holds Bytes
         yield from self._pull_frames_and_yield_each_()
 
     def _pull_frames_and_yield_each_(
@@ -1577,27 +1723,27 @@ class TerminalFrameReader:
         """Yield (True, Taken Frame, Cells) for each Frame taken since last called"""
 
         tft = self.tft
-        cells = self.cells
+        nanobytes = self.nanobytes
 
         while True:
 
             # Pull one Frame at a time, lest a Caller who quits drop the Frames behind
 
-            pulled = tft.pull_one_frame_triple_if()
+            pulled = tft.pull_one_frame_triple_else()
             if not pulled:
                 break
 
             frame, start, end, data = pulled
             assert data == frame.to_frame_bytes(), (data, frame)
 
-            length = 2 * len(data)  # two cells per Byte
-            assert len(cells) >= length, (len(cells), length, data)
+            length = 2 * len(data)  # two nanobytes per Byte
+            assert len(nanobytes) >= length, (len(nanobytes), length, data)
 
-            _cells_ = cells[:length]
-            del cells[:length]
+            frame_cells = nanobytes[:length]
+            del nanobytes[:length]
 
             taken = True
-            frame_triple = (taken, frame, _cells_)
+            frame_triple = (taken, frame, frame_cells)
             yield frame_triple
 
 
@@ -1606,15 +1752,15 @@ class TerminalFrameReader:
 #
 
 
-@dataclasses.dataclass(order=True)  # , frozen=True)
+@dataclasses.dataclass(order=True)
 class TerminalFrameTaker:
     """Take Frames out of the Bytes arriving, and track when each Byte arrived"""
 
     bk: ByteKeeper  # the Bytes, and when each arrived
 
-    frame: TerminalByteFrame  # the Open Frame  # one and then another, so not frozen
-    frames: list[TerminalByteFrame]  # the Taken Frames, each closed, or bounced, or cut at Quit
-    index: int  # how many Taken Frames also pulled  # increments, so not frozen
+    frame: TerminalByteFrame  # the Open Frame
+    frames: list[TerminalByteFrame]  # the Taken Frames (closed, bounced, or cut at Quit)
+    index: int  # how many pulled, of the Taken Frames
 
     def __init__(self) -> None:
 
@@ -1637,16 +1783,16 @@ class TerminalFrameTaker:
 
         # Grow the Frame, or grow and take, or don't grow but do take, or shrink and take
 
-        frame = self.frame  # early
+        early_frame = self.frame  # before Extras bounced
         extras1 = self._frame_take_data_if_(b, peek=peek)  # .peek passes through
 
         if not extras1:
             return
 
-        _frame_ = self.frame  # late
+        late_frame = self.frame  # after Extras bounced
 
-        assert _frame_ is not frame, (_frame_, frame)  # new Empty Frame, because the Extras bounced
-        assert not _frame_, (_frame_,)
+        assert late_frame is not early_frame, (late_frame, early_frame)  # after Extras bounced
+        assert not late_frame, (late_frame,)
 
         # Add enough more Frames to place all the Bytes
 
@@ -1673,22 +1819,22 @@ class TerminalFrameTaker:
 
         # Take & replace the Frame if it closed as complete, or if it bounced while incomplete
 
-        _frame_ = frame
+        next_frame = frame  # left same, else replaced below
         if frame.closed or extras:
             frames.append(frame)
 
-            _frame_ = TerminalByteFrame(b"")  # empty and open
-            self.frame = _frame_
+            next_frame = TerminalByteFrame(b"")  # empty and open
+            self.frame = next_frame
 
-        assert (not extras) or (not _frame_), (extras, _frame_)
+        assert (not extras) or (not next_frame), (extras, next_frame)
 
         # Always leave an Open Frame, and sometimes an Empty Open Frame
 
-        assert not _frame_.closed, (_frame_,)
+        assert not next_frame.closed, (next_frame,)
 
         return extras
 
-    def take_open_frame_if(self) -> None:
+    def take_open_frame_else(self) -> None:
         """Take the Open Frame as cut off, despite unclosed, if it holds Bytes, as at Quit"""
 
         frame = self.frame
@@ -1702,10 +1848,10 @@ class TerminalFrameTaker:
 
         frames.append(frame)
 
-        _frame_ = TerminalByteFrame(b"")  # empty and open
-        self.frame = _frame_
+        next_frame = TerminalByteFrame(b"")  # empty and open
+        self.frame = next_frame
 
-    def pull_one_frame_triple_if(self) -> tuple[()] | tuple[TerminalByteFrame, int, int, bytes]:
+    def pull_one_frame_triple_else(self) -> tuple[TerminalByteFrame, int, int, bytes] | None:
         """Pull the oldest Taken Frame not yet pulled, with when its Bytes started and ended"""
 
         bk = self.bk
@@ -1720,7 +1866,7 @@ class TerminalFrameTaker:
 
         pulls = frames[index:]
         if not pulls:
-            return ()
+            return None
 
         self.index = index + 1
 
@@ -1763,7 +1909,8 @@ class TerminalFrameTaker:
         pairs_list = list()
         for taken in reversed(frames[-4:]):
             data = taken.to_frame_bytes()
-            pairs_list.append((nano_list[stop - 1], data))
+            pair = (nano_list[stop - 1], data)
+            pairs_list.append(pair)
             stop -= len(data)
 
         pairs = list(reversed(pairs_list))  # oldest first, as for Bytes
@@ -1797,13 +1944,13 @@ class TerminalFrameTaker:
 #
 
 
-@dataclasses.dataclass(order=True, frozen=True)
+@dataclasses.dataclass(order=True)
 class TerminalFrameDecoder:
     """Decode a Frame as the Result of a DSR6 or XTWINOPS_18 Query"""
 
     @staticmethod
-    def bytes_to_yx_or_hw_if(data: bytes) -> tuple[()] | tuple[str, int, int]:
-        """Pick ("YX", Y, X) out of CPR, or ("HW", H, W) out if XTWINOPS_8, else ()"""
+    def bytes_to_yx_or_hw_else(data: bytes) -> tuple[str, int, int] | None:
+        """Pick ("YX", Y, X) out of CPR, or ("HW", H, W) out of XTWINOPS_8, else return None"""
 
         assert CPR_Y_X == "\033[" "{};{}R"  # CSI 05/02 CPR
         assert XTWINOPS_8_H_W == "\033[" "8;{};{}" "t"  # CSI 07/04 Result Ps 8
@@ -1821,7 +1968,7 @@ class TerminalFrameDecoder:
 
                 return (tag, i1, i2)
 
-        return ()
+        return None
 
     @staticmethod
     def _whxy_pattern_(template: str) -> str:
@@ -1904,7 +2051,7 @@ The \xff is an example of Undecodable UTF-8.
 """
 
 
-@dataclasses.dataclass(order=True)  # , frozen=True)
+@dataclasses.dataclass(order=True)
 class TerminalByteFrame:
     """Frame Bytes of Terminal Input as alone, or as catenated Printable Text, or as Esc Frame"""
 
@@ -2020,7 +2167,7 @@ class TerminalByteFrame:
         closed = self.closed
 
         assert _CLICK3_ == "\033[M"
-        assert DL_Y == "\033[" "{}M"
+        assert DL_Y == "\033[" "{}" "M"
 
         data = self.to_frame_bytes()
 
@@ -2110,9 +2257,9 @@ class TerminalByteFrame:
             b = data[i:][:1]
             beyond = data[i:][1:]
 
-            _peek_ = peek if (not beyond) else ""  # blocks the .peek except just after last Byte
+            i_peek = peek if (not beyond) else ""  # blocks the .peek except just after last Byte
 
-            extras = self.take_one_byte_if(b, peek=_peek_)
+            extras = self.take_one_byte_if(b, peek=i_peek)
             if extras:
                 extras_plus = extras + beyond
                 return extras_plus
@@ -2511,7 +2658,7 @@ StartBytes = tuple(bytes([_]) for _ in range(0xC2, 0xF4 + 1))  # what UTF-8 comp
 #
 
 
-@dataclasses.dataclass(order=True)  # , frozen=True)
+@dataclasses.dataclass(order=True)
 class TerminalBoss:
     """Wrap one Terminal"""
 
@@ -2563,10 +2710,10 @@ class TerminalBoss:
 
         # Back up Input Mode before, drain Input, & choose Input Mode after
 
-        _tcgetattr_ = termios.tcgetattr(fileno)
-        assert _tcgetattr_, (_tcgetattr_,)
+        attr = termios.tcgetattr(fileno)
+        assert attr, (attr,)
 
-        self.tcgetattr = _tcgetattr_  # replaces falsey with truthy
+        self.tcgetattr = attr  # replaces falsey with truthy
 
         if farewell_bytes:
             tty.setcbreak(fileno, when=termios.TCSADRAIN)  # ⌃C ⌃Z ⌃\ as Signals, ⌃D as Input
@@ -2642,13 +2789,13 @@ class TerminalBoss:
 
         assert _150_MEGA_NANOS_ == 150 * 10**6  # keys typed ahead, about as fast as a typist's
 
-        _timeout_ = timeout
+        rwx_timeout_else = timeout
         if typeahead:  # typeahead delay can be (timeout + 150e-3) or (2 * 150e-3), if timeout
-            _timeout_ = 150e-3 if (timeout is None) else min(150e-3, timeout)
+            rwx_timeout_else = 150e-3 if (timeout is None) else min(150e-3, timeout)
 
-            # delivering a delay of 150e-3 if timeout would require a mutable, so never mind
+            # delivering total delay of only 150e-3 would add a mutable, so never mind
 
-        r, w, x = select.select([fileno], [], [], _timeout_)
+        r, w, x = select.select([fileno], [], [], rwx_timeout_else)
         hit = bool((fileno in r) or typeahead)
 
         return hit
@@ -2731,7 +2878,7 @@ class TerminalBoss:
 #
 
 
-@dataclasses.dataclass(order=True)  # , frozen=True)
+@dataclasses.dataclass(order=True)
 class ByteKeeper:
     """Collect Bytes and track when they arrived"""
 
@@ -2761,7 +2908,7 @@ class ByteKeeper:
         nano_list = self.nano_list
 
         firsts = range(max(0, len(ba) - 4), len(ba))
-        pairs = [(nano_list[i], bytes(ba[i : i + 1])) for i in firsts]
+        pairs = list((nano_list[i], bytes(ba[i : i + 1])) for i in firsts)
 
         if is_quitting_shape(pairs):
             if ord(" ") <= ba[-1] <= ord("~"):  # US Ascii Printable, and not \t \n \r etc
@@ -2777,8 +2924,8 @@ def is_quitting_shape(pairs: list[tuple[int, bytes]]) -> bool:
 
     nano = time.perf_counter_ns()
 
-    nl = [n for (n, _) in pairs]  # when the last Byte of each arrived
-    data_list = [data for (_, data) in pairs]
+    nl = list(n for (n, _) in pairs)  # when the last Byte of each arrived
+    data_list = list(data for (_, data) in pairs)
 
     last3 = data_list[-3:]
     if not last3:
@@ -2841,7 +2988,7 @@ ED_PS = "\033[" "{}" "J"  # CSI 04/10 Erase in Display  # 0 Tail # 1 Head # 2 Ro
 EL_PS = "\033[" "{}" "K"  # CSI 04/11 Erase in Line [Row]  # 0 Tail # 1 Head # 2 Row
 IL_Y = "\033[" "{}" "L"  # Csi 04/12 Insert Line [Row]
 _CLICK3_ = "\033[M"  # ⎋[⇧M{b}{x}{y} Click Press/ Release
-DL_Y = "\033[" "{}M"  # Csi 04/13 Delete Line [Row]
+DL_Y = "\033[" "{}" "M"  # Csi 04/13 Delete Line [Row]
 DCH_X = "\033[" "{}" "P"  # Csi 05/00 [Delete] Cursor Horizontal [Pn] [Columns]
 SU_Y = "\033[" "{}S"  # CSI 05/03 Scroll Up [Into Scrollback]
 
@@ -2858,6 +3005,7 @@ HIDE_CUSR_RM_PSQ25 = "\033[" "?25l"  # RM_PS 25 to Hide Cursor
 SGR_PS = "\033[" "{}" "m"  # CSI 06/13 Select Graphic Rendition [Text Style]
 NO_SGR_PS = "\033[" "m"  # SGR Ps None for Plain
 REVERSE_SGR_PS7 = "\033[" "7m"  # SGR_PS 7 for Reverse/Inverse Video
+# UNREVERSE_SGR_PS27 = "\033[" "27m"  # SGR_PS 27 to undo SGR_PS 7
 
 
 DSR_PS = "\033[" "{}n"  # Csi 06/14 [Request] Device Status Report [Ps]
@@ -2900,7 +3048,7 @@ _SouthwestArrow_ = "\033[↙"
 _ = _NorthwestArrow_, _NortheastArrow_, _SoutheastArrow_, _SouthwestArrow_
 
 
-_ = _START_PASTE_
+_ = _START_PASTE_, _END_PASTE_
 
 
 AppleLogo = "\uf8ff"  # Apple Logo occupies U+F8FF = end of U+E000 .. U+F8FF Private Use Area (PUA)
@@ -2916,8 +3064,8 @@ _ = AppleLogo
 def bytes_repr(data: bytes) -> str:
     """Repr the Bytes, but with Octal not Upper/Lower Hex as the escape for Unprintables"""
 
-    _repr_ = repr(data)
-    sub = _repr_hex_to_octal_(_repr_)
+    quoted_repr = repr(data)
+    sub = _quoted_repr_hex_to_octal_(quoted_repr)
 
     return sub
 
@@ -2927,8 +3075,8 @@ def bytes_repr(data: bytes) -> str:
 def str_repr(s: str) -> str:
     """Repr the Str, but with Octal not Upper/Lower Hex as the escape for Unprintables"""
 
-    _repr_ = repr(s)
-    sub = _repr_hex_to_octal_(_repr_)
+    quoted_repr = repr(s)
+    sub = _quoted_repr_hex_to_octal_(quoted_repr)
 
     return sub
 
@@ -2936,10 +3084,10 @@ def str_repr(s: str) -> str:
     # '\ufeff' unchanged, no Octal form
 
 
-def _repr_hex_to_octal_(_repr_: str) -> str:
+def _quoted_repr_hex_to_octal_(text: str) -> str:
     """Rewrite each \\x Escape of a Repr as a 3-Digit Octal Escape, and leave the rest alone"""
 
-    def _repl_(m: re.Match[str]) -> str:
+    def repl(m: re.Match[str]) -> str:
 
         escape = m.group(0)
         if escape.startswith("\\x"):
@@ -2956,7 +3104,7 @@ def _repr_hex_to_octal_(_repr_: str) -> str:
 
         # r'\n' r'\\' r"\'" r'\u2028' r'\U0001f600' unchanged
 
-    sub = re.sub(r"\\(x..|u....|U........|.)", repl=_repl_, string=_repr_)
+    sub = re.sub(r"\\(x..|u....|U........|.)", repl=repl, string=text)
 
     return sub
 
