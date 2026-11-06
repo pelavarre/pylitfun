@@ -2555,19 +2555,23 @@ class TerminalBoss:
         sys.stdout.flush()
         sys.stderr.flush()
 
+        # Enter with an imitation of a truthy termios.tcgetattr(fileno), when not a tty
+
+        if not isatty:
+            self.tcgetattr = [20261010]  # arbitrary 20261010
+            return self
+
         # Back up Input Mode before, drain Input, & choose Input Mode after
 
-        widened_list_int: list[int | list[bytes | int]] = [20261010]  # arbitrary 20261010
+        _tcgetattr_ = termios.tcgetattr(fileno)
+        assert _tcgetattr_, (_tcgetattr_,)
 
-        truthy_attributes = termios.tcgetattr(fileno) if isatty else widened_list_int
-        assert truthy_attributes, (truthy_attributes,)
-        self.tcgetattr = truthy_attributes  # replaces falsey with truthy
+        self.tcgetattr = _tcgetattr_  # replaces falsey with truthy
 
-        if isatty:  # takes ⌃C ⌃Z ⌃\ as signals, till called back again to do tty.setraw
-            if farewell_bytes:
-                tty.setcbreak(fileno, when=termios.TCSADRAIN)  # ⌃D b"\004" is Input, not Signal
-            else:
-                tty.setraw(fileno, when=termios.TCSADRAIN)  # ⌃C ⌃D ⌃Z ⌃\ are Input, not Signal
+        if farewell_bytes:
+            tty.setcbreak(fileno, when=termios.TCSADRAIN)  # ⌃C ⌃Z ⌃\ as Signals, ⌃D as Input
+        else:
+            tty.setraw(fileno, when=termios.TCSADRAIN)  # ⌃C ⌃D ⌃Z ⌃\ as Input, not as Signals
 
         # Succeed
 
