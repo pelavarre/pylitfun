@@ -20,11 +20,13 @@ Measured 24/Oct/2026 on a macOS pty, 2 runs each, 'ab' typed before Enter and 'x
     TCSADRAIN, our choice:    Enter keeps 'ab'        Exit leaves 'xy' for the next program
     TCSAFLUSH, not chosen:    Enter drops 'ab'        Exit drops 'xy'
 
-We meet spec as tested by _try_terminal_boss_:
+We meet spec as tested by _try_terminal_boss_ and _try_terminal_boss_return_:
 
     1. Enter saves the Terminal attributes once, then calls tty.setraw with TCSADRAIN
        so queued Output leaves, but Input already typed stays to be read.
        Enter with a Farewell calls tty.setcbreak not tty.setraw, so ⌃C ⌃Z ⌃\ still signal.
+       Queued Strikes of the Return Key arrive as ⌃J,
+       until tty.setraw makes new Strikes arrive as ⌃M.
 
     2. Enter on a Stdin that is not a Terminal saves a stand-in list, and touches no termios.
 

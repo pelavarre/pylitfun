@@ -54,6 +54,7 @@ def main() -> None:
     _try_terminal_byte_frame_()  # ~330ms, mostly ~327ms _try_ends_later_ over every Char
     _try_keyboard_decoder_()  # ~1ms
     _try_terminal_boss_()  # ~490ms, 2 child Pythons
+    _try_terminal_boss_return_()  # ~300ms, 2 child Pythons on Ptys at once
     _try_terminal_boss_farewell_()  # ~100ms, 1 child Python
     _try_is_quitting_frames_()  # ~1600ms, 7 Ptys at once, the slowest 6 ⎋ at 150ms apart + 500ms
     _try_strikes_spill_()  # ~1000ms, 3 ⏎ at 150ms apart, then 300ms of reading what is left
@@ -676,6 +677,94 @@ with boss:
 termios.tcsetattr = real_tcsetattr
 print("RESULT", repr((cbreak, raw, before_enter, without_farewell)), flush=True)
 """
+
+
+_TERMINAL_BOSS_RETURN_CHILD_ = r"""
+import os, sys
+sys.path.insert(0, sys.argv[1])
+import litpyglass
+
+farewell_bytes = sys.argv[2].encode()
+sync_fileno = int(sys.argv[3])
+boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=farewell_bytes)
+print("READY1", flush=True)
+os.read(sync_fileno, 1)  # a Return has been struck on the Terminal
+with boss:
+    queued = boss.read_one_byte()
+    print("READY2", flush=True)
+    entered = boss.read_one_byte()
+    raw = entered
+    if farewell_bytes:
+        boss.tty_setraw_before_farewell()
+        print("READY3", flush=True)
+        raw = boss.read_one_byte()
+print("RESULT", repr((queued, entered, raw)), flush=True)
+"""
+
+
+def _try_terminal_boss_return_() -> None:
+    """Try which Bytes the Return Key sends, as specs.md § 1 says"""
+
+    farewells = ("", "<F>")  # Enter with tty.setraw, and Enter with tty.setcbreak
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(farewells)) as executor:
+        results = tuple(executor.map(_try_return_child_, farewells))
+
+    # (queued before Enter, struck after Enter, struck after tty_setraw_before_farewell)
+
+    assert results[0] == (b"\n", b"\r", b"\r"), results  # tty.setraw at Enter, so ⌃M after
+    assert results[1] == (b"\n", b"\n", b"\r"), results  # tty.setcbreak keeps ⌃J till setraw
+
+
+def _try_return_child_(farewell: str) -> object:
+    """Run a Child on a Pty, striking Return before Enter and after each stage"""
+
+    here = os.path.dirname(os.path.abspath(litpyglass.__file__))
+
+    sync_read_fileno, sync_write_fileno = os.pipe()
+    master_fileno, slave_fileno = pty.openpty()
+    argv = [sys.executable, "-I", "-c", _TERMINAL_BOSS_RETURN_CHILD_, here, farewell]
+    argv.append(str(sync_read_fileno))
+    process = subprocess.Popen(
+        argv,
+        stdin=slave_fileno,
+        stdout=slave_fileno,
+        stderr=slave_fileno,
+        pass_fds=(sync_read_fileno,),
+    )
+    os.close(slave_fileno)
+
+    terminal_output = bytearray()
+
+    _pty_read_till_marker_(master_fileno, terminal_output, b"READY1")
+    os.write(master_fileno, b"\r")  # struck before Enter
+    time.sleep(0.05)
+    os.write(sync_write_fileno, b"g")
+
+    _pty_read_till_marker_(master_fileno, terminal_output, b"READY2")
+    os.write(master_fileno, b"\r")  # struck after Enter
+
+    if farewell:
+        _pty_read_till_marker_(master_fileno, terminal_output, b"READY3")
+        os.write(master_fileno, b"\r")  # struck after tty_setraw_before_farewell
+
+    _pty_read_till_marker_(master_fileno, terminal_output, b"RESULT (")
+    _pty_read_till_marker_(master_fileno, terminal_output, b")\r\n")
+    try:
+        process.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        process.kill()  # a Child that never printed its RESULT is still blocked reading Input
+        process.wait()
+    os.close(master_fileno)
+    os.close(sync_read_fileno)
+    os.close(sync_write_fileno)
+
+    screen_decode = bytes(terminal_output).decode(errors="replace")
+    assert "RESULT " in screen_decode, (screen_decode,)
+    result_decode = screen_decode.split("RESULT ")[1].split("\r\n")[0]
+    result: object = ast.literal_eval(result_decode)
+
+    return result
 
 
 def _try_terminal_boss_farewell_() -> None:
