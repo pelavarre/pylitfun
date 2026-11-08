@@ -309,8 +309,8 @@ class GlassWorker:
                 if data == b"\r":
                     print()
 
-    def frame_print(self, data: bytes, nanobytes: list[int | bytes], end: str) -> None:
-        """Print 'caps data = cell cell ...' as a whole line, or as the start of one"""
+    def frame_print(self, data: bytes, nanobytes: tuple[tuple[int, bytes], ...], end: str) -> None:
+        """Print 'caps data = nanos bytes ...' as a whole line, or as the start of one"""
 
         kd = keyboard_decoder()
 
@@ -335,9 +335,14 @@ class GlassWorker:
 
         words.append(f"{bytes_repr(data)} =")
 
-        piths = list(c for (i, c) in enumerate(nanobytes) if (i == 0) or (c != 0))
-        reps = list((ns(p) if isinstance(p, int) else bytes_repr(p)) for p in piths)
-        words.extend(reps)  # drops all but the first mention of '0ns'
+        reps = list()
+        for i, (waited, b) in enumerate(nanobytes):
+            if (i == 0) or (waited != 0):  # drops all but the first mention of '0ns'
+                reps.append(ns(waited))
+
+            reps.append(bytes_repr(b))
+
+        words.extend(reps)
 
         # Print the words
 
@@ -569,7 +574,7 @@ class GlassWorker:
 
             # Quit happy
 
-            ts.str_write_tb(" \b")  # redraws the left Cell over our Quit Signal reply
+            ts.str_write_tb(" \b")  # redraws the left of our 2x1 Cell over our Quit Signal reply
 
     def form_skater_move(self, ts: TerminalShadow, caps: str, decode: str) -> str:
         """Spell how to move one Pixel in the direction of an Arrow Key"""
@@ -1332,10 +1337,10 @@ class KeyboardDecoder:
 
 @dataclasses.dataclass
 class TerminalShadow:
-    """Keep a copy of what we write to the Terminal"""
+    """Keep a copy of what we've written to a Terminal"""
 
     tb: TerminalBoss  # the one Terminal we write through
-    layer: TerminalLayer  # what we know of the Screen
+    layer: TerminalLayer  # what we know we wrote
 
     def __init__(self, tb: TerminalBoss) -> None:
 
@@ -1414,8 +1419,8 @@ class TerminalShadow:
         assert layer.place.has_much_area(), (layer.place, text)
 
         fork_layer = layer.fork_layer()
-        written = fork_layer._write_some_or_all_strs_(text)
-        assert written, (text, layer.place)  # truthy because all written, and ended on screen
+        all_written_on_screen = fork_layer._write_some_or_all_strs_(text)
+        assert all_written_on_screen, (text, layer.place)
 
         # Shadow it and write it, because from above we know we can
 
@@ -1440,39 +1445,49 @@ class TerminalShadow:
 
 @dataclasses.dataclass(kw_only=True)
 class TerminalLayer:
-    """Keep what a Terminal shows, and write no Byte"""
+    """Keep a copy of what we could write to a Terminal"""
 
     place: TerminalPlace  # where the Cursor, how big the Screen
     text_styles: tuple[str, ...]  # the Text Styles in force
     write_by_xy: dict[tuple[int, int], tuple[tuple[str, ...], str]]  # (texts, t) by (x, y)
 
     def fork_layer(self) -> TerminalLayer:
-        """Start a new Layer at the same Place and Text Styles, with no Cells"""
+        """Start a new Layer at the same Place, with the same Text Styles, with no Writes"""
 
-        return TerminalLayer(
-            place=dataclasses.replace(self.place),  # clones
-            text_styles=self.text_styles,
+        place = self.place
+        text_styles = self.text_styles
+
+        fork_place = dataclasses.replace(place)  # clones
+
+        layer = TerminalLayer(
+            place=fork_place,
+            text_styles=text_styles,  # immutable
             write_by_xy=dict(),
         )
 
-    def shadow_screen_into(self, other_layer: TerminalLayer) -> None:
-        """Copy this Layer's Place, Text Styles, and Cells over another Layer's, keeping this Layer"""
+        return layer
 
-        other_layer.place = dataclasses.replace(self.place)  # clones
-        other_layer.text_styles = self.text_styles
-        other_layer.write_by_xy.update(self.write_by_xy)  # replaces or adds each Cell
+    def shadow_screen_into(self, layer: TerminalLayer) -> None:
+        """Copy this Layer's Place, Text Styles, and Writes over another Layer's"""
+
+        layer.place = dataclasses.replace(self.place)  # clones
+        layer.text_styles = self.text_styles  # immutable
+        layer.write_by_xy.update(self.write_by_xy)  # replaces or adds each Write
 
     def _write_some_or_all_strs_(self, text: str) -> bool:
         """Write all the Str into this Layer and return True, or less than all and return False"""
 
         place = self.place
         text_styles = self.text_styles
+        write_by_xy = self.write_by_xy
 
         assert place.is_onscreen_place(), (place,)
         fewer = TerminalLayer.text_styles_compress(text_styles)  # fewer or same
         assert text_styles == fewer, (text_styles, fewer)
 
         writing_place = place  # replaceable
+        next_styles = text_styles  # immutable
+
         for m in re.finditer(r"\033\[([0-9;?]*)([@-~])|(.)", text):
             params, final, t = m.groups()
             split = m.group(0)
@@ -1482,17 +1497,18 @@ class TerminalLayer:
             if not writing_place.is_onscreen_place():
                 return False
 
-            # Shadow change of, or reaffirmation of, Text Styles
+            # Shadow change of (or reaffirmation of) Text Styles
 
             assert NO_SGR_PS == "\033[" "m"
             assert REVERSE_SGR_PS7 == "\033[" "7m"
 
             if final == "m":
                 assert params in ("", "7"), (params,)
-                self.text_styles = TerminalLayer.text_styles_compress(self.text_styles + (split,))
+                next_styles = TerminalLayer.text_styles_compress(next_styles + (split,))
+                self.text_styles = next_styles
                 continue
 
-            # Shadow Y X Moves
+            # Shadow Y X Moves, to a new place (or to the same place)
 
             if (t in ("\b", "\r")) or (final in ("A", "B", "C", "D")):
                 assert not params, (params,)  # copes only with ⎋[A ⎋[B ⎋[C ⎋[D
@@ -1506,9 +1522,9 @@ class TerminalLayer:
                     return False
 
                 xy = (writing_place.column_x, writing_place.row_y)
-                self.write_by_xy[xy] = (self.text_styles, t)  # replaces or adds
-
+                write_by_xy[xy] = (next_styles, t)  # replaces or adds  # different or same
                 writing_place.write_str_at_place(split)
+
                 continue
 
             # Shadow no change for Hiding or Showing the Cursor, until we need to know if it hides
@@ -1534,7 +1550,7 @@ class TerminalLayer:
 
     @staticmethod
     def text_styles_compress(text_styles: tuple[str, ...]) -> tuple[str, ...]:
-        """Drop each Text Style that a later ⎋[M or a repeat undoes, but keep Insertion Order"""
+        """Drop the Text Style Writes cancelled by later Text Style Writes"""
 
         assert NO_SGR_PS == "\033[" "m"
         assert REVERSE_SGR_PS7 == "\033[" "7m"
@@ -1547,7 +1563,7 @@ class TerminalLayer:
                 fewer_styles.clear()
 
             if text_style not in fewer_styles:
-                fewer_styles.append(text_style)
+                fewer_styles.append(text_style)  # keep insertion order
 
         return tuple(fewer_styles)
 
@@ -1625,9 +1641,7 @@ class TerminalFrameReader:
     """Read Bytes from a Terminal, place them into Frames, and say when each Byte arrived"""
 
     tft: TerminalFrameTaker  # the Frames taken so far, and the Open Frame
-    nanobytes: list[int | bytes]  # Nanos waited and Bytes read
-
-    # todo0: convert to list[tuple[int, bytes]]
+    nanobytes: list[tuple[int, bytes]]  # (Nanos waited, Byte read) for each Byte read
 
     def __init__(self) -> None:
 
@@ -1636,8 +1650,8 @@ class TerminalFrameReader:
 
     def take_frames_and_yield_each(
         self, tb: TerminalBoss, stalwarts: tuple[bytes, ...]
-    ) -> typing.Iterator[tuple[bool, TerminalByteFrame, list[int | bytes]]]:
-        """Yield (False, Open Frame, Cells) before taking, and (True, Taken Frame, Cells) after"""
+    ) -> typing.Iterator[tuple[bool, TerminalByteFrame, tuple[tuple[int, bytes], ...]]]:
+        """Yield (False, Open Frame, Nanobytes) before taking, (True, Taken Frame, same) after"""
 
         tft = self.tft
         nanobytes = self.nanobytes
@@ -1653,7 +1667,8 @@ class TerminalFrameReader:
             # Yield the Open Frame before each Read, as a Frame not yet taken
 
             taken = False
-            frame_triple = (taken, tft.frame, nanobytes)
+            frame_nanobytes = tuple(nanobytes)  # copies, so no Caller changes ours
+            frame_triple = (taken, tft.frame, frame_nanobytes)
             yield frame_triple
 
             # Block to fetch >= 1 Bytes
@@ -1693,10 +1708,9 @@ class TerminalFrameReader:
 
                 # Mark how slowly this Byte arrived
 
-                nanobytes.append(waited)
+                nanobyte = (waited, b)
+                nanobytes.append(nanobyte)
                 waited = 0  # waited some ns only for the first Byte of these
-
-                nanobytes.append(b)
 
             # Yield each Frame taken to place these Bytes
 
@@ -1714,8 +1728,8 @@ class TerminalFrameReader:
 
     def _pull_frames_and_yield_each_(
         self,
-    ) -> typing.Iterator[tuple[bool, TerminalByteFrame, list[int | bytes]]]:
-        """Yield (True, Taken Frame, Cells) for each Frame taken since last called"""
+    ) -> typing.Iterator[tuple[bool, TerminalByteFrame, tuple[tuple[int, bytes], ...]]]:
+        """Yield (True, Taken Frame, Nanobytes) for each Frame taken since last called"""
 
         tft = self.tft
         nanobytes = self.nanobytes
@@ -1731,14 +1745,14 @@ class TerminalFrameReader:
             frame, start, end, data = pulled
             assert data == frame.to_frame_bytes(), (data, frame)
 
-            length = 2 * len(data)  # two nanobytes per Byte
+            length = len(data)  # one nanobyte per Byte
             assert len(nanobytes) >= length, (len(nanobytes), length, data)
 
-            frame_cells = nanobytes[:length]
+            frame_nanobytes = tuple(nanobytes[:length])  # copies, so no Caller changes ours
             del nanobytes[:length]
 
             taken = True
-            frame_triple = (taken, frame, frame_cells)
+            frame_triple = (taken, frame, frame_nanobytes)
             yield frame_triple
 
 
@@ -2915,7 +2929,7 @@ class ByteKeeper:
         return False
 
 
-def is_quitting_shape(pairs: list[tuple[int, bytes]]) -> bool:
+def is_quitting_shape(pairs: typing.Sequence[tuple[int, bytes]]) -> bool:
     """Quits when given same Bytes, 3 times in a row, but >= 100ms apart, across < 3s"""
 
     nano = time.perf_counter_ns()

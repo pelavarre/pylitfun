@@ -58,17 +58,20 @@ def main() -> None:
     _try_terminal_boss_return_()  # ~300ms, 2 child Pythons on Ptys at once
     _try_terminal_boss_farewell_()  # ~100ms, 1 child Python
     _try_is_quitting_frames_()  # ~1600ms, 7 Ptys at once, the slowest 6 ⎋ at 150ms apart + 500ms
+    _try_is_quitting_shape_()  # ~1ms
     _try_strikes_spill_()  # ~1000ms, 3 ⏎ at 150ms apart, then 300ms of reading what is left
     _try_terminal_boss_typeahead_()  # ~600ms, 150ms per Typeahead Byte
     _try_terminal_boss_chunks_()  # ~460ms, 150ms per Typeahead Byte
     _try_typeahead_()  # ~550ms, 3 Typeahead ⏎ at 150ms each
     _try_frame_reader_quits_midbatch_()  # ~1ms
+    _try_frame_reader_nanobytes_()  # ~10ms, 3 reads of 2ms each
+    _try_frame_print_()  # ~1ms
     _try_pull_ends_without_answers_()  # ~1ms
     _try_placed_input_strikes_()  # ~150ms, 1 Pty and 1 child Python off a Terminal
     _try_skater_entry_()  # ~900ms, 4 Ptys at once, and 1 child Python off a Terminal
     _try_skater_quits_()  # ~1100ms, 13 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
     _try_skater_edge_()  # ~2500ms, 4 Ptys at once, the slowest 10 → at 150ms apart + 500ms
-    _try_shadow_cells_()  # ~1ms
+    _try_shadow_writes_()  # ~1ms
     _try_shadow_layer_()  # ~1ms
 
     print("tests ok")
@@ -960,6 +963,21 @@ def _skater_move_(warp: str) -> str:
     return "\033[7m  \033[m\b\b" + warp + "  \b\b"  # inverse behind, plain ahead
 
 
+def _try_is_quitting_shape_() -> None:
+    """Try that the quitting shape reads a list or a tuple of pairs alike, as specs.md § 4 says"""
+
+    now = time.perf_counter_ns()
+    ms = 10**6
+
+    slow = ((now - 400 * ms, b"\r"), (now - 250 * ms, b"\r"), (now - 100 * ms, b"\r"))  # 150ms apart
+    fast = ((now - 400 * ms, b"\r"), (now - 350 * ms, b"\r"), (now - 300 * ms, b"\r"))  # 50ms apart
+    pair = slow[1:]  # two Bytes only
+
+    for pairs, quits in ((slow, True), (fast, False), (pair, False)):
+        assert litpyglass.is_quitting_shape(pairs) is quits, (pairs, quits)
+        assert litpyglass.is_quitting_shape(list(pairs)) is quits, (pairs, quits)
+
+
 def _try_skater_quits_() -> None:
     """Try which strikes quit --egg=skater, as specs.md § 8 says"""
 
@@ -1064,6 +1082,17 @@ class FakeReadBoss:
         return b"\033[1;1R\033[8;24;80t\033[B" if (self.reads == 1) else b""
 
 
+class FakeSlowBoss:
+    """Pretend to be a TerminalBoss that reads two chunks of Bytes, each after a 2ms wait"""
+
+    def __init__(self) -> None:
+        self.chunks = [b"\033[B", b"q"]
+
+    def read_some_bytes_if(self) -> bytes:
+        time.sleep(0.002)
+        return self.chunks.pop(0) if self.chunks else b""
+
+
 class FakeEndBoss:
     """Pretend to be a Tty TerminalBoss whose Input ends at once, with no Result"""
 
@@ -1115,7 +1144,7 @@ def _try_shadow_layer_() -> None:
     for name in ("place", "text_styles", "write_by_xy"):
         assert not hasattr(litpyglass.TerminalShadow, name), name
 
-    # Layer 2: a new Layer starts with a copy of the Place and Text Styles, and no Cells
+    # Layer 2: a new Layer starts with a copy of the Place and Text Styles, and no Writes
 
     forked_layer = base_layer.fork_layer()
     assert forked_layer.place == base_layer.place, forked_layer.place
@@ -1130,7 +1159,7 @@ def _try_shadow_layer_() -> None:
     # a, b, then off the North edge at the 2nd Move
     assert not north_layer._write_some_or_all_strs_("ab\033[A\033[A")
     assert not north_layer.place.is_onscreen_place(), north_layer.place
-    assert north_layer.write_by_xy != {}, north_layer.write_by_xy  # keeps the Cells before it
+    assert north_layer.write_by_xy != {}, north_layer.write_by_xy  # keeps the Writes before it
 
     edge_layer = base_layer.fork_layer()
     edge_layer.place.column_x = 20  # the last Column we write
@@ -1159,7 +1188,7 @@ def _try_shadow_layer_() -> None:
     assert after == before, (after, before)
     assert fake.writes == [written.encode()], fake.writes
 
-    # Layer 14: a Layer gives its Place, Text Styles, and Cells to another, and keeps itself
+    # Layer 14: a Layer gives its Place, Text Styles, and Writes to another, and keeps itself
 
     giving_layer = base_layer.fork_layer()
     assert giving_layer._write_some_or_all_strs_("\033[m" + "z\b")
@@ -1168,8 +1197,8 @@ def _try_shadow_layer_() -> None:
     assert giving_layer.write_by_xy == {(5, 2): ((no_sgr_csi,), "z")}, giving_layer.write_by_xy
 
     receiving_layer = base_layer.fork_layer()
-    receiving_layer.write_by_xy[(9, 9)] = ((no_sgr_csi,), "k")  # a Cell the giver lacks
-    receiving_layer.write_by_xy[(5, 2)] = ((no_sgr_csi,), "c")  # a Cell the giver replaces
+    receiving_layer.write_by_xy[(9, 9)] = ((no_sgr_csi,), "k")  # a Write the giver lacks
+    receiving_layer.write_by_xy[(5, 2)] = ((no_sgr_csi,), "c")  # a Write the giver replaces
 
     giving_copy = dataclasses.replace(giving_layer, write_by_xy=dict(giving_layer.write_by_xy))
     giving_layer.shadow_screen_into(receiving_layer)
@@ -1212,8 +1241,8 @@ def _try_shadow_layer_() -> None:
     assert shadow_after == shadow_before, (shadow_after, shadow_before)
 
 
-def _try_shadow_cells_() -> None:
-    """Try TerminalLayer keeping the Cells written through a TerminalShadow, as specs.md § 10 says"""
+def _try_shadow_writes_() -> None:
+    """Try TerminalLayer keeping the Writes made through a TerminalShadow, as specs.md § 10 says"""
 
     fake = FakeWriteBoss()
     boss = typing.cast(litpyglass.TerminalBoss, fake)
@@ -1530,6 +1559,65 @@ def _try_frame_reader_quits_midbatch_() -> None:
 
     expected = [(True, b"\033[B", 1), (False, b"", 1)]
     assert shows == expected, (shows, expected)
+
+
+def _try_frame_reader_nanobytes_() -> None:
+    """Try that each Taken Frame has its Nanos waited and Bytes read, as specs.md § 5 says"""
+
+    slow_fake = FakeSlowBoss()
+    boss = typing.cast(litpyglass.TerminalBoss, slow_fake)
+    tfr = litpyglass.TerminalFrameReader()
+
+    shows = list()
+    for taken, frame, frame_nanobytes in tfr.take_frames_and_yield_each(boss, stalwarts=()):
+        assert isinstance(frame_nanobytes, tuple), (taken, frame_nanobytes)  # Open Frames too
+        if taken:
+            shows.append((frame.to_frame_bytes(), frame_nanobytes))
+
+    (data1, nanobytes1), (data2, nanobytes2) = shows
+    assert (data1, data2) == (b"\033[B", b"q"), (data1, data2)
+
+    # one (Nanos waited, Byte read) pair for each Byte, in order
+
+    assert list(b for _, b in nanobytes1) == [b"\033", b"[", b"B"], nanobytes1
+    assert list(b for _, b in nanobytes2) == [b"q"], nanobytes2
+
+    # the Nanos waited are 0 for every Byte of a read but the first
+
+    assert list(w for w, _ in nanobytes1)[1:] == [0, 0], nanobytes1
+    assert nanobytes1[0][0] >= 1_000_000 and nanobytes2[0][0] >= 1_000_000, (nanobytes1, nanobytes2)
+
+
+def _try_frame_print_() -> None:
+    """Try that a Frame prints its first wait, and later waits if not 0ns, as specs.md § 8 says"""
+
+    glass_worker = litpyglass.GlassWorker()
+    start = "\r\033[K"  # from the start of the Line
+    esc = b"\033"
+
+    def printed(frame_nanobytes: tuple[tuple[int, bytes], ...]) -> str:
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            glass_worker.frame_print(b"\033[A", nanobytes=frame_nanobytes, end="\r\n")
+
+        return captured.getvalue()
+
+    prefix = start + "↑ '\\033[A' b'\\033[A' = "
+
+    # a first wait of 750ms prints, and the later waits of 0ns drop
+
+    got = printed(((750_000_000, esc), (0, b"["), (0, b"A")))
+    assert got == prefix + "750ms b'\\033' b'[' b'A'\r\n", got
+
+    # a first wait of 0ns still prints, once
+
+    got = printed(((0, esc), (0, b"["), (0, b"A")))
+    assert got == prefix + "0ns b'\\033' b'[' b'A'\r\n", got
+
+    # a later wait of more than 0ns prints too
+
+    got = printed(((750_000_000, esc), (3_000_000, b"["), (0, b"A")))
+    assert got == prefix + "750ms b'\\033' 3.00ms b'[' b'A'\r\n", got
 
 
 def _try_pull_ends_without_answers_() -> None:

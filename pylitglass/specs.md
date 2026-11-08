@@ -137,19 +137,34 @@ Measured 24/Oct/2026 on a macOS pty running --egg=strikes, with the strikes 150 
        and does not quit, since they are under 100 ms apart. So pasting blank lines is safe.
 ```
 
+```
+Spec of is_quitting_shape, as _try_is_quitting_shape_ tests it.
+
+We meet spec as tested by _try_is_quitting_shape_:
+
+    1. Three same Bytes, each 100 ms or more after the one before, all within 3 s, make the
+       quitting shape. Two Bytes do not, and nor do Bytes under 100 ms apart.
+
+    2. A list or a tuple of (Nanos, Bytes) pairs gives the same answer.
+```
+
 ## § 5 TerminalFrameReader
 
 ```
-Spec of TerminalFrameReader.take_frames_and_yield_each, as _try_frame_reader_quits_midbatch_
-tests it.
+Spec of TerminalFrameReader.take_frames_and_yield_each, as _try_frame_reader_quits_midbatch_ and
+_try_frame_reader_nanobytes_ test it.
 
-We meet spec as tested by _try_frame_reader_quits_midbatch_:
+We meet spec as tested by _try_frame_reader_quits_midbatch_ and _try_frame_reader_nanobytes_:
 
     1. A Caller who quits after the second of three Taken Frames of one read leaves the third
        Taken Frame for the next pass.
 
     2. The next pass yields that third Taken Frame first, before the Open Frame and before
        any further read.
+
+    3. Each Taken Frame comes with one (Nanos waited, Byte read) pair for each of its Bytes, in
+       order, in a tuple, so that no Caller changes what the Reader keeps. The Nanos waited are 0
+       for every Byte of a read but the first.
 ```
 
 ## § 6 KeyboardDecoder
@@ -269,6 +284,11 @@ On a macOS pty running --egg=skater, we meet spec as tested by _try_skater_quits
 
     19. On a Screen 20 or 21 Columns wide, → fills the Row to Column 20 and then bounces back
         off the East edge. It never writes Column 21, and never wraps to the next Row.
+
+Running --egg=frames, we meet spec as tested by _try_frame_print_:
+
+    20. A printed Frame lists its Bytes after "=", each Byte after the Nanos it waited. The first
+        wait prints even when 0ns, and each later wait prints only when more than 0ns.
 ```
 
 ## § 9 main
@@ -298,14 +318,14 @@ We meet spec as tested by _try_terminal_boss_typeahead_ and _try_terminal_boss_c
 ## § 10 TerminalLayer and TerminalShadow
 
 ```
-Spec of TerminalLayer, as _try_shadow_layer_ and _try_shadow_cells_ test it.
+Spec of TerminalLayer, as _try_shadow_layer_ and _try_shadow_writes_ test it.
 
-We meet spec as tested by _try_shadow_layer_ and _try_shadow_cells_:
+We meet spec as tested by _try_shadow_layer_ and _try_shadow_writes_:
 
     1. A Layer has its own .place, .text_styles, and .write_by_xy, and it writes no Byte anywhere.
 
     2. A new Layer starts with a copy of the Place and the Text Styles of the Layer it is made
-       from, and with no Cells.
+       from, and with no Writes.
 
     3. Each Printable Char written into a Layer is kept at the (Column, Row) it lands on, with the
        Text Styles in force then, and a later write there replaces it.
@@ -338,25 +358,25 @@ We meet spec as tested by _try_shadow_layer_ and _try_shadow_cells_:
     11. A Write that cannot be made says so, and leaves the Layer half written. The caller drops
         that Layer.
 
-    12. One def on the Layer, _write_some_or_all_strs_, does the work of items 3 to 11. The Shadow runs that
-        one def, and ships no second copy of the rules.
+    12. One def on the Layer, _write_some_or_all_strs_, does the work of items 3 to 11. The Shadow
+        runs that one def, and ships no second copy of the rules.
 
     13. No Write into a Layer changes any other Layer. A Layer never writes through unasked.
 
-    14. A Layer gives its Place, its Text Styles, and its Cells to another Layer when asked, by
-        shadow_screen_into. Each Cell replaces the Cell at the same (Column, Row). Each other
-        Cell stays as it was. The Layer that gives stays as it was.
+    14. A Layer gives its Place, its Text Styles, and its Writes to another Layer when asked, by
+        shadow_screen_into. Each Write replaces the Write at the same (Column, Row). Each other
+        Write stays as it was. The Layer that gives stays as it was.
 ```
 
 ```
-Spec of TerminalShadow, as _try_shadow_layer_ and _try_shadow_cells_ test it.
+Spec of TerminalShadow, as _try_shadow_layer_ and _try_shadow_writes_ test it.
 
-We meet spec as tested by _try_shadow_layer_ and _try_shadow_cells_:
+We meet spec as tested by _try_shadow_layer_ and _try_shadow_writes_:
 
     1. A TerminalShadow holds a Terminal and one Layer, named .layer. It reads everything it knows
        of the Screen from .layer, and it forwards none of the three by property.
 
-    2. No Cell is kept before any write, and none after only the Terminal's answers.
+    2. No Write is kept before any write, and none after only the Terminal's answers.
 
     3. Before the Terminal answers, no write can be made, not even one of no Char: it fails its
        assert before any Byte goes out.
