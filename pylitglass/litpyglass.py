@@ -105,7 +105,7 @@ def main() -> None:
         tests.main()
         return
 
-    # Pick a demo, else freak  # todo: tighter parsing of .shargv
+    # Pick a demo, else freak
 
     eggs = list(_.removeprefix("--egg=") for _ in shargv if _.startswith("--egg="))
     if not eggs:
@@ -521,7 +521,7 @@ class GlassWorker:
                     if data:
                         j = digits[(digits.index(i) + len(data)) % len(digits)]
                         ts.str_write_tb(f"{j}\b")
-                        # FIXME: no visible reply to pasting N * 10 bytes
+                        # todo0: no visible reply to pasting N * 10 bytes
 
                     continue
 
@@ -545,7 +545,7 @@ class GlassWorker:
 
                     skater_move = simple_move
                     if place.has_much_area():
-                        if not ts.is_writable_place_after_strs(place=place, text=simple_move):
+                        if not ts.is_writable_place_after_strs(text=simple_move):
                             skater_move = alt_move
 
                     # Write the move
@@ -574,6 +574,8 @@ class GlassWorker:
     def form_skater_move(self, ts: TerminalShadow, caps: str, decode: str) -> str:
         """Spell how to move one Pixel in the direction of an Arrow Key"""
 
+        layer = ts.layer
+
         assert _2_COLUMNS_ == 2
         assert NO_SGR_PS == "\033[" "m"
         assert REVERSE_SGR_PS7 == "\033[" "7m"
@@ -581,8 +583,6 @@ class GlassWorker:
         square = "  "  # two Spaces side by side, one Square Pixel, the Cursor's own plain place
         plain = NO_SGR_PS  # reverts all the works of SGR_PS
         reverse = REVERSE_SGR_PS7  # swaps to color B on F, from color F on B
-
-        place = ts.place
 
         vertical = caps in ("↑", "↓")
         warp = decode if vertical else (decode + decode)  # for 2x1 Cells
@@ -596,6 +596,7 @@ class GlassWorker:
         leave = "\b\b"  # writing two Spaces moves the Cursor 1 or 2 Columns right
         arrive = "\b\b"
 
+        place = layer.place
         if place.has_much_area():
             column_x = place.column_x
             x_width = place.x_width
@@ -617,7 +618,7 @@ class GlassWorker:
 #
 
 
-@dataclasses.dataclass(order=True)
+@dataclasses.dataclass
 class InputStrikeTaker:
     """Speak of each Frame as Printable, and/or as known Key Caps, else as ⌘V Paste"""
 
@@ -684,12 +685,14 @@ class InputStrikeTaker:
         held_strikes = self.held_strikes
         ts = self.ts
 
+        layer = ts.layer
+
         # Yield each Strike held while waiting for the Terminal to report YX HW
 
         while held_strikes:
             strike = held_strikes.pop(0)
 
-            isap = InputStrikeAtPlace(strike=strike, place=ts.place)
+            isap = InputStrikeAtPlace(strike=strike, place=layer.place)
             yield isap
 
         # Yield each Strike taken since, except an answer, which no Strike replies to
@@ -701,7 +704,7 @@ class InputStrikeTaker:
             if result:
                 continue
 
-            isap = InputStrikeAtPlace(strike=strike, place=ts.place)
+            isap = InputStrikeAtPlace(strike=strike, place=layer.place)
             yield isap
 
     def take_input_strikes_and_yield_each(
@@ -763,7 +766,7 @@ def keyboard_decoder() -> KeyboardDecoder:
     return kd
 
 
-@dataclasses.dataclass(order=True)
+@dataclasses.dataclass
 class KeyboardDecoder:
     """Speak of Byte Frames as Strikes of Key Caps at a MacBook"""
 
@@ -1037,10 +1040,11 @@ class KeyboardDecoder:
         # Accept single Characters
 
         if len(bytes_names) == 1:  # '€'
-            t = bytes_names
+            t = bytes_names  # not these Shifts, not these Chars
             assert t not in ("⎋⌃⌥⇧" + "`" + "~"), (t, bytes_names)
-            # not these Shifts, not these Chars
-            return bytes_names.encode()
+
+            encode = bytes_names.encode()
+            return encode
 
         # Accept single Characters escaped, no matter if shifted or not
 
@@ -1326,15 +1330,12 @@ class KeyboardDecoder:
 #
 
 
-@dataclasses.dataclass(order=True)
+@dataclasses.dataclass
 class TerminalShadow:
     """Keep a copy of what we write to the Terminal"""
 
     tb: TerminalBoss  # the one Terminal we write through
-
-    place: TerminalPlace  # where the Cursor, how big the Screen
-    text_styles: tuple[str, ...]  # the Text Styles in force
-    write_by_xy: dict[tuple[int, int], tuple[tuple[str, ...], str]]  # (texts, t) by (x, y)
+    layer: TerminalLayer  # what we know of the Screen
 
     def __init__(self, tb: TerminalBoss) -> None:
 
@@ -1343,9 +1344,7 @@ class TerminalShadow:
         place = TerminalPlace(column_x=1, x_max=1, x_width=1, row_y=1, y_height=1)
         assert not place.has_much_area(), (place,)
 
-        self.place = place
-        self.text_styles = ()
-        self.write_by_xy = dict()
+        self.layer = TerminalLayer(place=place, text_styles=(), write_by_xy=dict())
 
     def request_yx_hw_from_tb(self) -> None:
         """Ask where the Cursor is and how big the Screen is, both answered later in order"""
@@ -1361,10 +1360,10 @@ class TerminalShadow:
     def shadow_read_data_else(self, data: bytes) -> tuple[str, int, int] | None:
         """Take the Cursor Column and Row, or the Screen Width and Height, from the Terminal"""
 
+        layer = self.layer
+
         assert _5_ROWS_ == 5
         assert _20_COLUMNS_ == 20
-
-        place = self.place
 
         result = TerminalFrameDecoder.bytes_to_yx_or_hw_else(data)
         if not result:
@@ -1374,6 +1373,8 @@ class TerminalShadow:
         assert tag in ("YX", "HW"), (tag,)
 
         # Update the X Y with a change, or with no change
+
+        place = layer.place
 
         if tag == "YX":
             assert int1 >= _1_ROW_, (int1,)
@@ -1396,65 +1397,90 @@ class TerminalShadow:
 
         # Succeed
 
-        self.place = next_place  # replace with the next, no matter if equal or not
+        layer.place = next_place  # replace with the next, no matter if equal or not
 
         return result
 
-        # todo: get unhappy when not _place_.is_onscreen_place
+        # todo0: get unhappy when not next_place.is_onscreen_place
 
     def str_write_tb(self, text: str) -> None:
         """Write the Text and shadow the Write"""
 
         tb = self.tb
-        place = self.place
+        layer = self.layer
 
-        assert place.has_much_area(), (place, text)
+        # Require a Write that we can shadow
 
-        change = self.change_of_write_strs_else(place, text=text)
-        assert change, (change, text, place)
+        assert layer.place.has_much_area(), (layer.place, text)
 
-        self.text_styles = change.text_styles  # such as the entry ⎋[M, before any Cell
-        self.place = dataclasses.replace(place, column_x=change.column_x, row_y=change.row_y)
-        for x, y, write_styles, t in change.text_writes:
-            self.write_by_xy[(x, y)] = (write_styles, t)
+        fork_layer = layer.fork_layer()
+        written = fork_layer._write_some_or_all_strs_(text)
+        assert written, (text, layer.place)  # truthy because all written, and ended on screen
 
+        # Shadow it and write it, because from above we know we can
+
+        fork_layer.shadow_screen_into(layer)
         tb.bytes_write_flush(text.encode())
 
-    def is_writable_place_after_strs(self, place: TerminalPlace, text: str) -> bool:
+    def is_writable_place_after_strs(self, text: str) -> bool:
         """Say if writing the Str keeps the Terminal Cursor inside the Writable Area"""
 
-        assert place.is_writable_place(), (place,)
+        layer = self.layer
+        assert layer.place.is_writable_place(), (layer.place,)
 
-        change = self.change_of_write_strs_else(place, text=text)
-        if not change:
+        fork_layer = layer.fork_layer()
+        if not fork_layer._write_some_or_all_strs_(text):
             return False
 
-        next_place = dataclasses.replace(place, column_x=change.column_x, row_y=change.row_y)
-        if not next_place.is_writable_place():
+        if not fork_layer.place.is_writable_place():
             return False
 
         return True
 
-    def change_of_write_strs_else(self, place: TerminalPlace, text: str) -> TerminalChange | None:
-        """Say what TerminalChange results: all the next Text Styles, Cursor, Cells"""
+
+@dataclasses.dataclass(kw_only=True)
+class TerminalLayer:
+    """Keep what a Terminal shows, and write no Byte"""
+
+    place: TerminalPlace  # where the Cursor, how big the Screen
+    text_styles: tuple[str, ...]  # the Text Styles in force
+    write_by_xy: dict[tuple[int, int], tuple[tuple[str, ...], str]]  # (texts, t) by (x, y)
+
+    def fork_layer(self) -> TerminalLayer:
+        """Start a new Layer at the same Place and Text Styles, with no Cells"""
+
+        return TerminalLayer(
+            place=dataclasses.replace(self.place),  # clones
+            text_styles=self.text_styles,
+            write_by_xy=dict(),
+        )
+
+    def shadow_screen_into(self, other_layer: TerminalLayer) -> None:
+        """Copy this Layer's Place, Text Styles, and Cells over another Layer's, keeping this Layer"""
+
+        other_layer.place = dataclasses.replace(self.place)  # clones
+        other_layer.text_styles = self.text_styles
+        other_layer.write_by_xy.update(self.write_by_xy)  # replaces or adds each Cell
+
+    def _write_some_or_all_strs_(self, text: str) -> bool:
+        """Write all the Str into this Layer and return True, or less than all and return False"""
+
+        place = self.place
+        text_styles = self.text_styles
 
         assert place.is_onscreen_place(), (place,)
+        fewer = TerminalLayer.text_styles_compress(text_styles)  # fewer or same
+        assert text_styles == fewer, (text_styles, fewer)
 
-        text_styles = self.text_styles
-        assert text_styles == TerminalChange.text_styles_compress(text_styles), (text_styles,)
-
-        next_place = dataclasses.replace(place)  # clones
-        next_styles = text_styles
-        write_by_xy: dict[tuple[int, int], tuple[tuple[str, ...], str]] = dict()
-
+        writing_place = place  # replaceable
         for m in re.finditer(r"\033\[([0-9;?]*)([@-~])|(.)", text):
             params, final, t = m.groups()
             split = m.group(0)
 
             # Fail fast
 
-            if not next_place.is_onscreen_place():
-                return None
+            if not writing_place.is_onscreen_place():
+                return False
 
             # Shadow change of, or reaffirmation of, Text Styles
 
@@ -1463,27 +1489,26 @@ class TerminalShadow:
 
             if final == "m":
                 assert params in ("", "7"), (params,)
-                next_styles += (split,)
-                next_styles = TerminalChange.text_styles_compress(next_styles)
+                self.text_styles = TerminalLayer.text_styles_compress(self.text_styles + (split,))
                 continue
 
             # Shadow Y X Moves
 
             if (t in ("\b", "\r")) or (final in ("A", "B", "C", "D")):
                 assert not params, (params,)  # copes only with ⎋[A ⎋[B ⎋[C ⎋[D
-                next_place.write_str_at_place(split)
+                writing_place.write_str_at_place(split)
                 continue
 
             # Shadow Printable Text Writes placed in Writable Columns on-screen
 
             if t and t.isprintable():
-                if not next_place.is_writable_place():
-                    return None
+                if not writing_place.is_writable_place():
+                    return False
 
-                xy = (next_place.column_x, next_place.row_y)
-                write_by_xy[xy] = (next_styles, t)  # replaces or adds
+                xy = (writing_place.column_x, writing_place.row_y)
+                self.write_by_xy[xy] = (self.text_styles, t)  # replaces or adds
 
-                next_place.write_str_at_place(split)
+                writing_place.write_str_at_place(split)
                 continue
 
             # Shadow no change for Hiding or Showing the Cursor, until we need to know if it hides
@@ -1494,50 +1519,18 @@ class TerminalShadow:
             if split in (HIDE_CUSR_RM_PSQ25, SHOW_CUSR_SM_PSQ25):
                 continue
 
-            # Freak if asked to shadow anything else
+            # Freak when asked to shadow anything else
 
             assert False, (split,)
 
-        assert next_styles == TerminalChange.text_styles_compress(next_styles), (next_styles,)
-
         # Fail even when it was the last Split that stepped off screen
 
-        if not next_place.is_onscreen_place():
-            return None
-
-        # Compress Writes, and the Styles of each, but keep Insertion Order
-
-        text_writes: list[tuple[int, int, tuple[str, ...], str]] = list()
-
-        for xy, texts_t in write_by_xy.items():
-            column_x, row_y = xy
-            texts, t = texts_t
-
-            text_write = (column_x, row_y, texts, t)
-            text_writes.append(text_write)
+        if not writing_place.is_onscreen_place():
+            return False
 
         # Succeed
 
-        tc = TerminalChange(
-            column_x=next_place.column_x,
-            row_y=next_place.row_y,
-            text_styles=next_styles,
-            text_writes=tuple(text_writes),
-        )
-
-        return tc
-
-
-@dataclasses.dataclass(order=True, kw_only=True)
-class TerminalChange:
-    """Say what one Write did"""
-
-    column_x: int  # the Cursor Column, after
-    row_y: int  # the Cursor Row, after
-    text_styles: tuple[str, ...]  # the Text Styles in force, after
-    text_writes: tuple[tuple[int, int, tuple[str, ...], str], ...]  # >= 0 of (x, y, texts, t)
-
-    # may be uncompressed, with later Styles or Writes cancelling earlier Styles or Writes
+        return True
 
     @staticmethod
     def text_styles_compress(text_styles: tuple[str, ...]) -> tuple[str, ...]:
@@ -1584,7 +1577,7 @@ class TerminalPlace:
             self.column_x += 1
             return
 
-            # todo: cope with double-wide Chars
+            # todo0: cope with double-wide Chars
             # macOS Terminal moves across double-wide Chars
             # 2026/Nov Google Cloud Terminal moves halfway into double-wide Chars
 
@@ -1633,6 +1626,8 @@ class TerminalFrameReader:
 
     tft: TerminalFrameTaker  # the Frames taken so far, and the Open Frame
     nanobytes: list[int | bytes]  # Nanos waited and Bytes read
+
+    # todo0: convert to list[tuple[int, bytes]]
 
     def __init__(self) -> None:
 
@@ -2658,7 +2653,7 @@ StartBytes = tuple(bytes([_]) for _ in range(0xC2, 0xF4 + 1))  # what UTF-8 comp
 #
 
 
-@dataclasses.dataclass(order=True)
+@dataclasses.dataclass
 class TerminalBoss:
     """Wrap one Terminal"""
 
@@ -2853,7 +2848,8 @@ class TerminalBoss:
         if typeahead:
             r, w, x = select.select([fileno], [], [], _150_MEGA_NANOS_ / 1e9)
             if not r:
-                return bytes([typeahead.pop(0)])
+                b = bytes([typeahead.pop(0)])
+                return b
 
         fd = fileno
         length = 1

@@ -295,47 +295,78 @@ We meet spec as tested by _try_terminal_boss_typeahead_ and _try_terminal_boss_c
        as a burst.
 ```
 
-## § 10 TerminalShadow
+## § 10 TerminalLayer and TerminalShadow
 
 ```
-Spec of TerminalShadow.write_by_xy, as _try_shadow_cells_ tests it.
+Spec of TerminalLayer, as _try_shadow_layer_ and _try_shadow_cells_ test it.
 
-We meet spec as tested by _try_shadow_cells_:
+We meet spec as tested by _try_shadow_layer_ and _try_shadow_cells_:
 
-    1. No Cell is kept before any write, and none after only the Terminal's answers.
+    1. A Layer has its own .place, .text_styles, and .write_by_xy, and it writes no Byte anywhere.
 
-    2. Each Printable Char written through the Shadow is kept at the (Column, Row) it lands on,
-       with the Text Styles in force then, and a later write there replaces it.
+    2. A new Layer starts with a copy of the Place and the Text Styles of the Layer it is made
+       from, and with no Cells.
 
-    3. A Move or a Backspace keeps nothing, but steers where the next Char lands. Hiding or
+    3. Each Printable Char written into a Layer is kept at the (Column, Row) it lands on, with the
+       Text Styles in force then, and a later write there replaces it.
+
+    4. A Move or a Backspace keeps nothing, but steers where the next Char lands. Hiding or
        showing the Cursor, ⎋[?25L or ⎋[?25H, keeps nothing and steers nothing. Any other Control
        fails an assert, not silently.
 
-    4. The Text Styles in force start over at ⎋[M and carry to the next write. ⎋[7M joins them
+    5. The Text Styles in force start over at ⎋[M and carry to the next write. ⎋[7M joins them
        once however often said. Any other SGR, such as ⎋[27M or ⎋[1M, fails an assert, not
        silently.
 
-    5. An odd Width W+1 is real but acts as W, since a Square Pixel is 2 Columns wide and cannot
+    6. An odd Width W+1 is real but acts as W, since a Square Pixel is 2 Columns wide and cannot
        fit in Column W+1: no Char can be written into Column W+1, though the Cursor may wait
        there. The wait to wrap is judged by the real Width W+1.
 
-    6. Writes land only inside the rectangle of Height by x_max: a Char that would land outside it
-       cannot be written, even if the Cursor then moves back inside, and a write that lands outside
-       it anyway fails an assert.
+    7. Writes land only inside the rectangle of Height by x_max: a Char that would land outside it
+       cannot be written, even if the Cursor then moves back inside.
 
-    7. A Move or a Backspace that would leave the Screen cannot be written, at the North, West,
+    8. A Move or a Backspace that would leave the Screen cannot be written, at the North, West,
        and South edges. A Move East from the last Column waits in Column W+1, still on the Screen.
 
-    8. A Return lands the Cursor on Column 1 of the same Row, even with the wrap pending after a
+    9. A Return lands the Cursor on Column 1 of the same Row, even with the wrap pending after a
        write into the last Column.
 
-    9. A write that cannot be written fails its assert before any Byte goes to the Terminal, and
+    10. A Char into the last Column, with nothing after it, leaves the Cursor waiting to wrap
+        past x_max: an even Width has no Column W+1 for it, and an odd Width acts as W. A
+        Backspace or a Return after it leaves the Cursor inside the Writable Area.
+
+    11. A Write that cannot be made says so, and leaves the Layer half written. The caller drops
+        that Layer.
+
+    12. One def on the Layer, _write_some_or_all_strs_, does the work of items 3 to 11. The Shadow runs that
+        one def, and ships no second copy of the rules.
+
+    13. No Write into a Layer changes any other Layer. A Layer never writes through unasked.
+
+    14. A Layer gives its Place, its Text Styles, and its Cells to another Layer when asked, by
+        shadow_screen_into. Each Cell replaces the Cell at the same (Column, Row). Each other
+        Cell stays as it was. The Layer that gives stays as it was.
+```
+
+```
+Spec of TerminalShadow, as _try_shadow_layer_ and _try_shadow_cells_ test it.
+
+We meet spec as tested by _try_shadow_layer_ and _try_shadow_cells_:
+
+    1. A TerminalShadow holds a Terminal and one Layer, named .layer. It reads everything it knows
+       of the Screen from .layer, and it forwards none of the three by property.
+
+    2. No Cell is kept before any write, and none after only the Terminal's answers.
+
+    3. Before the Terminal answers, no write can be made, not even one of no Char: it fails its
+       assert before any Byte goes out.
+
+    4. str_write_tb takes each Write through a new Layer made from .layer. It asserts the Write
+       can be made, calls shadow_screen_into to update .layer, and only then writes the Bytes to
+       the Terminal. A Write that cannot be made fails its assert before any Byte goes out, and
        leaves the Shadow as it was.
 
-    10. A Char into the last Column, with nothing after it, leaves the Cursor waiting to wrap
-        past x_max, so is_writable_place_after_strs says no: an even Width has no Column W+1 for
-        it, and an odd Width acts as W. A Backspace or a Return after it says yes.
-
-    11. Before the Terminal answers, no write can be made, not even one of no Char: it fails its
-        assert before any Byte goes out.
+    5. is_writable_place_after_strs takes the Write through a new Layer, drops that Layer, and
+       says yes only when the Cursor ends inside the Writable Area. A Char into the last Column,
+       with nothing after it, says no. A Backspace or a Return after it says yes.
 ```

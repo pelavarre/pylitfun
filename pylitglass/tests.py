@@ -69,6 +69,7 @@ def main() -> None:
     _try_skater_quits_()  # ~1100ms, 13 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
     _try_skater_edge_()  # ~2500ms, 4 Ptys at once, the slowest 10 → at 150ms apart + 500ms
     _try_shadow_cells_()  # ~1ms
+    _try_shadow_layer_()  # ~1ms
 
     print("tests ok")
 
@@ -1042,49 +1043,216 @@ def _try_skater_edge_() -> None:
         assert not below, (below, screen_width, count, screen_decode)  # no spill into Row 2
 
 
-def _try_shadow_cells_() -> None:
-    """Try TerminalShadow keeping the Cells written, as specs.md § 10 says"""
+class FakeWriteBoss:
+    """Pretend to be a TerminalBoss that keeps the Bytes written"""
 
-    class FakeBoss:
-        def __init__(self) -> None:
-            self.writes: list[bytes] = list()
+    def __init__(self) -> None:
+        self.writes: list[bytes] = list()
 
-        def bytes_write_flush(self, data: bytes) -> None:
-            self.writes.append(data)
+    def bytes_write_flush(self, data: bytes) -> None:
+        self.writes.append(data)
 
-    fake = FakeBoss()
+
+class FakeReadBoss:
+    """Pretend to be a TerminalBoss that reads Results and a Move at first, and then nothing"""
+
+    def __init__(self) -> None:
+        self.reads = 0
+
+    def read_some_bytes_if(self) -> bytes:
+        self.reads += 1
+        return b"\033[1;1R\033[8;24;80t\033[B" if (self.reads == 1) else b""
+
+
+class FakeEndBoss:
+    """Pretend to be a Tty TerminalBoss whose Input ends at once, with no Result"""
+
+    isatty = True
+
+    def bytes_write_flush(self, data: bytes) -> None:
+        pass
+
+    def read_some_bytes_if(self) -> bytes:
+        return b""
+
+
+def _layer_after_(ts: litpyglass.TerminalShadow, text: str) -> litpyglass.TerminalLayer | None:
+    """Write the Str into a new Layer over the Shadow, and say that Layer, else None"""
+
+    forked_layer = ts.layer.fork_layer()
+    if not forked_layer._write_some_or_all_strs_(text):
+        return None
+
+    return forked_layer
+
+
+def _try_shadow_layer_() -> None:
+    """Try TerminalLayer, and the Layer inside a TerminalShadow, as specs.md § 10 says"""
+
+    no_sgr_csi = "\033[m"
+    reverse = "\033[7m"
+
+    fake = FakeWriteBoss()
     boss = typing.cast(litpyglass.TerminalBoss, fake)
     ts = litpyglass.TerminalShadow(boss)
-    assert ts.write_by_xy == {}, ts.write_by_xy
+    ts.shadow_read_data_else(b"\033[2;3R")  # Row 2 Column 3
+    ts.shadow_read_data_else(b"\033[8;5;20t")  # a Screen 5 high, 20 wide
+
+    written = no_sgr_csi + reverse + "ab"  # a and b in Reverse, at Columns 3 and 4
+    ts.str_write_tb(written)
+    assert fake.writes == [written.encode()], fake.writes
+
+    base_layer = ts.layer
+
+    # Layer 1: a Layer has its own .place, .text_styles, and .write_by_xy, and writes no Byte
+
+    assert isinstance(base_layer, litpyglass.TerminalLayer), base_layer
+    assert not hasattr(base_layer, "tb"), base_layer
+    assert not hasattr(base_layer, "bytes_write_flush"), base_layer
+
+    # Shadow 1: a TerminalShadow holds one Layer, and forwards none of the three by property
+
+    for name in ("place", "text_styles", "write_by_xy"):
+        assert not hasattr(litpyglass.TerminalShadow, name), name
+
+    # Layer 2: a new Layer starts with a copy of the Place and Text Styles, and no Cells
+
+    forked_layer = base_layer.fork_layer()
+    assert forked_layer.place == base_layer.place, forked_layer.place
+    assert forked_layer.place is not base_layer.place, forked_layer.place
+    assert forked_layer.text_styles == (no_sgr_csi, reverse), forked_layer.text_styles
+    assert forked_layer.write_by_xy == {}, forked_layer.write_by_xy
+    assert len(base_layer.write_by_xy) == 2, base_layer.write_by_xy
+
+    # Layer 11: a Write that cannot be made says so, and leaves the Layer half written
+
+    north_layer = base_layer.fork_layer()
+    # a, b, then off the North edge at the 2nd Move
+    assert not north_layer._write_some_or_all_strs_("ab\033[A\033[A")
+    assert not north_layer.place.is_onscreen_place(), north_layer.place
+    assert north_layer.write_by_xy != {}, north_layer.write_by_xy  # keeps the Cells before it
+
+    edge_layer = base_layer.fork_layer()
+    edge_layer.place.column_x = 20  # the last Column we write
+    assert not edge_layer._write_some_or_all_strs_("ab")  # b would land in Column 21
+    assert edge_layer.write_by_xy == {(20, 2): ((no_sgr_csi, reverse), "a")}, edge_layer.write_by_xy
+
+    # Layer 12: the Shadow runs the one def on the Layer, and ships no second copy of the rules
+
+    assert not hasattr(litpyglass.TerminalShadow, "_write_some_or_all_strs_")
+    assert not hasattr(litpyglass.TerminalShadow, "text_styles_compress")
+
+    # Layer 13: no Write into a Layer changes any other Layer, or the Terminal
+
+    before = (
+        dataclasses.astuple(base_layer.place),
+        dict(base_layer.write_by_xy),
+        tuple(base_layer.text_styles),
+    )
+    trial_layer = base_layer.fork_layer()
+    assert trial_layer._write_some_or_all_strs_("xyz\033[m")
+    after = (
+        dataclasses.astuple(base_layer.place),
+        dict(base_layer.write_by_xy),
+        tuple(base_layer.text_styles),
+    )
+    assert after == before, (after, before)
+    assert fake.writes == [written.encode()], fake.writes
+
+    # Layer 14: a Layer gives its Place, Text Styles, and Cells to another, and keeps itself
+
+    giving_layer = base_layer.fork_layer()
+    assert giving_layer._write_some_or_all_strs_("\033[m" + "z\b")
+    assert (giving_layer.place.column_x, giving_layer.place.row_y) == (5, 2), giving_layer.place
+    assert tuple(giving_layer.text_styles) == (no_sgr_csi,), giving_layer.text_styles
+    assert giving_layer.write_by_xy == {(5, 2): ((no_sgr_csi,), "z")}, giving_layer.write_by_xy
+
+    receiving_layer = base_layer.fork_layer()
+    receiving_layer.write_by_xy[(9, 9)] = ((no_sgr_csi,), "k")  # a Cell the giver lacks
+    receiving_layer.write_by_xy[(5, 2)] = ((no_sgr_csi,), "c")  # a Cell the giver replaces
+
+    giving_copy = dataclasses.replace(giving_layer, write_by_xy=dict(giving_layer.write_by_xy))
+    giving_layer.shadow_screen_into(receiving_layer)
+
+    assert receiving_layer.place == giving_layer.place, receiving_layer.place
+    assert receiving_layer.place is not giving_layer.place, receiving_layer.place
+    assert receiving_layer.text_styles == giving_layer.text_styles, receiving_layer.text_styles
+    assert receiving_layer.write_by_xy[(5, 2)] == ((no_sgr_csi,), "z"), receiving_layer.write_by_xy
+    assert receiving_layer.write_by_xy[(9, 9)] == ((no_sgr_csi,), "k"), receiving_layer.write_by_xy
+    assert giving_layer == giving_copy, (giving_layer, giving_copy)
+
+    # Shadow 4: str_write_tb asserts the Write can be made, before any Byte goes out
+
+    fake.writes.clear()
+    ts_north = litpyglass.TerminalShadow(boss)
+    ts_north.shadow_read_data_else(b"\033[1;1R")
+    ts_north.shadow_read_data_else(b"\033[8;5;20t")
+    try:
+        ts_north.str_write_tb("\033[A")  # off the North edge
+        asserted = False
+    except AssertionError:
+        asserted = True
+    assert asserted
+    assert fake.writes == [], fake.writes
+
+    # Shadow 5: is_writable_place_after_strs drops its Layer, and leaves the Shadow as it was
+
+    shadow_before = (
+        dataclasses.astuple(ts.layer.place),
+        dict(ts.layer.write_by_xy),
+        tuple(ts.layer.text_styles),
+    )
+    assert ts.is_writable_place_after_strs(text="\b")
+    assert not ts.is_writable_place_after_strs(text="\033[B" * 4)
+    shadow_after = (
+        dataclasses.astuple(ts.layer.place),
+        dict(ts.layer.write_by_xy),
+        tuple(ts.layer.text_styles),
+    )
+    assert shadow_after == shadow_before, (shadow_after, shadow_before)
+
+
+def _try_shadow_cells_() -> None:
+    """Try TerminalLayer keeping the Cells written through a TerminalShadow, as specs.md § 10 says"""
+
+    fake = FakeWriteBoss()
+    boss = typing.cast(litpyglass.TerminalBoss, fake)
+    ts = litpyglass.TerminalShadow(boss)
+    assert ts.layer.write_by_xy == {}, ts.layer.write_by_xy
 
     ts.shadow_read_data_else(b"\033[2;3R")  # Row 2 Column 3
     ts.shadow_read_data_else(b"\033[8;5;20t")  # a Screen 5 high, 20 wide
-    assert ts.write_by_xy == {}, ts.write_by_xy  # nothing written, so nothing known
+    assert ts.layer.write_by_xy == {}, ts.layer.write_by_xy  # nothing written, so nothing known
 
     no_sgr_csi = "\033[m"  # ⎋[M, which starts the Text Styles in force
     reverse = "\033[7m"  # ⎋[7M
 
     ts.str_write_tb(no_sgr_csi + "ab")
-    assert ts.write_by_xy == {
+    assert ts.layer.write_by_xy == {
         (3, 2): ((no_sgr_csi,), "a"),
         (4, 2): ((no_sgr_csi,), "b"),
-    }, ts.write_by_xy
+    }, ts.layer.write_by_xy
 
     ts.str_write_tb("\b\b" + reverse + "  " + no_sgr_csi + "\b\b")  # two reverse Spaces over them
-    assert ts.write_by_xy[(3, 2)] == ((no_sgr_csi, reverse), " "), ts.write_by_xy
-    assert ts.write_by_xy[(4, 2)] == ((no_sgr_csi, reverse), " "), ts.write_by_xy
-    assert ts.text_styles == (no_sgr_csi,), ts.text_styles  # ⎋[M started the sequence again
+    assert ts.layer.write_by_xy[(3, 2)] == ((no_sgr_csi, reverse), " "), ts.layer.write_by_xy
+    assert ts.layer.write_by_xy[(4, 2)] == ((no_sgr_csi, reverse), " "), ts.layer.write_by_xy
+    assert ts.layer.text_styles == (
+        no_sgr_csi,
+    ), ts.layer.text_styles  # ⎋[M started the sequence again
 
     ts.str_write_tb("\033[B\033[Dz")  # move down and left, then write
-    assert ts.write_by_xy[(2, 3)] == ((no_sgr_csi,), "z"), ts.write_by_xy
-    assert len(ts.write_by_xy) == 3, ts.write_by_xy
+    assert ts.layer.write_by_xy[(2, 3)] == ((no_sgr_csi,), "z"), ts.layer.write_by_xy
+    assert len(ts.layer.write_by_xy) == 3, ts.layer.write_by_xy
 
     ts.str_write_tb(reverse + "q")  # leaves Reverse on
-    assert tuple(ts.text_styles) == (no_sgr_csi, reverse), ts.text_styles  # tuple() blocks narrowing
-    assert ts.write_by_xy[(3, 3)] == ((no_sgr_csi, reverse), "q"), ts.write_by_xy
+    assert tuple(ts.layer.text_styles) == (
+        no_sgr_csi,
+        reverse,
+    ), ts.layer.text_styles  # tuple() blocks narrowing
+    assert ts.layer.write_by_xy[(3, 3)] == ((no_sgr_csi, reverse), "q"), ts.layer.write_by_xy
 
     ts.str_write_tb(no_sgr_csi)  # ⎋[M starts the sequence again
-    assert tuple(ts.text_styles) == (no_sgr_csi,), ts.text_styles
+    assert tuple(ts.layer.text_styles) == (no_sgr_csi,), ts.layer.text_styles
 
     # ⎋[7M said twice is kept once, and an SGR we do not spell fails loudly
 
@@ -1093,14 +1261,14 @@ def _try_shadow_cells_() -> None:
     ts.shadow_read_data_else(b"\033[8;5;20t")
 
     ts.str_write_tb(no_sgr_csi + reverse + reverse + "q")
-    assert ts.write_by_xy[(1, 1)] == ((no_sgr_csi, reverse), "q"), ts.write_by_xy
+    assert ts.layer.write_by_xy[(1, 1)] == ((no_sgr_csi, reverse), "q"), ts.layer.write_by_xy
 
     try:
         ts.str_write_tb("\033[1mr")  # Bold
         asserted = False
     except AssertionError:
         asserted = True
-    assert asserted, ts.write_by_xy
+    assert asserted, ts.layer.write_by_xy
 
     # Hiding or showing the Cursor keeps nothing and steers nothing, and any other Control fails
 
@@ -1108,9 +1276,17 @@ def _try_shadow_cells_() -> None:
     ts.shadow_read_data_else(b"\033[2;3R")
     ts.shadow_read_data_else(b"\033[8;5;20t")
 
-    shadow_before = (dataclasses.astuple(ts.place), dict(ts.write_by_xy), ts.text_styles)
+    shadow_before = (
+        dataclasses.astuple(ts.layer.place),
+        dict(ts.layer.write_by_xy),
+        ts.layer.text_styles,
+    )
     ts.str_write_tb("\033[?25l\033[?25h")  # ⎋[?25L ⎋[?25H
-    shadow_after = (dataclasses.astuple(ts.place), dict(ts.write_by_xy), ts.text_styles)
+    shadow_after = (
+        dataclasses.astuple(ts.layer.place),
+        dict(ts.layer.write_by_xy),
+        ts.layer.text_styles,
+    )
     assert shadow_after == shadow_before, (shadow_after, shadow_before)
 
     try:
@@ -1118,36 +1294,35 @@ def _try_shadow_cells_() -> None:
         asserted = False
     except AssertionError:
         asserted = True
-    assert asserted, ts.write_by_xy
+    assert asserted, ts.layer.write_by_xy
 
     # An odd Width W+1 acts as W: the Cursor may wait in Column W+1, but we write no Char there
 
     ts = litpyglass.TerminalShadow(boss)
     ts.shadow_read_data_else(b"\033[1;1R")
     ts.shadow_read_data_else(b"\033[8;5;21t")  # a Screen 5 high, 21 wide
-    assert (ts.place.x_width, ts.place.x_max) == (21, 20), ts.place
+    assert (ts.layer.place.x_width, ts.layer.place.x_max) == (21, 20), ts.layer.place
 
-    place = ts.place
-    change = ts.change_of_write_strs_else(place, text="\033[C" * 19)
-    assert change and (change.column_x, change.row_y) == (20, 1), change
-    assert ts.is_writable_place_after_strs(place, text="\033[C" * 19)
-    change = ts.change_of_write_strs_else(place, text="\033[C" * 20)  # on-screen, waiting to wrap
-    assert change and (change.column_x, change.row_y) == (21, 1), change
-    assert not ts.is_writable_place_after_strs(place, text="\033[C" * 20)
+    next_layer = _layer_after_(ts, text="\033[C" * 19)
+    assert next_layer and (next_layer.place.column_x, next_layer.place.row_y) == (20, 1), next_layer
+    assert ts.is_writable_place_after_strs(text="\033[C" * 19)
+    next_layer = _layer_after_(ts, text="\033[C" * 20)  # on-screen, waiting to wrap
+    assert next_layer and (next_layer.place.column_x, next_layer.place.row_y) == (21, 1), next_layer
+    assert not ts.is_writable_place_after_strs(text="\033[C" * 20)
 
     # A Char that would land in Column W+1 cannot be written, even if the Cursor then moves back,
     # and writing it fails an assert, since we write only inside Height x x_max
 
     inside = no_sgr_csi + "\033[C" * 19 + "a\b"  # a lands in Column 20, the last Column we write
     outside = no_sgr_csi + "\033[C" * 19 + "ab\b\b"  # b would land in Column 21
-    change = ts.change_of_write_strs_else(place, text=inside)
-    assert change and (change.column_x, change.row_y) == (20, 1), change
-    assert ts.change_of_write_strs_else(place, text=outside) is None
+    next_layer = _layer_after_(ts, text=inside)
+    assert next_layer and (next_layer.place.column_x, next_layer.place.row_y) == (20, 1), next_layer
+    assert _layer_after_(ts, text=outside) is None
 
     before = (
-        dataclasses.astuple(ts.place),
-        dict(ts.write_by_xy),
-        ts.text_styles,
+        dataclasses.astuple(ts.layer.place),
+        dict(ts.layer.write_by_xy),
+        ts.layer.text_styles,
         list(fake.writes),
     )
 
@@ -1156,34 +1331,38 @@ def _try_shadow_cells_() -> None:
         asserted = False
     except AssertionError:
         asserted = True
-    assert asserted, ts.write_by_xy
-    assert (21, 1) not in ts.write_by_xy, ts.write_by_xy
+    assert asserted, ts.layer.write_by_xy
+    assert (21, 1) not in ts.layer.write_by_xy, ts.layer.write_by_xy
 
     # The Shadow finds the problem before the Terminal hears a Byte, and is left as it was
 
-    after = (dataclasses.astuple(ts.place), dict(ts.write_by_xy), ts.text_styles, list(fake.writes))
+    after = (
+        dataclasses.astuple(ts.layer.place),
+        dict(ts.layer.write_by_xy),
+        ts.layer.text_styles,
+        list(fake.writes),
+    )
     assert after == before, (after, before)
 
     ts = litpyglass.TerminalShadow(boss)
     ts.shadow_read_data_else(b"\033[1;1R")
     ts.shadow_read_data_else(b"\033[8;5;20t")  # an even Width acts as itself
-    assert (ts.place.x_width, ts.place.x_max) == (20, 20), ts.place
+    assert (ts.layer.place.x_width, ts.layer.place.x_max) == (20, 20), ts.layer.place
 
-    # A Move that would leave the Screen cannot be written, at each of the four edges
+    # A Move that would leave the Screen cannot be written, at the North, West, and South edges
 
-    place = ts.place  # Row 1 Column 1 of a Screen 5 high, 20 wide
-    assert ts.change_of_write_strs_else(place, text="\033[A") is None  # ↑ off the North edge
-    assert ts.change_of_write_strs_else(place, text="\033[D") is None  # ← off the West edge
-    assert ts.change_of_write_strs_else(place, text="\b") is None  # a Backspace off the West edge
+    # Row 1 Column 1 of a Screen 5 high, 20 wide
+    assert _layer_after_(ts, text="\033[A") is None  # ↑ off the North edge
+    assert _layer_after_(ts, text="\033[D") is None  # ← off the West edge
+    assert _layer_after_(ts, text="\b") is None  # a Backspace off the West edge
 
-    ts.shadow_read_data_else(b"\033[5;20R")
-    place = ts.place  # Row 5 Column 20, the far South East
-    assert ts.change_of_write_strs_else(place, text="\033[B") is None  # ↓ off the South edge
-    assert not ts.is_writable_place_after_strs(place, text="\033[C")  # → past x_max
-    change = ts.change_of_write_strs_else(place, text="\033[C")  # still on-screen, waiting to wrap
-    assert change and (change.column_x, change.row_y) == (21, 5), change
-    change = ts.change_of_write_strs_else(place, text="\033[A")  # ↑ back inside
-    assert change and (change.column_x, change.row_y) == (20, 4), change
+    ts.shadow_read_data_else(b"\033[5;20R")  # Row 5 Column 20, the far South East
+    assert _layer_after_(ts, text="\033[B") is None  # ↓ off the South edge
+    assert not ts.is_writable_place_after_strs(text="\033[C")  # → past x_max
+    next_layer = _layer_after_(ts, text="\033[C")  # still on-screen, waiting to wrap
+    assert next_layer and (next_layer.place.column_x, next_layer.place.row_y) == (21, 5), next_layer
+    next_layer = _layer_after_(ts, text="\033[A")  # ↑ back inside
+    assert next_layer and (next_layer.place.column_x, next_layer.place.row_y) == (20, 4), next_layer
 
     # A Return lands on Column 1, even with the wrap pending after a write into the last Column
 
@@ -1191,8 +1370,8 @@ def _try_shadow_cells_() -> None:
     ts.shadow_read_data_else(b"\033[1;20R")
     ts.shadow_read_data_else(b"\033[8;5;20t")
     ts.str_write_tb("a\r")  # a lands in Column 20, the last, and then Return
-    assert (ts.place.column_x, ts.place.row_y) == (1, 1), ts.place
-    assert ts.write_by_xy[(20, 1)][1] == "a", ts.write_by_xy
+    assert (ts.layer.place.column_x, ts.layer.place.row_y) == (1, 1), ts.layer.place
+    assert ts.layer.write_by_xy[(20, 1)][1] == "a", ts.layer.write_by_xy
 
     # A Char into the last Column of an even Width, with nothing after it, cannot be written,
     # since the Cursor would wait to wrap past x_max, but a Backspace after it can
@@ -1200,22 +1379,21 @@ def _try_shadow_cells_() -> None:
     ts = litpyglass.TerminalShadow(boss)
     ts.shadow_read_data_else(b"\033[1;20R")
     ts.shadow_read_data_else(b"\033[8;5;20t")
-    place = ts.place
-    assert not ts.is_writable_place_after_strs(place, text="a")
-    assert ts.is_writable_place_after_strs(place, text="a\b")
-    change = ts.change_of_write_strs_else(place, text="a\b")
-    assert change and (change.column_x, change.row_y) == (19, 1), change
+    assert not ts.is_writable_place_after_strs(text="a")
+    assert ts.is_writable_place_after_strs(text="a\b")
+    next_layer = _layer_after_(ts, text="a\b")
+    assert next_layer and (next_layer.place.column_x, next_layer.place.row_y) == (19, 1), next_layer
 
     # A Char into Column W+1 of an odd Width cannot be written, since only W Columns are ours
 
     ts = litpyglass.TerminalShadow(boss)
     ts.shadow_read_data_else(b"\033[1;21R")
     ts.shadow_read_data_else(b"\033[8;5;21t")
-    assert ts.change_of_write_strs_else(ts.place, text="a") is None
+    assert _layer_after_(ts, text="a") is None
 
     # Before the Terminal answers, no write can be made, not even one of no Char
 
-    early = FakeBoss()
+    early = FakeWriteBoss()
     ts = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, early))
 
     for text in (no_sgr_csi, "a"):
@@ -1224,10 +1402,10 @@ def _try_shadow_cells_() -> None:
             asserted = False
         except AssertionError:
             asserted = True
-        assert asserted, (text, ts.write_by_xy)
+        assert asserted, (text, ts.layer.write_by_xy)
 
     assert early.writes == [], early.writes  # no Byte went out
-    assert ts.write_by_xy == {}, ts.write_by_xy
+    assert ts.layer.write_by_xy == {}, ts.layer.write_by_xy
 
 
 def _screen_of_(
@@ -1332,32 +1510,21 @@ print("RESULT", repr(tuple(places)), flush=True)
 def _try_frame_reader_quits_midbatch_() -> None:
     """Try that a Caller who quits mid-batch leaves the later Taken Frames, as specs.md § 5 says"""
 
-    class FakeBoss:
-        def __init__(self) -> None:
-            self.reads = 0
-
-        def read_some_bytes_if(self) -> bytes:
-            self.reads += 1
-            return b"\033[1;1R\033[8;24;80t\033[B" if (self.reads == 1) else b""
-
-    boss = FakeBoss()
+    read_fake = FakeReadBoss()
+    boss = typing.cast(litpyglass.TerminalBoss, read_fake)
     tfr = litpyglass.TerminalFrameReader()
 
     taken_count = 0
-    for taken, frame, _ in tfr.take_frames_and_yield_each(
-        typing.cast(litpyglass.TerminalBoss, boss), stalwarts=()
-    ):
+    for taken, frame, _ in tfr.take_frames_and_yield_each(boss, stalwarts=()):
         taken_count += int(taken)
         if taken_count == 2:
             break  # quits at the second Frame of three
 
-    assert boss.reads == 1, (boss.reads,)
+    assert read_fake.reads == 1, (read_fake.reads,)
 
     shows = list()
-    for taken, frame, _ in tfr.take_frames_and_yield_each(
-        typing.cast(litpyglass.TerminalBoss, boss), stalwarts=()
-    ):
-        shows.append((taken, frame.to_frame_bytes(), boss.reads))
+    for taken, frame, _ in tfr.take_frames_and_yield_each(boss, stalwarts=()):
+        shows.append((taken, frame.to_frame_bytes(), read_fake.reads))
 
     # the third Frame comes first, before the Open Frame, and before any second read
 
@@ -1368,16 +1535,7 @@ def _try_frame_reader_quits_midbatch_() -> None:
 def _try_pull_ends_without_answers_() -> None:
     """Try that Input ending before both Results fails loudly, as specs.md § 7 says"""
 
-    class FakeBoss:
-        isatty = True
-
-        def bytes_write_flush(self, data: bytes) -> None:
-            pass
-
-        def read_some_bytes_if(self) -> bytes:
-            return b""  # Input ends at once, with no Result
-
-    boss = typing.cast(litpyglass.TerminalBoss, FakeBoss())
+    boss = typing.cast(litpyglass.TerminalBoss, FakeEndBoss())
     ist = litpyglass.InputStrikeTaker(litpyglass.TerminalShadow(boss))
 
     heard = io.StringIO()
