@@ -1108,7 +1108,7 @@ class FakeEndBoss:
 def _layer_after_(ts: litpyglass.TerminalShadow, text: str) -> litpyglass.TerminalLayer | None:
     """Write the Str into a new Layer over the Shadow, and say that Layer, else None"""
 
-    forked_layer = ts.layer.fork_layer()
+    forked_layer = ts.base.fork_layer()
     if not forked_layer._write_some_or_all_strs_(text):
         return None
 
@@ -1131,7 +1131,7 @@ def _try_shadow_layer_() -> None:
     ts.str_write_tb(written)
     assert fake.writes == [written.encode()], fake.writes
 
-    base_layer = ts.layer
+    base_layer = ts.base
 
     # Layer 1: a Layer has its own .place, .text_styles, and .write_by_xy, and writes no Byte
 
@@ -1227,16 +1227,16 @@ def _try_shadow_layer_() -> None:
     # Shadow 5: is_writable_place_after_strs drops its Layer, and leaves the Shadow as it was
 
     shadow_before = (
-        dataclasses.astuple(ts.layer.place),
-        dict(ts.layer.write_by_xy),
-        tuple(ts.layer.text_styles),
+        dataclasses.astuple(ts.base.place),
+        dict(ts.base.write_by_xy),
+        tuple(ts.base.text_styles),
     )
     assert ts.is_writable_place_after_strs(text="\b")
     assert not ts.is_writable_place_after_strs(text="\033[B" * 4)
     shadow_after = (
-        dataclasses.astuple(ts.layer.place),
-        dict(ts.layer.write_by_xy),
-        tuple(ts.layer.text_styles),
+        dataclasses.astuple(ts.base.place),
+        dict(ts.base.write_by_xy),
+        tuple(ts.base.text_styles),
     )
     assert shadow_after == shadow_before, (shadow_after, shadow_before)
 
@@ -1247,41 +1247,41 @@ def _try_shadow_writes_() -> None:
     fake = FakeWriteBoss()
     boss = typing.cast(litpyglass.TerminalBoss, fake)
     ts = litpyglass.TerminalShadow(boss)
-    assert ts.layer.write_by_xy == {}, ts.layer.write_by_xy
+    assert ts.base.write_by_xy == {}, ts.base.write_by_xy
 
     ts.shadow_read_data_else(b"\033[2;3R")  # Row 2 Column 3
     ts.shadow_read_data_else(b"\033[8;5;20t")  # a Screen 5 high, 20 wide
-    assert ts.layer.write_by_xy == {}, ts.layer.write_by_xy  # nothing written, so nothing known
+    assert ts.base.write_by_xy == {}, ts.base.write_by_xy  # nothing written, so nothing known
 
     no_sgr_csi = "\033[m"  # ⎋[M, which starts the Text Styles in force
     reverse = "\033[7m"  # ⎋[7M
 
     ts.str_write_tb(no_sgr_csi + "ab")
-    assert ts.layer.write_by_xy == {
+    assert ts.base.write_by_xy == {
         (3, 2): ((no_sgr_csi,), "a"),
         (4, 2): ((no_sgr_csi,), "b"),
-    }, ts.layer.write_by_xy
+    }, ts.base.write_by_xy
 
     ts.str_write_tb("\b\b" + reverse + "  " + no_sgr_csi + "\b\b")  # two reverse Spaces over them
-    assert ts.layer.write_by_xy[(3, 2)] == ((no_sgr_csi, reverse), " "), ts.layer.write_by_xy
-    assert ts.layer.write_by_xy[(4, 2)] == ((no_sgr_csi, reverse), " "), ts.layer.write_by_xy
-    assert ts.layer.text_styles == (
+    assert ts.base.write_by_xy[(3, 2)] == ((no_sgr_csi, reverse), " "), ts.base.write_by_xy
+    assert ts.base.write_by_xy[(4, 2)] == ((no_sgr_csi, reverse), " "), ts.base.write_by_xy
+    assert ts.base.text_styles == (
         no_sgr_csi,
-    ), ts.layer.text_styles  # ⎋[M started the sequence again
+    ), ts.base.text_styles  # ⎋[M started the sequence again
 
     ts.str_write_tb("\033[B\033[Dz")  # move down and left, then write
-    assert ts.layer.write_by_xy[(2, 3)] == ((no_sgr_csi,), "z"), ts.layer.write_by_xy
-    assert len(ts.layer.write_by_xy) == 3, ts.layer.write_by_xy
+    assert ts.base.write_by_xy[(2, 3)] == ((no_sgr_csi,), "z"), ts.base.write_by_xy
+    assert len(ts.base.write_by_xy) == 3, ts.base.write_by_xy
 
     ts.str_write_tb(reverse + "q")  # leaves Reverse on
-    assert tuple(ts.layer.text_styles) == (
+    assert tuple(ts.base.text_styles) == (
         no_sgr_csi,
         reverse,
-    ), ts.layer.text_styles  # tuple() blocks narrowing
-    assert ts.layer.write_by_xy[(3, 3)] == ((no_sgr_csi, reverse), "q"), ts.layer.write_by_xy
+    ), ts.base.text_styles  # tuple() blocks narrowing
+    assert ts.base.write_by_xy[(3, 3)] == ((no_sgr_csi, reverse), "q"), ts.base.write_by_xy
 
     ts.str_write_tb(no_sgr_csi)  # ⎋[M starts the sequence again
-    assert tuple(ts.layer.text_styles) == (no_sgr_csi,), ts.layer.text_styles
+    assert tuple(ts.base.text_styles) == (no_sgr_csi,), ts.base.text_styles
 
     # ⎋[7M said twice is kept once, and an SGR we do not spell fails loudly
 
@@ -1290,14 +1290,14 @@ def _try_shadow_writes_() -> None:
     ts.shadow_read_data_else(b"\033[8;5;20t")
 
     ts.str_write_tb(no_sgr_csi + reverse + reverse + "q")
-    assert ts.layer.write_by_xy[(1, 1)] == ((no_sgr_csi, reverse), "q"), ts.layer.write_by_xy
+    assert ts.base.write_by_xy[(1, 1)] == ((no_sgr_csi, reverse), "q"), ts.base.write_by_xy
 
     try:
         ts.str_write_tb("\033[1mr")  # Bold
         asserted = False
     except AssertionError:
         asserted = True
-    assert asserted, ts.layer.write_by_xy
+    assert asserted, ts.base.write_by_xy
 
     # Hiding or showing the Cursor keeps nothing and steers nothing, and any other Control fails
 
@@ -1306,15 +1306,15 @@ def _try_shadow_writes_() -> None:
     ts.shadow_read_data_else(b"\033[8;5;20t")
 
     shadow_before = (
-        dataclasses.astuple(ts.layer.place),
-        dict(ts.layer.write_by_xy),
-        ts.layer.text_styles,
+        dataclasses.astuple(ts.base.place),
+        dict(ts.base.write_by_xy),
+        ts.base.text_styles,
     )
     ts.str_write_tb("\033[?25l\033[?25h")  # ⎋[?25L ⎋[?25H
     shadow_after = (
-        dataclasses.astuple(ts.layer.place),
-        dict(ts.layer.write_by_xy),
-        ts.layer.text_styles,
+        dataclasses.astuple(ts.base.place),
+        dict(ts.base.write_by_xy),
+        ts.base.text_styles,
     )
     assert shadow_after == shadow_before, (shadow_after, shadow_before)
 
@@ -1323,14 +1323,14 @@ def _try_shadow_writes_() -> None:
         asserted = False
     except AssertionError:
         asserted = True
-    assert asserted, ts.layer.write_by_xy
+    assert asserted, ts.base.write_by_xy
 
     # An odd Width W+1 acts as W: the Cursor may wait in Column W+1, but we write no Char there
 
     ts = litpyglass.TerminalShadow(boss)
     ts.shadow_read_data_else(b"\033[1;1R")
     ts.shadow_read_data_else(b"\033[8;5;21t")  # a Screen 5 high, 21 wide
-    assert (ts.layer.place.x_width, ts.layer.place.x_max) == (21, 20), ts.layer.place
+    assert (ts.base.place.x_width, ts.base.place.x_max) == (21, 20), ts.base.place
 
     next_layer = _layer_after_(ts, text="\033[C" * 19)
     assert next_layer and (next_layer.place.column_x, next_layer.place.row_y) == (20, 1), next_layer
@@ -1349,9 +1349,9 @@ def _try_shadow_writes_() -> None:
     assert _layer_after_(ts, text=outside) is None
 
     before = (
-        dataclasses.astuple(ts.layer.place),
-        dict(ts.layer.write_by_xy),
-        ts.layer.text_styles,
+        dataclasses.astuple(ts.base.place),
+        dict(ts.base.write_by_xy),
+        ts.base.text_styles,
         list(fake.writes),
     )
 
@@ -1360,15 +1360,15 @@ def _try_shadow_writes_() -> None:
         asserted = False
     except AssertionError:
         asserted = True
-    assert asserted, ts.layer.write_by_xy
-    assert (21, 1) not in ts.layer.write_by_xy, ts.layer.write_by_xy
+    assert asserted, ts.base.write_by_xy
+    assert (21, 1) not in ts.base.write_by_xy, ts.base.write_by_xy
 
     # The Shadow finds the problem before the Terminal hears a Byte, and is left as it was
 
     after = (
-        dataclasses.astuple(ts.layer.place),
-        dict(ts.layer.write_by_xy),
-        ts.layer.text_styles,
+        dataclasses.astuple(ts.base.place),
+        dict(ts.base.write_by_xy),
+        ts.base.text_styles,
         list(fake.writes),
     )
     assert after == before, (after, before)
@@ -1376,7 +1376,7 @@ def _try_shadow_writes_() -> None:
     ts = litpyglass.TerminalShadow(boss)
     ts.shadow_read_data_else(b"\033[1;1R")
     ts.shadow_read_data_else(b"\033[8;5;20t")  # an even Width acts as itself
-    assert (ts.layer.place.x_width, ts.layer.place.x_max) == (20, 20), ts.layer.place
+    assert (ts.base.place.x_width, ts.base.place.x_max) == (20, 20), ts.base.place
 
     # A Move that would leave the Screen cannot be written, at the North, West, and South edges
 
@@ -1399,8 +1399,8 @@ def _try_shadow_writes_() -> None:
     ts.shadow_read_data_else(b"\033[1;20R")
     ts.shadow_read_data_else(b"\033[8;5;20t")
     ts.str_write_tb("a\r")  # a lands in Column 20, the last, and then Return
-    assert (ts.layer.place.column_x, ts.layer.place.row_y) == (1, 1), ts.layer.place
-    assert ts.layer.write_by_xy[(20, 1)][1] == "a", ts.layer.write_by_xy
+    assert (ts.base.place.column_x, ts.base.place.row_y) == (1, 1), ts.base.place
+    assert ts.base.write_by_xy[(20, 1)][1] == "a", ts.base.write_by_xy
 
     # A Char into the last Column of an even Width, with nothing after it, cannot be written,
     # since the Cursor would wait to wrap past x_max, but a Backspace after it can
@@ -1431,10 +1431,10 @@ def _try_shadow_writes_() -> None:
             asserted = False
         except AssertionError:
             asserted = True
-        assert asserted, (text, ts.layer.write_by_xy)
+        assert asserted, (text, ts.base.write_by_xy)
 
     assert early.writes == [], early.writes  # no Byte went out
-    assert ts.layer.write_by_xy == {}, ts.layer.write_by_xy
+    assert ts.base.write_by_xy == {}, ts.base.write_by_xy
 
 
 def _screen_of_(

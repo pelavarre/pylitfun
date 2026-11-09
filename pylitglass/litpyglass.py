@@ -579,7 +579,7 @@ class GlassWorker:
     def form_skater_move(self, ts: TerminalShadow, caps: str, decode: str) -> str:
         """Spell how to move one Pixel in the direction of an Arrow Key"""
 
-        layer = ts.layer
+        base = ts.base
 
         assert _2_COLUMNS_ == 2
         assert NO_SGR_PS == "\033[" "m"
@@ -601,7 +601,7 @@ class GlassWorker:
         leave = "\b\b"  # writing two Spaces moves the Cursor 1 or 2 Columns right
         arrive = "\b\b"
 
-        place = layer.place
+        place = base.place
         if place.has_much_area():
             column_x = place.column_x
             x_width = place.x_width
@@ -690,7 +690,7 @@ class InputStrikeTaker:
         held_strikes = self.held_strikes
         ts = self.ts
 
-        layer = ts.layer
+        layer = ts.base
 
         # Yield each Strike held while waiting for the Terminal to report YX HW
 
@@ -1340,7 +1340,7 @@ class TerminalShadow:
     """Keep a copy of what we've written to a Terminal"""
 
     tb: TerminalBoss  # the one Terminal we write through
-    layer: TerminalLayer  # what we know we wrote
+    base: TerminalLayer  # what we know we wrote
 
     def __init__(self, tb: TerminalBoss) -> None:
 
@@ -1349,7 +1349,7 @@ class TerminalShadow:
         place = TerminalPlace(column_x=1, x_max=1, x_width=1, row_y=1, y_height=1)
         assert not place.has_much_area(), (place,)
 
-        self.layer = TerminalLayer(place=place, text_styles=(), write_by_xy=dict())
+        self.base = TerminalLayer(place=place, text_styles=(), write_by_xy=dict())
 
     def request_yx_hw_from_tb(self) -> None:
         """Ask where the Cursor is and how big the Screen is, both answered later in order"""
@@ -1365,7 +1365,7 @@ class TerminalShadow:
     def shadow_read_data_else(self, data: bytes) -> tuple[str, int, int] | None:
         """Take the Cursor Column and Row, or the Screen Width and Height, from the Terminal"""
 
-        layer = self.layer
+        base = self.base
 
         assert _5_ROWS_ == 5
         assert _20_COLUMNS_ == 20
@@ -1379,7 +1379,7 @@ class TerminalShadow:
 
         # Update the X Y with a change, or with no change
 
-        place = layer.place
+        place = base.place
 
         if tag == "YX":
             assert int1 >= _1_ROW_, (int1,)
@@ -1402,7 +1402,7 @@ class TerminalShadow:
 
         # Succeed
 
-        layer.place = next_place  # replace with the next, no matter if equal or not
+        base.place = next_place  # replace with the next, no matter if equal or not
 
         return result
 
@@ -1412,28 +1412,28 @@ class TerminalShadow:
         """Write the Text and shadow the Write"""
 
         tb = self.tb
-        layer = self.layer
+        base = self.base
 
         # Require a Write that we can shadow
 
-        assert layer.place.has_much_area(), (layer.place, text)
+        assert base.place.has_much_area(), (base.place, text)
 
-        fork_layer = layer.fork_layer()
+        fork_layer = base.fork_layer()
         all_written_on_screen = fork_layer._write_some_or_all_strs_(text)
-        assert all_written_on_screen, (text, layer.place)
+        assert all_written_on_screen, (text, base.place)
 
         # Shadow it and write it, because from above we know we can
 
-        fork_layer.shadow_screen_into(layer)
+        fork_layer.shadow_screen_into(base)
         tb.bytes_write_flush(text.encode())
 
     def is_writable_place_after_strs(self, text: str) -> bool:
         """Say if writing the Str keeps the Terminal Cursor inside the Writable Area"""
 
-        layer = self.layer
-        assert layer.place.is_writable_place(), (layer.place,)
+        base = self.base
+        assert base.place.is_writable_place(), (base.place,)
 
-        fork_layer = layer.fork_layer()
+        fork_layer = base.fork_layer()
         if not fork_layer._write_some_or_all_strs_(text):
             return False
 

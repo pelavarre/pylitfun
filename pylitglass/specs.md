@@ -389,16 +389,16 @@ Spec of TerminalShadow.
 
 We meet spec as tested by _try_shadow_layer_ and _try_shadow_writes_:
 
-    1. Hold a Terminal and one Layer, named .layer, and read everything known of the Screen
-       from .layer. Forward none of the three by property.
+    1. Hold a Terminal and one Layer, named .base, and read everything known of the Screen
+       from .base. Forward none of the three by property.
 
     2. Keep no Write before any write, and none after only the Terminal's answers.
 
     3. Fail an assert before any Byte goes out, on any write made before the Terminal answers,
        even one of no Char.
 
-    4. In str_write_tb, take each Write through a new Layer made from .layer. Assert the Write
-       can be made, call shadow_screen_into to update .layer, and only then write the Bytes to
+    4. In str_write_tb, take each Write through a new Layer made from .base. Assert the Write
+       can be made, call shadow_screen_into to update .base, and only then write the Bytes to
        the Terminal. Fail an assert before any Byte goes out on a Write that cannot be made,
        and leave the Shadow as it was.
 
