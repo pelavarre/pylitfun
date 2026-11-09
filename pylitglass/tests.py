@@ -71,8 +71,11 @@ def main() -> None:
     _try_skater_entry_()  # ~900ms, 4 Ptys at once, and 1 child Python off a Terminal
     _try_skater_quits_()  # ~1100ms, 13 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
     _try_skater_edge_()  # ~2500ms, 4 Ptys at once, the slowest 10 → at 150ms apart + 500ms
+    _try_skater_launch_edge_()  # 10 Ptys at once
     _try_shadow_writes_()  # ~1ms
     _try_shadow_layer_()  # ~1ms
+    _try_shadow_top_layer_()  # ~1ms
+    _try_screen_replay_()  # ~1ms
 
     print("tests ok")
 
@@ -948,7 +951,7 @@ def _try_is_quitting_frames_() -> None:
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
         results = tuple(
-            executor.map(lambda case: _try_egg_quit_("strikes", case[0], case[1], b""), cases)
+            executor.map(lambda case: _try_egg_quit_("strikes", (case[0],) * case[1], b""), cases)
         )
 
     for case, (quit, screen_decode) in zip(cases, results):
@@ -957,10 +960,15 @@ def _try_is_quitting_frames_() -> None:
         assert shows in screen_decode, (shows, data, count, screen_decode)
 
 
-def _skater_move_(warp: str) -> str:
-    """Spell what --egg=skater writes to move one pixel, away from every edge of the Screen"""
+_SKATER_HAIL_ = "\033[m\033[?25h"  # reverts Text Styles, shows the Real Cursor
+_SKATER_FAREWELL_ = "\r" + _SKATER_HAIL_ + "\033[32100B\033[A"  # the same, then parks the Cursor
 
-    return "\033[7m  \033[m\b\b" + warp + "  \b\b"  # inverse behind, plain ahead
+
+def _skater_move_(warp: str) -> str:
+    """Spell what --egg=skater writes to leave a Reverse Pair and move, away from every edge"""
+
+    move_text = "\033[7m  \033[m\b\b" + warp
+    return move_text
 
 
 def _try_is_quitting_shape_() -> None:
@@ -981,43 +989,97 @@ def _try_is_quitting_shape_() -> None:
 def _try_skater_quits_() -> None:
     """Try which strikes quit --egg=skater, as specs.md § 8 says"""
 
+    def reverse(*pairs: tuple[int, int]) -> dict[tuple[int, int], tuple[str, bool]]:
+        """Say the Cells of each Reverse Pair at (Row, Column) of its left Cell"""
+
+        reverse_by_yx = dict(
+            ((row_y, column_x + dx), (" ", True)) for (row_y, column_x) in pairs for dx in (0, 1)
+        )
+        return reverse_by_yx
+
+    # (steps, quits, the Cells marked, Cursor at Row Column, if the Cursor is hidden)
+
     cases = (
-        (b"\r", 3, True, "X\bO\b"),  # ⏎ ⏎ ⏎
-        (b"\r", 2, False, "X\bO\b"),
-        (b"\r\r\r", 1, False, "X\bO\bX\b"),  # ⏎ ⏎ ⏎ pasted
-        (b"x\033[C", 1, False, "X\b" + _skater_move_("\033[C\033[C")),  # x the Taken Frame, then →
-        (b"\033[C", 3, False, _skater_move_("\033[C\033[C")),  # → → →
-        (b"\033[A", 3, False, _skater_move_("\033[A")),  # ↑ ↑ ↑
-        (b"\033[D", 3, False, _skater_move_("\033[D\033[D")),  # ← ← ←
-        (b"\033[B", 3, False, _skater_move_("\033[B")),  # ↓ ↓ ↓
-        (b"\033", 1, False, "1\b"),  # ⎋ the Open Frame of 1 Byte
-        (b"\033[", 1, False, "2\b"),  # ⎋[ the Open Frame of 2 Bytes
-        (b"\033[12345678", 1, False, "0\b"),  # ⎋[ and 8 more, 10 Bytes
-        (b"x\033[", 1, False, "3\b"),  # x the Taken Frame of 1 Byte, then ⎋[
-        (b"x\033[C\033[", 1, False, "2\b"),  # ⎋[C the Taken Arrow resets the count
-        ("\033[↗".encode(), 3, True, "X\bO\b"),  # ↗ ↗ ↗, an Intercardinal Arrow, not yet a Stalwart
+        ((b"\r",) * 3, True, {(1, 1): ("X", False)}, None, False),  # ⏎ ⏎ ⏎ quit, leaving the X
+        ((b"\r",) * 2, False, {(1, 1): ("O", False)}, (1, 1), False),  # X then O, replaced in place
+        ((b"\r\r\r",), False, {(1, 1): ("X", False)}, (1, 1), False),  # ⏎ ⏎ ⏎ pasted
+        ((b"x\033[C",), False, reverse((1, 1)), (1, 3), False),  # x, then → undoes the X
+        ((b"\033[C",) * 3, False, reverse((1, 1), (1, 3), (1, 5)), (1, 7), False),  # → → →
+        ((b"\033[A",) * 3, False, reverse((1, 1)), (2, 1), True),  # ↑ ↑ ↑ bounce on a Reverse Pair
+        ((b"\033[D",) * 3, False, reverse((1, 1)), (1, 3), True),  # ← ← ← bounce on a Reverse Pair
+        ((b"\033[B",) * 3, False, reverse((1, 1), (2, 1), (3, 1)), (4, 1), False),  # ↓ ↓ ↓
+        ((b"\033",), False, {(1, 1): ("1", False)}, (1, 1), False),  # ⎋ the Open Frame of 1 Byte
+        ((b"\033[",), False, {(1, 1): ("2", False)}, (1, 1), False),  # ⎋[ 2 Bytes
+        ((b"\033[12345678",), False, {(1, 1): ("0", False)}, (1, 1), False),  # 10 Bytes
+        ((b"x\033[",), False, {(1, 1): ("3", False)}, (1, 1), False),  # x, then ⎋[
+        (  # ⎋[C the Taken Arrow resets the count, so ⎋[ shows 2 again, a Cell east
+            (b"x\033[C\033[",),
+            False,
+            {**reverse((1, 1)), (1, 3): ("2", False)},
+            (1, 3),
+            False,
+        ),
+        (("\033[↗".encode(),) * 3, True, {(1, 1): ("X", False)}, None, False),  # ↗ ↗ ↗ leave the X
+        ((b"\033",) + (b"\r",) * 4, True, {(1, 1): ("O", False)}, None, False),  # ⎋ then ⏎ x4
     )
 
     results24x80 = b"\033[1;1R\033[8;24;80t"  # the Terminal answers Row 1 Column 1, and 24 x 80
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
         results = tuple(
-            executor.map(
-                lambda case: _try_egg_quit_("skater", case[0], case[1], results24x80), cases
-            )
+            executor.map(lambda case: _try_egg_quit_("skater", case[0], results24x80), cases)
         )
 
     for case, (quit, screen_decode) in zip(cases, results):
-        data, count, want, shows = case
-        assert quit == want, (quit, want, data, count, screen_decode)
-        assert shows in screen_decode, (shows, data, count, screen_decode)
+        strike_steps, want, want_mark_by_yx, want_cursor_yx, want_is_hidden = case
+        assert quit == want, (quit, want, strike_steps, screen_decode)
 
-        launch = "\033[6n\033[18t\033[?25l\r  \b\b"
-        # asks the Queries, hides the Cursor once the Screen is known, draws the first pixel plain
-        assert launch in screen_decode, (launch, data, count, screen_decode)
+        mark_by_yx, cursor_yx, is_hidden = _skater_state_(
+            screen_decode, screen_width=80, screen_height=24
+        )
+        assert mark_by_yx == want_mark_by_yx, (
+            mark_by_yx,
+            want_mark_by_yx,
+            strike_steps,
+            screen_decode,
+        )
+        assert is_hidden == want_is_hidden, (is_hidden, want_is_hidden, strike_steps, screen_decode)
+        if want_cursor_yx is not None:  # a Quit parks the Cursor, so only a still running case says
+            assert cursor_yx == want_cursor_yx, (
+                cursor_yx,
+                want_cursor_yx,
+                strike_steps,
+                screen_decode,
+            )
 
-        farewell = "\r\033[?25h\033[32100B\033[A"  # shows Cursor, parks it
-        assert (farewell in screen_decode) == quit, (farewell, quit, data, count, screen_decode)
+        launch = "\033[6n\033[18t" + _SKATER_HAIL_
+        # asks the Queries, then shows the Cursor and goes West once the Screen is known
+        assert launch in screen_decode, (launch, strike_steps, screen_decode)
+
+        farewell = _SKATER_FAREWELL_
+        assert (farewell in screen_decode) == quit, (farewell, quit, strike_steps, screen_decode)
+
+
+def _skater_state_(
+    screen_decode: str, screen_width: int, screen_height: int
+) -> tuple[dict[tuple[int, int], tuple[str, bool]], tuple[int, int], bool]:
+    """Replay the Bytes and say the Cells marked, where the Cursor sits, and if it is hidden"""
+
+    screen_cells, row_y, column_x, _ = _screen_of_(
+        screen_decode, screen_width=screen_width, screen_height=screen_height
+    )
+
+    # (Row, Column) of each Cell not plain
+
+    mark_by_yx: dict[tuple[int, int], tuple[str, bool]] = dict()
+    for cell_y, row in enumerate(screen_cells, start=1):
+        for cell_x, cell in enumerate(row, start=1):
+            if cell != (" ", False):
+                mark_by_yx[(cell_y, cell_x)] = cell
+
+    is_hidden = screen_decode.rfind("\033[?25l") > screen_decode.rfind("\033[?25h")
+    cursor_yx = (row_y, column_x)
+    return (mark_by_yx, cursor_yx, is_hidden)
 
 
 def _try_skater_edge_() -> None:
@@ -1035,30 +1097,38 @@ def _try_skater_edge_() -> None:
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
         results = tuple(
-            executor.map(lambda case: _try_egg_quit_("skater", b"\033[C", case[2], case[1]), cases)
+            executor.map(
+                lambda case: _try_egg_quit_("skater", (b"\033[C",) * case[2], case[1]), cases
+            )
         )
 
     for case, (quit, screen_decode) in zip(cases, results):
         screen_width, _, count = case
         assert not quit, (quit, screen_width, count, screen_decode)
 
-        screen_cells, row_y, column_x, wrap_pending = _screen_of_(
+        mark_by_yx, cursor_yx, is_hidden = _skater_state_(
             screen_decode, screen_width=screen_width, screen_height=5
         )
-        here = (row_y, column_x, wrap_pending)
 
-        want_x = 19 if (count == 9) else 17  # the left Cell of the plain pixel
-        assert here == (1, want_x, False), (here, want_x, screen_width, count, screen_decode)
+        want_x = 19 if (count == 9) else 17  # the left Cell of the pixel the Cursor sits on
+        assert cursor_yx == (1, want_x), (cursor_yx, want_x, screen_width, count, screen_decode)
 
-        row1 = screen_cells[0]  # (Character, Inverse) per Column
-        plains = list(x for (x, cell) in enumerate(row1, start=1) if not cell[1])
-        want_plains = [want_x, want_x + 1] + list(
-            range(21, screen_width + 1)
-        )  # Column 21 never written
-        assert plains == want_plains, (plains, want_plains, screen_width, count, screen_decode)
+        # 9 Arrows leave 9 Reverse Pairs and the Cursor on a bare Cell, and 10 bounce onto the 9th
+        want_inverse = list(range(1, 19)) if (count == 9) else (list(range(1, 17)) + [19, 20])
+        inverse = list(column_x for ((row_y, column_x), cell) in mark_by_yx.items() if cell[1])
+        assert inverse == want_inverse, (inverse, want_inverse, screen_width, count, screen_decode)
 
-        below = list(c for row in screen_cells[1:] for c in row if c != (" ", False))
-        assert not below, (below, screen_width, count, screen_decode)  # no spill into Row 2
+        spill = list(xy for xy in mark_by_yx.keys() if xy[0] != 1 or xy[1] > 20)
+        assert not spill, (spill, screen_width, count, screen_decode)  # never Column 21, never Row 2
+
+        want_is_hidden = count == 10  # the Cursor sits on a Reverse Pair, so a Plain Pair hides it
+        assert is_hidden == want_is_hidden, (
+            is_hidden,
+            want_is_hidden,
+            screen_width,
+            count,
+            screen_decode,
+        )
 
 
 class FakeWriteBoss:
@@ -1105,6 +1175,43 @@ class FakeEndBoss:
         return b""
 
 
+def _try_skater_launch_edge_() -> None:
+    """Try --egg=skater launched in the far East Columns, as specs.md § 8 says"""
+
+    left = b"\033[D"
+    right = b"\033[C"
+
+    cases = (
+        (b"\033[1;21R\033[8;5;21t", 2, left),  # Column 21 of 21 lies past x_max 20, so 2 steps West
+        (b"\033[1;21R\033[8;5;21t", 2, right),
+        (b"\033[1;20R\033[8;5;21t", 1, left),  # Column 20 of 21 has no room for a Pair, so 1 step
+        (b"\033[1;20R\033[8;5;21t", 1, right),
+        (b"\033[1;20R\033[8;5;20t", 1, left),  # Column 20 of 20, the same on an even Width
+        (b"\033[1;20R\033[8;5;20t", 1, right),
+        (b"\033[1;22R\033[8;5;22t", 1, left),
+        (b"\033[1;23R\033[8;5;23t", 2, left),
+        (b"\033[1;19R\033[8;5;21t", 0, left),  # Column 19 of 21 has room for a Pair, so no step
+        (b"\033[1;10R\033[8;5;21t", 0, left),
+    )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
+        results = tuple(
+            executor.map(lambda case: _try_egg_quit_("skater", (case[2],), case[0]), cases)
+        )
+
+    for case, (quit, screen_decode) in zip(cases, results):
+        assert not quit, (quit, case, screen_decode)  # no assert failed, no early exit
+        assert "Traceback" not in screen_decode, (case, screen_decode)
+
+        hail_at = screen_decode.index(_SKATER_HAIL_) + len(_SKATER_HAIL_)
+        back_count = case[1]
+        steps = screen_decode[hail_at : hail_at + back_count + 1]
+        assert steps == ("\b" * back_count) + steps[-1:], (case, steps, screen_decode)
+        assert steps[back_count:] != "\b", (case, steps, screen_decode)  # exactly as many as needed
+
+        assert "\033[7m  \033[m" in screen_decode, (case, screen_decode)  # the Arrow left a Pair
+
+
 def _layer_after_(ts: litpyglass.TerminalShadow, text: str) -> litpyglass.TerminalLayer | None:
     """Write the Str into a new Layer over the Shadow, and say that Layer, else None"""
 
@@ -1128,7 +1235,7 @@ def _try_shadow_layer_() -> None:
     ts.shadow_read_data_else(b"\033[8;5;20t")  # a Screen 5 high, 20 wide
 
     written = no_sgr_csi + reverse + "ab"  # a and b in Reverse, at Columns 3 and 4
-    ts.str_write_tb(written)
+    ts.str_write_base_tb(written)
     assert fake.writes == [written.encode()], fake.writes
 
     base_layer = ts.base
@@ -1139,10 +1246,12 @@ def _try_shadow_layer_() -> None:
     assert not hasattr(base_layer, "tb"), base_layer
     assert not hasattr(base_layer, "bytes_write_flush"), base_layer
 
-    # Shadow 1: a TerminalShadow holds one Layer, and forwards none of the three by property
+    # Shadow 1: a TerminalShadow holds Layers, and forwards only .base_place and is_writeable_area
 
-    for name in ("place", "text_styles", "write_by_xy"):
+    for name in ("text_styles", "write_by_xy"):
         assert not hasattr(litpyglass.TerminalShadow, name), name
+
+    assert isinstance(litpyglass.TerminalShadow.base_place, property), "base_place"
 
     # Layer 2: a new Layer starts with a copy of the Place and Text Styles, and no Writes
 
@@ -1210,14 +1319,14 @@ def _try_shadow_layer_() -> None:
     assert receiving_layer.write_by_xy[(9, 9)] == ((no_sgr_csi,), "k"), receiving_layer.write_by_xy
     assert giving_layer == giving_copy, (giving_layer, giving_copy)
 
-    # Shadow 4: str_write_tb asserts the Write can be made, before any Byte goes out
+    # Shadow 4: str_write_base_tb asserts the Write can be made, before any Byte goes out
 
     fake.writes.clear()
     ts_north = litpyglass.TerminalShadow(boss)
     ts_north.shadow_read_data_else(b"\033[1;1R")
     ts_north.shadow_read_data_else(b"\033[8;5;20t")
     try:
-        ts_north.str_write_tb("\033[A")  # off the North edge
+        ts_north.str_write_base_tb("\033[A")  # off the North edge
         asserted = False
     except AssertionError:
         asserted = True
@@ -1227,14 +1336,14 @@ def _try_shadow_layer_() -> None:
     # Shadow 5: is_writable_place_after_strs drops its Layer, and leaves the Shadow as it was
 
     shadow_before = (
-        dataclasses.astuple(ts.base.place),
+        dataclasses.astuple(ts.base_place),
         dict(ts.base.write_by_xy),
         tuple(ts.base.text_styles),
     )
     assert ts.is_writable_place_after_strs(text="\b")
     assert not ts.is_writable_place_after_strs(text="\033[B" * 4)
     shadow_after = (
-        dataclasses.astuple(ts.base.place),
+        dataclasses.astuple(ts.base_place),
         dict(ts.base.write_by_xy),
         tuple(ts.base.text_styles),
     )
@@ -1256,31 +1365,33 @@ def _try_shadow_writes_() -> None:
     no_sgr_csi = "\033[m"  # ⎋[M, which starts the Text Styles in force
     reverse = "\033[7m"  # ⎋[7M
 
-    ts.str_write_tb(no_sgr_csi + "ab")
+    ts.str_write_base_tb(no_sgr_csi + "ab")
     assert ts.base.write_by_xy == {
         (3, 2): ((no_sgr_csi,), "a"),
         (4, 2): ((no_sgr_csi,), "b"),
     }, ts.base.write_by_xy
 
-    ts.str_write_tb("\b\b" + reverse + "  " + no_sgr_csi + "\b\b")  # two reverse Spaces over them
+    ts.str_write_base_tb(
+        "\b\b" + reverse + "  " + no_sgr_csi + "\b\b"
+    )  # two reverse Spaces over them
     assert ts.base.write_by_xy[(3, 2)] == ((no_sgr_csi, reverse), " "), ts.base.write_by_xy
     assert ts.base.write_by_xy[(4, 2)] == ((no_sgr_csi, reverse), " "), ts.base.write_by_xy
     assert ts.base.text_styles == (
         no_sgr_csi,
     ), ts.base.text_styles  # ⎋[M started the sequence again
 
-    ts.str_write_tb("\033[B\033[Dz")  # move down and left, then write
+    ts.str_write_base_tb("\033[B\033[Dz")  # move down and left, then write
     assert ts.base.write_by_xy[(2, 3)] == ((no_sgr_csi,), "z"), ts.base.write_by_xy
     assert len(ts.base.write_by_xy) == 3, ts.base.write_by_xy
 
-    ts.str_write_tb(reverse + "q")  # leaves Reverse on
+    ts.str_write_base_tb(reverse + "q")  # leaves Reverse on
     assert tuple(ts.base.text_styles) == (
         no_sgr_csi,
         reverse,
     ), ts.base.text_styles  # tuple() blocks narrowing
     assert ts.base.write_by_xy[(3, 3)] == ((no_sgr_csi, reverse), "q"), ts.base.write_by_xy
 
-    ts.str_write_tb(no_sgr_csi)  # ⎋[M starts the sequence again
+    ts.str_write_base_tb(no_sgr_csi)  # ⎋[M starts the sequence again
     assert tuple(ts.base.text_styles) == (no_sgr_csi,), ts.base.text_styles
 
     # ⎋[7M said twice is kept once, and an SGR we do not spell fails loudly
@@ -1289,11 +1400,11 @@ def _try_shadow_writes_() -> None:
     ts.shadow_read_data_else(b"\033[1;1R")
     ts.shadow_read_data_else(b"\033[8;5;20t")
 
-    ts.str_write_tb(no_sgr_csi + reverse + reverse + "q")
+    ts.str_write_base_tb(no_sgr_csi + reverse + reverse + "q")
     assert ts.base.write_by_xy[(1, 1)] == ((no_sgr_csi, reverse), "q"), ts.base.write_by_xy
 
     try:
-        ts.str_write_tb("\033[1mr")  # Bold
+        ts.str_write_base_tb("\033[1mr")  # Bold
         asserted = False
     except AssertionError:
         asserted = True
@@ -1306,20 +1417,20 @@ def _try_shadow_writes_() -> None:
     ts.shadow_read_data_else(b"\033[8;5;20t")
 
     shadow_before = (
-        dataclasses.astuple(ts.base.place),
+        dataclasses.astuple(ts.base_place),
         dict(ts.base.write_by_xy),
         ts.base.text_styles,
     )
-    ts.str_write_tb("\033[?25l\033[?25h")  # ⎋[?25L ⎋[?25H
+    ts.str_write_base_tb("\033[?25l\033[?25h")  # ⎋[?25L ⎋[?25H
     shadow_after = (
-        dataclasses.astuple(ts.base.place),
+        dataclasses.astuple(ts.base_place),
         dict(ts.base.write_by_xy),
         ts.base.text_styles,
     )
     assert shadow_after == shadow_before, (shadow_after, shadow_before)
 
     try:
-        ts.str_write_tb("\a")  # Bell
+        ts.str_write_base_tb("\a")  # Bell
         asserted = False
     except AssertionError:
         asserted = True
@@ -1330,7 +1441,7 @@ def _try_shadow_writes_() -> None:
     ts = litpyglass.TerminalShadow(boss)
     ts.shadow_read_data_else(b"\033[1;1R")
     ts.shadow_read_data_else(b"\033[8;5;21t")  # a Screen 5 high, 21 wide
-    assert (ts.base.place.x_width, ts.base.place.x_max) == (21, 20), ts.base.place
+    assert (ts.base_place.x_width, ts.base_place.x_max) == (21, 20), ts.base_place
 
     next_layer = _layer_after_(ts, text="\033[C" * 19)
     assert next_layer and (next_layer.place.column_x, next_layer.place.row_y) == (20, 1), next_layer
@@ -1349,14 +1460,14 @@ def _try_shadow_writes_() -> None:
     assert _layer_after_(ts, text=outside) is None
 
     before = (
-        dataclasses.astuple(ts.base.place),
+        dataclasses.astuple(ts.base_place),
         dict(ts.base.write_by_xy),
         ts.base.text_styles,
         list(fake.writes),
     )
 
     try:
-        ts.str_write_tb(outside)
+        ts.str_write_base_tb(outside)
         asserted = False
     except AssertionError:
         asserted = True
@@ -1366,7 +1477,7 @@ def _try_shadow_writes_() -> None:
     # The Shadow finds the problem before the Terminal hears a Byte, and is left as it was
 
     after = (
-        dataclasses.astuple(ts.base.place),
+        dataclasses.astuple(ts.base_place),
         dict(ts.base.write_by_xy),
         ts.base.text_styles,
         list(fake.writes),
@@ -1376,7 +1487,7 @@ def _try_shadow_writes_() -> None:
     ts = litpyglass.TerminalShadow(boss)
     ts.shadow_read_data_else(b"\033[1;1R")
     ts.shadow_read_data_else(b"\033[8;5;20t")  # an even Width acts as itself
-    assert (ts.base.place.x_width, ts.base.place.x_max) == (20, 20), ts.base.place
+    assert (ts.base_place.x_width, ts.base_place.x_max) == (20, 20), ts.base_place
 
     # A Move that would leave the Screen cannot be written, at the North, West, and South edges
 
@@ -1398,8 +1509,8 @@ def _try_shadow_writes_() -> None:
     ts = litpyglass.TerminalShadow(boss)
     ts.shadow_read_data_else(b"\033[1;20R")
     ts.shadow_read_data_else(b"\033[8;5;20t")
-    ts.str_write_tb("a\r")  # a lands in Column 20, the last, and then Return
-    assert (ts.base.place.column_x, ts.base.place.row_y) == (1, 1), ts.base.place
+    ts.str_write_base_tb("a\r")  # a lands in Column 20, the last, and then Return
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (1, 1), ts.base_place
     assert ts.base.write_by_xy[(20, 1)][1] == "a", ts.base.write_by_xy
 
     # A Char into the last Column of an even Width, with nothing after it, cannot be written,
@@ -1427,7 +1538,7 @@ def _try_shadow_writes_() -> None:
 
     for text in (no_sgr_csi, "a"):
         try:
-            ts.str_write_tb(text)
+            ts.str_write_base_tb(text)
             asserted = False
         except AssertionError:
             asserted = True
@@ -1435,6 +1546,302 @@ def _try_shadow_writes_() -> None:
 
     assert early.writes == [], early.writes  # no Byte went out
     assert ts.base.write_by_xy == {}, ts.base.write_by_xy
+
+
+def _try_shadow_top_layer_() -> None:
+    """Try the Top Layer of a TerminalShadow keeping Writes to undo, as specs.md § 10 says"""
+
+    fake = FakeWriteBoss()
+    boss = typing.cast(litpyglass.TerminalBoss, fake)
+    ts = litpyglass.TerminalShadow(boss)
+    assert ts.top.write_by_xy == {}, ts.top.write_by_xy
+
+    ts.shadow_read_data_else(b"\033[2;3R")  # Row 2 Column 3
+    ts.shadow_read_data_else(b"\033[8;5;20t")  # a Screen 5 high, 20 wide
+
+    no_sgr_csi = "\033[m"  # ⎋[M
+    reverse = "\033[7m"  # ⎋[7M
+    to_start = "\033[B\033[C\033[C"  # from Row 1 Column 1 to Row 2 Column 3, where the Shadow began
+
+    def screen_after_writes() -> tuple[dict[tuple[int, int], tuple[str, bool]], tuple[int, int]]:
+        """Replay every Write the Terminal has been given, and say the Cells marked and the Cursor"""
+
+        decode = to_start + "".join(_.decode() for _ in fake.writes)
+        mark_by_yx, cursor_yx, _ = _skater_state_(decode, screen_width=20, screen_height=5)
+        return (mark_by_yx, cursor_yx)
+
+    # Undo with nothing in the Top Layer writes nothing
+
+    ts.undo_top_tb()
+    assert fake.writes == [], fake.writes
+
+    # A Reverse Pair written into the Base Layer, and the Cursor back on its left Cell
+
+    ts.str_write_base_tb(no_sgr_csi + reverse + "  " + no_sgr_csi + "\b\b")
+    assert ts.base.is_shadowed_area(area_width=2, area_height=1), ts.base_place
+    base_writes = dict(ts.base.write_by_xy)
+    assert set(base_writes.keys()) == {(3, 2), (4, 2)}, base_writes
+
+    ts.str_write_base_tb("\033[C\033[C")  # a bare Cell east
+    assert not ts.base.is_shadowed_area(area_width=2, area_height=1), ts.base_place
+    ts.str_write_base_tb("\033[D\033[D")  # back on the Reverse Pair
+
+    # A Plain Pair and then an X, written into the Top Layer, land only in the Top Layer
+
+    ts.str_write_top_tb("  \b\b")
+    ts.str_write_top_tb("X\b")
+    assert ts.base.write_by_xy == base_writes, (ts.base.write_by_xy, base_writes)
+    assert ts.top.write_by_xy == {
+        (3, 2): ((no_sgr_csi,), "X"),  # the X replaced the Plain Pair's left Cell
+        (4, 2): ((no_sgr_csi,), " "),
+    }, ts.top.write_by_xy
+
+    mark_by_yx, cursor_yx = screen_after_writes()
+    assert mark_by_yx == {(2, 3): ("X", False)}, mark_by_yx  # the Plain Pair covers the Reverse Pair
+    assert cursor_yx == (2, 3), (cursor_yx, mark_by_yx)
+    assert dataclasses.astuple(ts.base_place) == dataclasses.astuple(ts.top.place)
+
+    # Undo writes the Base Layer back over each Cell of the Top Layer, and forgets the Top Layer
+
+    ts.undo_top_tb()
+    assert ts.top.write_by_xy == {}, ts.top.write_by_xy
+    assert ts.base.write_by_xy == base_writes, (ts.base.write_by_xy, base_writes)
+    assert fake.writes[-1].endswith(b"\033[2D"), fake.writes[-1]  # one move only, West to the Base
+    assert b"\r" not in fake.writes[-1], fake.writes[-1]
+
+    mark_by_yx, cursor_yx = screen_after_writes()
+    assert mark_by_yx == {
+        (2, 3): (" ", True),
+        (2, 4): (" ", True),
+    }, mark_by_yx  # the Reverse Pair is back
+    assert cursor_yx == (2, 3), (cursor_yx, mark_by_yx)  # and the Cursor sits where it began
+
+    # Undo never guesses what a bare Cell held, and the Skater forgets a lone Char there first
+
+    fake4 = FakeWriteBoss()
+    ts4 = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, fake4))
+    ts4.shadow_read_data_else(b"\033[2;3R")
+    ts4.shadow_read_data_else(b"\033[8;5;20t")
+    ts4.str_write_top_tb("Y\b")  # a lone Y over a bare Cell
+    try:
+        ts4.undo_top_tb()
+        asserted = False
+    except AssertionError:
+        asserted = True
+    assert asserted  # the Base Layer wrote nothing at the Y
+
+    glass_worker = litpyglass.GlassWorker()
+    glass_worker.ts_undo_enough_top_tb(ts4)  # forgets the lone Y, then undoes the Top
+    assert not ts4.top, ts4.top.place
+    assert ts4.base.write_by_xy == {}, ts4.base.write_by_xy  # Base never learns of the Y
+
+    decode4 = to_start + "".join(_.decode() for _ in fake4.writes)
+    mark_by_yx, cursor_yx, _ = _skater_state_(decode4, screen_width=20, screen_height=5)
+    assert mark_by_yx == {(2, 3): ("Y", False)}, mark_by_yx  # the Y stays, as a Prompt Char does
+    assert cursor_yx == (2, 3), (cursor_yx, mark_by_yx)
+
+    fake5 = FakeWriteBoss()
+    ts5 = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, fake5))
+    ts5.shadow_read_data_else(b"\033[2;3R")
+    ts5.shadow_read_data_else(b"\033[8;5;20t")
+    ts5.str_write_top_tb("Y")  # a lone Y, with the Cursor one Cell past it
+    try:
+        glass_worker.ts_undo_enough_top_tb(ts5)
+        asserted = False
+    except AssertionError:
+        asserted = True
+    assert asserted  # the def forgets only a Char that the Cursor sits on
+
+    # Undo reaches Cells further East on the Row, and puts the Cursor back West
+
+    base_xy = dataclasses.astuple(ts.base_place)
+    base_styles = ts.base.text_styles
+
+    ts.str_write_top_tb("Z\b")  # a Z on the Reverse Pair's left Cell
+    ts.str_write_top_tb("\033[C\033[7mW\b\033[D")  # a Reverse W on its right Cell, and back
+    assert ts.top.text_styles == ("\033[m", "\033[7m"), ts.top.text_styles
+    assert dataclasses.astuple(ts.base_place) == base_xy, ts.base_place  # Base keeps its Cursor
+    assert ts.base.text_styles == base_styles, ts.base.text_styles  # and its Text Styles
+
+    ts.undo_top_tb()
+    assert not ts.top, ts.top.place  # the Top is off
+    assert list(ts.top.text_styles) == list(), ts.top.text_styles  # and holds no Text Style
+    mark_by_yx, cursor_yx = screen_after_writes()
+    assert mark_by_yx == {(2, 3): (" ", True), (2, 4): (" ", True)}, mark_by_yx  # no Z, no W
+    assert cursor_yx == (2, 3), (cursor_yx, mark_by_yx)  # back where the Base Layer has it
+
+    # A Top Layer written in a Text Style only is on, so Undo still puts the Cursor and Styles back
+
+    assert not ts.top, ts.top.place  # off, before any Top write
+    base_xy = dataclasses.astuple(ts.base_place)
+    base_styles = ts.base.text_styles
+
+    ts.str_write_top_tb(reverse)
+    assert ts.top, ts.top.place  # on, with no Cell written
+    assert ts.top.write_by_xy == {}, ts.top.write_by_xy
+
+    ts.undo_top_tb()  # writes the Base Style and the Base Cursor, though no Cell was written
+    assert not ts.top, ts.top.place
+    stay_put = (no_sgr_csi + "".join(base_styles)).encode()  # no move, the Cursor never left
+    assert fake.writes[-1] == stay_put, fake.writes[-1]
+
+    ts.str_write_top_tb(reverse)
+    ts.str_write_top_tb("W\b")  # starts from the Top, so carries the Style written before it
+    top_styles, top_text = ts.top.write_by_xy[(ts.base_place.column_x, ts.base_place.row_y)]
+    assert (top_styles, top_text) == (base_styles + (reverse,), "W"), (top_styles, top_text)
+
+    ts.undo_top_tb()
+    assert not ts.top, ts.top.place  # off again
+    assert dataclasses.astuple(ts.base_place) == base_xy, ts.base_place
+    mark_by_yx, cursor_yx = screen_after_writes()
+    assert cursor_yx == (ts.base_place.row_y, ts.base_place.column_x), (cursor_yx, mark_by_yx)
+
+    ts.undo_top_tb()
+    undone_writes = list(fake.writes)
+    ts.undo_top_tb()
+    assert fake.writes == undone_writes, fake.writes  # an Undo of an off Top writes nothing
+
+    # An answer from the Terminal goes where the Cursor sits, so to the Top once the Top is on
+
+    fake2 = FakeWriteBoss()
+    ts2 = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, fake2))
+    ts2.shadow_read_data_else(b"\033[2;3R")
+    ts2.shadow_read_data_else(b"\033[8;5;20t")
+
+    ts2.shadow_read_data_else(b"\033[1;1R")  # Top off, so the Base takes the Cursor
+    assert (ts2.base_place.row_y, ts2.base_place.column_x) == (1, 1), ts2.base_place
+    assert not ts2.top, ts2.top.place
+
+    ts2.shadow_read_data_else(b"\033[8;6;22t")  # Top off, so it stays off
+    assert (ts2.base_place.y_height, ts2.base_place.x_width) == (6, 22), ts2.base_place
+    assert not ts2.top, ts2.top.place
+
+    ts2.str_write_top_tb(reverse)  # Top on
+    ts2.shadow_read_data_else(b"\033[1;4R")  # on the same Row, so Undo needs no step up
+    assert (ts2.top.place.row_y, ts2.top.place.column_x) == (1, 4), ts2.top.place
+    assert (ts2.base_place.row_y, ts2.base_place.column_x) == (1, 1), ts2.base_place
+
+    ts2.shadow_read_data_else(b"\033[8;7;24t")
+    assert (ts2.top.place.y_height, ts2.top.place.x_width) == (7, 24), ts2.top.place
+    assert (ts2.base_place.y_height, ts2.base_place.x_width) == (7, 24), ts2.base_place
+
+    ts2.undo_top_tb()
+    assert not ts2.top, ts2.top.place
+    assert (ts2.base_place.row_y, ts2.base_place.column_x) == (1, 1), ts2.base_place
+
+    # A move steps West along the Row, says nothing for no step, and asserts on any other step
+
+    base_x = ts.base_place.column_x
+    base_y = ts.base_place.row_y
+    move_text = litpyglass.TerminalShadow.form_leap_back(
+        ts.base_place, column_x=(base_x - 2), row_y=base_y
+    )
+    assert move_text == "\033[2D", move_text
+
+    move_text = litpyglass.TerminalShadow.form_leap_back(
+        ts.base_place, column_x=base_x, row_y=base_y
+    )
+    assert move_text == "", move_text  # no Pn of 0, which Terminals take as 1
+
+    for column_x, row_y in ((base_x + 1, base_y), (base_x - 1, base_y + 1)):
+        try:  # a step East, and a step South, each assert
+            litpyglass.TerminalShadow.form_leap_back(ts.base_place, column_x=column_x, row_y=row_y)
+            asserted = False
+        except AssertionError:
+            asserted = True
+        assert asserted, (column_x, row_y)
+
+    # The Shadow asserts on a step of 0, since a Terminal takes it as a step of 1
+
+    zero_place = dataclasses.replace(ts.base_place)
+    try:
+        zero_place.write_str_at_place("\033[0C")
+        asserted = False
+    except AssertionError:
+        asserted = True
+    assert asserted
+
+    # Undo at the right edge steps West from the last Column, where a Cursor waiting to wrap sits
+
+    fake3 = FakeWriteBoss()
+    ts3 = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, fake3))
+    ts3.shadow_read_data_else(b"\033[2;19R")  # Row 2 Column 19, the left Cell of the last Pair
+    ts3.shadow_read_data_else(b"\033[8;5;20t")  # a Screen 5 high, 20 wide
+
+    ts3.str_write_base_tb(reverse + "  " + no_sgr_csi + "\b")  # a Reverse Pair, waiting to wrap
+    ts3.str_write_top_tb("  \b")  # a Plain Pair over it, with one step back
+    ts3.undo_top_tb()
+
+    decode = "\033[B" + (18 * "\033[C") + "".join(_.decode() for _ in fake3.writes)
+    mark_by_yx, cursor_yx, _ = _skater_state_(decode, screen_width=20, screen_height=5)
+    assert mark_by_yx == {(2, 19): (" ", True), (2, 20): (" ", True)}, mark_by_yx
+    assert cursor_yx == (2, 19), (cursor_yx, mark_by_yx)  # not one Column further West
+
+    # The Shadow says its Base Layer's Place and writeable Areas as its own
+
+    assert ts.base_place is ts.base.place, (ts.base_place, ts.base.place)
+    for area_width, area_height in ((1, 1), (2, 1), (1, 4), (1, 5), (20, 5), (21, 5)):
+        want = ts.base.is_writeable_area(area_width=area_width, area_height=area_height)
+        got = ts.is_writeable_base_area(area_width=area_width, area_height=area_height)
+        assert got == want, (area_width, area_height, got, want)
+
+    # An Area is writeable only when every Cell of it lies in the Writable Area
+
+    area_layer = ts.base.fork_layer()
+    for column_x, row_y, area_width, area_height, x_width, want in (
+        (19, 1, 2, 1, 20, True),  # the last Pair of a Screen 20 wide
+        (20, 1, 2, 1, 20, False),  # its right Cell would be Column 21
+        (20, 1, 1, 1, 20, True),
+        (21, 1, 1, 1, 21, False),  # Column 21 of 21 lies past x_max 20
+        (1, 5, 1, 1, 20, True),  # the last Row of a Screen 5 high
+        (1, 5, 1, 2, 20, False),  # its lower Cell would be Row 6
+        (1, 1, 20, 5, 20, True),  # the whole Screen
+        (1, 1, 21, 5, 20, False),
+    ):
+        area_layer.place = dataclasses.replace(
+            area_layer.place, column_x=column_x, row_y=row_y, x_width=x_width
+        )
+        writeable = area_layer.is_writeable_area(area_width=area_width, area_height=area_height)
+        assert writeable == want, (column_x, row_y, area_width, area_height, x_width, writeable)
+
+    # A written Cell is a shadowed Cell, whether written plain or in Reverse
+
+    ts.str_write_base_tb("\033[C\033[C")  # a bare Cell east of the Reverse Pair
+
+    assert not ts.base.is_shadowed_area(area_width=1, area_height=1), ts.base_place  # a bare Cell
+    ts.str_write_base_tb("a\b")  # a plain a, and back
+    assert ts.base.is_shadowed_area(area_width=1, area_height=1), ts.base_place
+
+    # A Cell is shadowed only when every Cell of the whole Area is written
+
+    assert not ts.base.is_shadowed_area(
+        area_width=2, area_height=1
+    ), ts.base_place  # the next Cell is bare
+    assert not ts.base.is_shadowed_area(
+        area_width=1, area_height=2
+    ), ts.base_place  # the Cell below is bare
+
+    ts.str_write_base_tb("\033[Ba\b\033[A")  # a plain a one Row down, and back up
+    assert ts.base.is_shadowed_area(area_width=1, area_height=2), ts.base_place
+    assert not ts.base.is_shadowed_area(area_width=2, area_height=2), ts.base_place
+
+
+def _try_screen_replay_() -> None:
+    """Try the Screen replay that measures specs.md § 8, asserting on each Byte it does not model"""
+
+    for decode in ("\033[2J", "\033[1;2A", "\033[5m", "\t", "\033"):
+        try:
+            _screen_of_(decode, screen_width=20, screen_height=5)
+            asserted = False
+        except AssertionError:
+            asserted = True
+        assert asserted, (decode,)
+
+    cells, row_y, column_x, wrap_pending = _screen_of_(
+        "ab\033[3C\033[2D\n\033[?25h", screen_width=20, screen_height=5
+    )
+    assert cells[0][0] == ("a", False), cells[0][:3]  # models what it claims
+    assert (row_y, column_x, wrap_pending) == (2, 4, False), (row_y, column_x, wrap_pending)
 
 
 def _screen_of_(
@@ -1456,19 +1863,30 @@ def _screen_of_(
         if text.startswith("\033["):
             ps = match.group(1)
             final = text[-1]
-            n = int(ps) if ps.isdigit() else 1
-            if final == "m":
+            n = max(1, int(ps)) if ps.isdigit() else 1  # a Pn of 0 acts as 1
+
+            # The Show, the Hide, and the two Queries mark no Cell and move no Cursor
+
+            quiet_list = ("\033[?25h", "\033[?25l", "\033[6n", "\033[18t")
+            if text in quiet_list:
+                pass
+            elif final == "m":
+                assert ps in ("", "7"), repr(text)  # models only no Style and Reverse
                 inverse = ps == "7"
-            elif final == "A":
-                row_y = max(1, row_y - n)
-            elif final == "B":
-                row_y = min(screen_height, row_y + n)
-            elif final == "C":
-                column_x = min(screen_width, column_x + n)
-                wrap_pending = False
-            elif final == "D":
-                column_x = max(1, column_x - n)
-                wrap_pending = False
+            else:
+                assert final in "ABCD", repr(text)  # models no other Csi
+                assert ps.isdigit() or (not ps), repr(text)  # models only a lone Pn
+                if final == "A":
+                    row_y = max(1, row_y - n)
+                elif final == "B":
+                    row_y = min(screen_height, row_y + n)
+                elif final == "C":
+                    column_x = min(screen_width, column_x + n)
+                    wrap_pending = False
+                else:
+                    assert final == "D", (final,)
+                    column_x = max(1, column_x - n)
+                    wrap_pending = False
             continue
 
         if text == "\r":
@@ -1477,14 +1895,22 @@ def _screen_of_(
         elif text == "\b":
             column_x = max(1, column_x - 1)
             wrap_pending = False
-        elif text.isprintable() and (len(text) == 1):
+        elif text == "\n":
+            wrap_pending = False
+            if row_y >= screen_height:
+                screen_cells.pop(0)  # scrolls
+                screen_cells.append(list((" ", False) for _ in range(screen_width)))
+            else:
+                row_y += 1
+        else:
+            assert text.isprintable(), repr(text)  # models only \r \b \n and printable Chars
             if wrap_pending:
                 column_x = 1
                 row_y = min(screen_height, row_y + 1)
                 wrap_pending = False
 
             screen_cells[row_y - 1][column_x - 1] = (text, inverse)
-            if column_x == screen_width:
+            if column_x >= screen_width:
                 wrap_pending = True
             else:
                 column_x += 1
@@ -1687,22 +2113,23 @@ def _try_skater_entry_() -> None:
 
     for future in (mute, half, other):
         screen_decode, isig, returncode = future.result()
-        assert "\r  \b\b" not in screen_decode, (screen_decode,)  # no writes while the hang lasts
+        replace_decode = screen_decode.replace(_SKATER_FAREWELL_, "")  # which ends in a hail
+        assert _SKATER_HAIL_ not in replace_decode, (screen_decode,)  # no hail while it hangs
         assert isig, (isig, screen_decode)  # ⌃C ⌃Z ⌃\ still signal while the hang lasts
         assert returncode == 1, (returncode, screen_decode)  # ⌃D ends the hang
         assert complaint in screen_decode, (complaint, screen_decode)
 
     screen_decode, isig, returncode = ahead.result()
-    assert "\r  \b\b" in screen_decode, (screen_decode,)
-    assert screen_decode.index("\033[6n") < screen_decode.index("\r  \b\b"), (screen_decode,)
+    assert _SKATER_HAIL_ in screen_decode, (screen_decode,)
+    assert screen_decode.index("\033[6n") < screen_decode.index(_SKATER_HAIL_), (screen_decode,)
     assert not isig, (isig, screen_decode)
     assert returncode is None, (returncode, screen_decode)
 
     moved = _skater_move_("\033[C\033[C")  # the → typed before the Results came, kept
-    assert screen_decode.index("\r  \b\b") < screen_decode.index(moved), (moved, screen_decode)
+    assert screen_decode.index(_SKATER_HAIL_) < screen_decode.index(moved), (moved, screen_decode)
 
     screen_decode, isig, returncode = swapped.result()
-    assert screen_decode.index("\033[6n") < screen_decode.index("\r  \b\b"), (screen_decode,)
+    assert screen_decode.index("\033[6n") < screen_decode.index(_SKATER_HAIL_), (screen_decode,)
     assert not isig, (isig, screen_decode)  # the Results take either order
     assert returncode is None, (returncode, screen_decode)
 
@@ -1749,8 +2176,8 @@ def _try_egg_entry_(typed_data: bytes, answers: bytes) -> tuple[str, bool, int |
     return (screen_decode, isig, returncode)
 
 
-def _try_egg_quit_(egg: str, data: bytes, count: int, results: bytes) -> tuple[bool, str]:
-    """Run --egg= on a Pty, strike these Bytes this often 150ms apart, and say if it quit"""
+def _try_egg_quit_(egg: str, strike_steps: tuple[bytes, ...], results: bytes) -> tuple[bool, str]:
+    """Run --egg= on a Pty, strike each step 150ms apart, and say if it quit, as specs.md § 8 says"""
 
     master_fileno, slave_fileno = pty.openpty()
     argv = [sys.executable, "-I", litpyglass.__file__, f"--egg={egg}"]
@@ -1763,7 +2190,7 @@ def _try_egg_quit_(egg: str, data: bytes, count: int, results: bytes) -> tuple[b
         _pty_read_till_marker_(master_fileno, terminal_output, b"\033[6n\033[18t")
         os.write(master_fileno, results)
 
-    prompt = b"\r  \b\b" if (egg == "skater") else b"+ "
+    prompt = _SKATER_HAIL_.encode() if (egg == "skater") else b"+ "
     _pty_read_till_marker_(
         master_fileno, terminal_output, prompt
     )  # waits for the Prompt, since Bytes read too soon count as too fast
@@ -1775,7 +2202,7 @@ def _try_egg_quit_(egg: str, data: bytes, count: int, results: bytes) -> tuple[b
     isig = termios.tcgetattr(master_fileno)[3] & termios.ISIG  # ⌃C ⌃Z ⌃\ signal, or else not
     assert not isig, (isig, egg, bytes(terminal_output))
 
-    for _ in range(count):
+    for data in strike_steps:
         try:
             os.write(master_fileno, data)
         except OSError:

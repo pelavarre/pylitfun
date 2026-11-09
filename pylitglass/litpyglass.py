@@ -21,7 +21,7 @@ examples:
   pylitglass/litpyglass.py --egg=nanos  # print your input bytes and when they arrived
   pylitglass/litpyglass.py --egg=frames  # print your inputs split into frames, named when known
   pylitglass/litpyglass.py --egg=strikes  # print your input frames as strikes else text
-  pylitglass/litpyglass.py --egg=skater  # draw a '+' wherever the arrow keys take the cursor
+  pylitglass/litpyglass.py --egg=skater  # leave a reverse pair where the arrow keys take the cursor
   pylitglass/litpyglass.py --typeahead="$(printf '\r\r\r')"  # quit by itself
 """
 
@@ -461,34 +461,25 @@ class GlassWorker:
         stalwarts = (b"\033[C", b"\033[A", b"\033[D", b"\033[B")  # → ↑ ← ↓
         assert tuple(_.decode() for _ in stalwarts) == _CARDINAL_ENWS_ARROWS_
 
-        # Work out a palette of Terminal moves
-
-        square = "  "  # two Spaces side by side, one Square Pixel, the Cursor's own plain place
-
-        # Choose what to ask at entry and exit
-
-        assert HIDE_CUSR_RM_PSQ25 == "\033[" "?25l"
-
-        hails = ("\033[" "?25l",)
-        hail_text = "".join(hails)
+        # Choose what to write at exit
 
         assert CR == "\r"
-        assert SHOW_CUSR_SM_PSQ25 == "\033[" "?25h"
+        assert CUU_Y == "\033[" "{}" "A"
         assert CUD_Y.format(_MAX_PN_32100_) == "\033[" "32100" "B"
-        assert CUU_Y.format("") == "\033[A"
+        assert SHOW_CUSR_SM_PSQ25 == "\033[" "?25h"
+        assert NO_SGR_PS == "\033[" "m"
 
         farewells = (
-            "\r",  # warps Cursor to left of Screen Row
+            "\r",  # leaps to left of Screen Row
+            "\033[" "m",  # reverts the Text Styles
             "\033[" "?25h",  # shows the Cursor
-            "\033[" "32100" "B",  # warps to last Screen Row
-            "\033[A",  # warps to one Screen Row up from last
+            "\033[" "32100" "B",  # leaps to last Screen Row
+            "\033[A",  # leaps to one Screen Row up from last
         )
 
         farewell_bytes = "".join(farewells).encode()
 
         # Launch elegantly, almost silently, without printing instructions
-
-        assert BS == "\b"
 
         with TerminalBoss(typeahead=typeahead, farewell_bytes=farewell_bytes) as tb:
             ts = TerminalShadow(tb)
@@ -499,11 +490,31 @@ class GlassWorker:
             ist.pull_yx_hw_from_ts_else(stalwarts=stalwarts)
             tb.tty_setraw_before_farewell()  # takes ⌃C ⌃D ⌃Z ⌃\ as Input, and Return as b"\r"
 
-            ts.str_write_tb(hail_text)  # calls to shadow Hail only after pulling X W Y H
+            # Choose how to hail now, before farewell later
+
+            assert CR == "\r"
+            assert BS == "\b"
+            assert SHOW_CUSR_SM_PSQ25 == "\033[" "?25h"
+
+            base_place = ts.base_place
+            max_first_x = base_place.x_max - 1  # the last Column where a Pair of Spaces fits
+            back_count = max(0, base_place.column_x - max_first_x)  # zero or more Backspaces
+            assert back_count >= 0, (back_count,)
+
+            hails = (
+                "\033[" "m",  # reverts the Text Styles
+                "\033[" "?25h",  # shows the Real Cursor
+                "\b" * back_count,  # steps West as far as it must, no more
+            )
+            hail_text = "".join(hails)
+
+            ts.str_write_base_tb(hail_text)  # calls to shadow Hail only after pulling X W Y H
+
+            assert _2_COLUMNS_ == 2
+            assert _1_ROW_ == 1
+            assert ts.is_writeable_base_area(area_width=2, area_height=1), (ts.base_place,)
 
             # Loop till quit (such as by pressing Return three times quickly)
-
-            ts.str_write_tb(f"\r{square}\b\b")  # writes first Square, places first Cursor
 
             digits = "0123456789"
             i = "0"  # .i is our reply to the next Byte that doesn't complete a Frame
@@ -517,7 +528,9 @@ class GlassWorker:
                 caps = strike.caps
                 frame = strike.frame
 
-                # Cycle prompt across 1234567890, in reply to Bytes of an Open Frame not taken
+                # Cycle a Prompt across 1234567890, in reply to Bytes of an Open Frame not taken
+
+                assert BS == "\b"
 
                 data = frame.to_frame_bytes()  # maybe empty
                 if not taken:
@@ -525,97 +538,142 @@ class GlassWorker:
 
                     if data:
                         j = digits[(digits.index(i) + len(data)) % len(digits)]
-                        ts.str_write_tb(f"{j}\b")
+                        ts.str_write_top_tb(f"{j}\b")
                         # todo0: no visible reply to pasting N * 10 bytes
 
                     continue
 
-                # Move the Cursor, in reply to each Arrow Key Strike
+                # Pick out the bounce back, if these Key Caps are Arrows saying move ahead
 
-                if caps in ("→", "↑", "←", "↓"):  # → ↑ ← ↓ ENWS
+                bounce_caps_by_caps = dict(zip("↑↓←→", "↓↑→←"))
+                if caps in bounce_caps_by_caps.keys():
+                    bounce_caps = bounce_caps_by_caps[caps]
 
-                    bounce_by_caps = {  # bounces, not wraps
-                        "↑": ("↓", CUD_Y.format("")),
-                        "↓": ("↑", CUU_Y.format("")),
-                        "←": ("→", CUF_X.format("")),
-                        "→": ("←", CUB_X.format("")),
-                    }
+                    # Undo the replies written in the Top Layer, if any
 
-                    # Bounce at each edge of the Screen, lest the Arrow Key nop or spill
+                    self.ts_undo_enough_top_tb(ts)  # same here as whe quitting
 
-                    simple_move = self.form_skater_move(ts, caps=caps, decode=data.decode())
+                    # Move ahead, or bounce back (so as to avoid nop or spill)
 
-                    alt_caps, alt_decode = bounce_by_caps[caps]
-                    alt_move = self.form_skater_move(ts, caps=alt_caps, decode=alt_decode)
+                    base_text = self.form_base_text(ts, caps=caps)
+                    if place:
+                        if not ts.is_writable_place_after_strs(text=base_text):
+                            base_text = self.form_base_text(ts, caps=bounce_caps)
 
-                    skater_move = simple_move
-                    if place.has_much_area():
-                        if not ts.is_writable_place_after_strs(text=simple_move):
-                            skater_move = alt_move
+                    # Write the Reverse Pair into the Base Layer, and leap ahead or bounce back
 
-                    # Write the move
+                    ts.str_write_base_tb(base_text)
 
-                    ts.str_write_tb(skater_move)
+                    # Write a Plain Pair into the Top Layer, but only over a written Cell
 
-                    # Reset the Prompt Cycle
+                    assert _2_COLUMNS_ == 2
+                    assert _1_ROW_ == 1
+
+                    if not ts.base.is_shadowed_area(area_width=_2_COLUMNS_, area_height=_1_ROW_):
+                        ts.str_write_base_tb(SHOW_CUSR_SM_PSQ25)
+                    else:
+                        top_text = self.form_top_text(ts)
+                        ts.str_write_top_tb(HIDE_CUSR_RM_PSQ25 + top_text)
+
+                    # Restart the Open Frame Prompt, after each Meaningful Frame
 
                     i = "0"
                     continue
 
-                # Else reply to the meaningless Frame, between X and O,
-                # and cycle the Open Frame Prompt forward by as many Bytes as taken
+                # Else reply to the Meaningless Frame, between X and O
 
-                ts.str_write_tb(f"{xo}\b")
+                assert BS == "\b"
 
+                ts.str_write_top_tb(f"{xo}\b")
                 xo = "O" if (xo == "X") else "X"
+
+                # And do cycle the Open Frame Prompt forward by all the Meaningless Bytes
 
                 i = digits[(digits.index(i) + len(data)) % len(digits)]
                 continue  # explicitly
 
             # Quit happy
 
-            ts.str_write_tb(" \b")  # redraws the left of our 2x1 Cell over our Quit Signal reply
+            self.ts_undo_enough_top_tb(ts)
+            # redraws the Base Layer over our replies, such as to our Quit Signal
 
-    def form_skater_move(self, ts: TerminalShadow, caps: str, decode: str) -> str:
-        """Spell how to move one Pixel in the direction of an Arrow Key"""
+    def ts_undo_enough_top_tb(self, ts: TerminalShadow) -> None:
+        """Work hard to undo enough of the Replies, just before moving on or quitting"""
 
-        base = ts.base
+        top = ts.top
+        top_place = top.place
 
-        assert _2_COLUMNS_ == 2
+        if len(top.write_by_xy) == 1:
+            (xy,) = top.write_by_xy.keys()
+            assert (top_place.column_x, top_place.row_y) == xy, (xy, top_place)
+
+            top.write_by_xy.clear()  # intentionally forgets to undo a single Prompt Char
+
+        ts.undo_top_tb()
+
+    def form_base_text(self, ts: TerminalShadow, caps: str) -> str:
+        """Spell the move: a Reverse Pixel for the Base Layer, and a step toward an Arrow Key"""
+
+        base_place = ts.base_place
+
+        assert SP == " "
+
+        assert CUU_Y == "\033[" "{}" "A"
+        assert CUD_Y == "\033[" "{}" "B"
+        assert CUF_X == "\033[" "{}" "C"
+        assert CUB_X == "\033[" "{}" "D"
+
         assert NO_SGR_PS == "\033[" "m"
         assert REVERSE_SGR_PS7 == "\033[" "7m"
 
-        square = "  "  # two Spaces side by side, one Square Pixel, the Cursor's own plain place
-        plain = NO_SGR_PS  # reverts all the works of SGR_PS
+        square = 2 * " "  # two Spaces side by side, one Square Pixel
+        plain = NO_SGR_PS  # reverts the Text Styles
         reverse = REVERSE_SGR_PS7  # swaps to color B on F, from color F on B
 
-        vertical = caps in ("↑", "↓")
-        warp = decode if vertical else (decode + decode)  # for 2x1 Cells
+        square_leap_by_caps = {  # for 2x1 Terminal Screen Cells
+            "↑": 1 * CUU_Y.format(""),  # Up North
+            "↓": 1 * CUD_Y.format(""),  # Down South
+            "←": 2 * CUB_X.format(""),  # Back West
+            "→": 2 * CUF_X.format(""),  # "Forward" East
+        }
 
-        step_x_by_caps = {"↑": 0, "↓": 0, "←": -2, "→": 2}
-        step_x = step_x_by_caps[caps]
+        leap = square_leap_by_caps[caps]
 
-        # Calculate how {plain}{leave} and {square}{arrive} can leave the Cursor unmoved,
-        # when we know where the Cursor is and so can dodge the last Column
+        # Choose what to leave behind
 
-        leave = "\b\b"  # writing two Spaces moves the Cursor 1 or 2 Columns right
-        arrive = "\b\b"
+        back = self.form_back_text(base_place)
+        base_text = f"{reverse}{square}{plain}{back}" + leap
 
-        place = base.place
-        if place.has_much_area():
-            column_x = place.column_x
-            x_width = place.x_width
+        # Succeed
 
-            if (column_x + 1) >= x_width:
-                leave = "\b"
+        return base_text
 
-            if (column_x + step_x + 1) >= x_width:
-                arrive = "\b"
+    def form_top_text(self, ts: TerminalShadow) -> str:
+        """Spell a Plain Pixel for the Top Layer, where the Cursor sits"""
 
-        # Leave a Reverse Pixel where we were, and arrive with a Plain Pixel
+        base_place = ts.base_place
 
-        skater_move = f"{reverse}{square}{plain}{leave}{warp}{square}{arrive}"
-        return skater_move
+        assert SP == " "
+
+        square = 2 * " "  # two Spaces side by side, one Square Pixel, the Cursor's own plain place
+
+        back = self.form_back_text(base_place)
+        top_text = f"{square}{back}"
+        return top_text
+
+    def form_back_text(self, place: TerminalPlace) -> str:
+        """Spell how to back the Cursor up over two Spaces written at its Place"""
+
+        assert _2_COLUMNS_ == 2
+        assert BS == "\b"
+
+        back = "\b\b"  # backs up over two Columns
+
+        if place:
+            if (place.column_x + 1) >= place.x_width:
+                back = "\b"  # backs up over one Column
+
+        return back
 
 
 #
@@ -1053,6 +1111,8 @@ class KeyboardDecoder:
 
         # Accept single Characters escaped, no matter if shifted or not
 
+        assert ESC == "\033"
+
         if bytes_names == "⎋⎋":  # ⎋⎋
             return b"\033\033"
 
@@ -1340,16 +1400,35 @@ class TerminalShadow:
     """Keep a copy of what we've written to a Terminal"""
 
     tb: TerminalBoss  # the one Terminal we write through
-    base: TerminalLayer  # what we know we wrote
+
+    base: TerminalLayer  # the Base Layer, what we know we wrote and mean to leave
+    top: TerminalLayer  # the Top Layer, what we know we wrote and mean to undo
 
     def __init__(self, tb: TerminalBoss) -> None:
 
         self.tb = tb
 
         place = TerminalPlace(column_x=1, x_max=1, x_width=1, row_y=1, y_height=1)
-        assert not place.has_much_area(), (place,)
+        assert not place, (place,)
 
         self.base = TerminalLayer(place=place, text_styles=(), write_by_xy=dict())
+
+        top_place = dataclasses.replace(place)  # clones
+        self.top = TerminalLayer(place=top_place, text_styles=(), write_by_xy=dict())
+
+    @property
+    def base_place(self) -> TerminalPlace:
+        """Say where the Cursor is in the Base Layer, and how big the Screen is"""
+
+        base = self.base
+        return base.place
+
+    def is_writeable_base_area(self, /, area_width: int, area_height: int) -> bool:
+        """Say if every Cell of the Area, to the East & South of here, may be written"""
+
+        base = self.base
+        writeable = base.is_writeable_area(area_width=area_width, area_height=area_height)
+        return writeable
 
     def request_yx_hw_from_tb(self) -> None:
         """Ask where the Cursor is and how big the Screen is, both answered later in order"""
@@ -1366,6 +1445,7 @@ class TerminalShadow:
         """Take the Cursor Column and Row, or the Screen Width and Height, from the Terminal"""
 
         base = self.base
+        top = self.top
 
         assert _5_ROWS_ == 5
         assert _20_COLUMNS_ == 20
@@ -1374,41 +1454,46 @@ class TerminalShadow:
         if not result:
             return result
 
-        tag, int1, int2 = result
+        tag, int1, int2 = result  # maybe same as was, maybe different
         assert tag in ("YX", "HW"), (tag,)
 
-        # Update the X Y with a change, or with no change
-
-        place = base.place
+        # Update the X Y in the Layer where the Cursor sits
 
         if tag == "YX":
             assert int1 >= _1_ROW_, (int1,)
             assert int2 >= _1_COLUMN_, (int2,)
 
-            next_place = dataclasses.replace(place, column_x=int2, row_y=int1)
+            area_layer = top if top else base  # the Top, once it is on
+            next_place = dataclasses.replace(area_layer.place, column_x=int2, row_y=int1)
+            area_layer.place = next_place  # replace with the next, no matter if equal or not
 
-        # Update the W H with a change, or with no change
+        # Else calculate the X Max from the X Width
 
         else:
             assert tag == "HW", (tag,)
             assert int1 >= _5_ROWS_, (int1,)
             assert int2 >= _20_COLUMNS_, (int2,)
 
-            y_height = int1
             x_width = int2
             x_max = x_width - (x_width % 2)  # an odd Width W+1 acts as W
 
-            next_place = dataclasses.replace(place, x_max=x_max, x_width=x_width, y_height=y_height)
+            place1 = dataclasses.replace(base.place, x_max=x_max, x_width=int2, y_height=int1)
+            place2 = dataclasses.replace(place1)
+
+            # Update the W H in the Base always, and update the Top to match if Top truthy
+
+            base.place = place1  # replace with the next, no matter if equal or not
+            if top:
+                top.place = place2
 
         # Succeed
-
-        base.place = next_place  # replace with the next, no matter if equal or not
 
         return result
 
         # todo0: get unhappy when not next_place.is_onscreen_place
+        # todo: think harder about place.__bool__ undecided after XY until WH
 
-    def str_write_tb(self, text: str) -> None:
+    def str_write_base_tb(self, text: str) -> None:
         """Write the Text and shadow the Write"""
 
         tb = self.tb
@@ -1416,40 +1501,203 @@ class TerminalShadow:
 
         # Require a Write that we can shadow
 
-        assert base.place.has_much_area(), (base.place, text)
+        assert base, (base.place, text)
 
         fork_layer = base.fork_layer()
         all_written_on_screen = fork_layer._write_some_or_all_strs_(text)
         assert all_written_on_screen, (text, base.place)
 
-        # Shadow it and write it, because from above we know we can
+        # Shadow it
 
         fork_layer.shadow_screen_into(base)
+
+        # Write it for real
+
         tb.bytes_write_flush(text.encode())
+
+    def str_write_top_tb(self, text: str) -> None:
+        """Write the Text and shadow the Write in the Top Layer only, to undo it later"""
+
+        tb = self.tb
+        base = self.base
+        top = self.top
+
+        # Require a Write that we can shadow
+
+        assert base, (base.place, text)
+
+        area_layer = top if top else base
+        fork_layer = area_layer.fork_layer()
+        assert fork_layer, (fork_layer.place,)
+
+        all_written_on_screen = fork_layer._write_some_or_all_strs_(text)
+        assert all_written_on_screen, (text, area_layer.place)
+
+        # Shadow it in the Top Layer only, leaving the Base Layer's Place and Text Styles unchanged
+
+        fork_layer.shadow_screen_into(top)
+
+        # Write it for real
+
+        tb.bytes_write_flush(text.encode())
+
+    def undo_top_tb(self) -> None:
+        """Write the Base Layer's Cells back over each Cell of the Top Layer, and turn the Top off"""
+
+        tb = self.tb
+        base = self.base
+        top = self.top
+
+        assert base, (base.place,)
+
+        # Do nothing when the Top Layer is off, as a Top Layer of 1 by 1 is
+
+        if not top:
+            return
+
+        base_place = dataclasses.replace(base.place)  # clones, to keep what it was at entry
+        base_styles = base.text_styles
+
+        # Plan for a Write to rewrite every Cell written via the Top Layer
+
+        hope_layer = top.fork_layer()  # starts where the Terminal Cursor is, which is in the Top
+
+        hope_text = ""
+        yx_sorted = sorted((y, x) for (x, y) in top.write_by_xy.keys())
+        for y, x in yx_sorted:  # from North to South, from West to East
+
+            assert SP == " "
+            assert NO_SGR_PS == "\033[" "m"
+
+            assert (x, y) in base.write_by_xy.keys(), (x, y, base_place)
+
+            leap = TerminalShadow.form_leap_back(hope_layer.place, column_x=x, row_y=y)
+            cell_styles, cell_text = base.write_by_xy[(x, y)]
+            cell_write = leap + NO_SGR_PS + "".join(cell_styles) + cell_text
+            assert hope_layer._write_some_or_all_strs_(cell_write), (cell_write, hope_layer.place)
+
+            hope_text += cell_write
+
+        # Plan to put the Terminal Cursor & Text Styles back to where they were
+
+        assert NO_SGR_PS == "\033[" "m"
+
+        leap = TerminalShadow.form_leap_back(
+            hope_layer.place, column_x=base_place.column_x, row_y=base_place.row_y
+        )
+        end_text = NO_SGR_PS + "".join(base_styles) + leap
+
+        assert hope_layer._write_some_or_all_strs_(end_text), (end_text, hope_layer.place)
+        assert hope_layer.place == base_place, (hope_layer.place, base_place)
+
+        hope_text += end_text
+
+        # Turn off the Top
+
+        top.clear_layer()
+
+        # Write it for real
+
+        tb.bytes_write_flush(hope_text.encode())
+
+    @staticmethod
+    def form_leap_back(place: TerminalPlace, column_x: int, row_y: int) -> str:
+        """Spell how to move the Terminal Cursor West along its Row to a Column"""
+
+        assert place.row_y == row_y, (place.row_y, row_y)
+
+        from_x = min(place.column_x, place.x_width)  # (x > width) is while waiting to wrap
+        x_west = from_x - column_x
+        assert x_west >= 0, (x_west, from_x, column_x)
+
+        assert CUB_X == "\033[" "{}" "D"
+        leap = CUB_X.format(x_west) if x_west else ""
+
+        return leap
+
+        # todo0: larger leaps from arbitrary places such as a pasted ⎋[9;8R
 
     def is_writable_place_after_strs(self, text: str) -> bool:
         """Say if writing the Str keeps the Terminal Cursor inside the Writable Area"""
 
         base = self.base
-        assert base.place.is_writable_place(), (base.place,)
+        base_place = base.place
+
+        assert base_place.is_writable_place(), (base_place,)
 
         fork_layer = base.fork_layer()
         if not fork_layer._write_some_or_all_strs_(text):
             return False
 
-        if not fork_layer.place.is_writable_place():
+        fork_place = fork_layer.place
+        if not fork_place.is_writable_place():
             return False
 
         return True
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass(kw_only=True)  # todo: inconveniently large repr after many writes
 class TerminalLayer:
     """Keep a copy of what we could write to a Terminal"""
 
     place: TerminalPlace  # where the Cursor, how big the Screen
     text_styles: tuple[str, ...]  # the Text Styles in force
     write_by_xy: dict[tuple[int, int], tuple[tuple[str, ...], str]]  # (texts, t) by (x, y)
+
+    def __bool__(self) -> bool:
+        truthy = bool(self.place)
+        if not truthy:  # all falsey if .place falsey, vs maybe and maybe-not while .place truthy
+            assert not self.text_styles, (self.text_styles,)
+            assert not self.write_by_xy, (self.write_by_xy,)
+        return truthy
+
+    def clear_layer(self) -> None:
+        """Drop every Write and Text Style, & change the Layer back to Falsey"""
+
+        self.place = TerminalPlace(column_x=1, x_max=1, x_width=1, row_y=1, y_height=1)
+        self.text_styles = ()
+        self.write_by_xy.clear()
+
+        assert not self, (self.place,)
+
+    def is_writeable_area(self, /, area_width: int, area_height: int) -> bool:
+        """Say if every Cell of the Area, to the East & South of here, may be written"""
+
+        place = self.place
+
+        assert _1_COLUMN_ == 1
+        assert _1_ROW_ == 1
+
+        assert area_width >= _1_COLUMN_, (area_width,)
+        assert area_height >= _1_ROW_, (area_height,)
+
+        far_x = place.column_x + (area_width - _1_COLUMN_)
+        far_y = place.row_y + (area_height - _1_ROW_)
+        far_place = dataclasses.replace(place, column_x=far_x, row_y=far_y)
+
+        is_writeable = place.is_writable_place() and far_place.is_writable_place()
+        return is_writeable
+
+    def is_shadowed_area(self, /, area_width: int, area_height: int) -> bool:
+        """Say if every Cell of the Area, from the Cursor east and south, has been written"""
+
+        place = self.place
+        write_by_xy = self.write_by_xy
+
+        assert _1_COLUMN_ == 1
+        assert _1_ROW_ == 1
+
+        assert area_width >= _1_COLUMN_, (area_width,)
+        assert area_height >= _1_ROW_, (area_height,)
+
+        xy_pairs = list(
+            (place.column_x + step_x, place.row_y + step_y)
+            for step_y in range(area_height)
+            for step_x in range(area_width)
+        )
+
+        all_written = all(xy in write_by_xy.keys() for xy in xy_pairs)
+        return all_written
 
     def fork_layer(self) -> TerminalLayer:
         """Start a new Layer at the same Place, with the same Text Styles, with no Writes"""
@@ -1485,16 +1733,14 @@ class TerminalLayer:
         fewer = TerminalLayer.text_styles_compress(text_styles)  # fewer or same
         assert text_styles == fewer, (text_styles, fewer)
 
-        writing_place = place  # replaceable
-        next_styles = text_styles  # immutable
-
+        next_styles = text_styles  # immutable, replaceable
         for m in re.finditer(r"\033\[([0-9;?]*)([@-~])|(.)", text):
             params, final, t = m.groups()
             split = m.group(0)
 
             # Fail fast
 
-            if not writing_place.is_onscreen_place():
+            if not place.is_onscreen_place():
                 return False
 
             # Shadow change of (or reaffirmation of) Text Styles
@@ -1510,20 +1756,27 @@ class TerminalLayer:
 
             # Shadow Y X Moves, to a new place (or to the same place)
 
+            assert BS == "\b"
+            assert CR == "\r"
+            assert CUU_Y == "\033[" "{}" "A"
+            assert CUD_Y == "\033[" "{}" "B"
+            assert CUF_X == "\033[" "{}" "C"
+            assert CUB_X == "\033[" "{}" "D"
+
             if (t in ("\b", "\r")) or (final in ("A", "B", "C", "D")):
-                assert not params, (params,)  # copes only with ⎋[A ⎋[B ⎋[C ⎋[D
-                writing_place.write_str_at_place(split)
+                assert (not params) or params.isdigit(), (params,)  # copes with ⎋[A and ⎋[3A
+                place.write_str_at_place(split)
                 continue
 
             # Shadow Printable Text Writes placed in Writable Columns on-screen
 
             if t and t.isprintable():
-                if not writing_place.is_writable_place():
+                if not place.is_writable_place():
                     return False
 
-                xy = (writing_place.column_x, writing_place.row_y)
+                xy = (place.column_x, place.row_y)
                 write_by_xy[xy] = (next_styles, t)  # replaces or adds  # different or same
-                writing_place.write_str_at_place(split)
+                place.write_str_at_place(split)
 
                 continue
 
@@ -1541,7 +1794,7 @@ class TerminalLayer:
 
         # Fail even when it was the last Split that stepped off screen
 
-        if not writing_place.is_onscreen_place():
+        if not place.is_onscreen_place():
             return False
 
         # Succeed
@@ -1579,11 +1832,14 @@ class TerminalPlace:
     row_y: int  # the Cursor Row, at or away from y=1 in the far North
     y_height: int  # the Screen Rows, at least 1
 
-    def has_much_area(self) -> bool:
-        """Say if the Screen Width and Height are other than 1 and 1"""
-        return (self.x_width, self.y_height) != (1, 1)
+    def __bool__(self) -> bool:
+        """Say if the Place Width and Height are other than 1 and 1"""
+        truthy = (self.x_width, self.y_height) != (1, 1)
+        if not truthy:
+            assert self.column_x == self.x_max == self.row_y == 1, (self,)
+        return truthy
 
-        # made true by reporting some such Width W and Height H
+        # todo: think harder about how filling X Y in early can make __bool__ unavailable
 
     def write_str_at_place(self, text: str) -> None:
         """Shadow how writing this Str moves the Terminal Cursor"""
@@ -1602,6 +1858,13 @@ class TerminalPlace:
         if self.column_x > self.x_width:
             self.column_x = self.x_width  # doesn't wrap when control written
 
+        assert BS == "\b"
+        assert CR == "\r"
+        assert CUU_Y == "\033[" "{}" "A"
+        assert CUD_Y == "\033[" "{}" "B"
+        assert CUF_X == "\033[" "{}" "C"
+        assert CUB_X == "\033[" "{}" "D"
+
         xy_step_by_split = {
             "\b": (-1, 0),  # one step West
             "\r": (1 - self.column_x, 0),  # far West
@@ -1611,10 +1874,22 @@ class TerminalPlace:
             "\033[D": (-1, 0),  # one step West
         }
 
-        step_x, step_y = xy_step_by_split[control]
+        count = 1
+        split_control = control
 
-        self.column_x += step_x
-        self.row_y += step_y
+        csi = re.fullmatch(r"\033\[([0-9]*)([ABCD])", control)
+        if csi:
+            ps, final = csi.groups()
+            if ps:
+
+                count = int(ps)  # loosely accepts even '0010' as 10, etc
+                assert count >= 1, (count, ps)
+                split_control = "\033[" + final
+
+        step_x, step_y = xy_step_by_split[split_control]
+
+        self.column_x += count * step_x
+        self.row_y += count * step_y
 
     def is_onscreen_place(self) -> bool:
         """Say if the Cursor sits on the Screen, or just past the right edge, waiting to wrap"""
@@ -2177,6 +2452,7 @@ class TerminalByteFrame:
 
         assert _CLICK3_ == "\033[M"
         assert DL_Y == "\033[" "{}" "M"
+        assert DL_Y.format("") == _CLICK3_
 
         data = self.to_frame_bytes()
 
@@ -2392,6 +2668,8 @@ class TerminalByteFrame:
     def _take_before_head_if_(self, data: bytes, text: str) -> bytes:
         """Take 1..4 more Bytes in, before any Head, else return what doesn't fit"""
 
+        assert ESC == "\033"
+
         encodes = self.encodes
         head = self.head
 
@@ -2436,6 +2714,9 @@ class TerminalByteFrame:
 
     def _take_after_ss3_or_esc_if_(self, data: bytes, text: str, peek: str) -> bytes:
         """Take 1..4 more Bytes in, after ⎋ Esc or ⎋O Ss3, else return what doesn't fit"""
+
+        assert ESC == "\033"
+        assert SS3 == "\033O"
 
         head = self.head
         backtail = self.backtail
@@ -2962,11 +3243,14 @@ def is_quitting_shape(pairs: typing.Sequence[tuple[int, bytes]]) -> bool:
 #
 
 
-BEL = "\007"  # 00/07 Bell
-BS = "\010"
-LF = "\012"  # 01/10 Line Feed \n ⏎
-CR = "\015"  # 01/13 Carriage Return \r ⏎
-ESC = "\033"  # 01/11 Escape ⎋
+BEL = "\007"  # 00/07 Bell \a ␇ ⍾
+BS = "\010"  # 00/08 Backspace \b ␈
+LF = "\012"  # 00/10 Line Feed \n ␊ ⏎
+CR = "\015"  # 00/13 Carriage Return \r ␍ ⏎
+ESC = "\033"  # 01/11 Escape ␛ ⎋  # \e outside of Python
+SP = "\040"  # 02/00 Space ' ' ␢
+# DEL = "\177"  # 07/15 Delete ␡ ⌫
+
 
 SS3 = "\033O"  # 01/11 04/15 Single Shift Three  # ⎋O
 CSI = "\033["  # 01/11 05/11 Control Sequence Introducer  # ⎋[
@@ -3027,9 +3311,9 @@ DSR6 = "\033[" "6n"  # DSR_PS Ps 6 for CPR_Y_X
 CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R  # [ CPR ⇧R Result to N Query DSR_PS Ps 6 ]
 
 
-DECSCUSR_PS = "\033[" "{}" " q"  # CSI 06/15 [DEC] Set Cursor Style [Ps]  # Two Byte Backtail
-SKID_DECSCUSR_PS4 = "\033[" "4" " q"  # DECSCUSR_PS Ps 4 for steady Skid Mark
-NO_DECSCUSR_PS = "\033[" " q"  # DECSCUSR_PS Ps 0 to revert to default Cursor Style
+# DECSCUSR_PS = "\033[" "{}" " q"  # CSI 06/15 [DEC] Set Cursor Style [Ps]  # Two Byte Backtail
+# SKID_DECSCUSR_PS4 = "\033[" "4" " q"  # DECSCUSR_PS Ps 4 for steady Skid Mark
+# NO_DECSCUSR_PS = "\033[" " q"  # DECSCUSR_PS Ps 0 to revert to default Cursor Style
 
 
 XTWINOPS_18 = "\033[" "18" "t"  # CSI 07/04 [ Query Ps 18 for Result Ps 8 ]
