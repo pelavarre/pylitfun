@@ -3131,13 +3131,18 @@ def decimal_int_chop_to_eng_metric(n: int, one: str) -> str:
 
     si_quanta = tuple("qryzafpnµm") + ("",) + tuple("kMGTPEZYRQ")  # the SI Prefixes since Nov/2022
 
-    numeral, quantum, unit = (one[0], "", one[1:])  # from one == '1'  # from one == '1Ω'
-    if one[2:]:
-        numeral, quantum, unit = (one[0], one[1], one[2:])  # from one == '1nH'
-        if one[1] not in si_quanta:
-            numeral, quantum, unit = (one[0], "", one[1:])  # from one == '1Hz'
+    if not one.startswith("1"):
+        numeral, quantum, unit = ("1", "", one)  # from one == 'Pa'  # from one == 'mol'
+    else:
+        numeral, quantum, unit = (one[0], "", one[1:])  # from one == '1'  # from one == '1Ω'
+        if one[2:]:
+            numeral, quantum, unit = (one[0], one[1], one[2:])  # from one == '1nH'
+            if one[1] not in si_quanta:
+                numeral, quantum, unit = (one[0], "", one[1:])  # from one == '1Hz'
 
-            # caller must append 'Pa', 'min', 'mol', etc to duck P=10**15 m=10**-3 etc
+        # one == "Pa" counts 1 "Pa"  # "mol" counts 1 "mol"  # "min" counts 1 "min"
+        # one == "1kPa" counts 10**3 of "Pa"  # "1kmol" counts 10**3 "mol"  # "1kmin" 10**3 "min"
+        # one="1Pa" counts 10**15 of "a"  # one="1mol" counts 10**-3 "ol"  # "1min" 10**-3 "in"
 
     assert numeral == "1", (numeral, quantum, unit, one)
     quantum_index = si_quanta.index(quantum)
@@ -3164,9 +3169,9 @@ def decimal_int_chop_to_eng_metric(n: int, one: str) -> str:
 
     # Succeed
 
-    return rep  # '0Ω'  # '12ns'  # '9.87µH'  # '654ms'
+    return rep  # '0Ω'  # '12ns'  # '9.87µH'  # '654ms'  # '33kPa'
 
-    # 'def decimal_int_chop_to_eng_metric' last modified for py2def.py on 2026-10-28 or later
+    # 'def decimal_int_chop_to_eng_metric' last modified for py2def.py on 2026-11-08 or later
 
 
 def decimal_int_chop_to_eng(n: int) -> str:
