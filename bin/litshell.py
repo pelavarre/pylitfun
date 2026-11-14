@@ -548,10 +548,18 @@ class ShellGopher:
     def _compile_brick_if_(self, verb: str) -> ShellBrick:
         """Compile one Brick"""
 
-        brick = ShellBrick(self, verb=verb)
+        dwim_by_verb = {
+            "dedent": "'unframe'",
+            "wc": "'split len' or 'len' or 'n'",
+        }
 
+        brick = ShellBrick(self, verb=verb)
         if not brick.verb:
+
             occasion = f"NameError: name '{verb}' is not defined"
+            if verb in dwim_by_verb.keys():
+                occasion += f", did you mean {dwim_by_verb[verb]}?"
+
             raise LitSystemExit(code=1, occasion=occasion)  # NameError of a Brick
 
         return brick
