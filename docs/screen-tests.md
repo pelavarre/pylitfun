@@ -21,8 +21,9 @@ However
 The famous Control Characters are
 
     ⌃⇧@ ⌃G ⌃H ⌃J mean \0 \a \b \n, and ⌃[ means \e, also known as ⎋ Esc
-    ⇥ Tab means ⌃I \t, and ⏎ Return means ⌃M \r, and ⌫ ⌃? Delete means \b
-    ⌃␢ means ⌃⇧@ means \0, and ⌥␢ means \302\240 U+00A0 No-Break Space
+    ⇥ Tab means ⌃I \t, and ⏎ Return means ⌃M \r,
+    but ⌃H \b can be on a separate Backspace Key or implied by a ⌫ ⌃? Delete Key,
+    and ⌃␢ means ⌃⇧@ means \0, and ⌥␢ means \302\240 U+00A0 No-Break Space
 
 The famous Esc ⎋ Byte Pairs are ⎋ 7 8 C L ⇧D ⇧E ⇧M
 
