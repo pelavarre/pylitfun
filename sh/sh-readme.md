@@ -1,60 +1,68 @@
 # Tiny independent Shell Tools, one file each
 
-\> [sh/*](.)
+\> the folder [sh/](.) here
 
 **Take one. Then another. Then more.**
 
-Each file in here is a few lines of a plain Shell Script. Each Script stands alone. Copy one into your own Shell Path, and it works. Copy none of the others, and the one you did copy still works.
+Each file in here is a few lines of a plain Shell Script. Each Script stands alone. Copy one Script into your own Shell Path, and it works. Copy none of the others, and the Script you did copy still works.
 
     cp -ip sh/.ls ~/bin/.
 
-That is the whole install. No framework to adopt, no config to source. If you stop liking one, delete it, and nobody cares.
+That is the whole install. No broad Framework to adopt, no Configuration Script for you to source. When you stop loving a Script, you delete it. And nobody's hurt!
 
 
 ## Who is this for?
 
-You already have a dozen aliases in your Shell rc file. You know they've got bugs you're not fixing. A few of them you have forgotten altogether by now.
+All kinds of Shell Patches have problems. They die when you 'ssh' somewhere, because they didn't come with you. They die when you switch to Zsh from Bash. They fail when not found in the Shell Path by some new Script. They pile up as lines of 'alias' and 'function' inside some RC dotfile that you're slow to edit, because you've forgotten how half of them work.
 
-The bundling is part of the problem. They die when you 'ssh' somewhere, because they didn't come with you. They die when you switch to Zsh from Bash. They fail when not found in the Shell Path by a new Script. They pile up as lines of 'alias' inside one file that you're slow to edit, because you've forgotten how half of them work.
+You already have a dozen Patches in your Shell RC dotfile. You know they've got bugs you're not fixing.
 
-A tool that is one small file has none of these problems. You drop it into the Shell Path, one host at a time, and make its name as short or long as you like. It runs from any Shell, or from no Shell. It travels by 'cp' and by 'scp'. Its whole story fits on one screen, it opens by saying what it's for, and it can be coded to say who it is again, when it runs.
+Could it be that the RC dotfile bundle even existing is part of the problem?
 
-Fifty of these small files are exactly this simple. And then there are two more. These other two end in '.sh' and come from 'chmod -x'. They code up Shell 'function's to source into your Shell, because they touch things that exist only inside your Shell: your Pwd current directory folder and your '$?' last exit code. To install them, you copy them into your ~/.zprofile and ~/.bash_profile and so on. Or you can 'source' them on demand.
+A tool that is one small file, complete in itself, has none of these problems. You drop it into the Shell Path, one host at a time, and make its name as short or long as you like. It runs from any Shell, or from no Shell. It travels by 'cp' and by 'scp'. Its whole story fits on one screen. You can code it, and we have coded it, to say up front who it is again and what it's for again, when it runs. You can even paste it to run it, you don't have to save it.
+
+Fifty of the small files we give you here indeed are exactly this simple.
+
+Each small file carries no context to trip you up. It lives and travels well, because it shows up as decontextualized as a tweet.
+
+We run ahead and mark these fifty files with 'chmod +x' for you, to help you run them by name. But after our first fifty files, we do go on to give you a few less simple files. Our few less simple files end in '.sh' and come from 'chmod -x'. These code up Shell Functions to source into your Shell, because they touch things that exist only inside your Shell: your Pwd current directory folder and your '$?' last process return status exit code. To install these, you do still copy them into your ~/.zprofile or ~/.bash_profile and so on. And you can 'source' these '.sh' files on demand, even just paste them in to run them.
 
 <!-- beware: Some Markdown Renders overreact to more than one $ in a paragraph. -->
 
 
-## Three kinds of new Shell Commands
+## Three kinds of Shell Scripts
 
-You'll find three kinds of new Shell Commands here, doing three kinds of work.
+You'll find three kinds of Shell Scripts in here, doing three kinds of work.
 
-### 1 Most of the familiar names wear a leading dot
+### 1 Most of our Shell Scripts go by familiar names wearing a leading dot
 
-Six telling examples of a few lines each are [.clear](./.clear), [.cp](./.cp), [.cut](./.cut), [.ls](./.ls), [.rm](./.rm), and [.seq](./.seq). Each dotfile calls the command you already know, but with the options you'd have chosen, if you'd stopped and chosen. The '.clear' does clear the Scrollback, not only the Screen. The '.cp' duplicates like a mouse drag, and doesn't falsely say it also edited the duplicated file or folder. The '.cut' cuts to fit on Screen. The '.ls' shows the dotfiles and sorts by when last edited. The '.rm' has an undo. The '.seq' scrolls the old Screen up into the Scrollback, so as to leave your Screen empty without losing its history.
+Seven telling examples of a few lines each are [.clear](./.clear), [.cp](./.cp), [.cut](./.cut), [.dirs](./.dirs), [.ls](./.ls), [.rm](./.rm), and [.seq](./.seq). Each of these dotfiles calls the command you already know, but with the options you'd have chosen, if you'd stopped and thought and chosen. The '.clear' does clear the Scrollback, not only the Screen. The '.cp' duplicates like a mouse drag, and doesn't misleading roll forward its copy of the date/time stamp of when last edited. The '.cut' cuts to fit well on Screen. The '.ls' shows dotfiles alongside files, and sorts by when last edited. The '.rm' has an undo. The '.seq' scrolls the old Screen up into the Scrollback, so as to leave your Screen empty without losing its history.
 
-Type the dot and you get the options you need. Skip the dot and you get the stock command, untouched. You get it? We've improved three dozen familiar Shell commands, but we've disrupted nothing. The improvements you need will be obvious to you, in the first moment when you stop and look now. All you needed to learn here you already know now: the leading dot opens up a new and conventionally empty namespace for you to define.
+Type the dot and you're running the improved defaults that best suit your work. Skip the dot and you get the stock command, untouched. You feel you get it? We've improved three dozen familiar Shell commands, and we've disrupted nothing. Which of these improvements you need will be obvious to you, in the first moment when you stop and look at them. All you needed to learn here you already do know by now: the leading dot opens up a new empty namespace for you to fill out, as bet helps you.
 
-### 2 A handful of familiar names wear no dot at all
+### 2 A handful of our Shell Scripts wear no dot at all
 
-The 'emacs', 'md5sum', 'sha256sum', and 'tac' add back in a frequently needed Linux Shell Command that old or new macOS leaves out. 'emacs' finds the Homebrew Emacs. Adding these in at the back of your Shell Path only fills your gaps. They're harmless if you install some other solution ahead of them.
+Our Shell Scripts named 'emacs', 'md5sum', 'sha256sum', and 'tac' add back in a frequently needed Linux Shell Command that an old or new macOS leaves out. 'emacs' finds the Homebrew Emacs. Adding these in at the back of your Shell Path only fills your gaps. They're harmless, they disrupt nothing, so long as you install your other solutions into your Shell Path ahead of them.
 
-### 3 The few surprising names are extremely short, because you type them so often
+Most easily, if you copy what you like and leave the rest behind, then the rest cannot disrupt anything. Otherwise you have to carefully place your copy of these into the Shell Path behind the versions you prefer.
 
-The 'd' for a diff, 'v' or 'e' for an editor, 'f' for a find, 'm' for a make.
+### 3 The few surprising Script filenames are extremely short, because you type them so often
 
-Our 'pb' is your Os Copy/Paste Clipboard Buffer: at the front of a Pipe it pastes, at the back of a Pipe it copies, and in the middle it copies, waits for end-of-file, and then passes the bytes along, so you type 'pb' when you need it, and never stop again to remember which of 'pbpaste' and 'pbcopy' you meant. Plus you get the classic idea of '|sponge|' more simply installed and running just as well, but as '|pb|'.
+We give you a few more Shell Scripts with maximally short names: the 'd' for a diff, 'v' or 'e' for an editor, 'f' for a find, 'm' for a make.
 
-Because land-grabbing short names so often collides with work by someone else, we define both 'pb' and 'cv' to do the same thing, and hope you can call the one or the other.
+Our 'pb' is your Os Copy/Paste Clipboard Buffer: at the front of a Pipe it pastes, at the back of a Pipe it copies, and in the middle it copies, waits for end-of-file, and then passes the bytes along, so you type 'pb' when you need it, and never stop again to remember which of 'pbpaste' and 'pbcopy' you meant. Plus you get the classic idea of '|sponge|' more simply installed and running just as well, when you call for '|pb|'.
 
-## Why you'll enjoy paging through
+Because land-grabbing short names so often does collide with work by someone else, we do define both 'pb' and 'cv' to do the same thing, and hope you can call the one or the other. (Many friends working near me in Santa Clara define 'pb' to something altogether different than 'pbcopy' and 'pbpaste.')
 
-Each of these Scripts says again who it is when it runs. It prints the command that it's about to run, and then it runs it. Often it does this by way of 'set -xe'.
+## Why you'll enjoy paging through this Doc
 
-Try '|.less' a few times and you'll have learned '|less -FIRX' without working hard to remember it. Try '.curl' much, and you'll have learned 'curl -k -LSs'. Each file is a flashcard for an option or a trick you'd otherwise look up again next month. Each Script works hard to make friends with you itself, and works hard to make the Shell Command inside into more of a friend for you too.
+Each of these Scripts says again who it is when it runs. It prints the command that it's about to run, and then it runs it. Often the Script gets this done well by way of the Shell 'set -xe' choice.
 
-This is why the Appendices here read fine in any order. Skim the headings. Stop at one that names a thing you do often. Read its three lines: what it does, how to call it, and why to like it. If it lands with you, copy that one Script into your Shell Path. Come back for another whenever you like. Nobody's counting.
+Try our '|.less' a few times and you'll have learned '|less -FIRX' without working hard to remember it. Try '.curl' much, and you'll have learned 'curl -k -LSs'. Each file is a flashcard for an option or a trick you'd otherwise look up again next month. Each Script works hard to make friends with you itself, and works hard to make the Shell Command inside into more of a friend for you too.
 
-A few of these Scripts lean on the macOS ways of reaching a Homebrew Emacs or the Os Copy/Paste Clipboard Buffer (the pbuffer). To make those run at Linux, you can define the same underlying Shell Commands: pbcopy, pbpaste, and a /opt/homebrew/bin/emacs. Two of these Scripts, the 'm' and '.make', do you good only after you place your most loved Makefile at '~/bin/Makefile', and they say so up top. The rest run well anywhere a Shell runs well.
+It's the complete independence standing between each of this Scripts that makes the Appendices here read fine in any order. Skim the headings. Stop at one that names a thing you do often. Read its three lines: what it does, how to call it, and why to like it. If it lands with you, copy that one Script into your Shell Path. And then come back for another whenever you like. Nobody's counting.
+
+A few of these Scripts do lean on the macOS ways of reaching a Homebrew Emacs or the Os Copy/Paste Clipboard Buffer (the pbuffer). To make those Scripts run at Linux, you can define the same underlying Shell Commands: pbcopy, pbpaste, and a /opt/homebrew/bin/emacs. Two of these Scripts, the 'm' and '.make', do you good only after you place your most loved Makefile at '~/bin/Makefile'. They do say so up top. The rest run well anywhere a Shell runs well.
 
 
 ## Appendix A - Shell Operations
