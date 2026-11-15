@@ -644,7 +644,7 @@ class GitGopher:
         shsuffix = " ..."  # shouts out Args
         options, posargv, sep, pathspecs = self._maybe_split_from_shargv_(shargv)
 
-        # Guess a Count for a Plain Call, where a "--" or an Option means no Count
+        # Guess a Count for a Plain Call, but no Count after "--" or an Option or a ".." Range Arg
 
         plain = (not options) and (not sep)  # maybe Pos Args, but no Options and no "--"
         oneline = " --oneline" in shverb_shline_plus  # glq, glqn, glv
@@ -653,7 +653,13 @@ class GitGopher:
         if shverb_shline_plus.startswith("git log ") and (not numstat):
             assert shverb in ("gl", "glq", "glqn", "glv"), (shverb, shline)
 
-            if plain and ((not oneline) or stdout_isatty):
+            ddot = "." "."  # macOS 26.7.3 Vim got ':syntax on' color wrong after ".." here
+            ddslash = "." "." "/"
+            ranges = list(_ for _ in posargv if ddot in _.replace(ddslash, "<<>>"))
+            ddfolders = list(_ for _ in posargv if not _.replace(ddslash, "").replace(ddot, ""))
+            ranged = any((_ not in ddfolders) for _ in ranges)  # a bare ".." or "../.." is a folder
+
+            if plain and (not ranged) and ((not oneline) or stdout_isatty):
                 size = shutil_terminal_size()
                 portrait = size.columns < (2 * size.lines)  # two Cells of a Row make a Square
 
