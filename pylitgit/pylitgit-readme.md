@@ -18,7 +18,8 @@ We print the whole Shell Line before we run it, so you can read our guess and co
 | gg | git status, not git grep | no Pos Args before "--" |
 | gg ggi ggl | -ai -e ... -e ... | >= 1 Pos Arg before "--" |
 | gl gla glq glqn gls glv | --color-moved | >= 1 Option |
-| gl glq glqn glv | -1 for gl, -9 for glq glqn glv | no Options and no "--" |
+| gl glq glqn glv | -1 for gl, -9 for glq glqn glv | no Options, no "--", no ".." Range, and for glv >= 1 Pos Arg |
+| glv | origin/$(git branch --show-current)~1..HEAD | no Pos Args, no Options, and no "--" |
 | gl glq glqn gls glv | --author=<user.email> | a bare --author Arg |
 | gla | --author=<user.email> | no Pos Args before "--" |
 | gla | --author=<first Pos Arg> | >= 1 Pos Arg before "--" |

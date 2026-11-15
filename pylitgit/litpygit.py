@@ -292,7 +292,7 @@ class GitGopher:
             "gl": "  # --default=-1",
             "glq": "  # --default=-9",
             "glqn": """ |awk '{print "HEAD~"(NR-1), $0}'  # --default=-9""",
-            "glv": "  # --default=-9",
+            "glv": "  # --default=origin/$(git branch --show-current)~1..HEAD",
         }
 
         after_shline_by_shverb = {
@@ -659,7 +659,10 @@ class GitGopher:
             ddfolders = list(_ for _ in posargv if not _.replace(ddslash, "").replace(ddot, ""))
             ranged = any((_ not in ddfolders) for _ in ranges)  # a bare ".." or "../.." is a folder
 
-            if plain and (not ranged) and ((not oneline) or stdout_isatty):
+            if plain and (not posargv) and (shverb == "glv"):
+                shline += " origin/$(git branch --show-current)~1..HEAD"  # tilts into a Range
+
+            elif plain and (not ranged) and ((not oneline) or stdout_isatty):
                 size = shutil_terminal_size()
                 portrait = size.columns < (2 * size.lines)  # two Cells of a Row make a Square
 
@@ -667,7 +670,7 @@ class GitGopher:
                 if oneline:
                     count = 19 if portrait else 9  # nine --oneline Commits fill a Screen
 
-                shline += f" -{count}"  # tilts into:  gl -1, glq -9, glqn -9, glv -9
+                shline += f" -{count}"  # tilts into:  gl -1, glq -9, glqn -9, glv -9 past a Rev
 
         if not shargv[1:]:
             shsuffix = ""  # shouts out No Pos Args (indeed No Args)
@@ -909,7 +912,7 @@ class GitGopher:
             shell = True
             return (shell, shline)
 
-        shell = " |" in shline
+        shell = (" |" in shline) or ("$(" in shline)
 
         return (shell, shline)
 
