@@ -1,11 +1,4 @@
-.dirs for dirs -p |head -1
-.df for df /
-
 factor out pylitlist/litpylist.py:list_assert_eq
-
-|pf dedent  # doesn't? not for two columns?
-
-U = dt.timezone.utc  # like for `p`
 
 mmm Terminal Quit is losing open Terminals?
 

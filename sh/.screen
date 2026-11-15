@@ -11,10 +11,8 @@ else
     shift
 
     set -xe
-    echo "logfile $T.screen" >$T.cfg
+    printf '%s\n' "logfile $T.screen" >$T.cfg
     echo "logfile flush 0" >>$T.cfg
     T=$T screen -S $T -L -c $T.cfg "$@"
 
 fi
-
-# known: inject a \ Backslash into the $T Label to make this go wrong under Zsh and Dash

@@ -29,5 +29,5 @@ while :; do
         echo
     fi
 
-    sleep "$S"
+    sleep "$S" || exit
 done

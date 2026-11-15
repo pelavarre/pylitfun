@@ -1,0 +1,4 @@
+# sh/.df = Call for a narrow 'df /' query, as if that were its default
+
+echo '+ df /' >&2
+df /

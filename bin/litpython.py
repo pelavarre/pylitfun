@@ -52,6 +52,7 @@ if not __debug__:
     raise NotImplementedError([__debug__])  # 'better python3 without -O than with -O'
 
 
+U = dt.timezone.utc  # someday we'll understand (U != UTC)
 UTC = zoneinfo.ZoneInfo("UTC")  # extends welcome into the Periphery (outside San Francisco)
 
 

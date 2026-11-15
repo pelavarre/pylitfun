@@ -1,0 +1,4 @@
+# sh/.dirs = Call 'dirs -p |head -1' to show the present choice of ~/... Pwd
+
+echo '+ dirs -p |head -1' >&2
+dirs -p |head -1
