@@ -24,12 +24,15 @@ import concurrent.futures
 import contextlib
 import dataclasses
 import io
+import json
 import os
 import pty
+import random
 import re
 import select
 import subprocess
 import sys
+import tempfile
 import termios
 import time
 import typing
@@ -62,16 +65,28 @@ def main() -> None:
     _try_strikes_spill_()  # ~1000ms, 3 ⏎ at 150ms apart, then 300ms of reading what is left
     _try_terminal_boss_typeahead_()  # ~600ms, 150ms per Typeahead Byte
     _try_terminal_boss_chunks_()  # ~460ms, 150ms per Typeahead Byte
+    _try_terminal_boss_keeps_input_()  # ~460ms, 1 child Python on a Pty, 3 Typeahead Bytes
     _try_typeahead_()  # ~550ms, 3 Typeahead ⏎ at 150ms each
     _try_frame_reader_quits_midbatch_()  # ~1ms
     _try_frame_reader_nanobytes_()  # ~10ms, 3 reads of 2ms each
+    _try_frame_reader_peek_()  # ~1ms
     _try_frame_print_()  # ~1ms
     _try_pull_ends_without_replies_()  # ~1ms
     _try_placed_input_strikes_()  # ~150ms, 1 Pty and 1 child Python off a Terminal
+    _try_intercardinal_strikes_()  # ~1200ms, 1 child Python on a Pty, 7 Typeahead Bytes at 150ms
+    _try_intercardinal_joins_()
+    _try_intercardinal_ahead_()
+    _try_intercardinal_splits_()
+    _try_arrow_wait_()  # ~300ms, 2 child Pythons on Ptys in turn, one waits 50ms for a mate
     _try_skater_entry_()  # ~900ms, 4 Ptys at once, and 1 child Python off a Terminal
-    _try_skater_quits_()  # ~1100ms, 13 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
-    _try_skater_edge_()  # ~2500ms, 4 Ptys at once, the slowest 10 → at 150ms apart + 500ms
+    _try_skater_quits_()  # ~2000ms, 43 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
+    _try_skater_fuzz_()  # ~3500ms, 24 Ptys at once, the slowest 10 steps at 150ms apart + 500ms
+    _try_skater_edge_()  # ~3500ms, 4 Ptys at once, the slowest 10 → at 150ms apart + 500ms, then 3
     _try_skater_launch_edge_()  # 10 Ptys at once
+    _try_input_file_()  # ~400ms, 6 child Pythons off a Terminal at once, then 2 in turn
+    _try_boss_writes_()  # ~100ms, 1 child Python off a Terminal
+    _try_output_routes_()  # ~10ms, parses litpyglass.py
+    _try_typescript_files_()  # ~1000ms, 2 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
     _try_shadow_writes_()  # ~1ms
     _try_shadow_layer_()  # ~1ms
     _try_shadow_top_layer_()  # ~1ms
@@ -123,6 +138,11 @@ def _try_keyboard_decoder_() -> None:
         (b"\033[25~", "⇧F5"),  # ⇧F5 over ⌥F8 or ⎋F8
         (b"\033[22~", "⎋ [ 2 2 ⇧~"),  # no F Key sends ⎋[22~  # F10 sends 21, F11 sends 23
         (b"\033\020", "⎋⌃P"),  # ⎋⌃P over ⎋⇧F1 .. ⎋⌃⇧F12, which send the same Bytes
+        #
+        (b"\033[5~", "⇧Fn↑"),  # at macOS Terminal, ⇧Fn↑ ⇧Fn↓ ⇧Fn→ ⇧Fn← send these four Frames
+        (b"\033[6~", "⇧Fn↓"),
+        (b"\033[F", "⇧Fn→"),
+        (b"\033[H", "⇧Fn←"),
         #
     )
 
@@ -454,13 +474,12 @@ def _try_bytes_(*args: str | bytes) -> litpyglass.TerminalByteFrame:
 
 
 def _try_terminal_byte_frame_2_() -> None:
-    """Try some Frames: ↑ ⎋↑ ⎋[M ⎋[↗ and the ⎋\\ String Terminator"""
+    """Try some Frames: ↑ ⎋↑ ⎋[M and the ⎋\\ String Terminator"""
 
     assert litpyglass.DL_Y == "\033[" "{}M", (litpyglass.DL_Y,)
     assert litpyglass._CLICK3_ == "\033[M", (litpyglass._CLICK3_,)
     assert litpyglass._NorthArrow_ == "\033[A", (litpyglass._NorthArrow_,)
     assert litpyglass.ST == "\033\134", (litpyglass.ST,)
-    assert litpyglass._NortheastArrow_ == "\033[↗", (litpyglass._NortheastArrow_,)
 
     # Do nothing with grace & elegance
 
@@ -490,11 +509,13 @@ def _try_terminal_byte_frame_2_() -> None:
     assert f.to_frame_bytes() == b"\033[Mab\xff", (f,)
     assert f.closed, (f,)
 
-    # Accept ↖ ↗ ↘ ↙ Intercardinal Arrows, not just → ↑ ← ↓ Cardinal Arrows
+    # Close a Csi Frame on a Final Char from outside 7-bit US Ascii, with or without Params
 
-    f = litpyglass.TerminalByteFrame("\033[↗".encode())  # not yet standard
-    assert f.to_frame_bytes() == "\033[↗".encode(), (f,)
-    assert f.closed, (f,)
+    for csi_decode in ("\033[↗", "\033[1;2↗", "\033[é", "\033[€"):
+        csi_encode = csi_decode.encode()
+        f = litpyglass.TerminalByteFrame(csi_encode)  # not yet standard
+        assert f.to_frame_bytes() == csi_encode, (f,)
+        assert f.closed, (f,)
 
     # Accept the ⎋\ String Terminator (ST) to close an ⎋] Osc Frame
 
@@ -519,13 +540,18 @@ def slurp():
 sync_fileno = int(sys.argv[2])
 
 
+events = []  # the order of flushes, tty.setraw calls, and termios.tcsetattr calls
+
+
 class FlushSpy:  # stands in for sys.stdout and sys.stderr
-    def __init__(self, stdio):
+    def __init__(self, name, stdio):
+        self.name = name
         self.stdio = stdio
         self.flush_count = 0
 
     def flush(self):  # mimics TextIO.flush
         self.flush_count += 1
+        events.append("flush " + self.name)
         self.stdio.flush()
 
     def write(self, text):  # mimics TextIO.write
@@ -533,9 +559,26 @@ class FlushSpy:  # stands in for sys.stdout and sys.stderr
 
 
 real_stdout = sys.stdout
-spy_stdout = FlushSpy(sys.stdout)
-spy_stderr = FlushSpy(sys.stderr)
+spy_stdout = FlushSpy("out", sys.stdout)
+spy_stderr = FlushSpy("err", sys.stderr)
 sys.stdout, sys.stderr = spy_stdout, spy_stderr
+
+real_setraw = tty.setraw
+real_tcsetattr = termios.tcsetattr
+
+
+def spy_setraw(*args, **kwargs):  # tty.setraw calls its own tcsetattr, so one event not two
+    events.append("setraw")
+    return real_setraw(*args, **kwargs)
+
+
+def spy_tcsetattr(*args, **kwargs):
+    events.append("tcsetattr")
+    return real_tcsetattr(*args, **kwargs)
+
+
+tty.setraw = spy_setraw
+termios.tcsetattr = spy_tcsetattr
 
 boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"")
 print("READY1", file=real_stdout, flush=True)
@@ -544,12 +587,16 @@ with boss:
     saved_attributes = boss.tcgetattr
     entered_twice = (boss.__enter__() is boss) and (boss.tcgetattr is saved_attributes)
     flushes_at_enter = (spy_stdout.flush_count, spy_stderr.flush_count)
+    events_at_enter = list(events)
     kept_at_enter = slurp()
     print("READY2", file=real_stdout, flush=True)
     os.read(sync_fileno, 1)  # 'xy' has been typed, and no one reads it
 boss.__exit__()  # exits at most once
 cleared_at_exit = boss.tcgetattr == []
 flushes_at_exit = (spy_stdout.flush_count, spy_stderr.flush_count)
+events_at_exit = list(events)
+tty.setraw = real_setraw
+termios.tcsetattr = real_tcsetattr
 cooked_attributes = termios.tcgetattr(0)
 tty.setraw(0, when=termios.TCSANOW)
 left_at_exit = slurp()
@@ -564,6 +611,8 @@ result = (
     entered_afresh,
     flushes_at_enter,
     flushes_at_exit,
+    events_at_enter,
+    events_at_exit,
 )
 print("RESULT", repr(result), file=real_stdout, flush=True)
 """
@@ -628,8 +677,11 @@ def _try_terminal_boss_() -> None:
 
     tty_result_decoded = bytes(terminal_output).split(b"RESULT ")[1].split(b"\r\n")[0].decode()
     tty_result = ast.literal_eval(tty_result_decoded)
-    tty_expected = (b"ab", True, True, b"xy", True, (1, 1), (2, 2))  # kept, twice, cleared, left,
-    # afresh, then the Stdout and Stderr flush counts after Enter and after Exit
+    enter_events = ["flush out", "flush err", "setraw"]  # no Farewell, so tty.setraw not setcbreak
+    exit_events = enter_events + ["flush out", "flush err", "tcsetattr"]
+    tty_expected = (b"ab", True, True, b"xy", True, (1, 1), (2, 2), enter_events, exit_events)
+    # kept, twice, cleared, left, afresh, then the Stdout and Stderr flush counts after Enter and
+    # after Exit, then the order of flushes before tty.setraw and before termios.tcsetattr
     assert tty_result == tty_expected, (tty_result, tty_expected)
 
     # Meet the Spec off a Terminal
@@ -867,6 +919,58 @@ def _try_terminal_boss_chunks_() -> None:
     assert result == expected, (result, expected)
 
 
+_TERMINAL_BOSS_KEEPS_CHILD_ = r"""
+import os, sys
+sys.path.insert(0, sys.argv[1])
+import litpyglass
+
+sync_fileno = int(sys.argv[2])
+boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"")
+boss2 = litpyglass.TerminalBoss(typeahead=b"abc", farewell_bytes=b"")
+print("READY1", flush=True)
+os.read(sync_fileno, 1)  # 'XYZ' has been typed on the Terminal
+with boss:
+    burst = boss.read_some_bytes_if()
+with boss2:
+    one = boss2.read_one_byte_if()
+    chunk = boss2.read_some_bytes_if()
+    two = boss2.read_one_byte_if()
+print(
+    "RESULT",
+    repr(
+        (
+            (burst, bytes(boss.ibk.ba), boss.ibk.nano_list),
+            (one, chunk, two, bytes(boss2.ibk.ba), boss2.ibk.nano_list),
+        )
+    ),
+    flush=True,
+)
+"""
+
+
+def _try_terminal_boss_keeps_input_() -> None:
+    """Try TerminalBoss keeping each Byte read, and when, as specs.md § 1 says"""
+
+    result = _pty_run_child_(_TERMINAL_BOSS_KEEPS_CHILD_, terminal_bytes=b"XYZ")
+
+    (burst, burst_kept, burst_nanos), (one, chunk, two, typed_kept, typed_nanos) = typing.cast(
+        tuple[tuple[bytes, bytes, list[int]], tuple[bytes, bytes, bytes, bytes, list[int]]], result
+    )
+
+    # a burst of Bytes read at once is kept once, all with one Nanos
+
+    assert (burst, burst_kept) == (b"XYZ", b"XYZ"), (burst, burst_kept)
+    assert len(burst_nanos) == 3 and len(set(burst_nanos)) == 1, burst_nanos
+
+    # Typeahead Bytes are read through the same defs and kept once each, each with its own Nanos
+
+    assert (one, chunk, two) == (b"a", b"b", b"c"), (one, chunk, two)
+    assert typed_kept == b"abc", typed_kept
+    assert len(typed_nanos) == 3, typed_nanos
+    gaps = list(later - early for early, later in zip(typed_nanos, typed_nanos[1:]))
+    assert all(_ >= 100_000_000 for _ in gaps), (gaps, typed_nanos)  # each waits about 150ms
+
+
 def _pty_run_child_(child_code: str, terminal_bytes: bytes) -> object:
     """Run this Python on a Pty, type these Bytes when it says READY1, and return its RESULT"""
 
@@ -915,19 +1019,22 @@ def _try_typeahead_() -> None:
 
     master_fileno, slave_fileno = pty.openpty()
     argv = [sys.executable, "-I", litpyglass.__file__, "--egg=strikes", "--typeahead=\r\r\r"]
-    process = subprocess.Popen(argv, stdin=slave_fileno, stdout=slave_fileno, stderr=slave_fileno)
-    os.close(slave_fileno)
+    with tempfile.TemporaryDirectory() as cwd:  # takes the files the egg writes at exit
+        process = subprocess.Popen(
+            argv, stdin=slave_fileno, stdout=slave_fileno, stderr=slave_fileno, cwd=cwd
+        )
+        os.close(slave_fileno)
 
-    terminal_output = bytearray()
+        terminal_output = bytearray()
 
-    deadline = time.monotonic() + 5
-    while (process.poll() is None) and (time.monotonic() < deadline):
-        _pty_read_once_(master_fileno, terminal_output)
+        deadline = time.monotonic() + 5
+        while (process.poll() is None) and (time.monotonic() < deadline):
+            _pty_read_once_(master_fileno, terminal_output)
 
-    returncode = process.poll()
-    if returncode is None:
-        process.kill()
-        process.wait()
+        returncode = process.poll()
+        if returncode is None:
+            process.kill()
+            process.wait()
 
     os.close(master_fileno)
 
@@ -1019,18 +1126,92 @@ def _try_skater_quits_() -> None:
             (1, 3),
             False,
         ),
-        (("\033[↗".encode(),) * 3, True, {(1, 1): ("X", False)}, None, False),  # ↗ ↗ ↗ leave the X
+        ((b"\033[1;2D\033[A",), False, reverse((1, 1)), (2, 3), False),  # ⇧↖ moves as ↖, to ↘
+        ((b"\033[1;2C",), False, reverse((1, 1)), (1, 3), False),  # ⇧→ moves as →
+        ((b"\033\033[A",), False, reverse((1, 1)), (2, 1), False),  # ⌥↑ bounces as ↑ does
+        ((b"\033[1;2C",) * 3, False, reverse((1, 1), (1, 3), (1, 5)), (1, 7), False),  # ⇧→ x3
+        ((b"\033\033[A\033[1;2C",), False, reverse((1, 1)), (1, 3), False),  # ⌥⇧↗ moves as ↗, to →
+        ((b"\033\033[D\033[B",), False, reverse((1, 1)), (2, 1), False),  # ⎋⇧↙ moves as ↙, to ↓
+        ((b"\033[6~",), False, reverse((1, 1)), (2, 1), False),  # ⇧Fn↓ moves as ↓
+        ((b"\033[5~\033[F",), False, reverse((1, 1)), (1, 3), False),  # ⇧Fn↗ moves as ↗, to →
+        ((b"\033[F\033[B",), False, reverse((1, 1)), (2, 3), False),  # ⇧Fn↘ moves as ↘
+        (  # ↓ and → struck at once join as ↘, which moves 1 Row and 2 Columns
+            (b"\033[B\033[C",),
+            False,
+            reverse((1, 1)),
+            (2, 3),
+            False,
+        ),
+        ((b"\033[A\033[C",), False, reverse((1, 1)), (1, 3), False),  # ↗ on the top Row moves as →
+        ((b"\033[B\033[D",), False, reverse((1, 1)), (2, 1), False),  # ↙ at the West edge moves as ↓
+        ((b"\033[A\033[D",), False, reverse((1, 1)), (2, 3), False),  # ↖ in the corner bounces to ↘
+        (  # ↘ ↘ ↘ do not quit, since each pair moves the Cursor
+            (b"\033[B\033[C",) * 3,
+            False,
+            reverse((1, 1), (2, 3), (3, 5)),
+            (4, 7),
+            False,
+        ),
+        ((b"\033[B", b"\033[C"), False, reverse((1, 1), (2, 1)), (2, 3), False),  # 150ms apart, ↓ →
+        (  # ↘ ↘ then ↖ back onto the 2nd Pair, so a Plain Pair covers it and the Cursor hides
+            (b"\033[B\033[C" * 2, b"\033[A\033[D"),
+            False,
+            reverse((1, 1), (3, 5)),
+            (2, 3),
+            True,
+        ),
+        (  # ↘ ↘ then ↗ one Row up and two Columns East of the 3rd Pair
+            (b"\033[B\033[C" * 2, b"\033[A\033[C"),
+            False,
+            reverse((1, 1), (2, 3), (3, 5)),
+            (2, 7),
+            False,
+        ),
+        (  # ↘ ↘ then ↙ one Row down and two Columns West of the 3rd Pair
+            (b"\033[B\033[C" * 2, b"\033[B\033[D"),
+            False,
+            reverse((1, 1), (2, 3), (3, 5)),
+            (4, 3),
+            False,
+        ),
         ((b"\033",) + (b"\r",) * 4, True, {(1, 1): ("O", False)}, None, False),  # ⎋ then ⏎ x4
     )
 
+    # Each Shifted Cardinal Arrow, struck 3 times, moves as its bare Arrow does and never quits
+
+    bare_by_arrow = {  # (the Cells marked, Cursor at Row Column, if the Cursor is hidden) of 3 bare
+        "←": (reverse((1, 1)), (1, 3), True),  # bounces on a Reverse Pair
+        "↑": (reverse((1, 1)), (2, 1), True),
+        "↓": (reverse((1, 1), (2, 1), (3, 1)), (4, 1), False),
+        "→": (reverse((1, 1), (1, 3), (1, 5)), (1, 7), False),
+    }
+    shifted_frames = (  # each Frame and the bare arrow it moves as
+        (b"\033[1;2D", "←"),  # ⇧←
+        (b"\033b", "←"),  # ⌥←
+        (b"\033f", "→"),  # ⌥→
+        (b"\033\033[A", "↑"),  # ⌥↑
+        (b"\033\033[B", "↓"),  # ⌥↓
+        (b"\033\033[D", "←"),  # ⎋⇧←
+        (b"\033\033[C", "→"),  # ⎋⇧→
+        (b"\033[5~", "↑"),  # ⇧Fn↑
+        (b"\033[6~", "↓"),  # ⇧Fn↓
+        (b"\033[F", "→"),  # ⇧Fn→
+        (b"\033[H", "←"),  # ⇧Fn←
+    )
+    shifted_cases = tuple(
+        ((frame,) * 3, False, *bare_by_arrow[arrow]) for (frame, arrow) in shifted_frames
+    )
+
+    all_cases = cases + shifted_cases
+
     replies24x80 = b"\033[1;1R\033[8;24;80t"  # the Terminal replies with Row 1 Column 1, and 24 x 80
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(all_cases)) as executor:
         results = tuple(
-            executor.map(lambda case: _try_egg_quit_("skater", case[0], replies24x80), cases)
+            executor.map(lambda case: _try_egg_quit_("skater", case[0], replies24x80), all_cases)
         )
 
-    for case, (quit, screen_decode) in zip(cases, results):
+    for case, (quit, screen_decode) in zip(all_cases, results):
         strike_steps, want, want_mark_by_yx, want_cursor_yx, want_is_hidden = case
         assert quit == want, (quit, want, strike_steps, screen_decode)
 
@@ -1130,7 +1311,249 @@ def _try_skater_edge_() -> None:
             screen_decode,
         )
 
-    # todo: fuzz the Digit Prompts and the edge bounce against the Screen model
+    # Settle for the half of an Intercardinal Arrow that fits, else bounce to its opposite
+
+    north_east = b"\033[A\033[C"  # ↑ and → struck at once join as ↗
+    south = b"\033[B"
+    pair = "\033[7m  \033[m"  # a Reverse Pair
+    edge_cases = (  # (replies, the Bytes struck, the Bytes written to leave the Pair and move)
+        (  # ↗ at the East edge moves as ↑
+            b"\033[3;19R\033[8;5;20t",
+            north_east,
+            pair + "\b" + "\033[A",
+        ),
+        (  # ↗ bounces to ↙ in the top East corner
+            b"\033[1;19R\033[8;5;20t",
+            north_east,
+            pair + "\b" + "\033[B" + "\033[D" * 2,
+        ),
+        (  # ↓ at the South edge bounces to ↑
+            b"\033[5;1R\033[8;5;20t",
+            south,
+            pair + "\b\b" + "\033[A",
+        ),
+    )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(edge_cases)) as executor:
+        edge_results = tuple(
+            executor.map(lambda case: _try_egg_quit_("skater", (case[1],), case[0]), edge_cases)
+        )
+
+    for edge_case, (quit, screen_decode) in zip(edge_cases, edge_results):
+        replies, _, want_text = edge_case
+        assert not quit, (quit, edge_case, screen_decode)
+
+        hail_at = screen_decode.index(_SKATER_HAIL_) + len(_SKATER_HAIL_)
+        text = screen_decode[hail_at : hail_at + len(want_text)]
+        assert text == want_text, (text, want_text, replies, screen_decode)
+
+
+_SKATER_FUZZ_STEPS_ = 10  # steps per sequence, 150ms apart
+
+
+def _try_skater_fuzz_() -> None:
+    """Try --egg=skater against a model of specs.md § 8, on seeded random strikes"""
+
+    cases = list()
+    for seed in range(12):
+        steps = _skater_steps_(seed)
+        for screen_width in (20, 21):
+            replies = f"\033[1;1R\033[8;5;{screen_width}t".encode()  # Row 1 Column 1
+            cases.append((seed, steps, screen_width, replies))
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
+        outcomes = list(executor.map(lambda case: _try_egg_quit_("skater", case[1], case[3]), cases))
+
+    for case, (quit, screen_decode) in zip(cases, outcomes):
+        seed, steps, screen_width, _ = case
+        assert not quit, (quit, seed, screen_width, steps, screen_decode)
+
+        mark_by_yx, cursor_yx, is_hidden = _skater_state_(
+            screen_decode, screen_width=screen_width, screen_height=5
+        )
+
+        # Never leave the Screen, never write the Column 21 that an odd Width leaves alone
+
+        assert 1 <= cursor_yx[0] <= 5, (cursor_yx, seed, screen_width, steps, screen_decode)
+        assert 1 <= cursor_yx[1] <= screen_width, (cursor_yx, seed, screen_width, screen_decode)
+        spill = list(yx for yx in mark_by_yx.keys() if yx[1] > 20)
+        assert not spill, (spill, seed, screen_width, steps, screen_decode)
+
+        # Meet the model
+
+        want = _skater_walk_(steps, screen_width=screen_width, screen_height=5)
+        want_mark_by_yx, want_cursor_yx, want_is_hidden = want
+        assert mark_by_yx == want_mark_by_yx, (
+            mark_by_yx,
+            want_mark_by_yx,
+            seed,
+            screen_width,
+            steps,
+            screen_decode,
+        )
+        assert cursor_yx == want_cursor_yx, (
+            cursor_yx,
+            want_cursor_yx,
+            seed,
+            screen_width,
+            steps,
+            screen_decode,
+        )
+        assert is_hidden == want_is_hidden, (
+            is_hidden,
+            want_is_hidden,
+            seed,
+            screen_width,
+            steps,
+            screen_decode,
+        )
+
+
+def _skater_steps_(seed: int) -> tuple[bytes, ...]:
+    """Pick the strikes of one sequence, each a step 150ms apart, leaning on one Arrow"""
+
+    rng = random.Random(seed)
+
+    bytes_by_arrow = {"↑": b"\033[A", "↓": b"\033[B", "→": b"\033[C", "←": b"\033[D"}
+    arrows = "→↑←↓"
+    lean = arrows[seed % 4]  # the Arrow this sequence leans on
+    lean_share = 0.95 if (seed < 4) else 0.40  # a runner leans on it, to run into its edge
+    cross = "↑↓" if (lean in "→←") else "→←"  # the axis that a joined pair adds to the lean
+
+    steps: list[bytes] = list()
+    open_len = 0  # the Bytes of a ⎋ or ⎋[ Frame held open, 0 when none
+    return_run = 0  # the ⏎ steps in a row, kept under three so as not to quit
+
+    while len(steps) < _SKATER_FUZZ_STEPS_:
+        if open_len == 1:
+            steps.append(b"[")
+            open_len = 2
+            continue
+        if open_len == 2:
+            steps.append(rng.choice((b"A", b"B", b"C", b"D")))  # a tail closing ⎋[ as an Arrow
+            open_len = 0
+            continue
+
+        roll = rng.random()
+        rest = rng.random()  # picks among the other kinds of step
+        if roll < lean_share:
+            steps.append(bytes_by_arrow[lean])
+        elif roll < (lean_share + 0.10):
+            steps.append(bytes_by_arrow[rng.choice(arrows)])
+        elif rest < 0.30:
+            joined = [bytes_by_arrow[lean], bytes_by_arrow[rng.choice(cross)]]
+            rng.shuffle(joined)  # either Arrow first
+            steps.append(b"".join(joined))
+        elif rest < 0.60:
+            steps.append(rng.choice((b"x", b"y", b"z")))
+        elif rest < 0.80 and return_run < 2:
+            steps.append(b"\r")
+        elif rest < 0.80:
+            steps.append(b"x")
+        else:
+            steps.append(b"\033")
+            open_len = 1
+
+        return_run = (return_run + 1) if (steps[-1] == b"\r") else 0
+
+    return tuple(steps)
+
+
+def _skater_walk_(
+    steps: tuple[bytes, ...], screen_width: int, screen_height: int
+) -> tuple[dict[tuple[int, int], tuple[str, bool]], tuple[int, int], bool]:
+    """Walk the rules of specs.md § 8 over the steps, and say the Cells, the Cursor, if hidden"""
+
+    x_max = screen_width - (screen_width % 2)  # an odd Width acts as the even Width below it
+    row_y = 1
+    column_x = 1
+    visited = list()  # the left Cell of each Reverse Pair written, in the order first written
+    top_char = ""  # the one reply showing at the Cursor, else empty
+    count = 0  # the Bytes of meaningless Frames taken since the last Arrow, mod 10
+    xo = "X"
+    open_len = 0  # the Bytes of a ⎋ or ⎋[ Frame held open, 0 when none
+    text_len = 0  # the Bytes of a Text Frame held open, 0 when none
+
+    for step in steps:
+        if step in (b"x", b"y", b"z"):  # Text stays open and takes the next Char, and shows a Digit
+            text_len += 1
+            top_char = "0123456789"[(count + text_len) % 10]
+            continue
+
+        if text_len:  # any other step bounces off Text, which is then Taken, and draws X or O
+            top_char = xo
+            xo = "O" if (xo == "X") else "X"
+            count = (count + text_len) % 10
+            text_len = 0
+
+        if step == b"\033":  # ⎋ stays open, and shows the count of its Bytes
+            open_len = 1
+            top_char = "0123456789"[(count + open_len) % 10]
+            continue
+        if open_len == 1 and step == b"[":
+            open_len = 2
+            top_char = "0123456789"[(count + open_len) % 10]
+            continue
+
+        if open_len == 2:  # a tail closes ⎋[ as an Arrow
+            finals = list(step.decode())
+            open_len = 0
+        else:
+            finals = re.findall(r"\033\[([ABCD])", step.decode())
+
+        if not finals:  # a ⏎ draws X, then O, and counts its Byte
+            top_char = xo
+            xo = "O" if (xo == "X") else "X"
+            count = (count + len(step)) % 10
+            continue
+
+        # Move 1 Row for each ↑ ↓ and 2 Columns for each ← →, else settle for the half that fits
+
+        move_y = finals.count("B") - finals.count("A")
+        move_x = 2 * (finals.count("C") - finals.count("D"))
+
+        if (row_y, column_x) not in visited:
+            visited.append((row_y, column_x))
+
+        move = _skater_settle_(move_y, move_x, (row_y, column_x), x_max, screen_height)
+
+        row_y += move[0]
+        column_x += move[1]
+        top_char = ""
+        count = 0
+
+    # The Plain Pair of a written Cell hides the Real Cursor, and covers its Reverse Pair
+
+    is_hidden = (row_y, column_x) in visited
+
+    mark_by_yx: dict[tuple[int, int], tuple[str, bool]] = dict()
+    for cell_y, cell_x in visited:
+        if (cell_y, cell_x) != (row_y, column_x):
+            mark_by_yx[(cell_y, cell_x)] = (" ", True)
+            mark_by_yx[(cell_y, cell_x + 1)] = (" ", True)
+    if top_char:
+        mark_by_yx[(row_y, column_x)] = (top_char, False)
+
+    return (mark_by_yx, (row_y, column_x), is_hidden)
+
+
+def _skater_settle_(
+    move_y: int, move_x: int, yx: tuple[int, int], x_max: int, screen_height: int
+) -> tuple[int, int]:
+    """Settle for the half of a move that fits, else bounce to its opposite, as specs.md § 8 says"""
+
+    def fits(dy: int, dx: int) -> bool:
+        return (1 <= yx[0] + dy <= screen_height) and (1 <= yx[1] + dx <= x_max)
+
+    if fits(move_y, move_x):
+        return (move_y, move_x)
+    if move_y and move_x and fits(move_y, 0):  # only the East or West half is too far
+        return (move_y, 0)
+    if move_y and move_x and fits(0, move_x):  # only the North or South half is too far
+        return (0, move_x)
+
+    assert fits(-move_y, -move_x), (move_y, move_x, yx)  # bounce to the opposite Arrow
+    return (-move_y, -move_x)
 
 
 class FakeWriteBoss:
@@ -1147,22 +1570,41 @@ class FakeReadBoss:
     """Pretend to be a TerminalBoss that reads Replies and a Move at first, and then nothing"""
 
     def __init__(self) -> None:
+        self.ibk = litpyglass.ByteKeeper()  # every Byte read, and when
         self.reads = 0
 
     def read_some_bytes_if(self) -> bytes:
         self.reads += 1
-        return b"\033[1;1R\033[8;24;80t\033[B" if (self.reads == 1) else b""
+        data = b"\033[1;1R\033[8;24;80t\033[B" if (self.reads == 1) else b""
+        self.ibk.append_some_bytes(data, nano=time.perf_counter_ns())
+        return data
 
 
 class FakeSlowBoss:
     """Pretend to be a TerminalBoss that reads two chunks of Bytes, each after a 2ms wait"""
 
     def __init__(self) -> None:
+        self.ibk = litpyglass.ByteKeeper()  # every Byte read, and when
         self.chunks = [b"\033[B", b"q"]
 
     def read_some_bytes_if(self) -> bytes:
         time.sleep(0.002)
-        return self.chunks.pop(0) if self.chunks else b""
+        data = self.chunks.pop(0) if self.chunks else b""
+        self.ibk.append_some_bytes(data, nano=time.perf_counter_ns())
+        return data
+
+
+class FakeChunkBoss:
+    """Pretend to be a TerminalBoss that reads each given chunk of Bytes in turn, and then nothing"""
+
+    def __init__(self, chunks: list[bytes]) -> None:
+        self.ibk = litpyglass.ByteKeeper()  # every Byte read, and when
+        self.chunks = list(chunks)
+
+    def read_some_bytes_if(self) -> bytes:
+        data = self.chunks.pop(0) if self.chunks else b""
+        self.ibk.append_some_bytes(data, nano=time.perf_counter_ns())
+        return data
 
 
 class FakeEndBoss:
@@ -1170,11 +1612,48 @@ class FakeEndBoss:
 
     isatty = True
 
+    def __init__(self) -> None:
+        self.ibk = litpyglass.ByteKeeper()  # every Byte read, and when
+
+    def asks_write_flush(self, data: bytes) -> None:
+        pass
+
     def bytes_write_flush(self, data: bytes) -> None:
         pass
 
+    def str_print(self, text: str) -> None:
+        print(text, end="\r\n")  # as a Boss entered ends its Line
+
     def read_some_bytes_if(self) -> bytes:
         return b""
+
+
+class FakeJoinBoss:
+    """Pretend to be a TerminalBoss that reads chunks of Bytes, and says if more are available"""
+
+    def __init__(self, chunks: tuple[bytes, ...], typeahead: bytes, arrow_wait_nanos: int) -> None:
+        self.arrow_wait_nanos = arrow_wait_nanos  # the Nanos the peek must ask us to wait
+        self.chunks = list(chunks)  # the Bytes of each read, in order
+        self.typeahead = bytearray(typeahead)  # the Bytes that come one per read, ahead of chunks
+        self.events: list[str] = list()  # "idle", "read", "select", "yield", in the order met
+        self.ibk = litpyglass.ByteKeeper()  # every Byte read, and when
+
+    def read_some_bytes_if(self) -> bytes:
+        self.events.append("read")
+        data = b""
+        if self.typeahead:
+            data = bytes([self.typeahead.pop(0)])
+        elif self.chunks:
+            data = self.chunks.pop(0)
+
+        self.ibk.append_some_bytes(data, nano=time.perf_counter_ns())
+        return data
+
+    def stdio_select_select(self, timeout: float | None) -> bool:
+        assert timeout == self.arrow_wait_nanos / 1e9, (timeout, self.arrow_wait_nanos)
+        self.events.append("select")
+        hit = bool(self.chunks) or bool(self.typeahead)  # even a chunk of no Bytes is available
+        return hit
 
 
 def _try_skater_launch_edge_() -> None:
@@ -1212,6 +1691,428 @@ def _try_skater_launch_edge_() -> None:
         assert steps[back_count:] != "\b", (case, steps, screen_decode)  # exactly as many as needed
 
         assert "\033[7m  \033[m" in screen_decode, (case, screen_decode)  # the Arrow left a Pair
+
+
+def _try_input_file_() -> None:
+    """Try the three files an egg writes at exit, as specs.md § 1, § 8, and § 9 say"""
+
+    replies = b"\033[1;1R\033[8;24;80t"
+    names_want = ["i.jsonl", "o.jsonl", "o.typescript"]
+
+    cases = (  # (egg, Input piped in, then Stdin Eof)
+        ("bytes", b"a\0\377\r"),
+        ("bytes", b""),
+        ("nanos", b"ab\r"),
+        ("frames", b"x\033[A\r"),
+        ("strikes", b"x\033[A\r"),
+        ("skater", replies + b"\033[C" + b"x"),
+    )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
+        futures = list(executor.submit(_try_egg_input_file_, egg, data) for (egg, data) in cases)
+
+    for (egg, data), future in zip(cases, futures):
+        returncode, (before, after), names, (i_decode, o_decode), (stdout, typescript) = (
+            future.result()
+        )
+        assert returncode == 0, (egg, returncode)
+        assert names == names_want, (egg, names)
+        assert i_decode is not None, (egg,)
+        assert o_decode is not None, (egg,)
+        assert typescript is not None, (egg,)
+
+        # Meet the Spec for each of the two Json Lines files
+
+        i_pairs = _try_jsonl_pairs_(egg, i_decode)
+        o_pairs = _try_jsonl_pairs_(egg, o_decode)
+
+        i_codes = bytes(code for (nano, code) in i_pairs)
+        assert i_codes == data, (egg, i_codes, data)  # every Byte typed, Replies included
+
+        o_codes = bytes(code for (nano, code) in o_pairs)
+        assert o_codes == typescript, (egg, o_codes, typescript)  # off a Terminal, no Asks
+
+        # Meet the Spec for the Typescript, every Byte written, unchanged
+
+        assert typescript == stdout, (egg, typescript, stdout)
+
+        # Count the first wait of --egg=nanos from the first Nanos kept in the Output
+
+        if egg == "nanos":
+            launch_decode, _, waits_decode = typescript.decode().partition("to quit\n\n")
+            first_wait_decode, _, _ = waits_decode.partition(" ")
+            (first_nano, _), *_ = i_pairs
+            assert int(first_wait_decode) == first_nano, (first_wait_decode, first_nano)
+
+        # Count the Nanos of both files from one zero, the first Nanos kept in either
+
+        i_nanos = list(nano for (nano, code) in i_pairs)
+        o_nanos = list(nano for (nano, code) in o_pairs)
+        assert o_nanos, (egg,)  # every egg writes Output
+        assert min(i_nanos + o_nanos) == 0, (egg, i_nanos, o_nanos)
+
+        for nanos in (i_nanos, o_nanos):
+            assert nanos == sorted(nanos), (egg, nanos)
+            assert all(_ <= (after - before) for _ in nanos), (egg, before, nanos, after)
+
+    # Keep Bytes that arrived at once, and refuse to count from a zero later than a Nanos kept
+
+    some = litpyglass.ByteKeeper()
+    some.append_some_bytes(b"ab", nano=7)
+    some.append_some_bytes(b"", nano=8)  # keeps nothing
+    assert bytes(some.ba) == b"ab", (some.ba,)
+    assert some.nano_list == [7, 7], (some.nano_list,)
+
+    # Write the Bytes and Nanos kept, to the path given, and refuse to guess when they disagree
+
+    nano_big = 10**30  # beyond 64 bits
+    keeper = litpyglass.ByteKeeper()
+    keeper.append_one_byte(b"\0", nano=nano_big)
+    keeper.append_one_byte(b"\377", nano=nano_big + 1)
+
+    with tempfile.TemporaryDirectory() as cwd:
+        p_join = os.path.join(cwd, "p.jsonl")
+        keeper.pairs_write_file(p_join, zero_nano=nano_big)
+        with open(p_join, "rb") as f:
+            p_decode = f.read().decode()
+        want_decode = '["Nanos", "Bytes"]\n[0, 0]\n[1, 255]\n'  # counted from the zero given
+        assert p_decode == want_decode, (p_decode, want_decode)
+
+        keeper.pairs_write_file(p_join, zero_nano=(nano_big - 5))
+        with open(p_join, "rb") as f:
+            p_decode = f.read().decode()
+        want_decode = '["Nanos", "Bytes"]\n[5, 0]\n[6, 255]\n'  # an earlier zero counts up
+        assert p_decode == want_decode, (p_decode, want_decode)
+
+        litpyglass.ByteKeeper().pairs_write_file(p_join, zero_nano=0)  # replaces it with a header
+        with open(p_join, "rb") as f:
+            p_decode = f.read().decode()
+        assert p_decode == '["Nanos", "Bytes"]\n', (p_decode,)
+
+        # Write an empty Typescript for a Boss who wrote nothing, over an older file
+
+        t_join = os.path.join(cwd, "t.typescript")
+        with open(t_join, "w") as f:
+            f.write("older text\n")
+
+        idle_boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"")
+        assert not idle_boss.obk.nano_list, (idle_boss.obk.nano_list,)
+        idle_boss.typescript_write_file(t_join)
+        with open(t_join, "rb") as f:
+            t_bytes = f.read()
+        assert t_bytes == b"", (t_bytes,)
+
+        with open(p_join, "w") as f:
+            f.write("older text\n")
+
+        later = None
+        try:
+            keeper.pairs_write_file(p_join, zero_nano=(nano_big + 1))  # later than the first Nanos
+        except AssertionError as exc:
+            later = exc
+        assert later is not None, (nano_big,)
+
+        with open(p_join) as f:
+            older_text = f.read()
+        assert older_text == "older text\n", (older_text,)  # never half written
+
+        keeper.nano_list.pop()  # leaves 2 Bytes but 1 Nanos
+        unequal = None
+        try:
+            keeper.pairs_write_file(p_join, zero_nano=nano_big)
+        except AssertionError as exc:
+            unequal = exc
+        assert unequal is not None, (len(keeper.ba), len(keeper.nano_list))
+
+        with open(p_join) as f:
+            older_text = f.read()
+        assert older_text == "older text\n", (older_text,)  # never half written
+
+        no_directory = None
+        try:
+            keeper.nano_list.append(nano_big + 1)
+            no_directory_join = os.path.join(cwd, "no_such_directory", "p.jsonl")
+            keeper.pairs_write_file(no_directory_join, zero_nano=nano_big)
+        except FileNotFoundError as exc:
+            no_directory = exc
+        assert no_directory is not None, (cwd,)
+
+    # Write no file, for the Help or for a Launch that exits 1
+
+    argvs = (
+        [sys.executable, "-I", litpyglass.__file__],
+        [sys.executable, "-I", litpyglass.__file__, "--egg=skater"],
+    )
+    for argv, returncode in zip(argvs, (0, 1)):
+        with tempfile.TemporaryDirectory() as cwd:
+            run = subprocess.run(
+                argv, stdin=subprocess.DEVNULL, capture_output=True, timeout=10, cwd=cwd
+            )
+            assert run.returncode == returncode, (argv, run.returncode, run.stdout, run.stderr)
+            names = os.listdir(cwd)
+            assert not names, (argv, names)
+
+
+def _try_jsonl_pairs_(egg: str, decode: str) -> list[tuple[int, int]]:
+    """Check a Header Line, then one [Nanos, Byte] Line per Byte, and say each pair"""
+
+    split = decode.split("\n")
+    assert len(split) >= 2, (egg, split)
+    header, *rows, end = split
+    assert end == "", (egg, end)  # ends with "\n"
+    assert header == '["Nanos", "Bytes"]', (egg, header)
+    assert "\r" not in decode, (egg, decode)
+
+    pairs = list(json.loads(_) for _ in rows)
+    assert all(len(_) == 2 for _ in pairs), (egg, pairs)
+    assert all(isinstance(n, int) and isinstance(c, int) for (n, c) in pairs), (egg, pairs)
+
+    int_pairs = list((n, c) for (n, c) in pairs)
+    return int_pairs
+
+
+def _try_egg_input_file_(
+    egg: str, data: bytes
+) -> tuple[
+    int, tuple[int, int], list[str], tuple[str | None, str | None], tuple[bytes, bytes | None]
+]:
+    """Run --egg= off a Terminal in a new directory, and say what it wrote there"""
+
+    argv = [sys.executable, "-I", litpyglass.__file__, f"--egg={egg}"]
+    with tempfile.TemporaryDirectory() as cwd:
+        for name in ("i.jsonl", "o.jsonl", "o.typescript"):
+            with open(os.path.join(cwd, name), "w") as f:
+                f.write("older text, and longer than the header\n" * 9)  # an older file to replace
+
+        before = time.perf_counter_ns()  # the Clock the Egg reads, shared across Processes
+        run = subprocess.run(argv, input=data, capture_output=True, timeout=10, cwd=cwd)
+        after = time.perf_counter_ns()
+
+        names = sorted(os.listdir(cwd))
+
+        decodes: list[str | None] = list()
+        for name in ("i.jsonl", "o.jsonl"):
+            decode = None
+            if name in names:
+                with open(os.path.join(cwd, name), "rb") as f:
+                    decode = f.read().decode()  # no newline translation, so "\r" stays visible
+            decodes.append(decode)
+
+        typescript = None
+        if "o.typescript" in names:
+            with open(os.path.join(cwd, "o.typescript"), "rb") as f:
+                typescript = f.read()
+
+    i_decode, o_decode = decodes
+    return (run.returncode, (before, after), names, (i_decode, o_decode), (run.stdout, typescript))
+
+
+_BOSS_WRITES_CHILD_ = r"""
+import json, os, sys
+sys.path.insert(0, sys.argv[1])
+import litpyglass
+
+sys.stdout.reconfigure(encoding="latin-1")  # so that a Byte kept as Utf-8 would show as wrong
+
+tb = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"")
+tb.str_write("a")  # waits in the block buffer of Stdout, as off a Terminal
+tb.str_print("bc")
+with tb:
+    tb.str_print("in")  # entered, so ends its Line as "\r\n"
+tb.bytes_write_flush(b"<D>")
+tb.str_write("é")
+tb.asks_write_flush(b"<ASK>")
+
+report = dict(
+    ba=list(tb.obk.ba), nano_list=tb.obk.nano_list, typescript=list(tb.typescript),
+)
+with open(sys.argv[2], "w") as f:
+    json.dump(report, f)
+
+os._exit(0)  # exits without the flush of Stdout that a plain exit gives
+"""
+
+
+def _try_boss_writes_() -> None:
+    """Try the TerminalBoss writers keep what they write, as specs.md § 1 and § 8 say"""
+
+    here = os.path.dirname(os.path.abspath(litpyglass.__file__))
+    with tempfile.TemporaryDirectory() as cwd:
+        report_join = os.path.join(cwd, "report.json")
+        argv = [sys.executable, "-I", "-c", _BOSS_WRITES_CHILD_, here, report_join]
+        run = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, timeout=10)
+        assert run.returncode == 0, (run.returncode, run.stdout, run.stderr)
+
+        with open(report_join) as f:
+            report = json.load(f)
+
+    # Reach Stdout in order, the Ask at once, even with no exit flush after it
+
+    written = b"abc\n" + b"in\r\n" + b"<D>" + b"\351"  # the é as Stdout encodes it, as Latin-1
+    stdout_want = written + b"<ASK>"
+    assert run.stdout == stdout_want, (run.stdout, stdout_want, run.stderr)
+
+    # Keep every Byte in the Output, Asks too, and every Byte but the Asks in the Typescript
+
+    ba = bytes(report["ba"])
+    typescript = bytes(report["typescript"])
+    assert ba == stdout_want, (ba, stdout_want)
+    assert typescript == written, (typescript, written)
+
+    # Stamp the Bytes of one write with one Nanos each, and never run the Nanos backwards
+
+    nano_list = report["nano_list"]
+    assert len(nano_list) == len(ba), (len(nano_list), len(ba))
+    assert nano_list == sorted(nano_list), (nano_list,)
+
+    lengths = (1, 3, 4, 3, 1, 5)  # "a", "bc\n", "in\r\n", "<D>", "é", "<ASK>"
+    assert sum(lengths) == len(ba), (lengths, len(ba))
+
+    here_index = 0
+    for length in lengths:
+        stamps = nano_list[here_index : (here_index + length)]
+        assert len(set(stamps)) == 1, (here_index, length, stamps)
+        here_index += length
+
+
+def _try_output_routes_() -> None:
+    """Try that no bare print or Stdout write escapes TerminalBoss, as specs.md § 8 says"""
+
+    with open(litpyglass.__file__, "rb") as f:
+        source_decode = f.read().decode()
+
+    tree = ast.parse(source_decode)
+
+    parents: dict[ast.AST, ast.AST] = dict()
+    for node in ast.walk(tree):
+        for child in ast.iter_child_nodes(node):
+            parents[child] = node
+
+    writers = ("print", "sys.stdout.write", "sys.stdout.buffer.write")
+
+    found: list[tuple[str, str]] = list()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+
+        call = ast.unparse(node.func)
+        if call not in writers:
+            continue
+
+        # Name the Def that holds the Call, with its Class in front, if any
+
+        holder = parents.get(node)
+        while holder and not isinstance(holder, ast.FunctionDef):
+            holder = parents.get(holder)
+        assert isinstance(holder, ast.FunctionDef), (call, node.lineno)
+
+        owner = parents.get(holder)
+        prefix = f"{owner.name}." if isinstance(owner, ast.ClassDef) else ""
+        found.append((f"{prefix}{holder.name}", call))
+
+    want = [
+        ("TerminalBoss._bytes_write_flush_", "sys.stdout.buffer.write"),
+        ("TerminalBoss.str_write", "print"),
+        ("main", "print"),  # the help prints 3 times, with no Boss
+        ("main", "print"),
+        ("main", "print"),
+    ]
+    assert sorted(found) == sorted(want), (sorted(found), sorted(want))
+
+
+def _try_typescript_files_() -> None:
+    """Try the o.jsonl and o.typescript files an egg writes on a Pty, as specs.md § 9 says"""
+
+    asks = b"\033[6n\033[18t"
+    replies = b"\033[1;1R\033[8;24;80t"
+    arrows = (b"\033[C", b"\033[B")
+    returns = (b"\r",) * 3
+
+    cases = (  # (egg, steps struck 150ms apart, Replies sent, Bytes read in all)
+        ("skater", arrows + returns, replies, replies + b"".join(arrows + returns)),
+        ("strikes", (b"x",) + returns, b"", b"x" + b"".join(returns)),
+    )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
+        futures = list(
+            executor.submit(_try_egg_files_, egg, steps=steps, replies=replies)
+            for (egg, steps, replies, typed) in cases
+        )
+
+    for (egg, steps, replies, typed), future in zip(cases, futures):
+        quit, terminal_bytes, i_decode, o_decode, typescript = future.result()
+        assert quit, (egg, len(terminal_bytes))
+        assert i_decode is not None, (egg,)
+        assert o_decode is not None, (egg,)
+        assert typescript is not None, (egg,)
+
+        i_pairs = _try_jsonl_pairs_(egg, i_decode)
+        o_pairs = _try_jsonl_pairs_(egg, o_decode)
+
+        i_codes = bytes(code for (nano, code) in i_pairs)
+        assert i_codes == typed, (egg, i_codes, typed)
+
+        # Meet the Spec for the Typescript, every Byte written except the Asks
+
+        assert asks not in typescript, (egg, typescript)
+        assert (asks in terminal_bytes) == (egg == "skater"), (egg, terminal_bytes)
+
+        # The Terminal driver adds "\r" before each "\n" written while it still cooks Output
+        # (the "\n" written in raw mode comes with its "\r" already)
+
+        cooked_bytes = re.sub(rb"(?<!\r)\n", b"\r\n", typescript)
+        want_bytes = (asks if (egg == "skater") else b"") + cooked_bytes
+        assert terminal_bytes == want_bytes, (egg, terminal_bytes, want_bytes)
+
+        # Meet the Spec for the Output, every Byte written, Asks too, so Asks only on a Terminal
+
+        o_codes = bytes(code for (nano, code) in o_pairs)
+        if egg == "skater":
+            assert o_codes.count(asks) == 1, (egg, o_codes)
+            assert o_codes.replace(asks, b"", 1) == typescript, (egg, o_codes, typescript)
+        else:
+            assert o_codes == typescript, (egg, o_codes, typescript)
+
+        # Count the Nanos of both files from one zero
+
+        i_nanos = list(nano for (nano, code) in i_pairs)
+        o_nanos = list(nano for (nano, code) in o_pairs)
+        assert min(i_nanos + o_nanos) == 0, (egg, i_nanos, o_nanos)
+        assert i_nanos == sorted(i_nanos), (egg, i_nanos)
+        assert o_nanos == sorted(o_nanos), (egg, o_nanos)
+
+        if egg == "skater":  # writes the Farewell's "\n", from the Final Print after Exit
+            assert typescript.endswith(_SKATER_FAREWELL_.encode() + b"\n"), (egg, typescript)
+        else:  # writes what print() printed
+            assert b"+ " in typescript, (egg, typescript)
+            assert typescript.startswith(b"\nPress Return three times quickly, to quit\n\n")
+
+
+def _try_egg_files_(
+    egg: str, steps: tuple[bytes, ...], replies: bytes
+) -> tuple[bool, bytes, str | None, str | None, bytes | None]:
+    """Run --egg= on a Pty in a new directory, and say what it read, and wrote there"""
+
+    with tempfile.TemporaryDirectory() as cwd:
+        quit, terminal_bytes = _try_egg_pty_(egg, strike_steps=steps, replies=replies, cwd=cwd)
+
+        decodes: list[str | None] = list()
+        for name in ("i.jsonl", "o.jsonl"):
+            decode = None
+            name_join = os.path.join(cwd, name)
+            if os.path.exists(name_join):
+                with open(name_join, "rb") as f:
+                    decode = f.read().decode()
+            decodes.append(decode)
+
+        typescript = None
+        o_join = os.path.join(cwd, "o.typescript")
+        if os.path.exists(o_join):
+            with open(o_join, "rb") as f:
+                typescript = f.read()
+
+    i_decode, o_decode = decodes
+    return (quit, terminal_bytes, i_decode, o_decode, typescript)
 
 
 def _layer_after_(ts: litpyglass.TerminalShadow, text: str) -> litpyglass.TerminalLayer | None:
@@ -1831,7 +2732,7 @@ def _try_shadow_top_layer_() -> None:
 
 
 def _try_screen_replay_() -> None:
-    """Try the Screen replay that measures specs.md § 8, asserting on each Byte it does not model"""
+    """Try the Screen replay that the Tests of specs.md § 8 use, and its assert on a Byte not modeled"""
 
     for decode in ("\033[2J", "\033[1;2A", "\033[5m", "\t", "\033"):
         try:
@@ -1930,7 +2831,7 @@ import litpyglass
 sync_fileno = int(sys.argv[2])
 boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"<FAREWELL>")
 ts = litpyglass.TerminalShadow(boss)
-ist = litpyglass.InputStrikeTaker(ts)
+ist = litpyglass.InputStrikeTaker(ts, arrow_wait_nanos=0)
 print("READY1", flush=True)
 os.read(sync_fileno, 1)  # ↑, a Reply, a lookalike Reply, a Reply, and ↓ are typed
 places = list()
@@ -1953,7 +2854,7 @@ import litpyglass
 
 boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"")
 ts = litpyglass.TerminalShadow(boss)
-ist = litpyglass.InputStrikeTaker(ts)
+ist = litpyglass.InputStrikeTaker(ts, arrow_wait_nanos=0)
 places = list()
 with boss:
     ist.pull_yx_hw_from_ts_else(stalwarts=())
@@ -1971,10 +2872,10 @@ def _try_frame_reader_quits_midbatch_() -> None:
 
     read_fake = FakeReadBoss()
     boss = typing.cast(litpyglass.TerminalBoss, read_fake)
-    tfr = litpyglass.TerminalFrameReader()
+    tfr = litpyglass.TerminalFrameReader(boss)
 
     taken_count = 0
-    for taken, frame, _ in tfr.take_frames_and_yield_each(boss, stalwarts=()):
+    for taken, frame, _ in tfr.take_frames_and_yield_each(stalwarts=()):
         taken_count += int(taken)
         if taken_count == 2:
             break  # quits at the second Frame of three
@@ -1982,7 +2883,7 @@ def _try_frame_reader_quits_midbatch_() -> None:
     assert read_fake.reads == 1, (read_fake.reads,)
 
     shows = list()
-    for taken, frame, _ in tfr.take_frames_and_yield_each(boss, stalwarts=()):
+    for taken, frame, _ in tfr.take_frames_and_yield_each(stalwarts=()):
         shows.append((taken, frame.to_frame_bytes(), read_fake.reads))
 
     # the third Frame comes first, before the Open Frame, and before any second read
@@ -1996,10 +2897,10 @@ def _try_frame_reader_nanobytes_() -> None:
 
     slow_fake = FakeSlowBoss()
     boss = typing.cast(litpyglass.TerminalBoss, slow_fake)
-    tfr = litpyglass.TerminalFrameReader()
+    tfr = litpyglass.TerminalFrameReader(boss)
 
     shows = list()
-    for taken, frame, frame_nanobytes in tfr.take_frames_and_yield_each(boss, stalwarts=()):
+    for taken, frame, frame_nanobytes in tfr.take_frames_and_yield_each(stalwarts=()):
         assert isinstance(frame_nanobytes, tuple), (taken, frame_nanobytes)  # Open Frames too
         if taken:
             shows.append((frame.to_frame_bytes(), frame_nanobytes))
@@ -2017,7 +2918,61 @@ def _try_frame_reader_nanobytes_() -> None:
     assert list(w for w, _ in nanobytes1)[1:] == [0, 0], nanobytes1
     assert nanobytes1[0][0] >= 1_000_000 and nanobytes2[0][0] >= 1_000_000, (nanobytes1, nanobytes2)
 
-    # todo: test that the Reader peeks ahead: ⎋ J Combining Acute in one read is one Frame, not two
+
+def _try_frame_reader_peek_() -> None:
+    """Try that the Reader peeks for a Combining Mark in the same read, as specs.md § 5 says"""
+
+    acute = b"\314\201"  # U+0301 Combining Acute Accent, category Mn, 2 Bytes
+    spacing = b"\340\244\203"  # U+0903 Devanagari Sign Visarga, category Mc, 3 Bytes
+    enclosing = b"\342\203\235"  # U+20DD Combining Enclosing Circle, category Me, 3 Bytes
+    stem = b"\360\235\205\245"  # U+1D165 Musical Symbol Combining Stem, category Mc, 4 Bytes
+    printable = b"\303\251"  # U+00E9 Latin Small Letter E With Acute, category Ll, not a Mark
+    marks = (acute, spacing, enclosing, stem)
+
+    # Hold one Frame open across one read, for each Category of Mark and for each Byte count
+
+    for mark in marks:
+        taken, opened = _frames_of_([b"\033j" + mark])
+        assert taken == [b"\033j" + mark], (taken, mark)
+        assert opened == [b"", b""], (opened, mark)
+
+    # Close the Frame at the j, and start another at the Mark, across two reads
+
+    for mark in marks:
+        taken, opened = _frames_of_([b"\033j", mark])
+        assert taken == [b"\033j", mark], (taken, mark)
+        assert opened == [b"", b"", mark], (opened, mark)
+
+    # Close the Frame at the j, when the Char after is not a Mark
+
+    for plain in (b"x", printable):
+        taken, opened = _frames_of_([b"\033j" + plain])
+        assert taken == [b"\033j", plain], (taken, plain)
+        assert opened == [b"", plain], (opened, plain)
+
+    # Take Text, a j and then a Mark, as one Frame left open, whether in one read or in two
+
+    taken, opened = _frames_of_([b"j" + acute])
+    assert taken == [b"j" + acute], (taken,)
+    assert opened == [b"", b"j" + acute], (opened,)
+
+    taken, opened = _frames_of_([b"j", acute])
+    assert taken == [b"j" + acute], (taken,)
+    assert opened == [b"", b"j", b"j" + acute], (opened,)
+
+
+def _frames_of_(chunks: list[bytes]) -> tuple[list[bytes], list[bytes]]:
+    """Read each chunk in turn, and return the Taken Frames and the Open Frames yielded"""
+
+    boss = typing.cast(litpyglass.TerminalBoss, FakeChunkBoss(chunks))
+    tfr = litpyglass.TerminalFrameReader(boss)
+
+    takens: list[bytes] = list()
+    opens: list[bytes] = list()
+    for taken, frame, _ in tfr.take_frames_and_yield_each(stalwarts=()):
+        (takens if taken else opens).append(frame.to_frame_bytes())
+
+    return (takens, opens)
 
 
 def _try_frame_print_() -> None:
@@ -2028,11 +2983,17 @@ def _try_frame_print_() -> None:
     esc = b"\033"
 
     def printed(frame_nanobytes: tuple[tuple[int, bytes], ...]) -> str:
-        captured = io.StringIO()
-        with contextlib.redirect_stdout(captured):
-            glass_worker.frame_print(b"\033[A", nanobytes=frame_nanobytes, end="\r\n")
+        boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"")
 
-        return captured.getvalue()
+        captured_bytes = io.BytesIO()
+        captured = io.TextIOWrapper(captured_bytes, encoding="utf-8", newline="")  # as Stdout is
+        with contextlib.redirect_stdout(captured):
+            glass_worker.frame_print(b"\033[A", nanobytes=frame_nanobytes, end="\r\n", tb=boss)
+            captured.flush()
+
+        data = captured_bytes.getvalue()
+        assert bytes(boss.typescript) == data, (boss.typescript, data)
+        return data.decode()
 
     prefix = start + "↑ '\\033[A' b'\\033[A' = "
 
@@ -2056,7 +3017,7 @@ def _try_pull_ends_without_replies_() -> None:
     """Try that Input ending before both Replies fails loudly, as specs.md § 7 says"""
 
     boss = typing.cast(litpyglass.TerminalBoss, FakeEndBoss())
-    ist = litpyglass.InputStrikeTaker(litpyglass.TerminalShadow(boss))
+    ist = litpyglass.InputStrikeTaker(litpyglass.TerminalShadow(boss), arrow_wait_nanos=0)
 
     heard = io.StringIO()
     with contextlib.redirect_stdout(heard):
@@ -2105,6 +3066,549 @@ def _try_placed_input_strikes_() -> None:
             assert want in run.stdout.decode(), (run.stdout, want, data)
 
 
+def _intercardinal_taken_(chunks: tuple[bytes, ...]) -> tuple[list[tuple[str, bytes]], list[str]]:
+    """Take Strikes from fake reads, and say each taken Strike as Key Caps and Bytes, and events"""
+
+    wait_50ms = litpyglass._50_MEGA_NANOS_
+    return _intercardinal_taken_ahead_(chunks, typeahead=b"", arrow_wait_nanos=wait_50ms)
+
+
+def _intercardinal_taken_ahead_(
+    chunks: tuple[bytes, ...], typeahead: bytes, arrow_wait_nanos: int
+) -> tuple[list[tuple[str, bytes]], list[str]]:
+    """Take Strikes from fake Typeahead and then fake reads, and say the same of them"""
+
+    join_fake = FakeJoinBoss(chunks, typeahead=typeahead, arrow_wait_nanos=arrow_wait_nanos)
+    boss = typing.cast(litpyglass.TerminalBoss, join_fake)
+    ts = litpyglass.TerminalShadow(boss)
+    ist = litpyglass.InputStrikeTaker(ts, arrow_wait_nanos=arrow_wait_nanos)
+
+    pairs: list[tuple[str, bytes]] = list()
+    for strike in ist.take_input_strikes_and_yield_each(stalwarts=()):
+        if strike.taken:
+            pairs.append((strike.caps, strike.to_frame_bytes()))
+            join_fake.events.append("yield")
+        elif not strike.to_frame_bytes():
+            join_fake.events.append("idle")  # the empty Open Frame, yielded before a read
+        else:
+            join_fake.events.append("grow")  # the Open Frame that holds Bytes, yielded after a read
+
+    return (pairs, join_fake.events)
+
+
+_TYPEAHEAD_ARROWS_CHILD_ = r"""
+import os, sys
+sys.path.insert(0, sys.argv[1])
+import litpyglass
+
+sync_fileno = int(sys.argv[2])
+boss = litpyglass.TerminalBoss(typeahead=b"\033[A\033[C\r", farewell_bytes=b"")
+ist = litpyglass.InputStrikeTaker(litpyglass.TerminalShadow(boss), arrow_wait_nanos=50000000)
+print("READY1", flush=True)
+os.read(sync_fileno, 1)
+caps_list = list()
+with boss:
+    for strike in ist.take_input_strikes_and_yield_each(stalwarts=()):
+        if strike.taken:
+            caps_list.append(strike.caps)
+            if len(caps_list) >= 2:
+                break
+print("RESULT", repr(tuple(caps_list)), flush=True)
+"""
+
+
+def _try_intercardinal_strikes_() -> None:
+    """Try that two Cardinal Arrows at once join into one, as specs.md § 7 says"""
+
+    east, north, west, south = b"\033[C", b"\033[A", b"\033[D", b"\033[B"
+    arrows = {"→": east, "↑": north, "←": west, "↓": south}
+    diagonal_by_straights = {
+        "↑←": "↖",
+        "↑→": "↗",
+        "↓→": "↘",
+        "↓←": "↙",
+        "←↑": "↖",
+        "→↑": "↗",
+        "→↓": "↘",
+        "←↓": "↙",
+    }
+
+    # Join each pair on different axes, struck in one read or in two reads
+
+    for straights, diagonal in diagonal_by_straights.items():
+        first, second = arrows[straights[0]], arrows[straights[1]]
+        want = [(diagonal, first + second)]  # the two Frames catenated in order
+
+        pairs, events = _intercardinal_taken_((first + second,))
+        assert pairs == want, (pairs, want, straights)
+
+        pairs, events = _intercardinal_taken_((first, second))
+        assert pairs == want, (pairs, want, straights, events)
+        assert events == ["idle", "read", "select", "idle", "read", "yield", "idle", "read"], (
+            events,
+            straights,
+        )
+
+    # Never join two Arrows on one axis, and yield both in order
+
+    for straights in ("↑↑", "↑↓", "↓↑", "←→", "→←", "→→"):
+        first, second = arrows[straights[0]], arrows[straights[1]]
+        pairs, events = _intercardinal_taken_((first + second,))
+        want = [(straights[0], first), (straights[1], second)]
+        assert pairs == want, (pairs, want, straights)
+
+    # Yield a lone Arrow once the peek says no Byte is available, before the last read
+
+    pairs, events = _intercardinal_taken_((north,))
+    assert pairs == [("↑", north)], (pairs, events)
+    assert events == ["idle", "read", "select", "yield", "idle", "read"], (events,)
+
+    # Yield an Arrow held at End of Input
+
+    pairs, events = _intercardinal_taken_((north, b""))
+    assert pairs == [("↑", north)], (pairs, events)
+    assert events == ["idle", "read", "select", "idle", "read", "yield"], (events,)
+
+    # Never join an Arrow with a Strike that is no Cardinal Arrow, and yield the Arrow first
+
+    pairs, events = _intercardinal_taken_((north + b"x",))
+    assert list(data for _, data in pairs) == [north, b"x"], (pairs, events)
+
+    pairs, events = _intercardinal_taken_((b"x" + north,))
+    assert list(data for _, data in pairs) == [b"x", north], (pairs, events)
+
+    pairs, events = _intercardinal_taken_((north + b"J",))  # ⇧J is shifted, and no Arrow
+    assert pairs == [("↑", north), ("⇧J", b"J")], (pairs, events)
+
+    for lone_data in (b"\r", b"\x80"):  # yields at once, with no peek, since none is held
+        pairs, events = _intercardinal_taken_((lone_data,))
+        assert list(data for _, data in pairs) == [lone_data], (pairs, events)
+        assert events == ["idle", "read", "yield", "idle", "read"], (events, lone_data)
+
+    pairs, events = _intercardinal_taken_((b"x\r",))  # x, then ⏎, each yielded as it is taken
+    assert list(data for _, data in pairs) == [b"x", b"\r"], (pairs, events)
+    assert events == ["idle", "read", "yield", "yield", "idle", "read"], (events,)
+
+    pairs, events = _intercardinal_taken_((north, b"\x80"))  # a Strike with no Key Caps at all
+    assert pairs == [("↑", north), ("", b"\x80")], (pairs, events)
+    want_events = ["idle", "read", "select", "idle", "read", "yield", "yield", "idle", "read"]
+    assert events == want_events, (events,)
+
+    # Join each Shifted Arrow too, keeping every shift of both Arrows, each once, in the order
+    # ⎋ ⌃ ⌥ ⇧ ⌘ Fn, and catenate the two Frames in order
+
+    shift_left, shift_right = b"\033[1;2D", b"\033[1;2C"
+    alt_up, escape_shift_left = b"\033\033[A", b"\033\033[D"
+    fn_up, fn_down, fn_right, fn_left = b"\033[5~", b"\033[6~", b"\033[F", b"\033[H"
+
+    cases = (
+        (north + shift_right, "⇧↗"),  # ↑ ⇧→
+        (shift_right + north, "⇧↗"),
+        (shift_left + north, "⇧↖"),
+        (north + shift_left, "⇧↖"),
+        (alt_up + shift_right, "⌥⇧↗"),  # ⌥↑ ⇧→
+        (shift_right + alt_up, "⌥⇧↗"),
+        (b"\033b" + north, "⌥↖"),  # ⌥← ↑
+        (escape_shift_left + south, "⎋⇧↙"),  # ⎋⇧← ↓
+        (south + escape_shift_left, "⎋⇧↙"),
+        (fn_up + fn_right, "⇧Fn↗"),  # ⇧Fn↑ ⇧Fn→
+        (fn_right + fn_up, "⇧Fn↗"),
+        (fn_up + east, "⇧Fn↗"),  # ⇧Fn↑ →
+        (east + fn_up, "⇧Fn↗"),
+        (south + fn_left, "⇧Fn↙"),
+        (fn_down + shift_right, "⇧Fn↘"),  # ⇧ on both is written once
+        (alt_up + fn_right, "⌥⇧Fn↗"),  # ⌥↑ ⇧Fn→
+    )
+    for data, want_caps in cases:
+        pairs, events = _intercardinal_taken_((data,))
+        assert pairs == [(want_caps, data)], (pairs, want_caps, data)  # the two Frames in order
+
+    pairs, events = _intercardinal_taken_((shift_left, north))  # two reads, as for bare Arrows
+    assert pairs == [("⇧↖", shift_left + north)], (pairs, events)
+    assert events == ["idle", "read", "select", "idle", "read", "yield", "idle", "read"], (events,)
+
+    pairs, events = _intercardinal_taken_((shift_right + north + b"x",))  # then the Strike after
+    assert list(data for _, data in pairs) == [shift_right + north, b"x"], (pairs, events)
+
+    pairs, events = _intercardinal_taken_((shift_right,))  # a lone ⇧→ is yielded after the peek
+    assert pairs == [("⇧→", shift_right)], (pairs, events)
+    assert events == ["idle", "read", "select", "yield", "idle", "read"], (events,)
+
+
+def _try_intercardinal_joins_() -> None:
+    """Try that a join catenates the two Frames in order, as specs.md § 7 says"""
+
+    east, north = b"\033[C", b"\033[A"
+    shift_left, shift_right = b"\033[1;2D", b"\033[1;2C"
+    fn_up, fn_down, fn_right, fn_left = b"\033[5~", b"\033[6~", b"\033[F", b"\033[H"
+
+    # Join each Shifted pair spoken by Key Caps, in either order,
+
+    def shifted_strike(caps: str, data: bytes) -> litpyglass.InputStrike:
+        """Make a taken Strike of these Key Caps, which the Frame need not match"""
+
+        frame = litpyglass.TerminalByteFrame(data)
+        strike = litpyglass.InputStrike(taken=True, caps=caps, printables="", frames=(frame,))
+        return strike
+
+    def taken_strike(caps: str, data: bytes) -> litpyglass.InputStrike:
+        """Make a taken Strike of these Key Caps and these Bytes"""
+
+        strike = shifted_strike(caps, data)
+        return strike
+
+    join_cases = (
+        ("⇧←", "↑", "⇧↖"),
+        ("Fn↑", "→", "Fn↗"),
+        ("⌥←", "↑", "⌥↖"),
+        ("⌃←", "↑", "⌃↖"),
+        ("⌘→", "↓", "⌘↘"),
+        ("⎋→", "↓", "⎋↘"),
+        ("⇧↑", "⌥←", "⌥⇧↖"),  # ⇧ then ⌥ arrive, ⌥ then ⇧ in order
+        ("⌘⌃↑", "⌥⇧→", "⌃⌥⇧⌘↗"),
+        ("⎋⌃↑", "⎋→", "⎋⌃↗"),  # a shift on both Arrows is written once
+        ("⇧↑", "⇧→", "⇧↗"),
+    )
+    for first_caps, second_caps, want_caps in join_cases:
+        for caps_pair in ((first_caps, second_caps), (second_caps, first_caps)):
+            first_strike = shifted_strike(caps_pair[0], north)
+            second_strike = shifted_strike(caps_pair[1], east)
+            joined = litpyglass.InputStrikeTaker.arrows_join_else(first_strike, second_strike)
+            assert joined is not None, (caps_pair,)
+            assert joined.caps == want_caps, (joined.caps, want_caps, caps_pair)
+            assert joined.to_frame_bytes() == north + east, (joined.frames, caps_pair)
+            assert joined.taken, (joined,)
+
+    # Catenate in order of arrival, so one Intercardinal Arrow has two Frames
+
+    north_east = litpyglass.InputStrikeTaker.arrows_join_else(
+        taken_strike("↑", north), taken_strike("→", east)
+    )
+    east_north = litpyglass.InputStrikeTaker.arrows_join_else(
+        taken_strike("→", east), taken_strike("↑", north)
+    )
+    assert north_east is not None and east_north is not None, (north_east, east_north)
+    assert (north_east.caps, north_east.to_frame_bytes()) == ("↗", b"\033[A\033[C")
+    assert (east_north.caps, east_north.to_frame_bytes()) == ("↗", b"\033[C\033[A")
+
+    # Hold two Frames in a joined Strike, each one Cardinal Arrow's, and one Frame in an ordinary Strike
+
+    first_strike = taken_strike("↑", north)
+    second_strike = taken_strike("→", east)
+    joined = litpyglass.InputStrikeTaker.arrows_join_else(first_strike, second_strike)
+    assert joined is not None, (joined,)
+    assert len(first_strike.frames) == 1 and len(second_strike.frames) == 1, (first_strike,)
+    assert len(joined.frames) == 2, (joined,)
+    joined_first, joined_second = joined.frames
+    assert joined_first.closed and joined_second.closed, (joined,)
+    assert joined_first.to_frame_bytes() == north, (joined_first,)
+    assert joined_second.to_frame_bytes() == east, (joined_second,)
+    assert joined.to_frame_bytes() == north + east, (joined,)
+
+    # Never hold a Frame with Bytes other than one Cardinal Arrow's, in a joined Strike
+
+    for first_caps, second_caps, first_data, second_data in (
+        ("↑", "→", north, east),
+        ("→", "↑", east, north),
+        ("⇧←", "↑", shift_left, north),
+        ("↑", "⇧→", north, shift_right),
+    ):
+        pair_strike = litpyglass.InputStrikeTaker.arrows_join_else(
+            taken_strike(first_caps, first_data), taken_strike(second_caps, second_data)
+        )
+        assert pair_strike is not None, (first_caps, second_caps)
+        for pair_frame, pair_data in zip(pair_strike.frames, (first_data, second_data)):
+            assert pair_frame.to_frame_bytes() == pair_data, (pair_frame, pair_data)
+
+    # Refuse an Arrow whose Frame has no Bytes or is not closed, since its Key Caps then lie
+
+    east_strike = taken_strike("→", east)
+    for lying_data in (b"", b"\033[", b"x"):
+        lying_strike = shifted_strike("↑", lying_data)
+        for pair in ((lying_strike, east_strike), (east_strike, lying_strike)):
+            try:
+                litpyglass.InputStrikeTaker.arrows_join_else(*pair)
+                refusal = None
+            except AssertionError as exc:
+                refusal = exc.args
+            assert refusal is not None, (pair, lying_data)
+
+    # Never join two Shifted Arrows on one axis, nor an Arrow with a Strike that is no Cardinal Arrow
+
+    for first_caps, second_caps in (("⇧←", "⇧→"), ("⌥↑", "⇧↓"), ("⇧←", "←"), ("↑", "↑")):
+        first_strike = shifted_strike(first_caps, north)
+        second_strike = shifted_strike(second_caps, east)
+        assert litpyglass.InputStrikeTaker.arrows_join_else(first_strike, second_strike) is None, (
+            first_caps,
+        )
+
+    for first_caps, second_caps in (("⇧↑", "⇧A"), ("⇧A", "→"), ("↑", ""), ("↑", "⎋["), ("↑", "↗")):
+        first_strike = shifted_strike(first_caps, north)
+        second_strike = shifted_strike(second_caps, east)
+        assert litpyglass.InputStrikeTaker.arrows_join_else(first_strike, second_strike) is None, (
+            first_caps,
+        )
+
+    # Never join a Strike not taken, since it is no Arrow yet
+
+    taken_north = shifted_strike("↑", north)
+    taken_east = shifted_strike("→", east)
+    open_north = litpyglass.InputStrike(
+        taken=False, caps="↑", printables="", frames=taken_north.frames
+    )
+    open_east = litpyglass.InputStrike(
+        taken=False, caps="→", printables="", frames=taken_east.frames
+    )
+
+    early_join = litpyglass.InputStrikeTaker.arrows_join_else(open_north, taken_east)
+    late_join = litpyglass.InputStrikeTaker.arrows_join_else(taken_north, open_east)
+    assert early_join is None, (early_join,)
+    assert late_join is None, (late_join,)
+
+    pairs, events = _intercardinal_taken_((shift_left + shift_right,))  # ⇧← ⇧→ on one axis
+    assert list(data for _, data in pairs) == [shift_left, shift_right], (pairs, events)
+
+    for first_data, second_data in ((fn_up, fn_down), (fn_left, fn_right), (fn_up, fn_up)):
+        pairs, events = _intercardinal_taken_((first_data + second_data,))  # one axis, both ⇧Fn
+        assert list(data for _, data in pairs) == [first_data, second_data], (pairs, events)
+
+
+def _try_intercardinal_ahead_() -> None:
+    """Try that an Arrow joins across reads and Typeahead, as specs.md § 7 says"""
+
+    east, north = b"\033[C", b"\033[A"
+    shift_left = b"\033[1;2D"
+
+    # Yield an Arrow before the Strike after it, when the Arrow joins and when it does not
+
+    pairs, events = _intercardinal_taken_((north + east + b"x",))
+    assert list(data for _, data in pairs) == [north + east, b"x"], (pairs, events)
+
+    # Take three Arrows ↑ → ↑ as ↗ and then ↑
+
+    pairs, events = _intercardinal_taken_((north + east + north,))
+    assert pairs == [("↗", north + east), ("↑", north)], (pairs, events)
+
+    # Give up at once when the first read ends mid-Frame, and yield both Arrows in order
+
+    pairs, events = _intercardinal_taken_((north + b"\033[", b"C"))
+    assert pairs == [("↑", north), ("→", east)], (pairs, events)
+    want_events = ["idle", "read", "yield", "grow", "read", "select", "yield", "idle", "read"]
+    assert events == want_events, (events,)
+
+    # Give up when the second read brings only part of an Arrow, and yield both in order
+
+    pairs, events = _intercardinal_taken_((north, b"\033[", b"C"))
+    assert pairs == [("↑", north), ("→", east)], (pairs, events)
+    want_events = [
+        "idle",
+        "read",
+        "select",
+        "idle",
+        "read",
+        "yield",
+        "grow",
+        "read",
+        "select",
+        "yield",
+        "idle",
+        "read",
+    ]
+    assert events == want_events, (events,)
+
+    # Join Arrows typed ahead, as if all the Typeahead were available at once
+
+    result = _pty_run_child_(_TYPEAHEAD_ARROWS_CHILD_, terminal_bytes=b"")
+    assert result == ("↗", "⏎"), (result,)  # the trailing ⏎ shows the Typeahead ran dry
+
+    wait_50ms = litpyglass._50_MEGA_NANOS_
+    typeahead_cases = (
+        (north + east, [("↗", north + east)]),
+        (b"x" + north + east, [("X", b"x"), ("↗", north + east)]),
+        (north + east + north, [("↗", north + east), ("↑", north)]),
+        (north + north + east, [("↑", north), ("↗", north + east)]),
+        (shift_left + north, [("⇧↖", shift_left + north)]),
+        (north + b"x", [("↑", north), ("X", b"x")]),
+        (north, [("↑", north)]),  # the peek says no once the Typeahead runs dry
+        (north + b"\033[", [("↑", north), ("⎋[", b"\033[")]),  # runs dry mid-Frame, so gives up
+    )
+    for typeahead, want in typeahead_cases:
+        pairs, events = _intercardinal_taken_ahead_(
+            (), typeahead=typeahead, arrow_wait_nanos=wait_50ms
+        )
+        assert pairs == want, (pairs, want, typeahead, events)
+
+    # Yield every Open Frame of the Typeahead, even while holding an Arrow, and ask no select
+
+    pairs, events = _intercardinal_taken_ahead_(
+        (), typeahead=north + east, arrow_wait_nanos=wait_50ms
+    )
+    want_events = ["idle", "read", "grow", "read", "grow", "read"]  # ⎋ [ ⇧A
+    want_events += ["idle", "read", "grow", "read", "grow", "read"]  # ⎋ [ ⇧C
+    want_events += ["yield", "idle", "read"]
+    assert events == want_events, (events,)
+
+    # Peek once the Typeahead has run dry
+
+    pairs, events = _intercardinal_taken_ahead_((), typeahead=north, arrow_wait_nanos=wait_50ms)
+    want_events = ["idle", "read", "grow", "read", "grow", "read", "select", "yield", "idle", "read"]
+    assert events == want_events, (events,)
+
+    # Join an Arrow typed ahead to an Arrow read next, and give up once the Typeahead has run dry
+
+    pairs, events = _intercardinal_taken_ahead_((east,), typeahead=north, arrow_wait_nanos=wait_50ms)
+    assert pairs == [("↗", north + east)], (pairs, events)
+
+    pairs, events = _intercardinal_taken_ahead_(
+        (b"\033[", b"C"), typeahead=north, arrow_wait_nanos=wait_50ms
+    )
+    assert pairs == [("↑", north), ("→", east)], (pairs, events)
+
+
+def _try_intercardinal_splits_() -> None:
+    """Try that Key Caps split into shifts and one Arrow, as specs.md § 7 says"""
+
+    split_cases = (
+        ("←", ((), "←")),
+        ("⇧←", (("⇧",), "←")),
+        ("⌥⇧↗", (("⌥", "⇧"), "↗")),
+        ("⎋⌃⌥⇧⌘Fn↓", (("⎋", "⌃", "⌥", "⇧", "⌘", "Fn"), "↓")),
+        ("Fn↑", (("Fn",), "↑")),
+        ("⇧Fn↑", (("⇧", "Fn"), "↑")),
+        ("", None),
+        ("⇧", None),
+        ("⇧A", None),
+        ("A", None),
+        ("⎋[", None),
+        ("←←", None),
+        ("⇧←x", None),
+        ("↑←", None),
+        ("⌃⇧F5", None),
+    )
+    for caps, want_split in split_cases:
+        split = litpyglass.InputStrikeTaker.caps_split_arrow_else(caps)
+        assert split == want_split, (split, want_split, caps)
+
+
+_ARROW_WAIT_CHILD_ = r"""
+import os, sys, time
+sys.path.insert(0, sys.argv[1])
+import litpyglass
+
+sync_fileno = int(sys.argv[2])
+boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"")
+ts = litpyglass.TerminalShadow(boss)
+ist = litpyglass.InputStrikeTaker(ts, arrow_wait_nanos=<WAIT>)
+print("READY1", flush=True)
+os.read(sync_fileno, 1)  # a lone ↑ is typed
+waited_ms = -1
+with boss:
+    start = None
+    for strike in ist.take_input_strikes_and_yield_each(stalwarts=()):
+        if start is None:
+            start = time.perf_counter_ns()  # the first Open Frame comes before the first read
+        if strike.taken:
+            waited_ms = (time.perf_counter_ns() - start) // 10**6
+            break
+print("RESULT", repr((waited_ms,)), flush=True)
+"""
+
+
+def _try_arrow_wait_() -> None:
+    """Try that the wait for the second Arrow is the Caller's, as specs.md § 7 says"""
+
+    east, north = b"\033[C", b"\033[A"
+    wait_50ms = 50 * 10**6
+
+    # Ask the peek to wait the Nanos given, and join two Arrows read apart
+
+    pairs, events = _intercardinal_taken_ahead_(
+        (north, east), typeahead=b"", arrow_wait_nanos=wait_50ms
+    )
+    assert pairs == [("↗", north + east)], (pairs, events)  # the Fake asserts timeout == 0.05
+    assert events == ["idle", "read", "select", "idle", "read", "yield", "idle", "read"], (events,)
+
+    # Yield a lone Arrow after a peek that waits
+
+    pairs, events = _intercardinal_taken_ahead_((north,), typeahead=b"", arrow_wait_nanos=wait_50ms)
+    assert pairs == [("↑", north)], (pairs, events)
+    assert events == ["idle", "read", "select", "yield", "idle", "read"], (events,)
+
+    # Hold nothing and join nothing at a wait of 0, in one read, in two reads, and in Typeahead
+
+    want_unjoined = [("↑", north), ("→", east)]
+    for chunks, typeahead in (((north + east,), b""), ((north, east), b""), ((), north + east)):
+        pairs, events = _intercardinal_taken_ahead_(chunks, typeahead=typeahead, arrow_wait_nanos=0)
+        assert pairs == want_unjoined, (pairs, events, chunks, typeahead)
+        assert "select" not in events, (events, chunks, typeahead)
+
+    # Pin the event streams at a wait of 0, the stream before any holding existed
+
+    pairs, events = _intercardinal_taken_ahead_((north + east,), typeahead=b"", arrow_wait_nanos=0)
+    assert events == ["idle", "read", "yield", "yield", "idle", "read"], (events,)
+
+    pairs, events = _intercardinal_taken_ahead_((north, east), typeahead=b"", arrow_wait_nanos=0)
+    want_events = ["idle", "read", "yield", "idle", "read", "yield", "idle", "read"]
+    assert events == want_events, (events,)
+
+    pairs, events = _intercardinal_taken_ahead_((), typeahead=north + east, arrow_wait_nanos=0)
+    want_events = ["idle", "read", "grow", "read", "grow", "read", "yield"]  # ⎋ [ ⇧A
+    want_events += ["idle", "read", "grow", "read", "grow", "read", "yield"]  # ⎋ [ ⇧C
+    want_events += ["idle", "read"]
+    assert events == want_events, (events,)
+
+    pairs, events = _intercardinal_taken_ahead_((north,), typeahead=b"", arrow_wait_nanos=0)
+    assert pairs == [("↑", north)], (pairs, events)
+    assert events == ["idle", "read", "yield", "idle", "read"], (events,)
+
+    # Ask no select of Typeahead, even with a wait of 50ms
+
+    pairs, events = _intercardinal_taken_ahead_(
+        (), typeahead=north + east, arrow_wait_nanos=wait_50ms
+    )
+    assert pairs == [("↗", north + east)], (pairs, events)
+    assert "select" not in events, (events,)
+
+    # Refuse a negative wait, saying the value
+
+    boss = typing.cast(litpyglass.TerminalBoss, FakeJoinBoss((), typeahead=b"", arrow_wait_nanos=0))
+    ts = litpyglass.TerminalShadow(boss)
+    try:
+        litpyglass.InputStrikeTaker(ts, arrow_wait_nanos=-1)
+        refusal = None
+    except AssertionError as exc:
+        refusal = exc.args
+    assert refusal == ((-1,),), (refusal,)
+
+    # Spell a wait of 50ms in --egg=strikes and in --egg=skater
+
+    with open(litpyglass.__file__, "rb") as f:
+        source_decode = f.read().decode()
+
+    waits_by_egg: dict[str, list[str]] = dict()
+    for node in ast.walk(ast.parse(source_decode)):
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("show_"):
+            for inner in ast.walk(node):
+                if isinstance(inner, ast.Call) and ast.unparse(inner.func) == "InputStrikeTaker":
+                    waits = list(ast.unparse(_.value) for _ in inner.keywords)
+                    waits_by_egg[node.name] = waits
+
+    want_waits_by_egg = dict(show_strikes=["_50_MEGA_NANOS_"], show_skater=["_50_MEGA_NANOS_"])
+    assert waits_by_egg == want_waits_by_egg, (waits_by_egg, want_waits_by_egg)
+    assert litpyglass._50_MEGA_NANOS_ == wait_50ms, (litpyglass._50_MEGA_NANOS_, wait_50ms)
+
+    # Wait in real time on a Pty, for about the Nanos given and for none when 0
+
+    wait_0_replace = _ARROW_WAIT_CHILD_.replace("<WAIT>", "0")
+    wait_50_replace = _ARROW_WAIT_CHILD_.replace("<WAIT>", str(wait_50ms))
+    result_0 = typing.cast(tuple[int], _pty_run_child_(wait_0_replace, terminal_bytes=north))
+    result_50 = typing.cast(tuple[int], _pty_run_child_(wait_50_replace, terminal_bytes=north))
+
+    (waited_0ms,), (waited_50ms,) = result_0, result_50
+    assert waited_0ms < 40, (result_0, result_50)
+    assert 40 <= waited_50ms < 1000, (result_0, result_50)
+
+
 def _try_skater_entry_() -> None:
     """Try how --egg=skater waits for the Replies to its Asks, as specs.md § 8 says"""
 
@@ -2140,16 +3644,21 @@ def _try_skater_entry_() -> None:
     assert returncode is None, (returncode, screen_decode)
 
     argv = [sys.executable, "-I", litpyglass.__file__, "--egg=skater"]
-    run = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10)
-    assert run.returncode == 1, (run.returncode, run.stdout, run.stderr)  # no Screen, no skating
-    assert "Input ended before Y X H W replies to" in run.stdout, (run.stdout,)
-    assert "\033[6n" not in run.stdout, (run.stdout,)  # asks no Terminal, off a Terminal
+    with tempfile.TemporaryDirectory() as cwd:  # takes the files the egg writes at exit
+        run = subprocess.run(
+            argv, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10, cwd=cwd
+        )
+        assert run.returncode == 1, (run.returncode, run.stdout, run.stderr)  # no Screen, no skating
+        assert "Input ended before Y X H W replies to" in run.stdout, (run.stdout,)
+        assert "\033[6n" not in run.stdout, (run.stdout,)  # asks no Terminal, off a Terminal
 
-    replies = b"\033[1;1R\033[8;24;80t"  # Input volunteers a Cursor and a Screen of 24 x 80
-    run_bytes = subprocess.run(argv, input=replies + b"\r\r\r", capture_output=True, timeout=10)
-    assert run_bytes.returncode == 0, (run_bytes.returncode, run_bytes.stdout, run_bytes.stderr)
-    assert b"X\b" in run_bytes.stdout, (run_bytes.stdout,)  # skates on the Input's Replies
-    assert b"\033[6n" not in run_bytes.stdout, (run_bytes.stdout,)  # and still asks no Terminal
+        replies = b"\033[1;1R\033[8;24;80t"  # Input volunteers a Cursor and a Screen of 24 x 80
+        run_bytes = subprocess.run(
+            argv, input=replies + b"\r\r\r", capture_output=True, timeout=10, cwd=cwd
+        )
+        assert run_bytes.returncode == 0, (run_bytes.returncode, run_bytes.stdout, run_bytes.stderr)
+        assert b"X\b" in run_bytes.stdout, (run_bytes.stdout,)  # skates on the Input's Replies
+        assert b"\033[6n" not in run_bytes.stdout, (run_bytes.stdout,)  # and still asks no Terminal
 
 
 def _try_egg_entry_(typed_data: bytes, replies: bytes) -> tuple[str, bool, int | None]:
@@ -2157,25 +3666,29 @@ def _try_egg_entry_(typed_data: bytes, replies: bytes) -> tuple[str, bool, int |
 
     master_fileno, slave_fileno = pty.openpty()
     argv = [sys.executable, "-I", litpyglass.__file__, "--egg=skater"]
-    process = subprocess.Popen(argv, stdin=slave_fileno, stdout=slave_fileno, stderr=slave_fileno)
-    os.close(slave_fileno)
+    with tempfile.TemporaryDirectory() as cwd:  # takes the files the egg writes at exit
+        process = subprocess.Popen(
+            argv, stdin=slave_fileno, stdout=slave_fileno, stderr=slave_fileno, cwd=cwd
+        )
+        os.close(slave_fileno)
 
-    terminal_output = bytearray()
-    _pty_read_till_marker_(master_fileno, terminal_output, b"\033[6n\033[18t")
-    os.write(master_fileno, typed_data + replies)
-    _pty_read_for_seconds_(master_fileno, terminal_output, 0.5)
-
-    isig = bool(termios.tcgetattr(master_fileno)[3] & termios.ISIG)  # ⌃C ⌃Z ⌃\ signal, or not
-
-    returncode = None
-    if isig:  # still waiting, since the Terminal takes ⌃C ⌃Z ⌃\ as Signals till both Replies come
-        os.write(master_fileno, b"\004")  # ⌃D
+        terminal_output = bytearray()
+        _pty_read_till_marker_(master_fileno, terminal_output, b"\033[6n\033[18t")
+        os.write(master_fileno, typed_data + replies)
         _pty_read_for_seconds_(master_fileno, terminal_output, 0.5)
-        returncode = process.poll()
 
-    if process.poll() is None:
-        process.kill()
-    process.wait()
+        isig = bool(termios.tcgetattr(master_fileno)[3] & termios.ISIG)  # ⌃C ⌃Z ⌃\ signal, or not
+
+        returncode = None
+        if isig:
+            # still waiting, since the Terminal takes ⌃C ⌃Z ⌃\ as Signals till both Replies come
+            os.write(master_fileno, b"\004")  # ⌃D
+            _pty_read_for_seconds_(master_fileno, terminal_output, 0.5)
+            returncode = process.poll()
+
+        if process.poll() is None:
+            process.kill()
+        process.wait()
     os.close(master_fileno)
 
     screen_decode = bytes(terminal_output).decode(errors="replace")
@@ -2185,9 +3698,25 @@ def _try_egg_entry_(typed_data: bytes, replies: bytes) -> tuple[str, bool, int |
 def _try_egg_quit_(egg: str, strike_steps: tuple[bytes, ...], replies: bytes) -> tuple[bool, str]:
     """Run --egg= on a Pty, strike each step 150ms apart, and say if it quit, as specs.md § 8 says"""
 
+    with tempfile.TemporaryDirectory() as cwd:  # takes the files the egg writes at exit
+        quit, terminal_bytes = _try_egg_pty_(
+            egg, strike_steps=strike_steps, replies=replies, cwd=cwd
+        )
+
+    screen_decode = terminal_bytes.decode(errors="replace")
+    return (quit, screen_decode)
+
+
+def _try_egg_pty_(
+    egg: str, strike_steps: tuple[bytes, ...], replies: bytes, cwd: str
+) -> tuple[bool, bytes]:
+    """Run --egg= on a Pty in a directory, strike each step 150ms apart, and say if it quit"""
+
     master_fileno, slave_fileno = pty.openpty()
     argv = [sys.executable, "-I", litpyglass.__file__, f"--egg={egg}"]
-    process = subprocess.Popen(argv, stdin=slave_fileno, stdout=slave_fileno, stderr=slave_fileno)
+    process = subprocess.Popen(
+        argv, stdin=slave_fileno, stdout=slave_fileno, stderr=slave_fileno, cwd=cwd
+    )
     os.close(slave_fileno)
 
     terminal_output = bytearray()
@@ -2213,7 +3742,7 @@ def _try_egg_quit_(egg: str, strike_steps: tuple[bytes, ...], replies: bytes) ->
             os.write(master_fileno, data)
         except OSError:
             break  # the Child has already exited, so the Pty is closed
-        _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)  # over the 100ms too-fast gap
+        _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)  # over the 100ms gap
 
     _pty_read_for_seconds_(master_fileno, terminal_output, 0.5)  # long enough for a quit to show
     quit = process.poll() is not None
@@ -2222,12 +3751,11 @@ def _try_egg_quit_(egg: str, strike_steps: tuple[bytes, ...], replies: bytes) ->
     process.wait()
     os.close(master_fileno)
 
-    screen_decode = bytes(terminal_output).decode(errors="replace")
-    return (quit, screen_decode)
+    return (quit, bytes(terminal_output))
 
 
 def _try_strikes_spill_() -> None:
-    """Try what --egg=strikes leaves in Stdin after it quits, as specs.md § 8 says"""
+    """Try what --egg=strikes leaves unread in the Input after it quits, as specs.md § 8 says"""
 
     cases = (
         (b"", b""),  # nothing struck after the 3rd ⏎, so nothing left
@@ -2258,24 +3786,27 @@ def _try_strikes_left_(extra: bytes) -> bytes:
 
     master_fileno, slave_fileno = pty.openpty()
     argv = [sys.executable, "-I", "-c", _STRIKES_LEFT_CHILD_, litpyglass.__file__]
-    process = subprocess.Popen(argv, stdin=slave_fileno, stdout=slave_fileno, stderr=slave_fileno)
-    os.close(slave_fileno)
+    with tempfile.TemporaryDirectory() as cwd:  # takes the files the egg writes at exit
+        process = subprocess.Popen(
+            argv, stdin=slave_fileno, stdout=slave_fileno, stderr=slave_fileno, cwd=cwd
+        )
+        os.close(slave_fileno)
 
-    terminal_output = bytearray()
+        terminal_output = bytearray()
 
-    _pty_read_till_marker_(master_fileno, terminal_output, b"+ ")  # waits for the Prompt
-    assert b"+ " in terminal_output, (bytes(terminal_output),)
+        _pty_read_till_marker_(master_fileno, terminal_output, b"+ ")  # waits for the Prompt
+        assert b"+ " in terminal_output, (bytes(terminal_output),)
 
-    for _ in range(3):
-        os.write(master_fileno, b"\r")
-        _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)  # over the 100ms too-fast gap
+        for _ in range(3):
+            os.write(master_fileno, b"\r")
+            _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)  # over the 100ms gap
 
-    if extra:
-        os.write(master_fileno, extra)
+        if extra:
+            os.write(master_fileno, extra)
 
-    _pty_read_till_marker_(master_fileno, terminal_output, b"LEFT ")
-    _pty_read_for_seconds_(master_fileno, terminal_output, 0.1)
-    process.wait()
+        _pty_read_till_marker_(master_fileno, terminal_output, b"LEFT ")
+        _pty_read_for_seconds_(master_fileno, terminal_output, 0.1)
+        process.wait()
     os.close(master_fileno)
 
     screen_decode = bytes(terminal_output).decode(errors="replace")
@@ -2316,9 +3847,6 @@ def _pty_read_once_(master_fileno: int, terminal_output: bytearray) -> bool:
             return False
 
     return True
-
-
-# todo: assert the flushes come before tty.setraw and before termios.tcsetattr, by order
 
 
 # ⚠️ ↑↑↑ Above written by Claude·Ai, reviewed by almost no living people

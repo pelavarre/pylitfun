@@ -36,6 +36,7 @@ import decimal
 import errno
 import functools
 import io
+import json
 import os
 import re
 import select
@@ -59,11 +60,15 @@ if not __debug__:
 #
 
 
+_SHIFT_CAPS_ = ("⎋", "⌃", "⌥", "⇧", "⌘", "Fn")  # the Shift Marks of joined Key Caps, but in order
+
+
 _1_COLUMN_ = 1  # smallest .column_x
 _2_COLUMNS_ = 2  # our Square Pixels print as two Spaces side by side
 _20_COLUMNS_ = 20  # macOS Terminal `stty size` always says width of 20 or more
 
 _3_GIGA_NANOS_ = 3 * 10**9  # too slow to take 3 same inputs in a row as a quit request
+_50_MEGA_NANOS_ = 50 * 10**6  # two Arrow Keys struck together come closer, a held Key repeats slower
 _100_MEGA_NANOS_ = 100 * 10**6  # too fast to take 3 in a row as a quit request
 _150_MEGA_NANOS_ = 150 * 10**6  # keys typed ahead can come about as fast as a typist's
 
@@ -76,7 +81,7 @@ CR_EL_PS0 = "\r" "\033[K"  # wipes and replaces the present Screen Row
 # last wins
 
 
-assert unicodedata.name("¤").title() == "Currency Sign"
+assert unicodedata.name("¤").title() == "Currency Sign"  # like � but calmer, to mean unprintable
 
 
 #
@@ -116,25 +121,36 @@ def main() -> None:
     typeahead = os.fsencode("".join(typeaheads))  # todo: tighter parsing of .shargv
 
     gw = GlassWorker()
-    gw.nano_launch = time.perf_counter_ns()
 
     if "bytes" in eggs:
-        gw.show_bytes(typeahead=typeahead)
+        tb = gw.show_bytes(typeahead=typeahead)
     elif "nanos" in eggs:
-        gw.show_nanos(typeahead=typeahead)
+        tb = gw.show_nanos(typeahead=typeahead)
     elif "frames" in eggs:
-        gw.show_frames(typeahead=typeahead)
+        tb = gw.show_frames(typeahead=typeahead)
     elif "strikes" in eggs:
-        gw.show_strikes(typeahead=typeahead)
+        tb = gw.show_strikes(typeahead=typeahead)
     elif "skater" in eggs:
-        gw.show_skater(typeahead=typeahead)
+        tb = gw.show_skater(typeahead=typeahead)
     else:
         assert False, (eggs,)
 
-    print()
+    tb.str_print("")
 
     # ends with 0 or 1 or 2 empty lines
     # 0 for Stdin Eof, 1 commonly, 2 for quit via Return Return Return in particular
+
+    # Write the Input and the Output kept, only after the last Output,
+    # counting Nanos in both from the first Nanos kept in either
+
+    ibk = tb.ibk
+    obk = tb.obk
+    first_nanos = ibk.nano_list[:1] + obk.nano_list[:1]
+    zero_nano = min(first_nanos, default=0)  # 0 when no Byte was kept, of Input or of Output
+
+    ibk.pairs_write_file("i.jsonl", zero_nano=zero_nano)
+    obk.pairs_write_file("o.jsonl", zero_nano=zero_nano)
+    tb.typescript_write_file("o.typescript")
 
 
 def _main_doc_scrape_closing_() -> str:
@@ -157,21 +173,19 @@ def _main_doc_scrape_closing_() -> str:
 class GlassWorker:
     """Show off one Terminal feature and another"""
 
-    nano_launch: int = -1  # -1, else sampled at Process Launch
-
-    def show_bytes(self, typeahead: bytes) -> None:
+    def show_bytes(self, typeahead: bytes) -> TerminalBoss:
         """Print your Input Bytes on screen"""
 
         # Launch (and prompt just once and early)
 
-        print()  # signals very very quietly that we have run this far since launching
+        tb = TerminalBoss(typeahead=typeahead, farewell_bytes=b"")
+        tb.str_print("")  # signals very very quietly that we have run this far since launching
 
-        print("Press Return three times quickly, to quit")
-        print()
+        tb.str_print("Press Return three times quickly, to quit")
+        tb.str_print("")
 
-        with TerminalBoss(typeahead=typeahead, farewell_bytes=b"") as tb:
-            ibk = ByteKeeper()
-
+        ibk = tb.ibk
+        with tb:
             while True:
 
                 # Read
@@ -183,19 +197,18 @@ class GlassWorker:
                 if not b:
                     break
 
-                nano = time.perf_counter_ns()
-                ibk.append_one_byte(b, nano=nano)
-
                 # Print, and separate on request
 
-                print(ord(b), bytes_repr(b), end="\r\n")
+                tb.str_print(f"{ord(b)} {bytes_repr(b)}")
                 if b == b"\r":
-                    print()
+                    tb.str_print("")
 
                 # Quit on request
 
                 if ibk.is_quitting_bytes():
                     break
+
+        return tb
 
     _ = r"""
 
@@ -216,21 +229,22 @@ class GlassWorker:
 
     """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
-    def show_nanos(self, typeahead: bytes) -> None:
+    def show_nanos(self, typeahead: bytes) -> TerminalBoss:
         """Print your Input Bytes (and how quickly they arrived)"""
 
         # Launch (and prompt just once and early)
 
-        print()  # signals very very quietly that we have run this far since launching
+        tb = TerminalBoss(typeahead=typeahead, farewell_bytes=b"")
+        tb.str_print("")  # signals very very quietly that we have run this far since launching
 
-        print("Press Return three times quickly, to quit")
-        print()
+        tb.str_print("Press Return three times quickly, to quit")
+        tb.str_print("")
 
-        before = self.nano_launch
+        first_nanos = tb.obk.nano_list[:1]  # the first Nanos kept, since no Input has come yet
+        before = min(first_nanos)
 
-        with TerminalBoss(typeahead=typeahead, farewell_bytes=b"") as tb:
-            ibk = ByteKeeper()
-
+        ibk = tb.ibk
+        with tb:
             while True:
 
                 # Read
@@ -242,8 +256,7 @@ class GlassWorker:
                 if not b:
                     break
 
-                after = time.perf_counter_ns()
-                ibk.append_one_byte(b, nano=after)
+                after = ibk.nano_list[-1]  # the Nanos the Boss kept for this Byte
 
                 # Print, and separate on request
 
@@ -251,14 +264,16 @@ class GlassWorker:
                 between = after - before
                 before = after
 
-                print(f"{between:_}", code, bytes_repr(b), end="\r\n")
+                tb.str_print(f"{between:_} {code} {bytes_repr(b)}")
                 if b == b"\r":
-                    print()
+                    tb.str_print("")
 
                 # Quit on request
 
                 if ibk.is_quitting_bytes():
                     break
+
+        return tb
 
     _ = r"""
 
@@ -279,37 +294,42 @@ class GlassWorker:
 
     """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
-    def show_frames(self, typeahead: bytes) -> None:
+    def show_frames(self, typeahead: bytes) -> TerminalBoss:
         """Print your Input Byte Frames, as Key Caps when known, and how quickly they arrived"""
 
         # Launch
 
-        print()  # signals very very quietly that we have run this far since launching
+        tb = TerminalBoss(typeahead=typeahead, farewell_bytes=b"")
+        tb.str_print("")  # signals very very quietly that we have run this far since launching
 
-        print("Press Return three times quickly, to quit")
-        print()
+        tb.str_print("Press Return three times quickly, to quit")
+        tb.str_print("")
 
-        tfr = TerminalFrameReader()
-        with TerminalBoss(typeahead=typeahead, farewell_bytes=b"") as tb:
-            for taken, frame, nanobytes in tfr.take_frames_and_yield_each(tb, stalwarts=()):
+        tfr = TerminalFrameReader(tb)
+        with tb:
+            for taken, frame, nanobytes in tfr.take_frames_and_yield_each(stalwarts=()):
 
                 # Prompt for next Byte, while growing the Frame
 
                 data = frame.to_frame_bytes()  # maybe empty
                 if not taken:
-                    self.frame_print(data, nanobytes=nanobytes, end=" + ")
+                    self.frame_print(data, nanobytes=nanobytes, end=" + ", tb=tb)
 
                     continue
 
                 # Print each Frame taken as 1 Line,
                 # Except in reply to ⏎ Return, do split Frame Lines into paragraphs
 
-                self.frame_print(data, nanobytes=nanobytes, end="\r\n")
+                self.frame_print(data, nanobytes=nanobytes, end="\r\n", tb=tb)
 
                 if data == b"\r":
-                    print()
+                    tb.str_print("")
 
-    def frame_print(self, data: bytes, nanobytes: tuple[tuple[int, bytes], ...], end: str) -> None:
+        return tb
+
+    def frame_print(
+        self, data: bytes, nanobytes: tuple[tuple[int, bytes], ...], end: str, tb: TerminalBoss
+    ) -> None:
         """Print 'caps data = nanos bytes ...' as a whole line, or as the start of one"""
 
         kd = keyboard_decoder()
@@ -348,7 +368,7 @@ class GlassWorker:
 
         start = CR_EL_PS0  # often '\r' '\033[K'
         join = " ".join(words)
-        print(f"{start}{join}{end}", end="")
+        tb.str_write(f"{start}{join}{end}")  # todo: add a tb.str_print(text, end=end)
 
         # known: "\r" snaps back the Terminal Column X only until the Terminal Row overflows
         # known: inject wide texts to overflow thin terminals
@@ -378,36 +398,38 @@ class GlassWorker:
 
     """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
-    def show_strikes(self, typeahead: bytes) -> None:
+    def show_strikes(self, typeahead: bytes) -> TerminalBoss:
         """Print your Input Byte Frames, as Key Caps when known, and as Text when printable"""
 
         # Launch
 
-        print()  # signals very very quietly that we have run this far since launching
+        tb = TerminalBoss(typeahead=typeahead, farewell_bytes=b"")
+        tb.str_print("")  # signals very very quietly that we have run this far since launching
 
-        print("Press Return three times quickly, to quit")
-        print()
+        tb.str_print("Press Return three times quickly, to quit")
+        tb.str_print("")
 
         restart = CR_EL_PS0  # often '\r' '\033[K'
 
-        with TerminalBoss(typeahead=typeahead, farewell_bytes=b"") as tb:
+        assert _50_MEGA_NANOS_ == 50 * 10**6  # two Arrows struck together, a held Key slower
+
+        with tb:
             ts = TerminalShadow(tb)  # needs no Shadow, when just showing Strikes
-            ist = InputStrikeTaker(ts)
+            ist = InputStrikeTaker(ts, arrow_wait_nanos=_50_MEGA_NANOS_)
 
             for strike in ist.take_input_strikes_and_yield_each(stalwarts=()):
 
                 taken = strike.taken
                 caps = strike.caps
                 printables = strike.printables
-                frame = strike.frame
 
                 # Prompt for the first Byte of a Frame
 
-                data = frame.to_frame_bytes()  # maybe empty
+                data = strike.to_frame_bytes()  # maybe empty
                 if not data:
-                    assert not taken, (taken, frame)
+                    assert not taken, (taken, strike)
 
-                    print(f"{restart}+ ", end="")
+                    tb.str_write(f"{restart}+ ")
 
                     continue
 
@@ -424,17 +446,19 @@ class GlassWorker:
                 # Prompt for next Byte, while growing the Frame
 
                 if not taken:
-                    print(f"{restart}{join}", end=" + ")
+                    tb.str_write(f"{restart}{join} + ")
 
                     continue
 
                 # Print each Frame taken as a line
 
-                print(f"{restart}{join}", end="\r\n")
+                tb.str_print(f"{restart}{join}")
 
             # Erase the Prompt left behind when Stdin Eof ends the Frames
 
-            print(restart, end="")
+            tb.str_write(restart)
+
+        return tb
 
     _ = r"""
 
@@ -455,11 +479,38 @@ class GlassWorker:
 
     """  # (the many ']'s at left margin block VsCode freaking out over '[' spoken without ']')
 
-    def show_skater(self, typeahead: bytes) -> None:
+    def show_skater(self, typeahead: bytes) -> TerminalBoss:
         """Leave a Reverse Pixel of two Spaces behind the Cursor as the → ↑ ← ↓ Keys move it"""
 
-        stalwarts = (b"\033[C", b"\033[A", b"\033[D", b"\033[B")  # → ↑ ← ↓
-        assert tuple(_.decode() for _ in stalwarts) == _CARDINAL_ENWS_ARROWS_
+        stalwarts = (
+            b"\033[C",  # →
+            b"\033[A",  # ↑
+            b"\033[D",  # ←
+            b"\033[B",  # ↓
+            b"\033[1;2D",  # ⇧←
+            b"\033[1;2C",  # ⇧→
+            b"\033b",  # ⌥←
+            b"\033f",  # ⌥→
+            b"\033\033[A",  # ⌥↑
+            b"\033\033[B",  # ⌥↓
+            b"\033\033[D",  # ⎋⇧←
+            b"\033\033[C",  # ⎋⇧→
+            b"\033[5~",  # ⇧Fn↑
+            b"\033[6~",  # ⇧Fn↓
+            b"\033[F",  # ⇧Fn→
+            b"\033[H",  # ⇧Fn←
+        )
+
+        assert tuple(_.decode() for _ in stalwarts[:4]) == _CARDINAL_ENWS_ARROWS_
+
+        kd = keyboard_decoder()
+        for stalwart in stalwarts:
+            stalwart_caps = kd.bytes_to_key_caps_if(stalwart)
+            stalwart_split = InputStrikeTaker.caps_split_arrow_else(stalwart_caps)
+            assert stalwart_split, (stalwart, stalwart_caps)
+
+            _, stalwart_arrow = stalwart_split
+            assert stalwart_arrow in ["←", "↑", "→", "↓"], (stalwart, stalwart_caps)
 
         # Choose what to write at exit
 
@@ -481,9 +532,12 @@ class GlassWorker:
 
         # Launch elegantly, almost silently, without printing instructions
 
-        with TerminalBoss(typeahead=typeahead, farewell_bytes=farewell_bytes) as tb:
+        assert _50_MEGA_NANOS_ == 50 * 10**6  # two Arrows struck together, a held Key slower
+
+        tb = TerminalBoss(typeahead=typeahead, farewell_bytes=farewell_bytes)
+        with tb:
             ts = TerminalShadow(tb)
-            ist = InputStrikeTaker(ts)
+            ist = InputStrikeTaker(ts, arrow_wait_nanos=_50_MEGA_NANOS_)
 
             # Find where the Cursor is and how big the Screen is
 
@@ -517,8 +571,8 @@ class GlassWorker:
             # Loop till quit (such as by pressing Return three times quickly)
 
             digits = "0123456789"
-            i = "0"  # .i is our reply to the next Byte that doesn't complete a Frame
-            xo = "X"  # .xo is our reply to the next meaningless Frame
+            i = "0"  # .i is our Prompt at the next Byte that doesn't complete a Frame
+            xo = "X"  # .xo is our Prompt at the next meaningless Frame
 
             for isap in ist.take_input_strikes_and_yield_each_placed(stalwarts=stalwarts):
                 strike = isap.strike
@@ -526,39 +580,56 @@ class GlassWorker:
 
                 taken = strike.taken
                 caps = strike.caps
-                frame = strike.frame
 
-                # Cycle a Prompt across 1234567890, in reply to Bytes of an Open Frame not taken
+                # Cycle a Prompt across 1234567890, at each Byte of an Open Frame not taken
 
                 assert BS == "\b"
 
-                data = frame.to_frame_bytes()  # maybe empty
+                data = strike.to_frame_bytes()  # Bytes from 0, 1, or more Frames
                 if not taken:
+                    (frame,) = strike.frames  # a Strike not taken holds the one Open Frame
                     assert not frame.closed, (frame,)
 
                     if data:
                         j = digits[(digits.index(i) + len(data)) % len(digits)]
                         ts.str_write_top_tb(f"{j}\b")
-                        # todo0: no visible reply to pasting N * 10 bytes
+                        # todo0: no visible change of Prompt at pasting N * 10 bytes
 
                     continue
 
-                # Pick out the bounce back, if these Key Caps are Arrows saying move ahead
+                # Pick out the bounces back, if these Key Caps are Arrows saying move ahead
 
-                bounce_caps_by_caps = dict(zip("↑↓←→", "↓↑→←"))
-                if caps in bounce_caps_by_caps.keys():
-                    bounce_caps = bounce_caps_by_caps[caps]
+                bounce_caps_tuple_by_caps = {  # sorted by Caps Codepoints
+                    "←": ("→",),  # a Cardinal Arrow bounces only to its opposite
+                    "↑": ("↓",),
+                    "→": ("←",),
+                    "↓": ("↑",),
+                    "↖": ("↑", "←", "↘"),  # an Intercardinal Arrow settles for the half that fits:
+                    "↗": ("↑", "→", "↙"),  # just its North or South, else just its East or West,
+                    "↘": ("↓", "→", "↖"),  # and bounces to its opposite only when neither half fits
+                    "↙": ("↓", "←", "↗"),
+                }
 
-                    # Undo the replies written in the Top Layer, if any
+                shifts_arrow = InputStrikeTaker.caps_split_arrow_else(caps)
+                if shifts_arrow:
+                    _, arrow_caps = shifts_arrow  # the bare Arrow, whatever shifts came with it
+                    bounce_caps_tuple = bounce_caps_tuple_by_caps[arrow_caps]
+
+                    # Undo the Prompts written in the Top Layer, if any
 
                     self.ts_undo_enough_top_tb(ts)  # same here as whe quitting
 
                     # Move ahead, or bounce back (so as to avoid nop or spill)
 
-                    base_text = self.form_base_text(ts, caps=caps)
+                    base_text = self.form_base_text(ts, caps=arrow_caps)
                     if place:
-                        if not ts.is_writable_place_after_strs(text=base_text):
-                            base_text = self.form_base_text(ts, caps=bounce_caps)
+                        try_caps_tuple = (arrow_caps,) + bounce_caps_tuple
+                        try_texts = tuple(self.form_base_text(ts, caps=_) for _ in try_caps_tuple)
+                        writable_texts = list(
+                            _ for _ in try_texts if ts.is_writable_place_after_strs(text=_)
+                        )
+                        assert writable_texts, (arrow_caps, len(writable_texts), place)
+                        base_text = writable_texts[0]
 
                     # Write the Reverse Pair into the Base Layer, and leap ahead or bounce back
 
@@ -580,7 +651,7 @@ class GlassWorker:
                     i = "0"
                     continue
 
-                # Else reply to the Meaningless Frame, between X and O
+                # Else cycle the Prompt at the Meaningless Frame, between X and O
 
                 assert BS == "\b"
 
@@ -595,10 +666,12 @@ class GlassWorker:
             # Quit happy
 
             self.ts_undo_enough_top_tb(ts)
-            # redraws the Base Layer over our replies, such as to our Quit Signal
+            # redraws the Base Layer over our Prompts, such as at our Quit Signal
+
+        return tb
 
     def ts_undo_enough_top_tb(self, ts: TerminalShadow) -> None:
-        """Work hard to undo enough of the Replies, just before moving on or quitting"""
+        """Work hard to undo enough of the Prompts, just before moving on or quitting"""
 
         top = ts.top
         top_place = top.place
@@ -630,11 +703,15 @@ class GlassWorker:
         plain = NO_SGR_PS  # reverts the Text Styles
         reverse = REVERSE_SGR_PS7  # swaps to color B on F, from color F on B
 
-        square_leap_by_caps = {  # for 2x1 Terminal Screen Cells
-            "↑": 1 * CUU_Y.format(""),  # Up North
-            "↓": 1 * CUD_Y.format(""),  # Down South
+        square_leap_by_caps = {  # for 2x1 Terminal Screen Cells  # sorted by Caps Codepoints
             "←": 2 * CUB_X.format(""),  # Back West
+            "↑": 1 * CUU_Y.format(""),  # Up North
             "→": 2 * CUF_X.format(""),  # "Forward" East
+            "↓": 1 * CUD_Y.format(""),  # Down South
+            "↖": 1 * CUU_Y.format("") + 2 * CUB_X.format(""),  # Up North, then Back West
+            "↗": 1 * CUU_Y.format("") + 2 * CUF_X.format(""),  # Up North, then "Forward" East
+            "↘": 1 * CUD_Y.format("") + 2 * CUF_X.format(""),  # Down South, then "Forward" East
+            "↙": 1 * CUD_Y.format("") + 2 * CUB_X.format(""),  # Down South, then Back West
         }
 
         leap = square_leap_by_caps[caps]
@@ -688,11 +765,15 @@ class InputStrikeTaker:
     held_strikes: list[InputStrike]  # Input Strikes delayed while waiting for YX HW
     ts: TerminalShadow  # the Terminal we write through, and the Place it last reported
     tfr: TerminalFrameReader  # the Frames taken so far, and the Open Frame
+    arrow_wait_nanos: int  # the Nanos we wait for the second Arrow of a Pair, 0 for none
 
-    def __init__(self, ts: TerminalShadow) -> None:
+    def __init__(self, ts: TerminalShadow, arrow_wait_nanos: int) -> None:
+
+        assert arrow_wait_nanos >= 0, (arrow_wait_nanos,)
 
         self.ts = ts
-        self.tfr = TerminalFrameReader()
+        self.arrow_wait_nanos = arrow_wait_nanos
+        self.tfr = TerminalFrameReader(ts.tb)
         self.held_strikes = list()
 
     def pull_yx_hw_from_ts_else(self, stalwarts: tuple[bytes, ...]) -> None:
@@ -708,8 +789,7 @@ class InputStrikeTaker:
 
         tags: list[str] = list()  # the kinds of reply taken, "YX" and "HW"
         for strike in self.take_input_strikes_and_yield_each(stalwarts=stalwarts):
-            frame = strike.frame
-            data = frame.to_frame_bytes()
+            data = strike.to_frame_bytes()
 
             # Drop every partial Strike yielded and not taken before the last Reply
 
@@ -735,7 +815,7 @@ class InputStrikeTaker:
                 break
 
         if ("YX" not in tags) or ("HW" not in tags):
-            print("Input ended before Y X H W replies to ⎋[6N and ⎋[18T", end="\r\n")
+            tb.str_print("Input ended before Y X H W replies to ⎋[6N and ⎋[18T")
             sys.exit(1)
 
             # easy to test tags as absent, present, disordered, ordered at no Terminal
@@ -767,7 +847,7 @@ class InputStrikeTaker:
         # Yield each Strike taken since, except swallow Replies to YX HW Asks
 
         for strike in self.take_input_strikes_and_yield_each(stalwarts=stalwarts):
-            data = strike.frame.to_frame_bytes()  # maybe empty
+            data = strike.to_frame_bytes()  # maybe empty
 
             reply = ts.shadow_read_data_else(data)
             if reply:
@@ -783,9 +863,12 @@ class InputStrikeTaker:
 
         tb = self.ts.tb
         tfr = self.tfr
+        arrow_wait_nanos = self.arrow_wait_nanos
         kd = keyboard_decoder()
 
-        for taken, frame, _ in tfr.take_frames_and_yield_each(tb, stalwarts=stalwarts):
+        held_arrow: InputStrike | None = None  # a taken Cardinal Arrow, held for a mate
+
+        for taken, frame, _ in tfr.take_frames_and_yield_each(stalwarts=stalwarts):
             data = frame.to_frame_bytes()  # maybe empty
 
             # Speak of the Frame as Text, when its Bytes decode as Printable
@@ -800,18 +883,164 @@ class InputStrikeTaker:
             caps = kd.bytes_to_key_caps_if(data)  # ⎋, ⎋[, ↑ when typed slowly
             assert caps == caps.strip(), (caps, frame)
 
-            strike = InputStrike(taken=taken, caps=caps, printables=printables, frame=frame)
+            strike = InputStrike(taken=taken, caps=caps, printables=printables, frames=(frame,))
+
+            is_taken_arrow = False
+            if taken:
+
+                shifts_arrow = InputStrikeTaker.caps_split_arrow_else(caps)
+                if shifts_arrow:
+                    _, arrow = shifts_arrow
+
+                    is_taken_arrow = arrow in ("→", "↑", "←", "↓")  # the ENWS Arrows
+
+            if held_arrow:
+
+                # Peek ahead, past an empty Open Frame for at most arrow_wait_nanos, or into Typeahead
+
+                if (not taken) and (not data):  # past an empty Open Frame
+                    if tb.typeahead or tb.stdio_select_select(timeout=arrow_wait_nanos / 1e9):
+                        yield strike
+                        continue
+
+                if not taken:  # into Typeahead
+                    if tb.typeahead:
+                        yield strike
+                        continue
+
+                # Join a taken Cardinal Arrow, if it fits, to the Arrow held
+
+                if is_taken_arrow:
+                    joined_strike = InputStrikeTaker.arrows_join_else(held_arrow, strike)
+                    if joined_strike:
+                        held_arrow = None
+                        yield joined_strike
+                        continue
+
+                # Give up and yield the Arrow held, before the Strike that ended the hold
+
+                yield held_arrow
+                held_arrow = None
+
+            # Hold a taken Cardinal Arrow, unless we never join
+
+            is_joining = arrow_wait_nanos > 0  # a wait of 0 holds nothing and joins nothing
+            if is_joining and is_taken_arrow:
+                held_arrow = strike
+                continue
+
+            # Always do yield the Strike, be it now or later
+
             yield strike
+
+        # Yield the Arrow still held at End of Input or Quit
+
+        if held_arrow:
+            yield held_arrow
+
+        # todo: prove a Caller who quits reading early never loses the Arrow held
+
+    @staticmethod
+    def arrows_join_else(first: InputStrike, second: InputStrike) -> InputStrike | None:
+        """Join two Cardinal Arrows on different axes into one Intercardinal Arrow, else None"""
+
+        assert _SHIFT_CAPS_ == ("⎋", "⌃", "⌥", "⇧", "⌘", "Fn")
+
+        diagonal_by_straights = {  # four pairs of sums, each sum adding up to one Intercardinal
+            "↑→": "↗",  # ↗ ↖ ↙ ↘ is counterclockwise from Northeast
+            "→↑": "↗",
+            "↑←": "↖",
+            "←↑": "↖",
+            "↓←": "↙",
+            "←↓": "↙",
+            "↓→": "↘",
+            "→↓": "↘",
+        }
+
+        # Pair no Cardinal Arrows until both taken
+
+        if not (first.taken and second.taken):
+            return None
+
+        # Pair no Cardinal Arrows when the Strikes aren't Arrows
+
+        first_split = InputStrikeTaker.caps_split_arrow_else(first.caps)
+        second_split = InputStrikeTaker.caps_split_arrow_else(second.caps)
+        if (first_split is None) or (second_split is None):
+            return None
+
+        # Pair no Cardinal Arrows when the Pair doesn't fit to form an Intercardinal Arrow
+
+        first_shifts, first_arrow = first_split
+        second_shifts, second_arrow = second_split
+
+        arrows = first_arrow + second_arrow
+        if arrows not in diagonal_by_straights.keys():
+            return None  # such as ↑↑ or ↑↓, two Arrows on one axis
+
+        diagonal_arrow = diagonal_by_straights[arrows]
+
+        # Keep every Shift of both Arrows, each once, in the order ⎋ ⌃ ⌥ ⇧ ⌘ Fn
+
+        shifts = tuple(_ for _ in _SHIFT_CAPS_ if (_ in first_shifts) or (_ in second_shifts))
+
+        # Pair the two Cardinal Arrows in the order of arrival
+
+        (first_frame,) = first.frames
+        (second_frame,) = second.frames
+        assert first_frame.closed and second_frame.closed, (first_frame, second_frame)
+
+        # Succeed
+
+        caps = "".join(shifts) + diagonal_arrow  # '⇧Fn↘'
+        strike = InputStrike(
+            taken=True, caps=caps, printables="", frames=(first_frame, second_frame)
+        )
+
+        return strike
+
+    @staticmethod
+    def caps_split_arrow_else(caps: str) -> tuple[tuple[str, ...], str] | None:
+        """Split Key Caps of zero or more shifts vs one of → ↑ ← ↓ or ↗ ↖ ↙ ↘, else return None"""
+
+        assert _SHIFT_CAPS_ == ("⎋", "⌃", "⌥", "⇧", "⌘", "Fn")
+
+        assert caps == caps.strip(), (caps,)
+
+        shifts: list[str] = list()
+        rest = caps
+        while rest:
+            heads = list(_ for _ in _SHIFT_CAPS_ if rest.startswith(_))
+            if not heads:
+                break
+
+            (head,) = heads
+            shifts.append(head)
+            rest = rest[len(head) :]
+
+        if rest not in (("→", "↑", "←", "↓") + ("↗", "↖", "↙", "↘")):  # ENWS & NE NW SW SE Arrows
+            return None  # such as ⎋[ or ⇧A or empty
+
+        split = (tuple(shifts), rest)
+        return split
 
 
 @dataclasses.dataclass(order=True)
 class InputStrike:
-    """Speak of one Frame as Strikes and as Text, and say if it is Taken"""
+    """Speak of one Frame, or the two Frames of an Intercardinal Arrow, as Strikes and as Text"""
 
     taken: bool  # closed or bounced or cut at Quit, else still the Open Frame
     caps: str  # the Key Caps best known as sending these Bytes, else ''
     printables: str  # the Bytes decoded, if printable, else ''
-    frame: TerminalByteFrame  # the Bytes, maybe none
+    frames: tuple[TerminalByteFrame, ...]  # the Frames in order of arrival (often just one)
+
+    def to_frame_bytes(self) -> bytes:
+        """Return the Bytes of the Frames, catenated in order of arrival"""
+
+        frames = self.frames
+
+        data = b"".join(_.to_frame_bytes() for _ in frames)
+        return data
 
 
 @dataclasses.dataclass(order=True)
@@ -1160,8 +1389,8 @@ class KeyboardDecoder:
 
         # Accept simple Csi Frames spoken as ⎋[... ⇧..., even when preceded by one extra ⎋
 
-        csi = re.fullmatch(r"(⎋|⎋⎋)(\[)([0-9;]*)⇧([ABCDPQRSZ~])", string=bytes_names)
-        if csi:  # ⎋[⇧Z  # ⎋[1;2⇧C  # ⎋⎋[⇧D  # ⎋[17⇧~
+        csi = re.fullmatch(r"(⎋|⎋⎋)(\[)([0-9;]*)⇧([ABCDFHPQRSZ~])", string=bytes_names)
+        if csi:  # ⎋[⇧Z  # ⎋[1;2⇧C  # ⎋⎋[⇧D  # ⎋[17⇧~  # ⎋[⇧F  # ⎋[⇧H
             encode = len(csi.group(1)) * b"\033"
             encode += csi.group(2).encode() + csi.group(3).encode()
             encode += csi.group(4).encode()
@@ -1200,7 +1429,12 @@ class KeyboardDecoder:
 
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
-        # todo0: decode ⇧Fn ↑ ↓ → ← sent as ⎋[5⇧~ ⎋[6⇧~ ⎋[⇧F ⎋[⇧H
+        fn_arrow_caps = "Fn↑ Fn↓ Fn→ Fn←"
+        fn_arrow_strikes = """
+            ⎋[5⇧~ ⎋[6⇧~ ⎋[⇧F ⎋[⇧H
+        """
+
+        self._keyboard_add_some_(fn_arrow_caps, strikes=fn_arrow_strikes, shifts=shifts)
 
         # 3 ⌃  # Sideband Bells on ⌃ F2 F3 F4 F5 F6, ⌃ F9 F10 F11 F12  # No Codes on ⌃ F7 F8
 
@@ -1456,7 +1690,7 @@ class TerminalShadow:
         tb = self.tb
 
         asks = DSR6 + XTWINOPS_18
-        tb.bytes_write_flush(asks.encode())
+        tb.asks_write_flush(asks.encode())  # adds to the o.jsonl, but cuts from the o.typescript
 
     def shadow_read_data_else(self, data: bytes) -> tuple[str, int, int] | None:
         """Take the Cursor Column and Row, or the Screen Width and Height, from the Terminal"""
@@ -1935,19 +2169,22 @@ class TerminalPlace:
 class TerminalFrameReader:
     """Read Bytes from a Terminal, place them into Frames, and say when each Byte arrived"""
 
+    tb: TerminalBoss  # the Terminal we read from
     tft: TerminalFrameTaker  # the Frames taken so far, and the Open Frame
     nanobytes: list[tuple[int, bytes]]  # (Nanos waited, Byte read) for each Byte read
 
-    def __init__(self) -> None:
+    def __init__(self, tb: TerminalBoss) -> None:
 
-        self.tft = TerminalFrameTaker()
+        self.tb = tb
+        self.tft = TerminalFrameTaker(tb)
         self.nanobytes = list()
 
     def take_frames_and_yield_each(
-        self, tb: TerminalBoss, stalwarts: tuple[bytes, ...]
+        self, stalwarts: tuple[bytes, ...]
     ) -> typing.Iterator[tuple[bool, TerminalByteFrame, tuple[tuple[int, bytes], ...]]]:
         """Yield (False, Open Frame, Nanobytes) before taking, (True, Taken Frame, same) after"""
 
+        tb = self.tb
         tft = self.tft
         nanobytes = self.nanobytes
 
@@ -1981,8 +2218,6 @@ class TerminalFrameReader:
 
             # Place each Byte into the first Frame or a later Frame, and mark how slowly it arrived
 
-            nano = time.perf_counter_ns()
-
             for i in range(len(data)):
                 b = data[i:][:1]
                 beyond = data[i:][1:]
@@ -1999,7 +2234,7 @@ class TerminalFrameReader:
 
                 # Take the Byte (but leave a Frame EndsWith Text open if Combining Mark peeked)
 
-                tft.take_one_byte(b, nano=nano, peek=peek)
+                tft.take_one_byte(b, peek=peek)
 
                 # Mark how slowly this Byte arrived
 
@@ -2060,30 +2295,24 @@ class TerminalFrameReader:
 class TerminalFrameTaker:
     """Take Frames out of the Bytes arriving, and track when each Byte arrived"""
 
-    bk: ByteKeeper  # the Bytes, and when each arrived
+    tb: TerminalBoss  # the Terminal whose Input Keeper holds the Bytes, and when each arrived
 
     frame: TerminalByteFrame  # the Open Frame
     frames: list[TerminalByteFrame]  # the Taken Frames (closed, bounced, or cut at Quit)
     index: int  # how many pulled, of the Taken Frames
 
-    def __init__(self) -> None:
+    def __init__(self, tb: TerminalBoss) -> None:
 
-        self.bk = ByteKeeper()
+        self.tb = tb
 
         self.frame = TerminalByteFrame(b"")  # the first open Frame
         self.frames = list()
         self.index = 0
 
-    def take_one_byte(self, b: bytes, nano: int, peek: str) -> None:
-        """Say 1 more Byte arrived, and when, and take each Frame as it closes or bounces"""
-
-        bk = self.bk
-
-        # Stamp the Byte with when it arrived
+    def take_one_byte(self, b: bytes, peek: str) -> None:
+        """Take 1 more Byte the Boss kept, and take each Frame as it closes or bounces"""
 
         assert len(b) == 1, (len(b), b)
-
-        bk.append_one_byte(b, nano=nano)
 
         # Grow the Frame, or grow and take, or don't grow but do take, or shrink and take
 
@@ -2158,13 +2387,13 @@ class TerminalFrameTaker:
     def pull_one_frame_triple_else(self) -> tuple[TerminalByteFrame, int, int, bytes] | None:
         """Pull the oldest Taken Frame not yet pulled, with when its Bytes started and ended"""
 
-        bk = self.bk
+        ibk = self.tb.ibk
         frame = self.frame
         frames = self.frames
         index = self.index
 
-        ba = bk.ba
-        nano_list = bk.nano_list
+        ba = ibk.ba
+        nano_list = ibk.nano_list
 
         # Pull the oldest of the Taken Frames not yet pulled, if any
 
@@ -2198,12 +2427,12 @@ class TerminalFrameTaker:
     def is_quitting_frames(self, stalwarts: tuple[bytes, ...]) -> bool:
         """Say if the Frames have said please quit soon, but never quit on a Stalwart"""
 
-        bk = self.bk
+        ibk = self.tb.ibk
         frame = self.frame
         frames = self.frames
 
-        ba = bk.ba
-        nano_list = bk.nano_list
+        ba = ibk.ba
+        nano_list = ibk.nano_list
 
         # Hand down the last 4 Taken Frames, each with when its last Byte arrived
 
@@ -2983,6 +3212,10 @@ class TerminalBoss:
     typeahead: bytearray  # Bytes to arrive slowly, in between >= 0 other Bytes arriving early
     farewell_bytes: bytes  # written at .__exit__, such as to revert Cursor Style
 
+    ibk: ByteKeeper  # every Byte read, and when
+    obk: ByteKeeper  # every Byte written, Asks too, and when
+    typescript: bytearray  # every Byte written, but none of the Asks
+
     def __init__(self, typeahead: bytes, farewell_bytes: bytes) -> None:
 
         assert sys.__stdin__, (sys.__stdin__,)
@@ -2997,6 +3230,10 @@ class TerminalBoss:
 
         self.typeahead = bytearray(typeahead)
         self.farewell_bytes = farewell_bytes
+
+        self.ibk = ByteKeeper()
+        self.obk = ByteKeeper()
+        self.typescript = bytearray()
 
     def __enter__(self) -> TerminalBoss:
         r"""Pause line-buffering Input, pause taking \n Output as \r\n, etc"""
@@ -3116,8 +3353,9 @@ class TerminalBoss:
         # a la msvcrt.kbhit
 
     def read_some_bytes_if(self) -> bytes:
-        """Read as many Bytes as arrived all at once, else return b''"""
+        """Read as many Bytes as arrived all at once, keep them with one Nanos, else return b''"""
 
+        ibk = self.ibk
         typeahead = self.typeahead
 
         ba = bytearray()
@@ -3126,7 +3364,7 @@ class TerminalBoss:
 
             # Read one Byte, else quit at End-of-Input
 
-            b = self.read_one_byte_if()
+            b = self._read_one_byte_if_()
             if not b:
                 break
 
@@ -3138,10 +3376,24 @@ class TerminalBoss:
                 break
 
         data = bytes(ba)
+        nano = time.perf_counter_ns()
+        ibk.append_some_bytes(data, nano=nano)  # keeps Input, or b'' at End-of-Input
+
         return data  # b'j\xcc\x81' from ⌥E J, or a whole ⌘V Paste, or one Byte, or b''
 
     def read_one_byte_if(self) -> bytes:
-        """Read one byte and return it, else return b''"""
+        """Read one byte and keep it in the Input, else return b''"""
+
+        ibk = self.ibk
+
+        b = self._read_one_byte_if_()
+        nano = time.perf_counter_ns()
+        ibk.append_some_bytes(b, nano=nano)  # keeps Input, or b'' at End-of-Input
+
+        return b
+
+    def _read_one_byte_if_(self) -> bytes:
+        """Read one byte and return it, else return b'', and keep nothing"""
 
         try:
             b = self.read_one_byte()
@@ -3179,12 +3431,65 @@ class TerminalBoss:
         assert len(b) == 1, (b,)
         return b
 
+    def str_print(self, text: str) -> None:
+        """Print Text and end its Line, and keep their Bytes in the Output and the Typescript"""
+
+        tcgetattr = self.tcgetattr
+        end = "\r\n" if tcgetattr else "\n"  # raw end-of-line, else cooked end-of-line
+
+        self.str_write(f"{text}{end}")
+
+    def str_write(self, text: str) -> None:
+        """Print Text with no Newline, and keep its Bytes in the Output and the Typescript"""
+
+        obk = self.obk
+        typescript = self.typescript
+
+        encode = text.encode(sys.stdout.encoding, errors=(sys.stdout.errors or "strict"))
+        nano = time.perf_counter_ns()
+
+        print(text, end="")
+        obk.append_some_bytes(encode, nano=nano)
+        typescript.extend(encode)
+
+        # doesn't encode to UTF-8 always  # todo: revisit writing tty output to sys.stdout
+
     def bytes_write_flush(self, data: bytes) -> None:
-        """Write and Flush Bytes"""
+        """Write and Flush Bytes, and keep them in the Output and the Typescript"""
+
+        obk = self.obk
+        typescript = self.typescript
+
+        nano = time.perf_counter_ns()
+        self._bytes_write_flush_(data)
+        obk.append_some_bytes(data, nano=nano)
+        typescript.extend(data)
+
+    def asks_write_flush(self, data: bytes) -> None:
+        """Write and Flush Asks, and keep them in the Output only, not in the Typescript"""
+
+        obk = self.obk
+
+        nano = time.perf_counter_ns()
+        self._bytes_write_flush_(data)
+        obk.append_some_bytes(data, nano=nano)
+
+        # doesn't replay Asks through Typescript, because that would inject fresh Answers
+
+    def _bytes_write_flush_(self, data: bytes) -> None:
+        """Write and Flush Bytes, and keep nothing"""
 
         sys.stdout.flush()
         sys.stdout.buffer.write(data)  # .buffer.write new since Dec/2008 Python 3.0
         sys.stdout.flush()
+
+    def typescript_write_file(self, path: str) -> None:
+        """Write the Bytes of the Typescript, unchanged, into a file"""
+
+        typescript = self.typescript
+
+        with open(path, "wb") as f:
+            f.write(typescript)
 
 
 #
@@ -3215,6 +3520,13 @@ class ByteKeeper:
         ba.extend(b)
         nano_list.append(nano)
 
+    def append_some_bytes(self, data: bytes, nano: int) -> None:
+        """Say these Bytes all arrived at once, and when"""
+
+        for code in data:
+            b = bytes([code])
+            self.append_one_byte(b, nano=nano)
+
     def is_quitting_bytes(self) -> bool:
         """Say if the Bytes have said please quit soon"""
 
@@ -3231,6 +3543,28 @@ class ByteKeeper:
             return True
 
         return False
+
+    def pairs_write_file(self, path: str, zero_nano: int) -> None:
+        """Write a Header Line, then one [Nanos, Byte] Line per Byte, as Json Lines into a file"""
+
+        ba = self.ba
+        nano_list = self.nano_list
+
+        assert len(ba) == len(nano_list), (len(ba), len(nano_list))
+
+        # Count the Nanos from the zero given, and never write a negative Nanos
+
+        lines: list[str] = list()
+        lines.append(json.dumps(["Nanos", "Bytes"]))
+        for nano, code in zip(nano_list, ba):
+            assert nano >= zero_nano, (nano, zero_nano)
+
+            line = json.dumps([nano - zero_nano, code])  # the Byte as an Int
+            lines.append(line)
+
+        join = "".join(f"{_}\n" for _ in lines)
+        with open(path, "w") as f:
+            f.write(join)
 
 
 def is_quitting_shape(pairs: typing.Sequence[tuple[int, bytes]]) -> bool:
@@ -3304,7 +3638,7 @@ CUP_Y_X = "\033[" "{};{}H"  # CSI 04/08 [Choose] Cursor Position [Y and X]
 ED_PS = "\033[" "{}" "J"  # CSI 04/10 Erase in Display  # 0 Tail # 1 Head # 2 Rows # 3 Scrollback
 EL_PS = "\033[" "{}" "K"  # CSI 04/11 Erase in Line [Row]  # 0 Tail # 1 Head # 2 Row
 IL_Y = "\033[" "{}" "L"  # CSI 04/12 Insert Line [Row]
-_CLICK3_ = "\033[M"  # ⎋[⇧M{b}{x}{y} Click Press/ Release
+_CLICK3_ = "\033[M"  # ⎋[⇧M{b}{x}{y} Click Press/ Release  # collides with ⎋[⇧M DL_Y
 DL_Y = "\033[" "{}" "M"  # CSI 04/13 Delete Line [Row]
 DCH_X = "\033[" "{}" "P"  # CSI 05/00 [Delete] Cursor Horizontal [Pn] [Columns]
 SU_Y = "\033[" "{}S"  # CSI 05/03 Scroll Up [Into Scrollback]
@@ -3344,7 +3678,7 @@ XTWINOPS_18 = "\033[" "18" "t"  # XTWINOPS [ T Ps 18 Ask for Reply T Ps 8 ]
 XTWINOPS_8_H_W = "\033[" "8;{};{}" "t"  # ⎋[8;h;wT  # XTWINOPS [ Reply T Ps 8 to T Ps 18 Ask ]
 
 
-# ← ↑ → ↓ is sorted by Codepoint
+# ← ↑ → ↓ and ↖ ↗ ↘ ↙ are sorted by Codepoint
 
 _NorthArrow_ = "\033[A"  # ↑ ↓ → ← NSEW is the → ↑ ← ↓ ENWS sorted by Byte Frame
 _SouthArrow_ = "\033[B"
@@ -3358,12 +3692,10 @@ _CARDINAL_ENWS_ARROWS_ = (  # → ↑ ← ↓ ENWS is counterclockwise from East
     _SouthArrow_,  # B ↓
 )
 
-_NorthwestArrow_ = "\033[↖"  # ⎋[ ↖ ↗ ↘ ↙  # sorted by Codepoint  # not yet standard Byte Frames
-_NortheastArrow_ = "\033[↗"
-_SoutheastArrow_ = "\033[↘"
-_SouthwestArrow_ = "\033[↙"
-
-_ = _NorthwestArrow_, _NortheastArrow_, _SoutheastArrow_, _SouthwestArrow_
+# _NortheastArrow_ = "\033[↗"  # ↗ ↖ ↙ ↘ is counterclockwise from Northeast
+# _NorthwestArrow_ = "\033[↖"  # not yet standard Byte Frames
+# _SouthwestArrow_ = "\033[↙"
+# _SoutheastArrow_ = "\033[↘"
 
 
 _ = _START_PASTE_, _END_PASTE_
