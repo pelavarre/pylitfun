@@ -96,24 +96,24 @@ We meet spec as tested by _try_terminal_byte_frame_ and its helpers:
 ## § 3 TerminalFrameDecoder
 
 ```
-Spec of TerminalFrameDecoder.bytes_to_yx_or_hw_else.
+Spec of TerminalFrameDecoder.bytes_to_yx_or_hw_reply_else.
 
 We meet spec as tested by _try_terminal_frame_decoder_:
 
-    1. Decode the Frame ⎋[5;7⇧R, the Result of the Query ⎋[6N, as ("YX", 5, 7), Row Number then
+    1. Decode the Frame ⎋[5;7⇧R, the Reply to the Ask ⎋[6N, as ("YX", 5, 7), Row Number then
        Column Number.
 
-    2. Decode the Frame ⎋[8;24;80T, the Result of the Query ⎋[18T, as ("HW", 24, 80), Row Height
+    2. Decode the Frame ⎋[8;24;80T, the Reply to the Ask ⎋[18T, as ("HW", 24, 80), Row Height
        then Column Width.
 
-    3. Decode any other Frame as None, such as the Arrow ⎋[⇧A, or a Result with a ⎋ stuck on its
-       front, or two Results as one Frame, or a Result with too few Ints, or an empty Int, or no
+    3. Decode any other Frame as None, such as the Arrow ⎋[⇧A, or a Reply with a ⎋ stuck on its
+       front, or two Replies as one Frame, or a Reply with too few Ints, or an empty Int, or no
        Bytes.
 
-    4. Fail an assert on a Frame shaped like a Result but with a 0 Int, since it is no other Frame,
+    4. Fail an assert on a Frame shaped like a Reply but with a 0 Int, since it is no other Frame,
        and since Rows, Columns, Row Numbers, and Column Numbers all count from 1.
 
-    5. Decode a Result whose Ints start with 0s, such as ⎋[007;5⇧R, as ("YX", 7, 5).
+    5. Decode a Reply whose Ints start with 0s, such as ⎋[007;5⇧R, as ("YX", 7, 5).
 ```
 
 ## § 4 TerminalFrameTaker
@@ -214,22 +214,23 @@ We meet spec as tested by _try_keyboard_decoder_:
 ```
 Spec of InputStrikeTaker.pull_yx_hw_from_ts_else and .take_input_strikes_and_yield_each_placed.
 
-We meet spec as tested by _try_placed_input_strikes_ and _try_pull_ends_without_answers_:
+We meet spec as tested by _try_placed_input_strikes_ and _try_pull_ends_without_replies_:
 
     1. On a Terminal, place each Strike at column_x 7, x_max 80, x_width 81, row_y 5, and y_height
-       24, given the Results ⎋[5;7⇧R and ⎋[8;24;81T: take Columns from the Cursor X and the Screen
+       24, given the Replies ⎋[5;7⇧R and ⎋[8;24;81T: take Columns from the Cursor X and the Screen
        W, Rows from the Cursor Y and the Screen H, and act as 80 for the odd Width W+1.
 
-    2. Queue the Strike typed before the Results come, and then give it that same Place, as for each
+    2. Queue the Strike typed before the Replies come, and then give it that same Place, as for each
        Strike typed after.
 
-    3. Take each Result as an answer and do not yield it as a Strike. Let a later Result of the same
-       kind, such as a second ⎋[9;9⇧R pasted before the Size Result, replace the earlier.
+    3. Take each Reply as the Reply to our Ask, and do not yield it as a Strike. Let a later Reply
+       of the same kind, such as a second ⎋[9;9⇧R pasted before the Size Reply, replace the
+       earlier.
 
-    4. Off a Terminal, ask nothing, and require both Results in the Input, in either order, before
+    4. Off a Terminal, ask nothing, and require both Replies in the Input, in either order, before
        any Strike takes its Place.
 
-    5. When Input ends, or ⌃D quits the wait, before both Results have come, print "Input ended
+    5. When Input ends, or ⌃D quits the wait, before both Replies have come, print "Input ended
        before Y X H W replies to ⎋[6N and ⎋[18T" and exit 1, on a Terminal or off one.
 ```
 
@@ -247,24 +248,24 @@ We meet spec as tested by _try_strikes_spill_, running --egg=strikes on a macOS 
 We meet spec as tested by _try_skater_quits_, _try_skater_entry_, _try_skater_edge_, and
 _try_skater_launch_edge_, running --egg=skater on a macOS pty:
 
-    3. At Launch on a Terminal, write the Queries ⎋[6N and ⎋[18T, and wait however long it takes
-       for both Results.
+    3. At Launch on a Terminal, write the Asks ⎋[6N and ⎋[18T, and wait however long it takes
+       for both Replies.
 
     4. While waiting, let ⌃C ⌃Z ⌃\ still signal, and let ⌃D end Input with a brief complaint and
        exit 1.
 
-    5. Keep the keys typed before the Results come, and let them take effect once both Results have
+    5. Keep the keys typed before the Replies come, and let them take effect once both Replies have
        come.
 
-    6. At Launch off a Terminal, write no Queries and take the Results from the Input, else print
+    6. At Launch off a Terminal, write no Asks and take the Replies from the Input, else print
        the same complaint as on a Terminal and exit 1.
 
-    7. At Launch, once both Results have come, revert the Text Styles and show the Real Cursor.
+    7. At Launch, once both Replies have come, revert the Text Styles and show the Real Cursor.
        Step the Cursor West by Backspaces only as far as a Pair of 2 Columns needs, so that it sits
        at or West of Column x_max less 1, and move nowhere else. Assert that a Pair then fits at the
        Cursor. Item 9 says when to hide it and show it again.
 
-    8. At Launch, take ⌃C ⌃Z ⌃\ as Input and not as Signals, once both Results have come.
+    8. At Launch, take ⌃C ⌃Z ⌃\ as Input and not as Signals, once both Replies have come.
 
     9. On each Cardinal Arrow, write a Reverse Pair of Spaces into the Base Layer where the Cursor
        was, then move the Cursor: → and ← move 2 Columns, and ↑ and ↓ move 1 Row. Write a visible
@@ -399,9 +400,9 @@ We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, and _try_shad
        known of the Screen from .base. Forward .base_place by property and is_writeable_base_area
        by def, each from .base, and forward nothing else of a Layer.
 
-    2. Keep no Write before any write, and none after only the Terminal's answers.
+    2. Keep no Write before any write, and none after only the Terminal's Replies.
 
-    3. Fail an assert before any Byte goes out, on any write made before the Terminal answers, even
+    3. Fail an assert before any Byte goes out, on any write made before the Terminal replies, even
        one of no Char.
 
     4. In str_write_base_tb, take each Write through a new Layer made from .base. Assert the Write
@@ -431,9 +432,9 @@ We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, and _try_shad
     10. Say a Layer is_shadowed_area only when the Layer has written every Cell of the Area, from
         the Cursor east for the width and south for the height that the caller gives.
 
-    11. In shadow_read_data_else, take a Cursor answer into .top while .top is on, else into .base.
-        Take a Screen size answer into .base, and into .top too while .top is on. Never turn an
-        off .top on by an answer.
+    11. In shadow_read_data_else, take a Cursor Reply into .top while .top is on, else into .base.
+        Take a Screen size Reply into .base, and into .top too while .top is on. Never turn an
+        off .top on by a Reply.
 
     12. In form_leap_back, spell a step West by CUB_X along the Row, never a Return, counted from the
         last Column while the Cursor waits to wrap. Spell nothing for a step of 0. Assert that the

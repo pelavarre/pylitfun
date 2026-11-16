@@ -464,7 +464,7 @@ class GlassWorker:
         # Choose what to write at exit
 
         assert CR == "\r"
-        assert CUU_Y == "\033[" "{}" "A"
+        assert CUU_Y.format("") == "\033[" "A"
         assert CUD_Y.format(_MAX_PN_32100_) == "\033[" "32100" "B"
         assert SHOW_CUSR_SM_PSQ25 == "\033[" "?25h"
         assert NO_SGR_PS == "\033[" "m"
@@ -474,7 +474,7 @@ class GlassWorker:
             "\033[" "m",  # reverts the Text Styles
             "\033[" "?25h",  # shows the Cursor
             "\033[" "32100" "B",  # leaps to last Screen Row
-            "\033[A",  # leaps to one Screen Row up from last
+            "\033[" "A",  # leaps to one Screen Row up from last
         )
 
         farewell_bytes = "".join(farewells).encode()
@@ -704,14 +704,14 @@ class InputStrikeTaker:
 
         isatty = tb.isatty
         if isatty:  # asks only a Tty Terminal for YX and HW in order
-            ts.request_yx_hw_from_tb()
+            ts.ask_yx_hw_from_tb()
 
-        tags: list[str] = list()  # the kinds of answer taken, "YX" and "HW"
+        tags: list[str] = list()  # the kinds of reply taken, "YX" and "HW"
         for strike in self.take_input_strikes_and_yield_each(stalwarts=stalwarts):
             frame = strike.frame
             data = frame.to_frame_bytes()
 
-            # Lose track of every Untaken Strike before the two YX HW Results
+            # Drop every partial Strike yielded and not taken before the last Reply
 
             if not strike.taken:
                 continue
@@ -721,15 +721,15 @@ class InputStrikeTaker:
             if data == b"\004":
                 break
 
-            # Divert two or more YX HW Results, but hold the other Taken Frames
+            # Divert two or more YX HW Replies, but hold other Taken Frames
 
-            result = ts.shadow_read_data_else(data)
-            if result:
-                tags.append(result[0])  # briefly remembers order, but accepts either order
+            reply = ts.shadow_read_data_else(data)
+            if reply:
+                tags.append(reply[0])  # briefly remembers order, but accepts either order
             else:
                 held_strikes.append(strike)  # trusts other Code to yield these soon enough
 
-            # Quit after taking YX and HW
+            # Quit after taking YX and HW Replies
 
             if ("YX" in tags) and ("HW" in tags):
                 break
@@ -758,13 +758,13 @@ class InputStrikeTaker:
             isap = InputStrikeAtPlace(strike=strike, place=layer.place)
             yield isap
 
-        # Yield each Strike taken since, except an answer, which no Strike replies to
+        # Yield each Strike taken since, except swallow Replies to YX HW Asks
 
         for strike in self.take_input_strikes_and_yield_each(stalwarts=stalwarts):
             data = strike.frame.to_frame_bytes()  # maybe empty
 
-            result = ts.shadow_read_data_else(data)
-            if result:
+            reply = ts.shadow_read_data_else(data)
+            if reply:
                 continue
 
             isap = InputStrikeAtPlace(strike=strike, place=layer.place)
@@ -1430,16 +1430,16 @@ class TerminalShadow:
         writeable = base.is_writeable_area(area_width=area_width, area_height=area_height)
         return writeable
 
-    def request_yx_hw_from_tb(self) -> None:
-        """Ask where the Cursor is and how big the Screen is, both answered later in order"""
+    def ask_yx_hw_from_tb(self) -> None:
+        """Ask for Replies to say where the Cursor is and how big the Screen is, later, in order"""
 
         assert DSR6 == "\033[" "6n"
         assert XTWINOPS_18 == "\033[" "18" "t"
 
         tb = self.tb
 
-        queries = DSR6 + XTWINOPS_18
-        tb.bytes_write_flush(queries.encode())
+        asks = DSR6 + XTWINOPS_18
+        tb.bytes_write_flush(asks.encode())
 
     def shadow_read_data_else(self, data: bytes) -> tuple[str, int, int] | None:
         """Take the Cursor Column and Row, or the Screen Width and Height, from the Terminal"""
@@ -1450,11 +1450,11 @@ class TerminalShadow:
         assert _5_ROWS_ == 5
         assert _20_COLUMNS_ == 20
 
-        result = TerminalFrameDecoder.bytes_to_yx_or_hw_else(data)
-        if not result:
-            return result
+        reply = TerminalFrameDecoder.bytes_to_yx_or_hw_reply_else(data)
+        if not reply:
+            return reply
 
-        tag, int1, int2 = result  # maybe same as was, maybe different
+        tag, int1, int2 = reply  # maybe same as was, maybe different
         assert tag in ("YX", "HW"), (tag,)
 
         # Update the X Y in the Layer where the Cursor sits
@@ -1488,7 +1488,7 @@ class TerminalShadow:
 
         # Succeed
 
-        return result
+        return reply
 
         # todo0: get unhappy when not next_place.is_onscreen_place
         # todo: think harder about place.__bool__ undecided after XY until WH
@@ -1860,18 +1860,18 @@ class TerminalPlace:
 
         assert BS == "\b"
         assert CR == "\r"
-        assert CUU_Y == "\033[" "{}" "A"
-        assert CUD_Y == "\033[" "{}" "B"
-        assert CUF_X == "\033[" "{}" "C"
-        assert CUB_X == "\033[" "{}" "D"
+        assert CUU_Y.format("") == "\033[" "A"
+        assert CUD_Y.format("") == "\033[" "B"
+        assert CUF_X.format("") == "\033[" "C"
+        assert CUB_X.format("") == "\033[" "D"
 
         xy_step_by_split = {
             "\b": (-1, 0),  # one step West
             "\r": (1 - self.column_x, 0),  # far West
-            "\033[A": (0, -1),  # one step North
-            "\033[B": (0, 1),  # one step South
-            "\033[C": (1, 0),  # one step East
-            "\033[D": (-1, 0),  # one step West
+            "\033[" "A": (0, -1),  # one step North
+            "\033[" "B": (0, 1),  # one step South
+            "\033[" "C": (1, 0),  # one step East
+            "\033[" "D": (-1, 0),  # one step West
         }
 
         count = 1
@@ -2230,14 +2230,14 @@ class TerminalFrameTaker:
 
 @dataclasses.dataclass(order=True)
 class TerminalFrameDecoder:
-    """Decode a Frame as the Result of a DSR6 or XTWINOPS_18 Query"""
+    """Decode a Frame as the Reply to a DSR6 or XTWINOPS_18 Ask"""
 
     @staticmethod
-    def bytes_to_yx_or_hw_else(data: bytes) -> tuple[str, int, int] | None:
-        """Pick ("YX", Y, X) out of CPR, or ("HW", H, W) out of XTWINOPS_8, else return None"""
+    def bytes_to_yx_or_hw_reply_else(data: bytes) -> tuple[str, int, int] | None:
+        """Pick ("YX", Y, X) from a CPR Reply, or ("HW", H, W) from an XTWINOPS_8 Reply, else None"""
 
-        assert CPR_Y_X == "\033[" "{};{}R"  # CSI 05/02 CPR
-        assert XTWINOPS_8_H_W == "\033[" "8;{};{}" "t"  # CSI 07/04 Result Ps 8
+        assert CPR_Y_X == "\033[" "{};{}R"  # [ CPR ⇧R Reply to DSR6 N Ask ]
+        assert XTWINOPS_8_H_W == "\033[" "8;{};{}" "t"  # [ Reply T Ps 8 to T Ps 18 Ask ]
 
         decode = data.decode(errors="replace")
 
@@ -2326,8 +2326,8 @@ The b'\033' ⎋ Esc is special after just one of itself.
 The \a ⇥ ⎋ \xff are not printable, the ; A  ́ € are printable.
 The € is a printable encoded as 3 Bytes, vs the ; A  ́ are printable encoded as 1 or 2 bytes.
 
-The ; is a Parameter Byte of ⎋[ Control Sequence Introducer (Csi).
-The ␢ is an Intermediate Byte of ⎋[ Csi, expected before A is an example Final Byte.
+The ; is a Parameter Byte of ⎋[ Control Sequence Introducer (CSI).
+The ␢ is an Intermediate Byte of ⎋[ CSI, expected before A is an example Final Byte.
 The  ́ is a Combining Mark Character that can merge back into the Printable before it.
 
 The \xff is an example of Undecodable UTF-8.
@@ -2840,7 +2840,7 @@ class TerminalByteFrame:
         backtail = self.backtail
 
         assert BEL == "\007"
-        assert ST == "\033\134"
+        assert ST == ("\033" + "\134")
 
         # Close the ⎋] Osc Frame with ⎋\ ST, or bounce a held ⎋, or hold ⎋ till ⎋\ ST or Bounce
 
@@ -3263,33 +3263,33 @@ X1 = 1  # min X of Terminal Cursor
 Y1 = 1  # min Y of Terminal Cursor
 
 
-PS0 = 0  # default Csi Ps = 0 for some
+PS0 = 0  # default CSI Ps = 0 for some
 
-PN1 = 1  # default Csi Pn = 1 for others
-_MAX_PN_32100_ = 32100  # max Csi Pn = 32100 exceeds the .x_wide .y_high of most Terminal Screens
+PN1 = 1  # default CSI Pn = 1 for others
+_MAX_PN_32100_ = 32100  # max CSI Pn = 32100 exceeds the .x_wide .y_high of most Terminal Screens
 
 
-DECIC_X = "\033[" "{}" "'}}"  # Csi 07/13 [DEC] Insert Column [Pn]
-DECDC_X = "\033[" "{}" "'~"  # Csi 07/14 [DEC] Delete Column [Pn]
+DECIC_X = "\033[" "{}" "'}}"  # CSI 07/13 [DEC] Insert Column [Pn]
+DECDC_X = "\033[" "{}" "'~"  # CSI 07/14 [DEC] Delete Column [Pn]
 
-ICH_X = "\033[" "{}" "@"  # Csi 04/00 [Insert] Cursor Horizontal [Pn] [Columns]
-CUU_Y = "\033[" "{}" "A"  # Csi 04/01 Cursor Up [Pn] [Rows]
-CUD_Y = "\033[" "{}" "B"  # Csi 04/02 Cursor Down [Pn] [Rows]
-CUF_X = "\033[" "{}" "C"  # Csi 04/03 Cursor Forward [Pn] [Columns]
-CUB_X = "\033[" "{}" "D"  # Csi 04/04 Cursor Backward [Pn] [Columns]
-CUP_Y_X = "\033[" "{};{}H"  # Csi 04/08 [Choose] Cursor Position [Y and X]
+ICH_X = "\033[" "{}" "@"  # CSI 04/00 [Insert] Cursor Horizontal [Pn] [Columns]
+CUU_Y = "\033[" "{}" "A"  # CSI 04/01 Cursor Up [Pn] [Rows]
+CUD_Y = "\033[" "{}" "B"  # CSI 04/02 Cursor Down [Pn] [Rows]
+CUF_X = "\033[" "{}" "C"  # CSI 04/03 Cursor Forward [Pn] [Columns]
+CUB_X = "\033[" "{}" "D"  # CSI 04/04 Cursor Backward [Pn] [Columns]
+CUP_Y_X = "\033[" "{};{}H"  # CSI 04/08 [Choose] Cursor Position [Y and X]
 ED_PS = "\033[" "{}" "J"  # CSI 04/10 Erase in Display  # 0 Tail # 1 Head # 2 Rows # 3 Scrollback
 EL_PS = "\033[" "{}" "K"  # CSI 04/11 Erase in Line [Row]  # 0 Tail # 1 Head # 2 Row
-IL_Y = "\033[" "{}" "L"  # Csi 04/12 Insert Line [Row]
+IL_Y = "\033[" "{}" "L"  # CSI 04/12 Insert Line [Row]
 _CLICK3_ = "\033[M"  # ⎋[⇧M{b}{x}{y} Click Press/ Release
-DL_Y = "\033[" "{}" "M"  # Csi 04/13 Delete Line [Row]
-DCH_X = "\033[" "{}" "P"  # Csi 05/00 [Delete] Cursor Horizontal [Pn] [Columns]
+DL_Y = "\033[" "{}" "M"  # CSI 04/13 Delete Line [Row]
+DCH_X = "\033[" "{}" "P"  # CSI 05/00 [Delete] Cursor Horizontal [Pn] [Columns]
 SU_Y = "\033[" "{}S"  # CSI 05/03 Scroll Up [Into Scrollback]
 
 _START_PASTE_ = "\033[" "200~"  # ⎋[200⇧~ Start of Bracketed Paste
 _END_PASTE_ = "\033[" "201~"  # ⎋[201⇧~ End of Bracketed Paste
 
-VPA_Y = "\033[" "{}" "d"  # Csi 06/04 Vertical Position Absolute [Row]
+VPA_Y = "\033[" "{}" "d"  # CSI 06/04 Vertical Position Absolute [Row]
 
 SM_PS = "\033[" "{}" "h"  # CSI 06/08 4 Set Mode
 RM_PS = "\033[" "{}" "l"  # CSI 06/12 4 Reset Mode
@@ -3302,13 +3302,13 @@ REVERSE_SGR_PS7 = "\033[" "7m"  # SGR_PS 7 for Reverse/Inverse Video
 # UNREVERSE_SGR_PS27 = "\033[" "27m"  # SGR_PS 27 to undo SGR_PS 7
 
 
-DSR_PS = "\033[" "{}n"  # Csi 06/14 [Request] Device Status Report [Ps]
+DSR_PS = "\033[" "{}n"  # CSI 06/14 Ask for 'Device Status Report' Ps
 
-DSR0 = "\033[" "0n"  # DSR_PS Ps 0 for Ps 5
-DSR5 = "\033[" "5n"  # DSR_PS Ps 5 to Ps 0
+DSR0 = "\033[" "0n"  # DSR_PS [ Reply N Ps 0 to N Ps 5 Ask ]
+DSR5 = "\033[" "5n"  # DSR_PS [ N Ps 5 Ask for Reply N Ps 0 ]
 
-DSR6 = "\033[" "6n"  # DSR_PS Ps 6 for CPR_Y_X
-CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R  # [ CPR ⇧R Result to N Query DSR_PS Ps 6 ]
+DSR6 = "\033[" "6n"  # DSR_PS [ N Ps 6 Ask for Reply CPR ⇧R ]
+CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R  # CSI 05/02 [ CPR ⇧R Reply to DSR6 N Ask ]
 
 
 # DECSCUSR_PS = "\033[" "{}" " q"  # CSI 06/15 [DEC] Set Cursor Style [Ps]  # Two Byte Backtail
@@ -3316,8 +3316,9 @@ CPR_Y_X = "\033[" "{};{}R"  # ⎋[y;x⇧R  # [ CPR ⇧R Result to N Query DSR_PS
 # NO_DECSCUSR_PS = "\033[" " q"  # DECSCUSR_PS Ps 0 to revert to default Cursor Style
 
 
-XTWINOPS_18 = "\033[" "18" "t"  # CSI 07/04 [ Query Ps 18 for Result Ps 8 ]
-XTWINOPS_8_H_W = "\033[" "8;{};{}" "t"  # ⎋[8;h;wT  # CSI 07/04 [ Result Ps 8 to Query Ps 18 ]
+XTWINOPS = "\033[" "{}" "t"  # CSI 07/04
+XTWINOPS_18 = "\033[" "18" "t"  # XTWINOPS [ T Ps 18 Ask for Reply T Ps 8 ]
+XTWINOPS_8_H_W = "\033[" "8;{};{}" "t"  # ⎋[8;h;wT  # XTWINOPS [ Reply T Ps 8 to T Ps 18 Ask ]
 
 
 # ← ↑ → ↓ is sorted by Codepoint

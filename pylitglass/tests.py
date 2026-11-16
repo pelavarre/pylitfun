@@ -66,7 +66,7 @@ def main() -> None:
     _try_frame_reader_quits_midbatch_()  # ~1ms
     _try_frame_reader_nanobytes_()  # ~10ms, 3 reads of 2ms each
     _try_frame_print_()  # ~1ms
-    _try_pull_ends_without_answers_()  # ~1ms
+    _try_pull_ends_without_replies_()  # ~1ms
     _try_placed_input_strikes_()  # ~150ms, 1 Pty and 1 child Python off a Terminal
     _try_skater_entry_()  # ~900ms, 4 Ptys at once, and 1 child Python off a Terminal
     _try_skater_quits_()  # ~1100ms, 13 Ptys at once, the slowest 3 ⏎ at 150ms apart + 500ms
@@ -132,19 +132,19 @@ def _try_keyboard_decoder_() -> None:
 
 
 def _try_terminal_frame_decoder_() -> None:
-    """Try Results of DSR6 and XTWINOPS_18 Queries, and Frames that aren't Results"""
+    """Try Replies to DSR6 and XTWINOPS_18 Asks, and Frames that aren't Replies"""
 
     assert litpyglass.XTWINOPS_18 == "\033[18t"
     assert litpyglass.DSR6 == "\033[6n"
 
-    f = litpyglass.TerminalFrameDecoder.bytes_to_yx_or_hw_else
+    f = litpyglass.TerminalFrameDecoder.bytes_to_yx_or_hw_reply_else
 
     assert f(b"\033[8;24;80t") == ("HW", 24, 80)  # Rows then Columns
     assert f(b"\033[5;7R") == ("YX", 5, 7)  # Row then Column
 
     assert f(b"\033[A") is None  # an Arrow
-    assert f(b"\033\033[5;7R") is None  # a Result with a ⎋ stuck on the front
-    assert f(b"\033[5;7R\033[5;7R") is None  # two Results are two Frames
+    assert f(b"\033\033[5;7R") is None  # a Reply with a ⎋ stuck on the front
+    assert f(b"\033[5;7R\033[5;7R") is None  # two Replies are two Frames
     assert f(b"\033[8;24t") is None  # too few Ints
     assert f(b"\033[;7R") is None  # an empty Int
     assert f(b"\033[007;5R") == ("YX", 7, 5)  # leading 0s, which ECMA-48 would not send
@@ -1023,11 +1023,11 @@ def _try_skater_quits_() -> None:
         ((b"\033",) + (b"\r",) * 4, True, {(1, 1): ("O", False)}, None, False),  # ⎋ then ⏎ x4
     )
 
-    results24x80 = b"\033[1;1R\033[8;24;80t"  # the Terminal answers Row 1 Column 1, and 24 x 80
+    replies24x80 = b"\033[1;1R\033[8;24;80t"  # the Terminal replies with Row 1 Column 1, and 24 x 80
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
         results = tuple(
-            executor.map(lambda case: _try_egg_quit_("skater", case[0], results24x80), cases)
+            executor.map(lambda case: _try_egg_quit_("skater", case[0], replies24x80), cases)
         )
 
     for case, (quit, screen_decode) in zip(cases, results):
@@ -1053,7 +1053,7 @@ def _try_skater_quits_() -> None:
             )
 
         launch = "\033[6n\033[18t" + _SKATER_HAIL_
-        # asks the Queries, then shows the Cursor and goes West once the Screen is known
+        # writes the Asks, then shows the Cursor and goes West once the Screen is known
         assert launch in screen_decode, (launch, strike_steps, screen_decode)
 
         farewell = _SKATER_FAREWELL_
@@ -1085,14 +1085,14 @@ def _skater_state_(
 def _try_skater_edge_() -> None:
     """Try --egg=skater at the far East Column, as specs.md § 8 says"""
 
-    results20 = b"\033[1;1R\033[8;5;20t"  # Row 1 Column 1, and a Screen 5 high, 20 wide
-    results21 = b"\033[1;1R\033[8;5;21t"  # the same, 21 wide
+    replies20 = b"\033[1;1R\033[8;5;20t"  # Row 1 Column 1, and a Screen 5 high, 20 wide
+    replies21 = b"\033[1;1R\033[8;5;21t"  # the same, 21 wide
 
     cases = (
-        (20, results20, 9),  # → x 9 reaches the pixel at Columns 19 and 20
-        (20, results20, 10),  # → x 10 bounces off the East edge to the pixel at 17 and 18
-        (21, results21, 9),  # an odd Width acts as the even Width below it
-        (21, results21, 10),
+        (20, replies20, 9),  # → x 9 reaches the pixel at Columns 19 and 20
+        (20, replies20, 10),  # → x 10 bounces off the East edge to the pixel at 17 and 18
+        (21, replies21, 9),  # an odd Width acts as the even Width below it
+        (21, replies21, 10),
     )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
@@ -1142,7 +1142,7 @@ class FakeWriteBoss:
 
 
 class FakeReadBoss:
-    """Pretend to be a TerminalBoss that reads Results and a Move at first, and then nothing"""
+    """Pretend to be a TerminalBoss that reads Replies and a Move at first, and then nothing"""
 
     def __init__(self) -> None:
         self.reads = 0
@@ -1164,7 +1164,7 @@ class FakeSlowBoss:
 
 
 class FakeEndBoss:
-    """Pretend to be a Tty TerminalBoss whose Input ends at once, with no Result"""
+    """Pretend to be a Tty TerminalBoss whose Input ends at once, with no Reply"""
 
     isatty = True
 
@@ -1531,7 +1531,7 @@ def _try_shadow_writes_() -> None:
     ts.shadow_read_data_else(b"\033[8;5;21t")
     assert _layer_after_(ts, text="a") is None
 
-    # Before the Terminal answers, no write can be made, not even one of no Char
+    # Before the Terminal replies, no write can be made, not even one of no Char
 
     early = FakeWriteBoss()
     ts = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, early))
@@ -1701,7 +1701,7 @@ def _try_shadow_top_layer_() -> None:
     ts.undo_top_tb()
     assert fake.writes == undone_writes, fake.writes  # an Undo of an off Top writes nothing
 
-    # An answer from the Terminal goes where the Cursor sits, so to the Top once the Top is on
+    # A Reply from the Terminal goes where the Cursor sits, so to the Top once the Top is on
 
     fake2 = FakeWriteBoss()
     ts2 = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, fake2))
@@ -1865,7 +1865,7 @@ def _screen_of_(
             final = text[-1]
             n = max(1, int(ps)) if ps.isdigit() else 1  # a Pn of 0 acts as 1
 
-            # The Show, the Hide, and the two Queries mark no Cell and move no Cursor
+            # The Show, the Hide, and the two Asks mark no Cell and move no Cursor
 
             quiet_list = ("\033[?25h", "\033[?25l", "\033[6n", "\033[18t")
             if text in quiet_list:
@@ -1928,7 +1928,7 @@ boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"<FAREWELL>")
 ts = litpyglass.TerminalShadow(boss)
 ist = litpyglass.InputStrikeTaker(ts)
 print("READY1", flush=True)
-os.read(sync_fileno, 1)  # ↑, a Result, a lookalike Result, a Result, and ↓ are typed
+os.read(sync_fileno, 1)  # ↑, a Reply, a lookalike Reply, a Reply, and ↓ are typed
 places = list()
 with boss:
     ist.pull_yx_hw_from_ts_else(stalwarts=())
@@ -2046,8 +2046,8 @@ def _try_frame_print_() -> None:
     assert got == prefix + "750ms b'\\033' 3.00ms b'[' b'A'\r\n", got
 
 
-def _try_pull_ends_without_answers_() -> None:
-    """Try that Input ending before both Results fails loudly, as specs.md § 7 says"""
+def _try_pull_ends_without_replies_() -> None:
+    """Try that Input ending before both Replies fails loudly, as specs.md § 7 says"""
 
     boss = typing.cast(litpyglass.TerminalBoss, FakeEndBoss())
     ist = litpyglass.InputStrikeTaker(litpyglass.TerminalShadow(boss))
@@ -2072,18 +2072,18 @@ def _try_placed_input_strikes_() -> None:
     result = _pty_run_child_(_PLACED_CHILD_, terminal_bytes=typed)
 
     place = (9, 80, 81, 9, 24)  # column_x, x_max, x_width, row_y, y_height: the last ⎋[9;9⇧R
-    expected = (("↑", place), ("↓", place))  # the answers are no Strikes
+    expected = (("↑", place), ("↓", place))  # the Replies are no Strikes
     assert result == expected, (result, expected)
 
     here = os.path.dirname(os.path.abspath(litpyglass.__file__))
     argv = [sys.executable, "-I", "-c", _PLACED_OFF_TERMINAL_CHILD_, here]
     complaint = b"Input ended before Y X H W replies to"
     yx, hw, arrows = b"\033[1;1R", b"\033[8;24;80t", b"\033[A\033[B"
-    place = (1, 80, 80, 1, 24)  # column_x, x_max, x_width, row_y, y_height from those Results
+    place = (1, 80, 80, 1, 24)  # column_x, x_max, x_width, row_y, y_height from those Replies
     taken = "RESULT (('↑', %s), ('↓', %s))" % (place, place)
 
-    cases = (  # off a Terminal, nothing asks, so the Input must volunteer both Results
-        (arrows, None),  # both Results absent
+    cases = (  # off a Terminal, nothing asks, so the Input must volunteer both Replies
+        (arrows, None),  # both Replies absent
         (yx + arrows, None),  # only YX present
         (yx + hw + arrows, taken),  # ordered
         (hw + yx + arrows, taken),  # disordered
@@ -2100,12 +2100,12 @@ def _try_placed_input_strikes_() -> None:
 
 
 def _try_skater_entry_() -> None:
-    """Try how --egg=skater waits for the Results of its Queries, as specs.md § 8 says"""
+    """Try how --egg=skater waits for the Replies to its Asks, as specs.md § 8 says"""
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        mute = executor.submit(_try_egg_entry_, b"", b"")  # no Results
-        half = executor.submit(_try_egg_entry_, b"", b"\033[1;1R")  # only the Cursor Result
-        other = executor.submit(_try_egg_entry_, b"", b"\033[8;24;80t")  # only the Size Result
+        mute = executor.submit(_try_egg_entry_, b"", b"")  # no Replies
+        half = executor.submit(_try_egg_entry_, b"", b"\033[1;1R")  # only the Cursor Reply
+        other = executor.submit(_try_egg_entry_, b"", b"\033[8;24;80t")  # only the Size Reply
         ahead = executor.submit(_try_egg_entry_, b"\033[C", b"\033[1;1R\033[8;24;80t")  # → typed
         swapped = executor.submit(_try_egg_entry_, b"", b"\033[8;24;80t\033[1;1R")  # Size first
 
@@ -2125,12 +2125,12 @@ def _try_skater_entry_() -> None:
     assert not isig, (isig, screen_decode)
     assert returncode is None, (returncode, screen_decode)
 
-    moved = _skater_move_("\033[C\033[C")  # the → typed before the Results came, kept
+    moved = _skater_move_("\033[C\033[C")  # the → typed before the Replies came, kept
     assert screen_decode.index(_SKATER_HAIL_) < screen_decode.index(moved), (moved, screen_decode)
 
     screen_decode, isig, returncode = swapped.result()
     assert screen_decode.index("\033[6n") < screen_decode.index(_SKATER_HAIL_), (screen_decode,)
-    assert not isig, (isig, screen_decode)  # the Results take either order
+    assert not isig, (isig, screen_decode)  # the Replies take either order
     assert returncode is None, (returncode, screen_decode)
 
     argv = [sys.executable, "-I", litpyglass.__file__, "--egg=skater"]
@@ -2139,15 +2139,15 @@ def _try_skater_entry_() -> None:
     assert "Input ended before Y X H W replies to" in run.stdout, (run.stdout,)
     assert "\033[6n" not in run.stdout, (run.stdout,)  # asks no Terminal, off a Terminal
 
-    results = b"\033[1;1R\033[8;24;80t"  # Input volunteers a Cursor and a Screen of 24 x 80
-    run_bytes = subprocess.run(argv, input=results + b"\r\r\r", capture_output=True, timeout=10)
+    replies = b"\033[1;1R\033[8;24;80t"  # Input volunteers a Cursor and a Screen of 24 x 80
+    run_bytes = subprocess.run(argv, input=replies + b"\r\r\r", capture_output=True, timeout=10)
     assert run_bytes.returncode == 0, (run_bytes.returncode, run_bytes.stdout, run_bytes.stderr)
-    assert b"X\b" in run_bytes.stdout, (run_bytes.stdout,)  # skates on the Input's Results
+    assert b"X\b" in run_bytes.stdout, (run_bytes.stdout,)  # skates on the Input's Replies
     assert b"\033[6n" not in run_bytes.stdout, (run_bytes.stdout,)  # and still asks no Terminal
 
 
-def _try_egg_entry_(typed_data: bytes, answers: bytes) -> tuple[str, bool, int | None]:
-    """Run --egg=skater on a Pty, answer its Queries as told, and say how it waits"""
+def _try_egg_entry_(typed_data: bytes, replies: bytes) -> tuple[str, bool, int | None]:
+    """Run --egg=skater on a Pty, reply to its Asks as told, and say how it waits"""
 
     master_fileno, slave_fileno = pty.openpty()
     argv = [sys.executable, "-I", litpyglass.__file__, "--egg=skater"]
@@ -2156,13 +2156,13 @@ def _try_egg_entry_(typed_data: bytes, answers: bytes) -> tuple[str, bool, int |
 
     terminal_output = bytearray()
     _pty_read_till_marker_(master_fileno, terminal_output, b"\033[6n\033[18t")
-    os.write(master_fileno, typed_data + answers)
+    os.write(master_fileno, typed_data + replies)
     _pty_read_for_seconds_(master_fileno, terminal_output, 0.5)
 
     isig = bool(termios.tcgetattr(master_fileno)[3] & termios.ISIG)  # ⌃C ⌃Z ⌃\ signal, or not
 
     returncode = None
-    if isig:  # still waiting, since the Terminal takes ⌃C ⌃Z ⌃\ as Signals till both Results come
+    if isig:  # still waiting, since the Terminal takes ⌃C ⌃Z ⌃\ as Signals till both Replies come
         os.write(master_fileno, b"\004")  # ⌃D
         _pty_read_for_seconds_(master_fileno, terminal_output, 0.5)
         returncode = process.poll()
@@ -2176,7 +2176,7 @@ def _try_egg_entry_(typed_data: bytes, answers: bytes) -> tuple[str, bool, int |
     return (screen_decode, isig, returncode)
 
 
-def _try_egg_quit_(egg: str, strike_steps: tuple[bytes, ...], results: bytes) -> tuple[bool, str]:
+def _try_egg_quit_(egg: str, strike_steps: tuple[bytes, ...], replies: bytes) -> tuple[bool, str]:
     """Run --egg= on a Pty, strike each step 150ms apart, and say if it quit, as specs.md § 8 says"""
 
     master_fileno, slave_fileno = pty.openpty()
@@ -2186,9 +2186,9 @@ def _try_egg_quit_(egg: str, strike_steps: tuple[bytes, ...], results: bytes) ->
 
     terminal_output = bytearray()
 
-    if egg == "skater":  # answers the Queries, as a Terminal does
+    if egg == "skater":  # replies to the Asks, as a Terminal does
         _pty_read_till_marker_(master_fileno, terminal_output, b"\033[6n\033[18t")
-        os.write(master_fileno, results)
+        os.write(master_fileno, replies)
 
     prompt = _SKATER_HAIL_.encode() if (egg == "skater") else b"+ "
     _pty_read_till_marker_(
@@ -2196,7 +2196,7 @@ def _try_egg_quit_(egg: str, strike_steps: tuple[bytes, ...], results: bytes) ->
     )  # waits for the Prompt, since Bytes read too soon count as too fast
     assert prompt in terminal_output, (prompt, bytes(terminal_output))
 
-    if egg == "skater":  # the Results count as Frames in the quit rule, so strike after the gap
+    if egg == "skater":  # the Replies count as Frames in the quit rule, so strike after the gap
         _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)
 
     isig = termios.tcgetattr(master_fileno)[3] & termios.ISIG  # ⌃C ⌃Z ⌃\ signal, or else not
