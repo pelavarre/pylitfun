@@ -740,6 +740,12 @@ class InputStrikeTaker:
 
             # easy to test tags as absent, present, disordered, ordered at no Terminal
 
+        # todo: read a fresh Y X from the Terminal at each Strike, not guessed by Shadow
+        # todo: catch changes of the H W of the Terminal, as at a resize
+
+        # todo: stop parallel ⎋ Keyboard Inputs from disrupting the Frames of either Reply
+        # todo: keep late Replies out of the Shell, when Quit comes between Asks and Replies
+
     def take_input_strikes_and_yield_each_placed(
         self, stalwarts: tuple[bytes, ...]
     ) -> typing.Iterator[InputStrikeAtPlace]:
@@ -881,8 +887,12 @@ class KeyboardDecoder:
 
         self.echoes_by_decode = self._form_echoes_by_decode_()
 
+        # todo: port the iTerm2 and Ghostty Keyboards from bin/litglass.py, as diffs from this one
+
     def _form_macos_keyboards_(self) -> None:
         """Form the ordinary Apple MacBook Keyboards of Bytes sent by Caps"""
+
+        # todo: rename .strikes .cap_strikes .bytes_names .echo, to not collide with InputStrike
 
         # 1 ''
 
@@ -1190,6 +1200,8 @@ class KeyboardDecoder:
 
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
+        # todo0: decode ⇧Fn ↑ ↓ → ← sent as ⎋[5⇧~ ⎋[6⇧~ ⎋[⇧F ⎋[⇧H
+
         # 3 ⌃  # Sideband Bells on ⌃ F2 F3 F4 F5 F6, ⌃ F9 F10 F11 F12  # No Codes on ⌃ F7 F8
 
         pass
@@ -1374,6 +1386,10 @@ class KeyboardDecoder:
         caps = " ".join(words)
         return caps  # ⌥EJ  # ⌥EE  # ⇧A ⇧B ⇧C
 
+        # todo0: name ˆp arrived as one burst as ⌥I P, not as ⌥⇧I P, and likewise for ` ´ ¨ ˜
+        # todo: measure which Chords send a Letter + Combining Mark: ⌥E J does, ⌥E Q sends ´q instead
+        # todo: then stop naming ⌥EQ and ⌥UX for a Letter + Combining Mark pair no Key sends
+
     def bytes_to_echoes_if(self, data: bytes) -> tuple[str, ...]:
         """Speak of Bytes as Strikes of Chords of Key Caps"""
 
@@ -1403,6 +1419,7 @@ class TerminalShadow:
 
     base: TerminalLayer  # the Base Layer, what we know we wrote and mean to leave
     top: TerminalLayer  # the Top Layer, what we know we wrote and mean to undo
+    # todo: more Layers than just the Top Layer and the Base Layer
 
     def __init__(self, tb: TerminalBoss) -> None:
 
@@ -1634,6 +1651,9 @@ class TerminalShadow:
             return False
 
         return True
+
+    # todo: change the Terminal Shadow when we write Controls we have named
+    # todo: stay fit to code some other game with different conventions
 
 
 @dataclasses.dataclass(kw_only=True)  # todo: inconveniently large repr after many writes
@@ -2221,6 +2241,9 @@ class TerminalFrameTaker:
                 return True
 
         return False
+
+        # todo: quit over ⇧Z ⇧Z in a Vim Workalike, not over three Unprintables
+        # todo: fix how a ⏎ within 100 ms of the Y X H W Replies needs a 4th ⏎ to quit
 
 
 #
@@ -3492,6 +3515,9 @@ def decimal_int_chop_to_eng(n: int) -> str:
 
 if __name__ == "__main__":
     main()
+
+
+# todo: grow into a Python Module we could imagine adding alongside 'import tty'
 
 
 # 3456789_123456789_123456789_123456789 123456789_123456789_123456789_123456789 123456789_123456789

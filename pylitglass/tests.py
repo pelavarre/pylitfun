@@ -1130,6 +1130,8 @@ def _try_skater_edge_() -> None:
             screen_decode,
         )
 
+    # todo: fuzz the Digit Prompts and the edge bounce against the Screen model
+
 
 class FakeWriteBoss:
     """Pretend to be a TerminalBoss that keeps the Bytes written"""
@@ -1825,6 +1827,8 @@ def _try_shadow_top_layer_() -> None:
     assert ts.base.is_shadowed_area(area_width=1, area_height=2), ts.base_place
     assert not ts.base.is_shadowed_area(area_width=2, area_height=2), ts.base_place
 
+    # todo: look at a Plain Pair over a written Cell in a real Terminal window
+
 
 def _try_screen_replay_() -> None:
     """Try the Screen replay that measures specs.md § 8, asserting on each Byte it does not model"""
@@ -2012,6 +2016,8 @@ def _try_frame_reader_nanobytes_() -> None:
 
     assert list(w for w, _ in nanobytes1)[1:] == [0, 0], nanobytes1
     assert nanobytes1[0][0] >= 1_000_000 and nanobytes2[0][0] >= 1_000_000, (nanobytes1, nanobytes2)
+
+    # todo: test that the Reader peeks ahead: ⎋ J Combining Acute in one read is one Frame, not two
 
 
 def _try_frame_print_() -> None:
@@ -2310,6 +2316,9 @@ def _pty_read_once_(master_fileno: int, terminal_output: bytearray) -> bool:
             return False
 
     return True
+
+
+# todo: assert the flushes come before tty.setraw and before termios.tcsetattr, by order
 
 
 # ⚠️ ↑↑↑ Above written by Claude·Ai, reviewed by almost no living people
