@@ -1,25 +1,5 @@
-<!-- omit in toc -->
-# litint-readme.md
-
-Here we talk over how our short simple [litint.py](./litint.py) works.
-
-Contents
-
-- [The problem and our solution](#the-problem-and-our-solution)
-  - [Every standard Int format often goes far wrong](#every-standard-int-format-often-goes-far-wrong)
-  - [Python has a name for our solution](#python-has-a-name-for-our-solution)
-  - [Smaller Systems solved similarly, without Python](#smaller-systems-solved-similarly-without-python)
-  - [Who ever looks at the 4th digit?](#who-ever-looks-at-the-4th-digit)
-  - [No Dot as the 4th Character when counting up to the next 1 Ki](#no-dot-as-the-4th-character-when-counting-up-to-the-next-1-ki)
-- [Fourteen Compelling Tests](#fourteen-compelling-tests)
-- [Past work](#past-work)
-  - [Binary Metric Prefixes](#binary-metric-prefixes)
-  - [The Engineer's answer to 2 + 2](#the-engineers-answer-to-2--2)
-  - [Pi in schools](#pi-in-schools)
-  - [The Python Int's created unequal](#the-python-ints-created-unequal)
-- [Conclusion](#conclusion)
-
 ## The problem and our solution
+
 
 ### Every standard Int format often goes far wrong
 
@@ -38,15 +18,23 @@ In this table, only the **bold** is correct, and every plain text is a computer 
 | {_:.3g}            |     **288** | **3.65e+03** |    1.05e+05 | Good precision, but lacking clarity | Worthless +0 & many rounded digits  |
 | eng(_)             |     **288** |   **3.65e3** |   **104e3** | **Precise enough**                  | **Wonderfully clear**               |
 
+
+### Have you learned to feel the wrong in typography?
+
 Have your eyes already learned to see other tiny problems in typography?
 
-For example, bad Keming is a common problem when printing English. You thought you said to print r and then n but then you feel what you got is m because your rn is printing two characters too close together, looking too much like a smudged m, too much like one character. Good "Kerning" is the technical term for spacing out letters well. "Bad Keming" is what we say you have when it's gone wrong.
+For example, bad Keming is a common problem when printing English. You thought you said to print r and then n but then you feel what you got is m because your rn is printing two characters too close together, looking too much like a smudged m, looking too much like one character while being two characters.
 
-The problem we solve here is similar, but for digits, not for letters.
+Good "Kerning" is the technical term for spacing out letters well. "Bad Keming" is what we say you have when it's gone wrong.
 
-Tiny problems in typography matter because they shatter trust. Some random someone begins to trust and promote your work, but then stumbles and quits on you, just because you neglected some basic principle of typography. Too many people too often, and you'll learn to do better. But before you learn to see tiny problems in typography, you can wrongly feel they don't matter, just because you can't see them. You're wrong about that, until you learn to see well.
+The integer formatting problem we solve here is similar, but for digits, not for letters.
 
-You can fix all this, simply, after you learn to let it bother you, after you come to know it matters.
+Tiny problems in typography matter because they shatter trust. Some random someone begins to trust and even promote your work, but then stumbles and quits on you, just because you neglected some fundamental principle of typography. Trip up too many people too often like this, and you'll learn to do better. But until then, in the time before you learn to see tiny problems in typography, you can wrongly feel tiny problems don't matter. This feeling misleads you until you learn to see them well.
+
+Learn once, and you won't forget. You'll keep on seeing these tiny problems forever, all around you.
+
+You can fix them, after you learn to let them bother you, after you come to know they matter.
+
 
 ### Python has a name for our solution
 
@@ -81,6 +69,7 @@ Python's "round down" choice of words is misleading. It is word choice anchored 
 
 We say "truncate" and "chop" to emphasize we give you accuracy in the leading digits, never any evasive complex hidden "rounding" choices. We take quantization as normal, and extreme ideal infinite precision as a high cost incurred for no good reason. We say "truncate", we let them say "round down", and we all move on.
 
+
 ### Smaller Systems solved similarly, without Python
 
 Systems that work like Python but lack 'import decimal' can solve this just as well, albeit not quite as briefly. They work more directly with the Digits of the Int.
@@ -97,17 +86,20 @@ We ship our copy of their alternative out as 'def repr_int_chop_to_eng'. Its cor
 
 Still reasonably simple and small.
 
+
 ### Who ever looks at the 4th digit?
 
 Lots of practical work needs at least three digits, and nearly all practical work never needs more than a dot and three digits. But getting a standard computer to give you three digits always is such a struggle. They love to cut you short, and they love to go on too long.
 
 Even when they do deliver the three digits, they often get the last digit wrong. They don't let you ask to truncate the details. They insist on rounding up the last digit, and they insist on rounding it only half the time. When you don't have a copy of the original, you can't know what it said. Oops. They often go far wrong like that. We just don't.
 
+
 ### No Dot as the 4th Character when counting up to the next 1 Ki
 
 The corner of dealing with decimal counts of binary metric prefixes is slightly less simple, because 0 .. 2**10 - 1 is 0 .. 1023, which is as many as four digits, albeit no dots. We deal with that separately. For that corner, we talk of 0, 0.00, 0.01, ... 0.99, 1.00, ... 9.99, 10.0, 10.1, ... 100, ... 999, 1000, 1001, ... 1023. We don't yet show this separate code here. It is coming soon, I hope.
 
 After glancing across this much of our doc and tests and code, you're all set up to review the details in the code we ship.
+
 
 ## Fourteen Compelling Tests
 
@@ -134,11 +126,21 @@ Never an "e0" exponent. Never more than three digits. Always exactly three digit
 
 We do agree, our "104e3" and "120e3" and "987e3" can be misread as lowercase hex. We're sorry to see it, but eating this cost as part of our chosen compromises. Nearby, our "999" can be misread as "0x999", and we're not fixing that either.
 
+
+## Recent work
+
+Our short simple [litint.py](./litint.py) does work. Try it and love it.  : -)
+
+By now, we did run ahead so as to also solve speaking in decimal metric prefixes. We can talk of 1 kmol or 2 Ω or 3 µs and so on.
+
+
 ## Past work
+
 
 ### Binary Metric Prefixes
 
 People who adopted 1999's KiB MiB GiB early to mean 2\*\*10, 2\*\*20, 2\*\*30 triggered social blowback. As for the people who adopt our sensible three digits, truncated not rounded, ... Well, who can say. We can only hope all the people near them treat them well.
+
 
 ### The Engineer's answer to 2 + 2
 
@@ -147,6 +149,7 @@ Different roles call for different conventions. A mathematician will tell you 2 
 We're saying that less than 3 digits commonly misleads you with inadequacy, and more than 3 digits commonly floods you with excess.
 
 That's how exactly 3 digits comes out as exactly correct. Goldilocks. But your search will fail, when you go looking for those same 3 digits in the original detail, unless you take care to always truncate and never round up.
+
 
 ### Pi in schools
 
@@ -157,6 +160,7 @@ Nearly all practical work never needs more than three digits. And all the standa
     >>>
 
 Most engineers know to feel hurt by inadequate precision. But you can learn to feel the full horror of excess precision too. You see us working hard here now to duck out of it entirely.
+
 
 ### The Python Int's created unequal
 
@@ -200,6 +204,7 @@ Seven Python boundaries force us to write more code, as our Binary Int's grow la
 | 6 |     9.22e18 |              2**63 - 1 | max signed 64-bit int                                 |
 | 7 |     1.29e33 |             2**110 - 1 | Binary Prefixes end after 2**10 * Qi - 1              |
 
+
 ## Conclusion
 
 To fix this problem, you pretty much just have to learn to feel it exists, and then move to fix it. Not much permission required.
@@ -207,6 +212,31 @@ To fix this problem, you pretty much just have to learn to feel it exists, and t
 Tiny wins that add up well, bought for near zero technical cost, for not much beyond awareness.
 
 Social costs TBD.
+
+
+## Index
+
+Here we talk over how our short simple [litint.py](./litint.py) works.
+
+Contents
+
+- [The problem and our solution](#the-problem-and-our-solution)
+  - [Every standard Int format often goes far wrong](#every-standard-int-format-often-goes-far-wrong)
+  - [Have you learned to feel the wrong in typography?](#have-you-learned-to-feel-the-wrong-in-typography)
+  - [Python has a name for our solution](#python-has-a-name-for-our-solution)
+  - [Smaller Systems solved similarly, without Python](#smaller-systems-solved-similarly-without-python)
+  - [Who ever looks at the 4th digit?](#who-ever-looks-at-the-4th-digit)
+  - [No Dot as the 4th Character when counting up to the next 1 Ki](#no-dot-as-the-4th-character-when-counting-up-to-the-next-1-ki)
+- [Fourteen Compelling Tests](#fourteen-compelling-tests)
+- [Recent work](#recent-work)
+- [Past work](#past-work)
+  - [Binary Metric Prefixes](#binary-metric-prefixes)
+  - [The Engineer's answer to 2 + 2](#the-engineers-answer-to-2--2)
+  - [Pi in schools](#pi-in-schools)
+  - [The Python Int's created unequal](#the-python-ints-created-unequal)
+- [Conclusion](#conclusion)
+- [Index](#index)
+
 
 <!--
 
