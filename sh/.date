@@ -1,6 +1,18 @@
 # sh/.date = Call Date first for Local Time, but also for UTC Z Time, and a Home Time in the middle
 
-set -xe
-date
-TZ=America/Los_Angeles date
-date -u
+function sh_date () {
+    (
+        set -e
+
+        echo + date >&2
+        date
+
+        echo + TZ=America/Los_Angeles date >&2
+        TZ=America/Los_Angeles date
+
+        echo + date -u >&2
+        date -u
+    )
+}
+
+sh_date
