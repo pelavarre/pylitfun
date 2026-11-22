@@ -133,7 +133,7 @@ def main() -> None:
     elif "skater" in eggs:
         tb = gw.show_skater(typeahead=typeahead)
     else:
-        assert False, (eggs,)
+        assert False, (eggs,)  # not in: bytes, nanos, frames, strikes, skater
 
     tb.str_print("")
 
@@ -1066,10 +1066,10 @@ def keyboard_decoder() -> KeyboardDecoder:
 
 @dataclasses.dataclass
 class KeyboardDecoder:
-    """Speak of Byte Frames as Strikes of Key Caps at a MacBook"""
+    """Speak of Str's as Key Caps struck at a MacBook, and vice versa"""
 
-    decode_by_echo: dict[str, str]  # filled by .__init__
-    echoes_by_decode: dict[str, tuple[str, ...]]  # filled by .__init__
+    decode_by_echo: dict[str, str]  # '⇥': '\t'  # '⌃I': '\t'
+    echoes_by_decode: dict[str, tuple[str, ...]]  # '\t' to ('⇥', '⌃I', '⌃⇥', '⌥⇥', ...) all 7 ways
 
     PlainCapsWithoutFn = r"""
         ⎋
@@ -1089,13 +1089,9 @@ class KeyboardDecoder:
         ␢ ← ↑ → ↓
     """  # Shift Caps apart from ⇧ F1 .. ⇧ F12 etc  # ␢ ← ↑ → ↓ is sorted by Codepoint
 
-    ShortcutShifts: typing.ClassVar[tuple[str, ...]]  # ⌃ ⌥ ⇧ ⌃⌥ ⌃⇧ ⌥⇧ ⌃⌥⇧ ⎋ ⎋⌃ ⎋⇧ ⎋⌃⇧
-    ShortcutShifts = ("", "⌃", "⌥", "⌃⌥", "⇧", "⌃⇧", "⌥⇧", "⌃⌥⇧", "⎋", "⎋⌃", "⎋⇧", "⎋⌃⇧")
-
-    FamiliarShifts: typing.ClassVar[tuple[str, ...]]  # ⇧ ⌃ ⌥ ⌃⇧ ⌥⇧ ⌃⌥ ⌃⌥⇧ ⎋ ⎋⇧ ⎋⌃ ⎋⌃⇧
-    FamiliarShifts = ("", "⇧", "⌃", "⌥", "⌃⇧", "⌥⇧", "⌃⌥", "⌃⌥⇧", "⎋", "⎋⇧", "⎋⌃", "⎋⌃⇧")
-
-    assert sorted(ShortcutShifts) == sorted(FamiliarShifts)
+    AvailableShifts: typing.ClassVar[tuple[str, ...]]  # ⇧ ⌃ ⌥  # ⌃⇧ ⌥⇧ ⌃⌥  # ⌃⌥⇧  # ⎋ ⎋⇧ ⎋⌃ ⎋⌃⇧
+    AvailableShifts = ("", "⇧", "⌃", "⌥", "⌃⇧", "⌥⇧", "⌃⌥", "⌃⌥⇧", "⎋", "⎋⇧", "⎋⌃", "⎋⌃⇧")
+    # Shift Combinations sorted from least to most difficult to type out on a MacBook US Keyboard
 
     DeadKeyEchoByCombining = {  # Typists say Dead Keys do not step the Cursor forward
         "\u0300": "⌥`",  # Combining Grave Accent
@@ -1295,7 +1291,7 @@ class KeyboardDecoder:
     def _add_keyboard_(self, shifts: str, strikes: str) -> None:
         """Add in 1 Keyboard of Key Caps and their Strikes"""
 
-        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
+        assert shifts in KeyboardDecoder.AvailableShifts, (shifts,)
 
         strikes_split = strikes.split()
         if not strikes_split:
@@ -1504,7 +1500,7 @@ class KeyboardDecoder:
 
         caps_split = caps.split()
         strikes_split = strikes.split()
-        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
+        assert shifts in KeyboardDecoder.AvailableShifts, (shifts,)
 
         assert len(caps_split) == len(strikes_split), (len(caps_split), len(strikes_split))
         for cap, cap_strikes in zip(caps_split, strikes_split):
@@ -1521,36 +1517,34 @@ class KeyboardDecoder:
     def _add_twelve_fn_meta_control_p_(self, shifts: str) -> None:
         """Add the Twelve F Keys at the one Decode"""
 
-        assert shifts in KeyboardDecoder.ShortcutShifts, (shifts,)
+        assert shifts in KeyboardDecoder.AvailableShifts, (shifts,)
         caps = "F1 F2 F3 F4" + " " + "F5 F6 F7 F8" + " " + "F9 F10 F11 F12"
         strikes = 12 * " 033.020"  # ⎋⌃P
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
     def _form_echoes_by_decode_(self) -> dict[str, tuple[str, ...]]:
-        """Sort and invert our Decode_by_Echo Dict"""
+        """Invert our Decode_by_Echo Dict, but sort it to more celebrate the more available Echoes"""
 
         decode_by_echo = self.decode_by_echo
+        available_shifts = KeyboardDecoder.AvailableShifts
 
-        familiar_shifts = KeyboardDecoder.FamiliarShifts
-
-        def echo_to_echo_key(echo: str) -> tuple[str, ...]:
-            """Sort Key Caps from least to most celebrated"""
+        def _to_echo_sort_key_(echo: str) -> tuple[bool, int, int, str]:
+            """Say how to sort multiple Echoes from most to least available"""
 
             assert len(echo.split()) == 1, (len(echo.split()), echo)
 
-            lstrip = echo.lstrip("⎋⌃⌥⇧")
-            cap = lstrip if lstrip else echo[-1:]
-
+            lstrip = echo.lstrip("⎋⌃⌥⇧")  # sorted as in naming macOS Keyboard Shortcuts
+            cap = lstrip if lstrip else echo[-1:]  # Cap is last Shift when Echo is all Shifts
             shifts = echo[: -len(cap)]
-            chr_index = chr(familiar_shifts.index(shifts))
 
-            chr_wide_cap = chr(len(cap) > 1)
-            chr_len_cap = chr(len(cap))
+            fnwide = bool(len(cap) > 1)  # all others before F1..F12 or with Fn
+            available = available_shifts.index(shifts)  # Unshifted to ⇧ to ⌃ etc to ⌃⌥⇧ to ⎋ etc
+            fnwidth = len(cap)  # all of F1..F9 before all of F10..F12 before Fn← Fn↑ Fn→ Fn↓
 
-            echo_key = (chr_wide_cap, chr_index, chr_len_cap, cap)
+            echo_key = (fnwide, available, fnwidth, cap)
             return echo_key
 
-            # ⎋⌃P ⎋⌃⇧P before ⎋⇧F2 before ⎋⇧F12, for example
+            # P before ⇧P before ⌃P etc before ⌃⌥⇧P, before ⎋P, before F9 before F10 before Fn↓
 
         vxk = decode_by_echo
 
@@ -1564,7 +1558,7 @@ class KeyboardDecoder:
         d = dict()
         for v, kk in kkxv.items():
             assert kk, (v, kk)
-            d[v] = tuple(sorted(kk, key=echo_to_echo_key))
+            d[v] = tuple(sorted(kk, key=_to_echo_sort_key_))
 
         assert "" not in d.keys()
 
@@ -1579,52 +1573,52 @@ class KeyboardDecoder:
 
         dead_key_echo_by_combining = KeyboardDecoder.DeadKeyEchoByCombining
 
-        # Give up on Undecodable Bytes
+        # Give up quickly on Undecodable Bytes
 
         text = TerminalByteFrame.bytes_decode_if(data)
         if not text:
             return ""
 
-        # Name the one Chord of Key Caps that sends the whole Text, when there is one
+        # Echo the one Chord of Key Caps that sends the whole Text, when there is one
 
-        echoes = self.bytes_to_echoes_if(data)
-        if echoes:
-            echo = echoes[0]
+        data_echoes = self._bytes_to_sorted_echoes_if_(data)
+        if data_echoes:
+            echo = data_echoes[0]
             return echo  # ⇥  # ⏎  # ↑  # ⌃A  # ⌥⇧E
 
-        # Else name one Chord per Char, with each ⌥ Dead Key struck before the Char it accents
+        # Echo one Chord per Char, with each ⌥ Dead Key struck before the Char it accents
 
         nfd = unicodedata.normalize("NFD", text)  # splits é into e plus Combining Acute Accent
 
-        words: list[str] = list()
+        echoes: list[str] = list()
         dead_key_echo = ""
-        for t in nfd:
+        for t in nfd:  # todo: this loop ⚠️ written by Claude·Ai, reviewed by almost no living people
 
             if t in dead_key_echo_by_combining.keys():
-                if (not words) or dead_key_echo:
+                if (not echoes) or dead_key_echo:
                     return ""  # a Combining Mark pasted alone or doubled, which no Key sends
 
                 dead_key_echo = dead_key_echo_by_combining[t]
-                words[-1] = dead_key_echo + words[-1]  # glued before the Char, as struck
+                echoes[-1] = dead_key_echo + echoes[-1]  # glued before the Char, as struck
                 continue
 
             dead_key_echo = ""
 
-            t_echoes = self.bytes_to_echoes_if(t.encode())
+            t_echoes = self._bytes_to_sorted_echoes_if_(t.encode())
             if not t_echoes:
                 return ""  # such as a Char that no MacBook Keyboard sends
 
             t_echo = t_echoes[0]
-            words.append(t_echo)
+            echoes.append(t_echo)
 
-        caps = " ".join(words)
+        caps = " ".join(echoes)
         return caps  # ⌥EJ  # ⌥EE  # ⇧A ⇧B ⇧C
 
         # todo0: name ˆp arrived as one burst as ⌥I P, not as ⌥⇧I P, and likewise for ` ´ ¨ ˜
         # todo: measure which Chords send a Letter + Combining Mark: ⌥E J does, ⌥E Q sends ´q instead
         # todo: then stop naming ⌥EQ and ⌥UX for a Letter + Combining Mark pair no Key sends
 
-    def bytes_to_echoes_if(self, data: bytes) -> tuple[str, ...]:
+    def _bytes_to_sorted_echoes_if_(self, data: bytes) -> tuple[str, ...]:
         """Speak of Bytes as Strikes of Chords of Key Caps"""
 
         text = data.decode()
