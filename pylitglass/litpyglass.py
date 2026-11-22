@@ -482,35 +482,23 @@ class GlassWorker:
     def show_skater(self, typeahead: bytes) -> TerminalBoss:
         """Leave a Reverse Pixel of two Spaces behind the Cursor as the → ↑ ← ↓ Keys move it"""
 
-        stalwarts = (
-            b"\033[C",  # →
-            b"\033[A",  # ↑
-            b"\033[D",  # ←
-            b"\033[B",  # ↓
-            b"\033[1;2D",  # ⇧←
-            b"\033[1;2C",  # ⇧→
-            b"\033b",  # ⌥←
-            b"\033f",  # ⌥→
-            b"\033\033[A",  # ⌥↑
-            b"\033\033[B",  # ⌥↓
-            b"\033\033[D",  # ⎋⇧←
-            b"\033\033[C",  # ⎋⇧→
-            b"\033[5~",  # ⇧Fn↑
-            b"\033[6~",  # ⇧Fn↓
-            b"\033[F",  # ⇧Fn→
-            b"\033[H",  # ⇧Fn←
-        )
+        kd = keyboard_decoder()
 
+        # Choose which Key Caps don't tell us to quit, not even when struck three times quickly
+
+        stalwarts_list = "→ ↑ ← ↓".split()
+        stalwarts_list += "⇧← ⇧→ ⌥← ⌥→ ⌥↑ ⌥↓ ⎋⇧← ⎋⇧→".split()
+        stalwarts_list += "⇧Fn↑ ⇧Fn↓ ⇧Fn→ ⇧Fn←".split()
+
+        stalwarts = tuple(kd.decode_by_echo[_].encode() for _ in stalwarts_list)
         assert tuple(_.decode() for _ in stalwarts[:4]) == _CARDINAL_ENWS_ARROWS_
 
-        kd = keyboard_decoder()
-        for stalwart in stalwarts:
-            stalwart_caps = kd.bytes_to_key_caps_if(stalwart)
+        for stalwart_caps in stalwarts_list:
             stalwart_split = InputStrikeTaker.caps_split_arrow_else(stalwart_caps)
-            assert stalwart_split, (stalwart, stalwart_caps)
+            assert stalwart_split, (stalwart_caps,)
 
             _, stalwart_arrow = stalwart_split
-            assert stalwart_arrow in ["←", "↑", "→", "↓"], (stalwart, stalwart_caps)
+            assert stalwart_arrow in ["←", "↑", "→", "↓"], (stalwart_caps,)
 
         # Choose what to write at exit
 
