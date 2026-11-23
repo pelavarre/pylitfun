@@ -30,6 +30,7 @@ import pty
 import random
 import re
 import select
+import string
 import subprocess
 import sys
 import tempfile
@@ -151,7 +152,12 @@ def _try_keyboard_decoder_() -> None:
         ("˜n".encode(), "⌥⇧N N"),  # ⌥N N sends ñ
         ("¨y".encode(), "⌥⇧U Y"),  # ⌥U Y sends ÿ
         ("ˆ ".encode(), "⌥⇧I ␢"),  # ahead of a Space
-        ("ˆ1".encode(), "⌥⇧I 1"),  # ahead of a Digit
+        ("ˆ1".encode(), "⌥I 1"),  # ahead of a Digit
+        ("`-".encode(), "⌥` -"),  # ahead of a Punctuation Mark
+        ("´_".encode(), "⌥E ⇧_"),  # ahead of a Shifted Punctuation Mark
+        ("˜~".encode(), "⌥N ⇧~"),
+        ("¨`".encode(), "⌥U `"),  # ahead of the ` Key
+        ("``".encode(), "⌥` `"),  # ⌥` and then the ` Key, as ⌥` ⌥` sends just one `
         ("ˆˆ".encode(), "⌥⇧I ⌥⇧I"),  # ahead of itself
         ("˜Ï".encode(), "⌥⇧N ⌥U⇧I"),  # ahead of a Letter under a Combining Mark of its own
         ("\u0301".encode(), ""),  # the Combining Acute Accent by itself, which no Key sends
@@ -188,6 +194,19 @@ def _try_keyboard_decoder_() -> None:
                 dead_key_caps_list.append(caps)
 
     assert len(dead_key_caps_list) == 210, (len(dead_key_caps_list),)
+
+    # Count the pairs of Accent and Digit or Punctuation Mark that name a Dead Key too
+
+    marks = string.digits + string.punctuation
+
+    dead_key_mark_caps_list = list()
+    for accent in "`´ˆ˜¨":
+        for mark in marks:
+            caps = kd._burst_bytes_to_key_caps_if_((accent + mark).encode())
+            if caps.startswith("⌥") and not caps.startswith("⌥⇧"):
+                dead_key_mark_caps_list.append(caps)
+
+    assert len(dead_key_mark_caps_list) == 210, (len(dead_key_mark_caps_list),)
 
 
 def _try_keyboard_decoder_bursts_() -> None:

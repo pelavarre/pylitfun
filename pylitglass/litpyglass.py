@@ -1110,6 +1110,10 @@ class KeyboardDecoder:
             "\u00a8": "⌥U",  # Diaeresis ¨  # also sent by ⌥⇧U
         }
 
+        # ⌥X Space, ⌥X ⌥X, and ⌥⇧X each send the Accent alone, as one Byte or Char with no sign of
+        # the Space, the ⌥, or the wait between two Strikes. A lone Accent says ⌥⇧X here, and the
+        # ⌥` Dead Key's lone Grave Accent says the ` Key, which sends the same Byte.
+
         assert sorted(AccentedByEcho.keys()) == sorted(LettersByEcho.keys())
         assert sorted(EchoByAccent.values()) == sorted(LettersByEcho.keys())
 
@@ -1584,7 +1588,7 @@ class KeyboardDecoder:
         return d
 
     def _form_dead_echo_by_decode_(self) -> dict[str, str]:
-        """Say which ⌥ Dead Key and Letter send which Text, for 5 Dead Keys before 52 Letters"""
+        """Say which ⌥ Dead Key and Letter send which Text, for 5 Dead Keys before 94 Chars"""
 
         dead_keys_accented_by_echo = KeyboardDecoder.DeadKeys.AccentedByEcho
         dead_keys_echo_by_accent = KeyboardDecoder.DeadKeys.EchoByAccent
@@ -1623,7 +1627,15 @@ class KeyboardDecoder:
                     assert (accent + letter) not in d.keys(), (accent + letter,)
                     d[accent + letter] = echo + " " + echoes_by_decode[letter][0]  # '´q': '⌥E Q'
 
-        assert len(d) == 5 * 52, (len(d),)  # 5 Dead Keys before 52 Letters
+        # List the 210 Digits and Punctuation Marks that come after an Accent
+
+        for accent, echo in dead_keys_echo_by_accent.items():
+            for mark in string.digits + string.punctuation:
+
+                assert (accent + mark) not in d.keys(), (accent + mark,)
+                d[accent + mark] = echo + " " + echoes_by_decode[mark][0]  # '´-': '⌥E -'
+
+        assert len(d) == 5 * (52 + 10 + 32), (len(d),)  # before 52 Letters, 10 Digits, 32 Marks
 
         return d
 

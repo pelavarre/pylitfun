@@ -269,18 +269,20 @@ We meet spec as tested by _try_keyboard_decoder_:
     9. Give b'\033[23~' ⌥F6, since macOS Mission Control often steals F11.
 
     10. Assert in litpyglass.py, as it loads, that the three tables of Dead Keys speak of the same
-        five: ⌥` ⌥E ⌥I ⌥N ⌥U. Assert that 5 Dead Keys before 52 Letters make 260 pairs.
+        five: ⌥` ⌥E ⌥I ⌥N ⌥U. Assert that 5 Dead Keys before 52 Letters, 10 Digits, and 32 Punctuation Marks make 470 pairs.
 
     11. Name the Frames b'\033[5~' b'\033[6~' b'\033[F' b'\033[H' as the Key Caps ⇧Fn↑ ⇧Fn↓ ⇧Fn→
         ⇧Fn←, in that order, as macOS Terminal sends them.
 
     12. Name the ⌥ Dead Key, when its Accent comes ahead of a Letter A..Z or a..z that it does not
         accent: ˆp gives ⌥I P, and `p ´q ˜p ¨x ˆP give ⌥` P, ⌥E Q, ⌥N P, ⌥U X, ⌥I ⇧P. Name 210 such
-        pairs of Accent and Letter, as the U.S. Layout of macOS sends them.
+        pairs of Accent and Letter, as the U.S. Layout of macOS sends them. Name 210 more pairs of
+        Accent and Digit or Punctuation Mark, such as `- ´_ ˆ1 ˜~ ¨`, giving ⌥` - ⌥E ⇧_ ⌥I 1 ⌥N ⇧~
+        ⌥U `.
 
     13. Name the ⌥⇧ Chord of the Accent, when no Dead Key sends the pair: ˆe gives ⌥⇧I E since ⌥I E
         sends ê, ´j gives ⌥⇧E J since ⌥E J sends j before a Combining Acute Accent, and ˆ before a
-        Space, a Digit, itself, or a Letter under a Dead Key's own Mark stays ⌥⇧I, as in ˜Ï giving
+        Space, itself, or a Letter under a Dead Key's own Mark stays ⌥⇧I, as in ˜Ï giving
         ⌥⇧N ⌥U⇧I.
 
 We meet spec as tested by _try_keyboard_decoder_bursts_ and _try_frame_print_:
