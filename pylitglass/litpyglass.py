@@ -1068,7 +1068,7 @@ class KeyboardDecoder:
         A S D F G H J K L ; ' ⏎
         Z X C V B N M , . /
         ␢ ← ↑ → ↓
-    """  # Plain Caps apart from F1 .. F12 etc  # ␢ ← ↑ → ↓ is sorted by Codepoint
+    """  # Plain Caps apart from F1..F12 etc  # ␢ ← ↑ → ↓ is sorted by Codepoint
 
     ShiftCapsWithoutFn = """
         ⎋
@@ -1077,7 +1077,7 @@ class KeyboardDecoder:
         A S D F G H J K L : " ⏎
         Z X C V B N M < > ?
         ␢ ← ↑ → ↓
-    """  # Shift Caps apart from ⇧ F1 .. ⇧ F12 etc  # ␢ ← ↑ → ↓ is sorted by Codepoint
+    """  # ⇧~ ⇧! etc are Shift Caps apart from ⇧ F1..F12 etc  # ␢ ← ↑ → ↓ is sorted by Codepoint
 
     AvailableShifts: typing.ClassVar[tuple[str, ...]]  # ⇧ ⌃ ⌥  # ⌃⇧ ⌥⇧ ⌃⌥  # ⌃⌥⇧  # ⎋ ⎋⇧ ⎋⌃ ⎋⌃⇧
     AvailableShifts = ("", "⇧", "⌃", "⌥", "⌃⇧", "⌥⇧", "⌃⌥", "⌃⌥⇧", "⎋", "⎋⇧", "⎋⌃", "⎋⌃⇧")
@@ -1132,6 +1132,7 @@ class KeyboardDecoder:
         # 1 ''
 
         shifts = ""
+
         strikes = r"""
             033
             140 1 2 3 4 5 6 7 8 9 0 - = 177
@@ -1161,6 +1162,7 @@ class KeyboardDecoder:
         # 3 ⌃
 
         shifts = "⌃"
+
         strikes = """
             033
             ... ... ... ... ... ... ... ... ... ... ... 037 ... 177
@@ -1175,6 +1177,7 @@ class KeyboardDecoder:
         # 4 ⌥
 
         shifts = "⌥"  # ⌥Y sends \, coded here as r""" \ """
+
         strikes = r"""
             033
             ¤ ¡ ™ £ ¢ ∞ § ¶ • ª º – ≠ 177
@@ -1189,6 +1192,7 @@ class KeyboardDecoder:
         # 5 ⌃⇧
 
         shifts = "⌃⇧"
+
         strikes = """
             033
             ... ... 000 ... ... ... 036 ... ... ... ... 037 ... 177
@@ -1203,6 +1207,7 @@ class KeyboardDecoder:
         # 6 ⌥⇧
 
         shifts = "⌥⇧"  # ⌥⇧K sends the Apple Logo, coded here as \uf8ff
+
         strikes = """
             033
             140 ⁄ € ‹ › ﬁ ﬂ ‡ ° · ‚ — ± 177
@@ -1217,6 +1222,7 @@ class KeyboardDecoder:
         # 7 ⌃⌥
 
         shifts = "⌃⌥"
+
         strikes = """
             033
             140 1 2 3 4 5 6 7 8 9 0 037 = 177
@@ -1230,6 +1236,7 @@ class KeyboardDecoder:
         # 8 ⌃⌥⇧
 
         shifts = "⌃⌥⇧"
+
         strikes = """
             033
             140 1 000 3 4 5 036 7 8 9 0 037 = 177
@@ -1258,6 +1265,7 @@ class KeyboardDecoder:
         # 10 ⎋⇧
 
         shifts = "⎋⇧"
+
         strikes = """
             033.033
             033.176 ⎋⇧! ⎋⇧@ ⎋⇧# ⎋⇧$ ⎋⇧% ⎋⇧^ ⎋⇧& ⎋⇧* ⎋⇧( ⎋⇧) ⎋⇧_ ⎋⇧+ 033.010
@@ -1287,6 +1295,7 @@ class KeyboardDecoder:
         # 12 ⎋⌃⇧
 
         shifts = "⎋⌃⇧"
+
         strikes = """
             033.033
             033.140 ⎋1 ⎋2 ⎋3 ⎋4 ⎋5 ⎋6 ⎋7 ⎋8 ⎋9 ⎋0 033.037 ⎋= 033.010
@@ -1499,11 +1508,11 @@ class KeyboardDecoder:
             ⎋⇧O⇧P ⎋⇧O⇧Q ⎋⇧O⇧R ⎋⇧O⇧S
             ⎋[15⇧~ ⎋[17⇧~ ⎋[18⇧~ ⎋[19⇧~
             ⎋[20⇧~ ⎋[21⇧~
-        """  # omitting ⎋[16~  # not-colliding with ⎋[ ⇧R
+        """  # omitting ⎋[16⇧~  # not-colliding with ⎋[ ⇧R
 
         self._keyboard_add_some_(caps, strikes=strikes, shifts=shifts)
 
-        # ⎋OP ⎋OQ ⎋OR ⎋OS  # ⎋[15~ ⎋[17~ ⎋[18~ ⎋[19~  # ⎋[20~ ⎋[21
+        # ⎋⇧O⇧P ⎋⇧O⇧Q ⎋⇧O⇧R ⎋⇧O⇧S  # ⎋[15⇧~ ⎋[17⇧~ ⎋[18⇧~ ⎋[19⇧~  # ⎋[20⇧~ ⎋[21⇧~
 
     def _keyboard_add_some_(self, caps: str, strikes: str, shifts: str) -> None:
         """Add some Key Caps at Strikes to a Keyboard"""
@@ -2627,7 +2636,7 @@ The Frames ending with '+' were still open, the others were already closed.
     ⎋⎋ +      close   close   bounce  close   close   close   close   bounce
     ⎋O +      close   close   bounce  close   close   close   close   bounce
     ⎋[⇧M +    open    open    open    open    open    open    close6  open
-    ⎋[⇧M␢! +  close6  close6  close6  close6  close6  close6  close6  close6
+    ⎋[⇧M␢/ +  close6  close6  close6  close6  close6  close6  close6  close6
 
     ⎋[ +      bounce  bounce  bounce  open    close   close   close   bounce
     ⎋[1;5 +   bounce  bounce  bounce  open    close   close   close   bounce
@@ -3273,7 +3282,7 @@ class TerminalByteFrame:
     #
     # "\u0800"  # b"\xe0\xa0\x80" accepted with b"\xe0\xbf\xbf"
     # "\ud7ff"  # b"\xed\x9f\xbf" accepted with b"\xed\x80\x80"
-    # "\ud800".."\udfff"  # rejected as b"\xed\xa0\x80" .. b"\xed\xbf\xbf" surrogates
+    # "\ud800" .. "\udfff"  # rejected as b"\xed\xa0\x80" .. b"\xed\xbf\xbf" surrogates
     # "\ue000"  # b"\xee\x80\x80" accepted
     # "\uffff"  # b"\xef\xbf\xbf" accepted
     #

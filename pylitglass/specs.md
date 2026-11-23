@@ -110,7 +110,7 @@ We meet spec as tested by _try_terminal_byte_frame_ and its helpers:
     2. Leave each Head of the Headbook open: ⎋ ⎋⎋ ⎋⎋⇧O ⎋⎋[ ⎋⇧O ⎋[ ⎋[⇧M and ⎋]. Bounce a 3rd ⎋ from
        ⎋⎋.
 
-    3. Leave each Start of any UTF-8 Encoding open, and start it with exactly C2 .. F4.
+    3. Leave each Start of any UTF-8 Encoding open, and start it with exactly C2..F4.
 
     4. Close alone on a Control Byte, or a Char Unprintable by itself, or 1 to 4 Undecodable Bytes.
 
@@ -568,8 +568,8 @@ We meet spec as tested by _try_shadow_layer_ and _try_shadow_writes_:
        Styles in force then, and let a later write there replace it.
 
     4. Keep nothing for a Move or a Backspace, but steer where the next Char lands. Keep nothing and
-       steer nothing for hiding or showing the Cursor, ⎋[?25L or ⎋[?25H. Fail an assert on any other
-       Control, not silently.
+       steer nothing for hiding or showing the Cursor, ⎋[⇧?25L or ⎋[⇧?25H. Fail an assert on any
+       other Control, not silently.
 
     5. Start the Text Styles in force over at ⎋[M, and carry them to the next write. Join them once
        on ⎋[7M however often said. Fail an assert on any other SGR, such as ⎋[27M or ⎋[1M, not

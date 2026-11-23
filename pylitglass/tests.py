@@ -162,7 +162,7 @@ def _try_keyboard_decoder_() -> None:
         (b"\033[23~", "⌥F6"),  # ⌥F6 because macOS Mission Control often steals F11
         (b"\033[24~", "F12"),  # F12 over ⌥F7 or ⎋F7
         (b"\033[25~", "⇧F5"),  # ⇧F5 over ⌥F8 or ⎋F8
-        (b"\033[22~", "⎋ [ 2 2 ⇧~"),  # no F Key sends ⎋[22~  # F10 sends 21, F11 sends 23
+        (b"\033[22~", "⎋ [ 2 2 ⇧~"),  # no F Key sends ⎋[22⇧~  # F10 sends 21, F11 sends 23
         (b"\033\020", "⎋⌃P"),  # ⎋⌃P over ⎋⇧F1 .. ⎋⌃⇧F12, which send the same Bytes
         #
         (b"\033[5~", "⇧Fn↑"),  # at macOS Terminal, ⇧Fn↑ ⇧Fn↓ ⇧Fn→ ⇧Fn← send these four Frames
@@ -533,7 +533,7 @@ def _try_peeks_() -> None:
 
     # Close anyway, after an Unprintable Char, or after the 6 raw Bytes of ⎋[M
 
-    for data in (b"\t", b"\033\t", b"\033[M !\xff"):
+    for data in (b"\t", b"\033\t", b"\033[M /\xff"):
         f = litpyglass.TerminalByteFrame(b"")
         extras = f.take_data_if(data, peek=peek)
         assert (not extras) and f.closed, (extras, f, data)
@@ -2472,7 +2472,7 @@ def _try_shadow_writes_() -> None:
         dict(ts.base.write_by_xy),
         ts.base.text_styles,
     )
-    ts.str_write_base_tb("\033[?25l\033[?25h")  # ⎋[?25L ⎋[?25H
+    ts.str_write_base_tb("\033[?25l\033[?25h")  # ⎋[⇧?25L ⎋[⇧?25H
     shadow_after = (
         dataclasses.astuple(ts.base_place),
         dict(ts.base.write_by_xy),
