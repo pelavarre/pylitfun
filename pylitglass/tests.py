@@ -2134,6 +2134,12 @@ def _try_output_routes_() -> None:
     parents: dict[ast.AST, ast.AST] = dict()
     for node in ast.walk(tree):
         for child in ast.iter_child_nodes(node):
+            shared = (ast.expr_context, ast.boolop, ast.operator, ast.unaryop, ast.cmpop)
+            if isinstance(child, shared):
+                continue
+                # lists no Parent for a Load() or Store() or Add() etc, since many Parents share one
+
+            assert child not in parents.keys(), (ast.dump(child)[:60],)
             parents[child] = node
 
     writers = ("print", "sys.stdout.write", "sys.stdout.buffer.write")
@@ -3765,6 +3771,8 @@ def _try_arrow_wait_() -> None:
             for inner in ast.walk(node):
                 if isinstance(inner, ast.Call) and ast.unparse(inner.func) == "InputStrikeTaker":
                     waits = list(ast.unparse(_.value) for _ in inner.keywords)
+
+                    assert node.name not in waits_by_egg.keys(), (node.name,)
                     waits_by_egg[node.name] = waits
 
     want_waits_by_egg = dict(show_strikes=["_50_MEGA_NANOS_"], show_skater=["_50_MEGA_NANOS_"])

@@ -1432,7 +1432,7 @@ class KeyboardDecoder:
         self._add_ten_fn_()
         self._keyboard_add_("F12", cap_strikes="⎋[24⇧~")
 
-        # 2 ⇧  # Sideband Bells on ⌃ F1 F2 F3 F4
+        # 2 ⇧  # Sideband Bells on ⇧ F1 F2 F3 F4
 
         shifts = "⇧"  # ⇧← and ⇧→ send ⎋[1;2⇧D and ⎋[1;2⇧C
 
@@ -1451,7 +1451,7 @@ class KeyboardDecoder:
 
         self._keyboard_add_some_(fn_arrow_caps, strikes=fn_arrow_strikes, shifts=shifts)
 
-        # 3 ⌃  # Sideband Bells on ⌃ F2 F3 F4 F5 F6, ⌃ F9 F10 F11 F12  # No Codes on ⌃ F7 F8
+        # 3 ⌃  # Sideband Bells on ⌃ F2 F3 F4 F5 F6, ⌃ F9 F10 F11 F12  # No Codes on ⌃ F1 F7 F8
 
         pass
 
@@ -1468,10 +1468,10 @@ class KeyboardDecoder:
 
         self._keyboard_add_some_(meta_caps, strikes=meta_strikes, shifts=shifts)
 
-        # 5 ⌃⇧  # Sideband Bells on ⌥⇧ F1..F6, ⌥⇧ F8..F12  # No Codes on ⌥⇧ F7
+        # 5 ⌃⇧  # Sideband Bells on ⌃⇧ F1..F6, ⌃⇧ F8..F12  # No Codes on ⌃⇧ F7
         # 6 ⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
         # 7 ⌃⌥  # Sideband Bells on ⌃⌥ F1..F12
-        # 8 ⌃⌥⇧  # Sideband Bells on ⌥⇧ F1..F12
+        # 8 ⌃⌥⇧  # Sideband Bells on ⌃⌥⇧ F1..F12
 
         pass
 
