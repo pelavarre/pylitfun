@@ -245,7 +245,8 @@ We meet spec as tested by _try_keyboard_decoder_:
     1. Give Empty Str out for nothing in, and for an Undecodable Byte, a lone Combining Mark, and 2
        Combining Marks on 1 Char. Give Empty Str out for a Letter under a Combining Mark that no
        Key sends: q + Acute, p + Tilde, x + Diaeresis, j + Grave, and ĵ. Give Empty Str out for
-       e + Acute as 2 Chars, since ⌥E E sends é as 1 Char.
+       e + Acute as 2 Chars, since ⌥E E sends é as 1 Char, and for ˆ + j + Acute, since ⌥I J sends
+       ˆj and then no Key sends the Acute alone.
 
     2. Give a Control Byte its Key Cap: ⇥ for Tab, ⏎ for Return, ⌃A for b'\001', ⎋ for b'\033'.
 
@@ -267,29 +268,41 @@ We meet spec as tested by _try_keyboard_decoder_:
 
     9. Give b'\033[23~' ⌥F6, since macOS Mission Control often steals F11.
 
-    10. Assert in litpyglass.py, as it loads, that the two tables of Dead Keys speak of the same
-        five: ⌥` ⌥E ⌥I ⌥N ⌥U. Assert that the 5 Dead Keys make 50 pairs, as 48 accented Letters and
-        2 Letters before a Combining Mark.
+    10. Assert in litpyglass.py, as it loads, that the three tables of Dead Keys speak of the same
+        five: ⌥` ⌥E ⌥I ⌥N ⌥U. Assert that 5 Dead Keys before 52 Letters make 260 pairs.
 
     11. Name the Frames b'\033[5~' b'\033[6~' b'\033[F' b'\033[H' as the Key Caps ⇧Fn↑ ⇧Fn↓ ⇧Fn→
         ⇧Fn←, in that order, as macOS Terminal sends them.
 
+    12. Name the ⌥ Dead Key, when its Accent comes ahead of a Letter A..Z or a..z that it does not
+        accent: ˆp gives ⌥I P, and `p ´q ˜p ¨x ˆP give ⌥` P, ⌥E Q, ⌥N P, ⌥U X, ⌥I ⇧P. Name 210 such
+        pairs of Accent and Letter, as the U.S. Layout of macOS sends them.
+
+    13. Name the ⌥⇧ Chord of the Accent, when no Dead Key sends the pair: ˆe gives ⌥⇧I E since ⌥I E
+        sends ê, ´j gives ⌥⇧E J since ⌥E J sends j before a Combining Acute Accent, and ˆ before a
+        Space, a Digit, itself, or a Letter under a Dead Key's own Mark stays ⌥⇧I, as in ˜Ï giving
+        ⌥⇧N ⌥U⇧I.
+
 We meet spec as tested by _try_keyboard_decoder_bursts_ and _try_frame_print_:
 
-    12. Take (Nanos waited, Byte read) pairs in. Cut Text into bursts, before each Char whose last
+    14. Take (Nanos waited, Byte read) pairs in. Cut Text into bursts, before each Char whose last
         Byte came 10 ms or more after the Char before, adding up the waits of its Bytes. Name each
-        burst, and join the names with a Space: j + Acute gives ⌥EJ when the Acute waited less than
+        burst, and join the names with a Space: ˆp gives ⌥I P when the p waited less than 10 ms, and
+        ⌥⇧I P when it waited 10 ms. Likewise j + Acute gives ⌥EJ when the Acute waited less than
         10 ms, and Empty Str when it waited 10 ms, since no Key sends a lone Combining Mark.
 
-    13. Cut no Char in two, no matter how slowly its Bytes came, and cut no Frame that is not all
+    15. Cut no Char in two, no matter how slowly its Bytes came, and cut no Frame that is not all
         Printable Text: ⎋ [ ⇧A struck slowly still gives ↑.
 
-    14. Give Empty Str out for no pairs in, and for Text with a burst that has no name, such as a
+    16. Give Empty Str out for no pairs in, and for Text with a burst that has no name, such as a
         Combining Mark that came slowly.
 
-    15. Name each Frame burst by burst in --egg=frames, and in every Strike of the InputStrikeTaker,
-        Open or Taken: j + Acute of one read gives ⌥EJ, and of two reads 20 ms apart gives Empty
-        Str.
+    17. Name each Frame burst by burst in --egg=frames, and in every Strike of the InputStrikeTaker,
+        Open or Taken: ˆp of one read gives ⌥I P, and ˆ and p of two reads 20 ms apart give ⌥⇧I P.
+        Likewise j + Acute of one read gives ⌥EJ, and of two reads 20 ms apart gives Empty Str.
+
+Measured, items 12 to 14 and 17: at macOS Terminal, the p of ⌥I P came less than 1 ms after its
+Accent, and the p of ⌥⇧I then P struck fast came 320 ms to 333 ms after, in four tries.
 ```
 
 ## § 7 InputStrikeTaker

@@ -57,7 +57,7 @@ def main() -> None:
     _try_terminal_frame_decoder_()  # ~1ms
     _try_terminal_byte_frame_()  # ~330ms, mostly ~327ms _try_ends_later_ over every Char
     _try_keyboard_decoder_()  # ~1ms
-    _try_keyboard_decoder_bursts_()  # ~100ms, 5 reads of 20ms each
+    _try_keyboard_decoder_bursts_()  # ~200ms, 10 reads of 20ms each
     _try_terminal_boss_()  # ~490ms, 2 child Pythons
     _try_terminal_boss_return_()  # ~300ms, 2 child Pythons on Ptys at once
     _try_terminal_boss_farewell_()  # ~100ms, 1 child Python
@@ -136,8 +136,24 @@ def _try_keyboard_decoder_() -> None:
         ("ĵ".encode(), ""),  # ⌥I J sends ˆj, so no Key sends 'ĵ'
         ("e\u0301".encode(), ""),  # ⌥E E sends 'é' as 1 Char, not 'e' before Combining Acute Accent
         ("qj\u0301".encode(), "Q ⌥EJ"),  # the Mark accents the Char before it, not the first Char
+        ("ˆj\u0301".encode(), ""),  # ⌥I J sends ˆj, and then no Key sends the Mark alone
         ("aå".encode(), "A ⌥A"),  # a Char that NFD would split, but that one Chord sends
         ("´".encode(), "⌥⇧E"),  # the Spacing Acute Accent, as struck
+        #
+        ("ˆp".encode(), "⌥I P"),  # a Dead Key's Accent ahead of a Letter it doesn't accent
+        ("`p".encode(), "⌥` P"),  # each of the five Dead Keys
+        ("´q".encode(), "⌥E Q"),
+        ("˜p".encode(), "⌥N P"),
+        ("¨x".encode(), "⌥U X"),
+        ("ˆP".encode(), "⌥I ⇧P"),  # ahead of a Capital Letter
+        ("ˆe".encode(), "⌥⇧I E"),  # ⌥I E sends ê, so ⌥⇧I and then E sent these
+        ("´j".encode(), "⌥⇧E J"),  # ⌥E J sends 'j' before Combining Acute Accent
+        ("˜n".encode(), "⌥⇧N N"),  # ⌥N N sends ñ
+        ("¨y".encode(), "⌥⇧U Y"),  # ⌥U Y sends ÿ
+        ("ˆ ".encode(), "⌥⇧I ␢"),  # ahead of a Space
+        ("ˆ1".encode(), "⌥⇧I 1"),  # ahead of a Digit
+        ("ˆˆ".encode(), "⌥⇧I ⌥⇧I"),  # ahead of itself
+        ("˜Ï".encode(), "⌥⇧N ⌥U⇧I"),  # ahead of a Letter under a Combining Mark of its own
         ("\u0301".encode(), ""),  # the Combining Acute Accent by itself, which no Key sends
         ("a\u0301\u0308".encode(), ""),  # two Combining Marks on one Char, which no Key sends
         #
@@ -160,6 +176,19 @@ def _try_keyboard_decoder_() -> None:
         caps = kd._burst_bytes_to_key_caps_if_(data)
         assert caps == want, (caps, want, data)
 
+    # Count the pairs of Accent and Letter that name a Dead Key, as the U.S. Layout sends them
+
+    lowers = "abcdefghijklmnopqrstuvwxyz"
+
+    dead_key_caps_list = list()
+    for accent in "`´ˆ˜¨":
+        for letter in lowers + lowers.upper():
+            caps = kd._burst_bytes_to_key_caps_if_((accent + letter).encode())
+            if caps.startswith("⌥") and not caps.startswith("⌥⇧"):
+                dead_key_caps_list.append(caps)
+
+    assert len(dead_key_caps_list) == 210, (len(dead_key_caps_list),)
+
 
 def _try_keyboard_decoder_bursts_() -> None:
     """Try KeyboardDecoder naming burst by burst, as specs.md § 6 says"""
@@ -181,9 +210,23 @@ def _try_keyboard_decoder_bursts_() -> None:
     j_acute = "j\u0301".encode()
     assert j_acute == b"j\314\201", (j_acute,)
 
+    circumflex_p = "ˆp".encode()
+    assert circumflex_p == b"\313\206p", (circumflex_p,)
+
     triples = (
         #
         ((), b"", ""),  # nothing struck
+        #
+        ((slow, 0, 0), circumflex_p, "⌥I P"),  # ⌥I P, as one read
+        ((slow, 0, 72_791), circumflex_p, "⌥I P"),  # ⌥I P, as measured at macOS Terminal
+        ((slow, 0, ms_10 - 1), circumflex_p, "⌥I P"),  # the slowest burst
+        ((slow, 0, ms_10), circumflex_p, "⌥⇧I P"),  # the fastest two Chords
+        ((slow, 0, 320_676_292), circumflex_p, "⌥⇧I P"),  # ⌥⇧I then P, as measured
+        ((0, 0, 0), circumflex_p, "⌥I P"),  # a first wait of 0 cuts nothing
+        ((slow, slow, 0), circumflex_p, "⌥I P"),  # a slow Byte inside the first Char cuts nothing
+        ((slow, slow, slow), circumflex_p, "⌥⇧I P"),
+        ((slow, 0, 0, slow), "ˆpq".encode(), "⌥I P Q"),  # a burst and then a Key
+        ((slow, slow, 0, 0), "qˆp".encode(), "Q ⌥I P"),  # a Key and then a burst
         #
         ((slow, 0, 0), j_acute, "⌥EJ"),  # ⌥E J, as one read
         ((slow, ms_10 - 1, 0), j_acute, "⌥EJ"),  # the slowest burst
@@ -215,6 +258,21 @@ def _try_keyboard_decoder_bursts_() -> None:
     # Name the bursts of one read and of two reads 20ms apart, through the Strike Taker
 
     for chunks, want in (([j_acute], "⌥EJ"), ([b"j", "\u0301".encode()], "")):
+        boss = typing.cast(litpyglass.TerminalBoss, FakeLateBoss(chunks))
+        ts = litpyglass.TerminalShadow(boss)
+        ist = litpyglass.InputStrikeTaker(ts, arrow_wait_nanos=0)
+
+        strikes = list(ist.take_input_strikes_and_yield_each(stalwarts=()))
+        taken_caps = list(_.caps for _ in strikes if _.taken)
+        assert taken_caps == [want], (taken_caps, want, chunks)
+
+        open_caps = list(_.caps for _ in strikes if not _.taken)
+        assert open_caps[-1] == want, (open_caps, want, chunks)  # the Open Frame says the same
+
+    # Name a Dead Key's burst of one read, and its Accent and Letter of two reads 20ms apart
+
+    circumflex = "ˆ".encode()
+    for chunks, want in (([circumflex_p], "⌥I P"), ([circumflex, b"p"], "⌥⇧I P")):
         boss = typing.cast(litpyglass.TerminalBoss, FakeLateBoss(chunks))
         ts = litpyglass.TerminalShadow(boss)
         ist = litpyglass.InputStrikeTaker(ts, arrow_wait_nanos=0)
@@ -3113,6 +3171,19 @@ def _try_frame_print_() -> None:
 
     got = printed(j_acute, frame_nanobytes=((750_000_000, b1), (320_000_000, b2), (0, b3)))
     want = start + "j\u0301 b'j\\314\\201' = 750ms b'j' 320ms b'\\314' b'\\201'\r\n"
+    assert got == want, (got, want)
+
+    # a Dead Key's burst prints as ⌥I P, and the same Bytes struck 320ms apart as ⌥⇧I P
+
+    circumflex_p = "ˆp".encode()
+    b1, b2, b3 = b"\313", b"\206", b"p"
+    assert circumflex_p == b1 + b2 + b3, (circumflex_p,)
+
+    got = printed(circumflex_p, frame_nanobytes=((750_000_000, b1), (0, b2), (0, b3)))
+    assert got == start + "⌥I P ˆp b'\\313\\206p' = 750ms b'\\313' b'\\206' b'p'\r\n", got
+
+    got = printed(circumflex_p, frame_nanobytes=((750_000_000, b1), (0, b2), (320_000_000, b3)))
+    want = start + "⌥⇧I P ˆp b'\\313\\206p' = 750ms b'\\313' b'\\206' 320ms b'p'\r\n"
     assert got == want, (got, want)
 
 

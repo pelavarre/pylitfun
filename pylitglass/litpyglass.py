@@ -1059,7 +1059,7 @@ class KeyboardDecoder:
 
     decode_by_echo: dict[str, str]  # '⇥': '\t'  # '⌃I': '\t'
     echoes_by_decode: dict[str, tuple[str, ...]]  # '\t' to ('⇥', '⌃I', '⌃⇥', '⌥⇥', ...) all 7 ways
-    dead_echo_by_decode: dict[str, str]  # 'é': '⌥EE'
+    dead_echo_by_decode: dict[str, str]  # 'é': '⌥EE'  # '´q': '⌥E Q'
 
     PlainCapsWithoutFn = r"""
         ⎋
@@ -1084,7 +1084,7 @@ class KeyboardDecoder:
     # Shift Combinations sorted from least to most difficult to type out on a MacBook US Keyboard
 
     class DeadKeys:
-        """Speak of the five ⌥ Dead Keys, of the Letters they accent & of the Chars they send"""
+        """Speak of the five ⌥ Dead Keys, of the Letters they accent & of the Accents they send"""
 
         LettersByEcho = {  # the Letters each Dead Key does accent, at the U.S. Layout of macOS
             "⌥`": "aeiou",
@@ -1102,7 +1102,16 @@ class KeyboardDecoder:
             "⌥U": "äëïöüÿ",
         }
 
+        EchoByAccent = {  # each Dead Key sends its Accent ahead of a Letter it doesn't accent
+            "\u0060": "⌥`",  # Grave Accent `  # also sent by ⌥⇧~
+            "\u00b4": "⌥E",  # Acute Accent ´  # also sent by ⌥⇧E
+            "\u02c6": "⌥I",  # Modifier Letter Circumflex Accent ˆ  # also sent by ⌥⇧I
+            "\u02dc": "⌥N",  # Small Tilde ˜  # also sent by ⌥⇧N
+            "\u00a8": "⌥U",  # Diaeresis ¨  # also sent by ⌥⇧U
+        }
+
         assert sorted(AccentedByEcho.keys()) == sorted(LettersByEcho.keys())
+        assert sorted(EchoByAccent.values()) == sorted(LettersByEcho.keys())
 
     def __init__(self) -> None:
 
@@ -1566,9 +1575,10 @@ class KeyboardDecoder:
         return d
 
     def _form_dead_echo_by_decode_(self) -> dict[str, str]:
-        """Say which ⌥ Dead Key and Letter send which Text, for 50 pairs of them"""
+        """Say which ⌥ Dead Key and Letter send which Text, for 5 Dead Keys before 52 Letters"""
 
         dead_keys_accented_by_echo = KeyboardDecoder.DeadKeys.AccentedByEcho
+        dead_keys_echo_by_accent = KeyboardDecoder.DeadKeys.EchoByAccent
         dead_keys_letters_by_echo = KeyboardDecoder.DeadKeys.LettersByEcho
 
         echoes_by_decode = self.echoes_by_decode
@@ -1595,7 +1605,16 @@ class KeyboardDecoder:
                 d[accented] = echo + echoes_by_decode[lower][0]  # 'é': '⌥EE'
                 d[accented.upper()] = echo + echoes_by_decode[upper][0]  # 'É': '⌥E⇧E'
 
-        assert len(d) == 50, (len(d),)  # 48 accented Letters, and 2 Letters before a Combining Mark
+        # List the 210 Letters that come after an Accent
+
+        for accent, echo in dead_keys_echo_by_accent.items():
+            for letter in string.ascii_letters:
+                if letter.lower() not in dead_keys_letters_by_echo[echo]:
+
+                    assert (accent + letter) not in d.keys(), (accent + letter,)
+                    d[accent + letter] = echo + " " + echoes_by_decode[letter][0]  # '´q': '⌥E Q'
+
+        assert len(d) == 5 * 52, (len(d),)  # 5 Dead Keys before 52 Letters
 
         return d
 
@@ -1645,7 +1664,7 @@ class KeyboardDecoder:
         # Succeed
 
         caps = " ".join(words)
-        return caps  # Q ⌥= when struck slowly  # ⌥EJ  # ⇧A ⇧B ⇧C when pasted
+        return caps  # ⌥I P as a burst  # ⌥⇧I P when struck slowly  # ⇧A ⇧B ⇧C when pasted
 
     def _burst_bytes_to_key_caps_if_(self, data: bytes) -> str:
         """Name the Key Caps struck to send this burst of Bytes, else an Empty Str when unsure"""
@@ -1670,7 +1689,7 @@ class KeyboardDecoder:
         decodes: list[str] = list()
         for t in text:
             if decodes and ((decodes[-1] + t) in dead_echo_by_decode.keys()):
-                decodes[-1] += t  # 'j' and then its Combining Acute Accent
+                decodes[-1] += t  # '´' and then 'q'  # 'j' and then its Combining Acute Accent
                 continue
 
             decodes.append(t)
@@ -1682,7 +1701,7 @@ class KeyboardDecoder:
 
             if decode in dead_echo_by_decode.keys():
                 dead_echo = dead_echo_by_decode[decode]
-                echoes.append(dead_echo)  # ⌥EE  # ⌥EJ
+                echoes.append(dead_echo)  # ⌥EE  # ⌥EJ  # ⌥E Q
                 continue
 
             decode_echoes = self._bytes_to_sorted_echoes_if_(decode.encode())
@@ -1695,7 +1714,7 @@ class KeyboardDecoder:
             echoes.append(decode_echo)
 
         caps = " ".join(echoes)
-        return caps  # ⌥EJ  # ⌥EE  # ⇧A ⇧B ⇧C
+        return caps  # ⌥EJ  # ⌥EE  # ⇧A ⇧B ⇧C  # ⌥I P
 
     def _bytes_to_sorted_echoes_if_(self, data: bytes) -> tuple[str, ...]:
         """Speak of Bytes as Strikes of Chords of Key Caps"""
