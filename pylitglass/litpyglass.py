@@ -1131,8 +1131,6 @@ class KeyboardDecoder:
     def _form_macos_keyboards_(self) -> None:
         """Form the ordinary Apple MacBook Keyboards of Bytes sent by Caps"""
 
-        # todo: rename .strikes .cap_strikes .bytes_names .echo, to not collide with InputStrike
-
         # 1 ''
 
         shifts = ""
@@ -1310,6 +1308,8 @@ class KeyboardDecoder:
         """  # our sourceline detailing "⎋⎋[⇧Z 033.021 ... 033.034" is more than 100 Chars wide
 
         self._add_keyboard_(shifts=shifts, strikes=strikes)
+
+        # todo: rename .strikes .cap_strikes .bytes_names .echo, to not collide with InputStrike
 
     def _add_keyboard_(self, shifts: str, strikes: str) -> None:
         """Add in 1 Keyboard of Key Caps and their Strikes"""
@@ -1674,6 +1674,8 @@ class KeyboardDecoder:
 
         # Name the Key Caps of each burst
 
+        # todo: fix how ` and then P read as ⌥` P, when pasted or struck less than 10 ms apart
+
         words: list[str] = list()
         for burst in bursts:
             burst_caps = self._burst_bytes_to_key_caps_if_(burst.encode())
@@ -1980,6 +1982,7 @@ class TerminalShadow:
         return leap
 
         # todo0: larger leaps from arbitrary places such as a pasted ⎋[9;8R
+        # todo: cope with a pasted ⎋[1;4R that comes while the Top Layer is on
 
     def is_writable_place_after_strs(self, text: str) -> bool:
         """Say if writing the Str keeps the Terminal Cursor inside the Writable Area"""
@@ -2000,6 +2003,7 @@ class TerminalShadow:
         return True
 
     # todo: change the Terminal Shadow when we write Controls we have named
+    # todo: shadow the hide ⎋[⇧?25L and the show ⎋[⇧?25H of the Cursor, when a need for it comes
     # todo: stay fit to code some other game with different conventions
 
 
@@ -3137,7 +3141,17 @@ class TerminalByteFrame:
 
         return b""
 
-        # ⎋[?1005H Utf-8 Mouse Coords never enabled here, so never decoded here
+        # todo: develop ⎋[⇧?1005H Mouse Strokes coming in as 6 Char UTF-8 ⎋[⇧M{bord}{xord}{yord}
+        # todo: develop ⎋[⇧?1006H Mouse Strokes coming in as US ASCII ⎋[⇧<{b};{x};{y}⇧M and then ...M
+        # todo: develop ⎋[⇧?1015H Mouse Strokes coming in as US ASCII ⎋[{32+b};{x};{y}⇧M
+        # todo: develop ⌥ Mouse Strokes coming in as a burst of Arrows, with no Mouse mode on
+        # todo: read the ⌃ ⌥ ⇧ of a Mouse Stroke out of its {b}, as f = 0b⌃⌥⇧00
+
+        # todo: do cope when Press & Release come in one burst, not much separated in time
+
+        # todo: write ⎋[⇧?1006H beside each ⎋[⇧?1000H that a Program writes through us
+        # todo: measure if ⎋[⇧M Strokes still come while ⎋[⇧?1006H is on, away from macOS Terminal
+        # todo: measure the Mouse Strokes of the Wheel, of a Drag, and of the other Buttons
 
     def _take_after_csi_if_(self, data: bytes, text: str, peek: str) -> bytes:
         """Take 1..4 more Bytes in, after ⎋[ Csi, else return what doesn't fit"""
@@ -3280,7 +3294,7 @@ class TerminalByteFrame:
 
         return ""
 
-        # todo: compare Endswiths vs Python 3 encodings.utf_8.IncrementalDecoder
+        # todo: compare To-Later-Decode-If vs Python 3 encodings.utf_8.IncrementalDecoder
 
     #
     # for b"\xc2", b"\xed", b"\xe0", b"\xf4", b"\xf0", & friends
