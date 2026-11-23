@@ -243,7 +243,9 @@ The Bytes of one burst go in, and the Key Caps struck to send them come out, els
 We meet spec as tested by _try_keyboard_decoder_:
 
     1. Give Empty Str out for nothing in, and for an Undecodable Byte, a lone Combining Mark, and 2
-       Combining Marks on 1 Char.
+       Combining Marks on 1 Char. Give Empty Str out for a Letter under a Combining Mark that no
+       Key sends: q + Acute, p + Tilde, x + Diaeresis, j + Grave, and ĵ. Give Empty Str out for
+       e + Acute as 2 Chars, since ⌥E E sends é as 1 Char.
 
     2. Give a Control Byte its Key Cap: ⇥ for Tab, ⏎ for Return, ⌃A for b'\001', ⎋ for b'\033'.
 
@@ -252,10 +254,11 @@ We meet spec as tested by _try_keyboard_decoder_:
     4. Give a Frame still open the Keys struck so far: b'\033[' gives ⎋[, b'\033[1' gives ⎋ [ 1,
        since no Chord sends those Bytes, and a Frame closed by b'a' gives ⎋ [ A.
 
-    5. Give Printable Chars their Key Cap: ␢ J ⇧J, and give a Paste of b'ABC' ⇧A ⇧B ⇧C.
+    5. Give Printable Chars their Key Cap: ␢ J ⇧J, and give a Paste of b'ABC' ⇧A ⇧B ⇧C, and of aå
+       A ⌥A.
 
-    6. Give a Dead Key Echo the Option Chord: è é ê ñ ë give ⌥`E ⌥EE ⌥IE ⌥NN ⌥UE, j + Acute gives
-       ⌥EJ, ´ gives ⌥⇧E.
+    6. Give a Dead Key Echo the Option Chord: è é ê ñ ë give ⌥`E ⌥EE ⌥IE ⌥NN ⌥UE, É gives ⌥E⇧E,
+       j + Acute gives ⌥EJ, J + Acute gives ⌥E⇧J, ´ gives ⌥⇧E.
 
     7. Pick one reading where several Key Chords send the same Bytes: F6 over ⌥F1 and ⎋F1, F12 over
        ⌥F7 and ⎋F7, ⇧F5 over ⌥F8 and ⎋F8, ⎋⌃P over ⎋⇧F1 .. ⎋⌃⇧F12.
@@ -264,8 +267,9 @@ We meet spec as tested by _try_keyboard_decoder_:
 
     9. Give b'\033[23~' ⌥F6, since macOS Mission Control often steals F11.
 
-    10. Name a Unicode Combining Mark in each Dead Key Echo, so Apple accents the Char struck next.
-        Assert this in litpyglass.py as it loads.
+    10. Assert in litpyglass.py, as it loads, that the two tables of Dead Keys speak of the same
+        five: ⌥` ⌥E ⌥I ⌥N ⌥U. Assert that the 5 Dead Keys make 50 pairs, as 48 accented Letters and
+        2 Letters before a Combining Mark.
 
     11. Name the Frames b'\033[5~' b'\033[6~' b'\033[F' b'\033[H' as the Key Caps ⇧Fn↑ ⇧Fn↓ ⇧Fn→
         ⇧Fn←, in that order, as macOS Terminal sends them.

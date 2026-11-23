@@ -1059,6 +1059,7 @@ class KeyboardDecoder:
 
     decode_by_echo: dict[str, str]  # '⇥': '\t'  # '⌃I': '\t'
     echoes_by_decode: dict[str, tuple[str, ...]]  # '\t' to ('⇥', '⌃I', '⌃⇥', '⌥⇥', ...) all 7 ways
+    dead_echo_by_decode: dict[str, str]  # 'é': '⌥EE'
 
     PlainCapsWithoutFn = r"""
         ⎋
@@ -1082,16 +1083,26 @@ class KeyboardDecoder:
     AvailableShifts = ("", "⇧", "⌃", "⌥", "⌃⇧", "⌥⇧", "⌃⌥", "⌃⌥⇧", "⎋", "⎋⇧", "⎋⌃", "⎋⌃⇧")
     # Shift Combinations sorted from least to most difficult to type out on a MacBook US Keyboard
 
-    DeadKeyEchoByCombining = {  # Typists say Dead Keys do not step the Cursor forward
-        "\u0300": "⌥`",  # Combining Grave Accent
-        "\u0301": "⌥E",  # Combining Acute Accent
-        "\u0302": "⌥I",  # Combining Circumflex Accent
-        "\u0303": "⌥N",  # Combining Tilde
-        "\u0308": "⌥U",  # Combining Diaeresis
-    }
+    class DeadKeys:
+        """Speak of the five ⌥ Dead Keys, of the Letters they accent & of the Chars they send"""
 
-    assert all(unicodedata.combining(t) for t in DeadKeyEchoByCombining.keys())
-    # Unicode tells Apple that each Dead Key should accent the Char struck after it
+        LettersByEcho = {  # the Letters each Dead Key does accent, at the U.S. Layout of macOS
+            "⌥`": "aeiou",
+            "⌥E": "aeiouj",  # ⌥E J sends 'j' before a Combining Acute Accent, to land as 'j́'
+            "⌥I": "aeiou",
+            "⌥N": "ano",
+            "⌥U": "aeiouy",
+        }
+
+        AccentedByEcho = {  # the Char each Dead Key sends, when struck before each of its Letters
+            "⌥`": "àèìòù",
+            "⌥E": "áéíóú",  # ⌥E J sends no one Char
+            "⌥I": "âêîôû",
+            "⌥N": "ãñõ",
+            "⌥U": "äëïöüÿ",
+        }
+
+        assert sorted(AccentedByEcho.keys()) == sorted(LettersByEcho.keys())
 
     def __init__(self) -> None:
 
@@ -1100,6 +1111,7 @@ class KeyboardDecoder:
         self._form_apple_terminal_keyboards_()
 
         self.echoes_by_decode = self._form_echoes_by_decode_()
+        self.dead_echo_by_decode = self._form_dead_echo_by_decode_()
 
         # todo: port the iTerm2 and Ghostty Keyboards from bin/litglass.py, as diffs from this one
 
@@ -1553,6 +1565,40 @@ class KeyboardDecoder:
 
         return d
 
+    def _form_dead_echo_by_decode_(self) -> dict[str, str]:
+        """Say which ⌥ Dead Key and Letter send which Text, for 50 pairs of them"""
+
+        dead_keys_accented_by_echo = KeyboardDecoder.DeadKeys.AccentedByEcho
+        dead_keys_letters_by_echo = KeyboardDecoder.DeadKeys.LettersByEcho
+
+        echoes_by_decode = self.echoes_by_decode
+
+        d: dict[str, str] = dict()
+
+        # List the 2 Letters that come before a Combining Mark
+
+        d["j\u0301"] = "⌥EJ"  # only ⌥E J and ⌥E ⇧J send a Letter and then a Combining Mark
+        d["J\u0301"] = "⌥E⇧J"
+
+        # List the 48 Letters that come accented as 1 Combined Char
+
+        for echo, accenteds in dead_keys_accented_by_echo.items():
+            letters = dead_keys_letters_by_echo[echo]
+            assert len(accenteds) == len(letters.rstrip("j")), (accenteds, letters)
+
+            for lower, accented in zip(letters, accenteds):  # stops before the 'j' of ⌥E J
+                upper = lower.upper()
+
+                assert accented not in d.keys(), (accented,)
+                assert accented.upper() not in d.keys(), (accented.upper(),)
+
+                d[accented] = echo + echoes_by_decode[lower][0]  # 'é': '⌥EE'
+                d[accented.upper()] = echo + echoes_by_decode[upper][0]  # 'É': '⌥E⇧E'
+
+        assert len(d) == 50, (len(d),)  # 48 accented Letters, and 2 Letters before a Combining Mark
+
+        return d
+
     #
     # Speak of Bytes as Strikes of Key Caps at a MacBook
     #
@@ -1604,7 +1650,7 @@ class KeyboardDecoder:
     def _burst_bytes_to_key_caps_if_(self, data: bytes) -> str:
         """Name the Key Caps struck to send this burst of Bytes, else an Empty Str when unsure"""
 
-        dead_key_echo_by_combining = KeyboardDecoder.DeadKeyEchoByCombining
+        dead_echo_by_decode = self.dead_echo_by_decode
 
         # Give up quickly on Undecodable Bytes
 
@@ -1619,37 +1665,37 @@ class KeyboardDecoder:
             echo = data_echoes[0]
             return echo  # ⇥  # ⏎  # ↑  # ⌃A  # ⌥⇧E
 
-        # Echo one Chord per Char, with each ⌥ Dead Key struck before the Char it accents
+        # Glue Chars together, where a ⌥ Dead Key and then a Letter send them together
 
-        nfd = unicodedata.normalize("NFD", text)  # splits é into e plus Combining Acute Accent
-
-        echoes: list[str] = list()
-        dead_key_echo = ""
-        for t in nfd:  # todo: this loop ⚠️ written by Claude·Ai, reviewed by almost no living people
-
-            if t in dead_key_echo_by_combining.keys():
-                if (not echoes) or dead_key_echo:
-                    return ""  # a Combining Mark pasted alone or doubled, which no Key sends
-
-                dead_key_echo = dead_key_echo_by_combining[t]
-                echoes[-1] = dead_key_echo + echoes[-1]  # glued before the Char, as struck
+        decodes: list[str] = list()
+        for t in text:
+            if decodes and ((decodes[-1] + t) in dead_echo_by_decode.keys()):
+                decodes[-1] += t  # 'j' and then its Combining Acute Accent
                 continue
 
-            dead_key_echo = ""
+            decodes.append(t)
 
-            t_echoes = self._bytes_to_sorted_echoes_if_(t.encode())
-            if not t_echoes:
-                return ""  # such as a Char that no MacBook Keyboard sends
+        # Echo two Chords per Dead Key and Letter, and else one Chord per Char
 
-            t_echo = t_echoes[0]
-            echoes.append(t_echo)
+        echoes: list[str] = list()
+        for decode in decodes:
+
+            if decode in dead_echo_by_decode.keys():
+                dead_echo = dead_echo_by_decode[decode]
+                echoes.append(dead_echo)  # ⌥EE  # ⌥EJ
+                continue
+
+            decode_echoes = self._bytes_to_sorted_echoes_if_(decode.encode())
+            if not decode_echoes:
+                return ""  # such as a Combining Mark struck twice or pasted, which no Key sends
+
+                # todo: each ⌥ Combining Mark struck indistinguishable from ⌥⇧ of same Key Cap?
+
+            decode_echo = decode_echoes[0]
+            echoes.append(decode_echo)
 
         caps = " ".join(echoes)
         return caps  # ⌥EJ  # ⌥EE  # ⇧A ⇧B ⇧C
-
-        # todo0: name ˆp arrived as one burst as ⌥I P, not as ⌥⇧I P, and likewise for ` ´ ¨ ˜
-        # todo: measure which Chords send a Letter + Combining Mark: ⌥E J does, ⌥E Q sends ´q instead
-        # todo: then stop naming ⌥EQ and ⌥UX for a Letter + Combining Mark pair no Key sends
 
     def _bytes_to_sorted_echoes_if_(self, data: bytes) -> tuple[str, ...]:
         """Speak of Bytes as Strikes of Chords of Key Caps"""

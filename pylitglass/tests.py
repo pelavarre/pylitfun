@@ -127,7 +127,16 @@ def _try_keyboard_decoder_() -> None:
         ("ê".encode(), "⌥IE"),
         ("ñ".encode(), "⌥NN"),  # before N, not only before a vowel
         ("ë".encode(), "⌥UE"),
-        ("j\u0300".encode(), "⌥`J"),  # 'j' before Combining Grave Accent, from ⌥` & then J Key
+        ("J\u0301".encode(), "⌥E⇧J"),  # 'J' before Combining Acute Accent, from ⌥E & then ⇧J
+        ("É".encode(), "⌥E⇧E"),  # a Capital Letter that a Dead Key does accent
+        ("j\u0300".encode(), ""),  # 'j' before Combining Grave Accent, which no Key sends
+        ("q\u0301".encode(), ""),  # ⌥E Q sends ´q, not 'q' before Combining Acute Accent
+        ("p\u0303".encode(), ""),  # ⌥N P sends ˜p
+        ("x\u0308".encode(), ""),  # ⌥U X sends ¨x
+        ("ĵ".encode(), ""),  # ⌥I J sends ˆj, so no Key sends 'ĵ'
+        ("e\u0301".encode(), ""),  # ⌥E E sends 'é' as 1 Char, not 'e' before Combining Acute Accent
+        ("qj\u0301".encode(), "Q ⌥EJ"),  # the Mark accents the Char before it, not the first Char
+        ("aå".encode(), "A ⌥A"),  # a Char that NFD would split, but that one Chord sends
         ("´".encode(), "⌥⇧E"),  # the Spacing Acute Accent, as struck
         ("\u0301".encode(), ""),  # the Combining Acute Accent by itself, which no Key sends
         ("a\u0301\u0308".encode(), ""),  # two Combining Marks on one Char, which no Key sends
