@@ -68,6 +68,7 @@ _2_COLUMNS_ = 2  # our Square Pixels print as two Spaces side by side
 _20_COLUMNS_ = 20  # macOS Terminal `stty size` always says width of 20 or more
 
 _3_GIGA_NANOS_ = 3 * 10**9  # too slow to take 3 same inputs in a row as a quit request
+_10_MEGA_NANOS_ = 10 * 10**6  # a Dead Key sends its Accent & Letter closer, two Keys come slower
 _50_MEGA_NANOS_ = 50 * 10**6  # two Arrow Keys struck together come closer, a held Key repeats slower
 _100_MEGA_NANOS_ = 100 * 10**6  # too fast to take 3 in a row as a quit request
 _150_MEGA_NANOS_ = 150 * 10**6  # keys typed ahead can come about as fast as a typist's
@@ -342,7 +343,7 @@ class GlassWorker:
 
         # Choose the words
 
-        caps = kd.bytes_to_key_caps_if(data)  # ⎋, ⎋[, ↑ when typed slowly
+        caps = kd.nanobytes_to_key_caps_if(nanobytes)  # ⎋, ⎋[, ↑ when typed slowly
         if caps:
             words.append(caps)
 
@@ -856,7 +857,7 @@ class InputStrikeTaker:
 
         held_arrow: InputStrike | None = None  # a taken Cardinal Arrow, held for a mate
 
-        for taken, frame, _ in tfr.take_frames_and_yield_each(stalwarts=stalwarts):
+        for taken, frame, nanobytes in tfr.take_frames_and_yield_each(stalwarts=stalwarts):
             data = frame.to_frame_bytes()  # maybe empty
 
             # Speak of the Frame as Text, when its Bytes decode as Printable
@@ -868,7 +869,7 @@ class InputStrikeTaker:
 
             # Speak of the Frame as Strikes, when the Keyboard Decoder names its Key Caps
 
-            caps = kd.bytes_to_key_caps_if(data)  # ⎋, ⎋[, ↑ when typed slowly
+            caps = kd.nanobytes_to_key_caps_if(nanobytes)  # ⎋, ⎋[, ↑ when typed slowly
             assert caps == caps.strip(), (caps, frame)
 
             strike = InputStrike(taken=taken, caps=caps, printables=printables, frames=(frame,))
@@ -1556,8 +1557,52 @@ class KeyboardDecoder:
     # Speak of Bytes as Strikes of Key Caps at a MacBook
     #
 
-    def bytes_to_key_caps_if(self, data: bytes) -> str:
-        """Name the Key Caps struck to send these Bytes, else an Empty Str when unsure"""
+    def nanobytes_to_key_caps_if(self, nanobytes: tuple[tuple[int, bytes], ...]) -> str:
+        """Name the Key Caps struck to send each burst of Bytes, else an Empty Str when unsure"""
+
+        assert _10_MEGA_NANOS_ == 10 * 10**6  # a Dead Key sends its Accent & Letter closer
+
+        data = b"".join(b for (_, b) in nanobytes)
+
+        # Name the Bytes of an unprintable Frame the same, no matter if quick or slow
+
+        text = TerminalByteFrame.bytes_decode_if(data)  # decodable, but maybe not printable
+        if not (text and text.isprintable()):
+            caps = self._burst_bytes_to_key_caps_if_(data)
+            return caps  # ↑ when typed slowly as ⎋ [ ⇧A
+
+        # Cut Text into bursts, before each Char whose last Byte came slowly
+
+        bursts: list[str] = list()
+        index = 0  # counts the Bytes that came before this Char
+        for t in text:
+            length = len(t.encode())
+            waited = sum(w for (w, _) in nanobytes[index:][:length])  # till its last Byte
+            index += length
+
+            is_slow = waited >= _10_MEGA_NANOS_
+            if (not bursts) or is_slow:
+                bursts.append("")
+
+            bursts[-1] += t
+
+        # Name the Key Caps of each burst
+
+        words: list[str] = list()
+        for burst in bursts:
+            burst_caps = self._burst_bytes_to_key_caps_if_(burst.encode())
+            if not burst_caps:
+                return ""  # such as a Combining Mark that came slowly, which no Key sends
+
+            words.append(burst_caps)
+
+        # Succeed
+
+        caps = " ".join(words)
+        return caps  # Q ⌥= when struck slowly  # ⌥EJ  # ⇧A ⇧B ⇧C when pasted
+
+    def _burst_bytes_to_key_caps_if_(self, data: bytes) -> str:
+        """Name the Key Caps struck to send this burst of Bytes, else an Empty Str when unsure"""
 
         dead_key_echo_by_combining = KeyboardDecoder.DeadKeyEchoByCombining
 

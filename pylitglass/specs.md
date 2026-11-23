@@ -236,9 +236,9 @@ _try_frame_reader_peek_:
 ## § 6 KeyboardDecoder
 
 ```
-Spec of KeyboardDecoder.bytes_to_key_caps_if.
+Spec of KeyboardDecoder._burst_bytes_to_key_caps_if_ and .nanobytes_to_key_caps_if.
 
-The Bytes of one Strike go in, and the Key Caps struck to send them come out, else an Empty Str.
+The Bytes of one burst go in, and the Key Caps struck to send them come out, else an Empty Str.
 
 We meet spec as tested by _try_keyboard_decoder_:
 
@@ -269,6 +269,23 @@ We meet spec as tested by _try_keyboard_decoder_:
 
     11. Name the Frames b'\033[5~' b'\033[6~' b'\033[F' b'\033[H' as the Key Caps ⇧Fn↑ ⇧Fn↓ ⇧Fn→
         ⇧Fn←, in that order, as macOS Terminal sends them.
+
+We meet spec as tested by _try_keyboard_decoder_bursts_ and _try_frame_print_:
+
+    12. Take (Nanos waited, Byte read) pairs in. Cut Text into bursts, before each Char whose last
+        Byte came 10 ms or more after the Char before, adding up the waits of its Bytes. Name each
+        burst, and join the names with a Space: j + Acute gives ⌥EJ when the Acute waited less than
+        10 ms, and Empty Str when it waited 10 ms, since no Key sends a lone Combining Mark.
+
+    13. Cut no Char in two, no matter how slowly its Bytes came, and cut no Frame that is not all
+        Printable Text: ⎋ [ ⇧A struck slowly still gives ↑.
+
+    14. Give Empty Str out for no pairs in, and for Text with a burst that has no name, such as a
+        Combining Mark that came slowly.
+
+    15. Name each Frame burst by burst in --egg=frames, and in every Strike of the InputStrikeTaker,
+        Open or Taken: j + Acute of one read gives ⌥EJ, and of two reads 20 ms apart gives Empty
+        Str.
 ```
 
 ## § 7 InputStrikeTaker

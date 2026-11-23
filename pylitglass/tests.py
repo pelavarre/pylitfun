@@ -57,6 +57,7 @@ def main() -> None:
     _try_terminal_frame_decoder_()  # ~1ms
     _try_terminal_byte_frame_()  # ~330ms, mostly ~327ms _try_ends_later_ over every Char
     _try_keyboard_decoder_()  # ~1ms
+    _try_keyboard_decoder_bursts_()  # ~100ms, 5 reads of 20ms each
     _try_terminal_boss_()  # ~490ms, 2 child Pythons
     _try_terminal_boss_return_()  # ~300ms, 2 child Pythons on Ptys at once
     _try_terminal_boss_farewell_()  # ~100ms, 1 child Python
@@ -147,8 +148,74 @@ def _try_keyboard_decoder_() -> None:
     )
 
     for data, want in pairs:
-        caps = kd.bytes_to_key_caps_if(data)
+        caps = kd._burst_bytes_to_key_caps_if_(data)
         assert caps == want, (caps, want, data)
+
+
+def _try_keyboard_decoder_bursts_() -> None:
+    """Try KeyboardDecoder naming burst by burst, as specs.md § 6 says"""
+
+    kd = litpyglass.keyboard_decoder()
+
+    ms_10 = 10 * 10**6
+    assert litpyglass._10_MEGA_NANOS_ == ms_10, (litpyglass._10_MEGA_NANOS_, ms_10)
+
+    slow = 750 * 10**6
+
+    def nanobytes_of(waits: tuple[int, ...], data: bytes) -> tuple[tuple[int, bytes], ...]:
+        assert len(waits) == len(data), (len(waits), len(data), data)
+        nanobytes = tuple((wait, data[i:][:1]) for (i, wait) in enumerate(waits))
+        return nanobytes
+
+    # Pair up the waits and the Bytes with the Key Caps struck to send them
+
+    j_acute = "j\u0301".encode()
+    assert j_acute == b"j\314\201", (j_acute,)
+
+    triples = (
+        #
+        ((), b"", ""),  # nothing struck
+        #
+        ((slow, 0, 0), j_acute, "⌥EJ"),  # ⌥E J, as one read
+        ((slow, ms_10 - 1, 0), j_acute, "⌥EJ"),  # the slowest burst
+        ((slow, ms_10, 0), j_acute, ""),  # the fastest Combining Mark that came late
+        ((slow, slow, 0), j_acute, ""),  # a Combining Mark that came slowly
+        ((0, 0, 0), j_acute, "⌥EJ"),  # a first wait of 0 cuts nothing
+        #
+        ((slow, slow), "é".encode(), "⌥EE"),  # a slow Byte inside a Char cuts no Char in two
+        ((slow, 0, slow), j_acute, ""),  # but makes its Char come late
+        ((slow, ms_10 // 2, ms_10 // 2 - 1), j_acute, "⌥EJ"),  # the waits of a Char's Bytes add up
+        ((slow, ms_10 // 2, ms_10 // 2), j_acute, ""),
+        ((slow, ms_10 // 2, 0, ms_10 // 2), j_acute + b"a", "⌥EJ A"),  # but only inside one Char
+        #
+        ((slow, slow, slow), b"abc", "A B C"),  # Text struck slowly
+        ((slow, 0, 0), b"abc", "A B C"),  # Text pasted
+        #
+        ((slow, slow, slow), b"\033[A", "↑"),  # ↑ typed slowly as ⎋ [ ⇧A
+        ((slow, slow), b"\033[", "⎋["),
+        ((slow, slow, slow), b"\033[1", "⎋ [ 1"),
+        ((slow,), b"\377", ""),  # an Undecodable Byte
+        #
+    )
+
+    for waits, data, want in triples:
+        nanobytes = nanobytes_of(waits, data=data)
+        caps = kd.nanobytes_to_key_caps_if(nanobytes)
+        assert caps == want, (caps, want, waits, data)
+
+    # Name the bursts of one read and of two reads 20ms apart, through the Strike Taker
+
+    for chunks, want in (([j_acute], "⌥EJ"), ([b"j", "\u0301".encode()], "")):
+        boss = typing.cast(litpyglass.TerminalBoss, FakeLateBoss(chunks))
+        ts = litpyglass.TerminalShadow(boss)
+        ist = litpyglass.InputStrikeTaker(ts, arrow_wait_nanos=0)
+
+        strikes = list(ist.take_input_strikes_and_yield_each(stalwarts=()))
+        taken_caps = list(_.caps for _ in strikes if _.taken)
+        assert taken_caps == [want], (taken_caps, want, chunks)
+
+        open_caps = list(_.caps for _ in strikes if not _.taken)
+        assert open_caps[-1] == want, (open_caps, want, chunks)  # the Open Frame says the same
 
 
 def _try_terminal_frame_decoder_() -> None:
@@ -1594,6 +1661,20 @@ class FakeSlowBoss:
         return data
 
 
+class FakeLateBoss:
+    """Pretend to be a TerminalBoss that reads each given chunk of Bytes after a 20ms wait"""
+
+    def __init__(self, chunks: list[bytes]) -> None:
+        self.ibk = litpyglass.ByteKeeper()  # every Byte read, and when
+        self.chunks = list(chunks)
+
+    def read_some_bytes_if(self) -> bytes:
+        time.sleep(0.020)
+        data = self.chunks.pop(0) if self.chunks else b""
+        self.ibk.append_some_bytes(data, nano=time.perf_counter_ns())
+        return data
+
+
 class FakeChunkBoss:
     """Pretend to be a TerminalBoss that reads each given chunk of Bytes in turn, and then nothing"""
 
@@ -2982,35 +3063,48 @@ def _try_frame_print_() -> None:
     start = "\r\033[K"  # from the start of the Line
     esc = b"\033"
 
-    def printed(frame_nanobytes: tuple[tuple[int, bytes], ...]) -> str:
+    def printed(data: bytes, frame_nanobytes: tuple[tuple[int, bytes], ...]) -> str:
         boss = litpyglass.TerminalBoss(typeahead=b"", farewell_bytes=b"")
 
         captured_bytes = io.BytesIO()
         captured = io.TextIOWrapper(captured_bytes, encoding="utf-8", newline="")  # as Stdout is
         with contextlib.redirect_stdout(captured):
-            glass_worker.frame_print(b"\033[A", nanobytes=frame_nanobytes, end="\r\n", tb=boss)
+            glass_worker.frame_print(data, nanobytes=frame_nanobytes, end="\r\n", tb=boss)
             captured.flush()
 
-        data = captured_bytes.getvalue()
-        assert bytes(boss.typescript) == data, (boss.typescript, data)
-        return data.decode()
+        captured_data = captured_bytes.getvalue()
+        assert bytes(boss.typescript) == captured_data, (boss.typescript, captured_data)
+        return captured_data.decode()
 
     prefix = start + "↑ '\\033[A' b'\\033[A' = "
 
     # a first wait of 750ms prints, and the later waits of 0ns drop
 
-    got = printed(((750_000_000, esc), (0, b"["), (0, b"A")))
+    got = printed(b"\033[A", frame_nanobytes=((750_000_000, esc), (0, b"["), (0, b"A")))
     assert got == prefix + "750ms b'\\033' b'[' b'A'\r\n", got
 
     # a first wait of 0ns still prints, once
 
-    got = printed(((0, esc), (0, b"["), (0, b"A")))
+    got = printed(b"\033[A", frame_nanobytes=((0, esc), (0, b"["), (0, b"A")))
     assert got == prefix + "0ns b'\\033' b'[' b'A'\r\n", got
 
     # a later wait of more than 0ns prints too
 
-    got = printed(((750_000_000, esc), (3_000_000, b"["), (0, b"A")))
+    got = printed(b"\033[A", frame_nanobytes=((750_000_000, esc), (3_000_000, b"["), (0, b"A")))
     assert got == prefix + "750ms b'\\033' 3.00ms b'[' b'A'\r\n", got
+
+    # a burst of j before Combining Acute prints as ⌥EJ, and the same Bytes 320ms apart as no Key Caps
+
+    j_acute = "j\u0301".encode()
+    b1, b2, b3 = b"j", b"\314", b"\201"
+    assert j_acute == b1 + b2 + b3, (j_acute,)
+
+    got = printed(j_acute, frame_nanobytes=((750_000_000, b1), (0, b2), (0, b3)))
+    assert got == start + "⌥EJ j\u0301 b'j\\314\\201' = 750ms b'j' b'\\314' b'\\201'\r\n", got
+
+    got = printed(j_acute, frame_nanobytes=((750_000_000, b1), (320_000_000, b2), (0, b3)))
+    want = start + "j\u0301 b'j\\314\\201' = 750ms b'j' 320ms b'\\314' b'\\201'\r\n"
+    assert got == want, (got, want)
 
 
 def _try_pull_ends_without_replies_() -> None:
