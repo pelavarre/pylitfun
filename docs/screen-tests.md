@@ -88,8 +88,8 @@ d ) Echoes and cooks and writes, for positive repeat counts and for no repeat co
 |  ⎋['⇧}  |  one ⎋[D ⎋[⇧@ per row   | (all)     |
 |  ⎋['⇧~  |  one ⎋[⇧P ⎋[⇧@ per row  | (all)     |
 
-⎋ [ ' 4 ⇧} is what you type to get four of our Csi ⇧} emulations.
-⎋ [ ' 8 ⇧~ is what you type to get eight of our Csi ⇧~ emulations
+⎋ [ 4 ' ⇧} is what you type to get four of our Csi ⇧} emulations.
+⎋ [ 8 ' ⇧~ is what you type to get eight of our Csi ⇧~ emulations
 
 
 ## Eggs
