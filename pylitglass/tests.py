@@ -94,6 +94,7 @@ def main() -> None:
     _try_shadow_layer_()  # ~1ms
     _try_shadow_top_layer_()  # ~1ms
     _try_shadow_insert_row_()  # ~1ms
+    _try_shadow_delete_row_()  # ~1ms
     _try_screen_replay_()  # ~1ms
 
     print("tests ok")
@@ -2707,14 +2708,14 @@ def _try_shadow_insert_row_() -> None:
     assert ts.base.write_by_xy[(20, 3)] == ((), " "), ts.base.write_by_xy  # replaced the z
     assert ts.base.write_by_xy[(20, 4)] == ((), "z"), ts.base.write_by_xy  # the z moved down
 
-    # An insert with a Pn, or a Delete Row, fails an assert before any Byte goes out
+    # An insert with a Pn, or a Delete Row with a Pn, fails an assert before any Byte goes out
 
     fake = FakeWriteBoss()
     ts = shadow_five_rows(fake, screen_width=20)
     writes_before = list(fake.writes)
     write_by_xy_before = dict(ts.base.write_by_xy)
 
-    for text in ("\033[2L", "\033[M", "\033[2M"):
+    for text in ("\033[1L", "\033[2L", "\033[2M"):
         assert asserts_for(ts.str_write_base_tb, text), (text, ts.base_place)
 
     assert fake.writes == writes_before, (fake.writes, writes_before)
@@ -2739,6 +2740,167 @@ def _try_shadow_insert_row_() -> None:
 
     ts.str_write_base_tb("\b")  # other Base Writes while the Top is on go on as before
     assert fake.writes[-1] == b"\b", fake.writes
+
+
+def _try_shadow_delete_row_() -> None:
+    """Try a TerminalShadow taking ⎋[⇧M to delete a Row, as specs.md § 10 says"""
+
+    insert_row = "\033[L"  # ⎋[⇧L
+    delete_row = "\033[M"  # ⎋[⇧M
+    reverse = "\033[7m"  # ⎋[7M
+
+    def asserts_for(write: typing.Callable[[str], None], text: str) -> bool:
+        """Say if the Write fails an assert"""
+
+        try:
+            write(text)
+        except AssertionError:
+            return True
+        return False
+
+    def shadow_five_rows(fake: FakeWriteBoss, screen_width: int) -> litpyglass.TerminalShadow:
+        """Write a, b, c, d, e into Column 1 of Rows 1 to 5, & leave the Cursor at Row 3 Column 5"""
+
+        ts = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, fake))
+        ts.shadow_read_data_else(b"\033[1;1R")
+        ts.shadow_read_data_else(f"\033[8;5;{screen_width}t".encode())
+
+        for y, char in enumerate("abcde", start=1):
+            ts.shadow_read_data_else(f"\033[{y};1R".encode())
+            ts.str_write_base_tb(char)
+
+        ts.shadow_read_data_else(b"\033[3;5R")
+        return ts
+
+    # A Plain delete keeps Row 1 and Row 2, drops c, moves d and e up, and fills Row 5 plain
+
+    fake = FakeWriteBoss()
+    ts = shadow_five_rows(fake, screen_width=20)
+    ts.str_write_base_tb(delete_row)
+
+    assert fake.writes[-1] == delete_row.encode(), fake.writes
+    assert ts.base.text_styles == (), ts.base.text_styles
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (5, 3), ts.base_place
+
+    write_by_xy = ts.base.write_by_xy
+    letter_by_xy = dict((xy, write[1]) for xy, write in write_by_xy.items() if write[1] != " ")
+    assert letter_by_xy == {(1, 1): "a", (1, 2): "b", (1, 3): "d", (1, 4): "e"}, letter_by_xy
+
+    row_cells = list(xy for xy in write_by_xy.keys() if xy[1] == 5)
+    assert sorted(row_cells) == list((x, 5) for x in range(1, 21)), sorted(row_cells)
+    assert all(write == ((), " ") for xy, write in write_by_xy.items() if xy[1] == 5), write_by_xy
+    assert len(write_by_xy) == (20 + 4), write_by_xy
+
+    # A Reverse delete fills the last Row with plain Spaces, though Reverse stays in force
+
+    fake = FakeWriteBoss()
+    ts = shadow_five_rows(fake, screen_width=20)
+    ts.str_write_base_tb(reverse)
+    ts.str_write_base_tb(delete_row)
+
+    write_by_xy = ts.base.write_by_xy
+    assert write_by_xy[(1, 5)] == ((), " "), write_by_xy  # plain, though ⎋[7M is in force
+    assert write_by_xy[(20, 5)] == ((), " "), write_by_xy
+    assert write_by_xy[(1, 3)] == ((), "d"), write_by_xy  # d keeps its own Text Styles
+    assert (21, 5) not in write_by_xy.keys(), write_by_xy
+    assert ts.base.text_styles == (reverse,), ts.base.text_styles
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (5, 3), ts.base_place
+
+    # An odd Width W+1 fills Column W+1 too, since the real Terminal fills the whole Row
+
+    fake = FakeWriteBoss()
+    ts = shadow_five_rows(fake, screen_width=21)
+    ts.str_write_base_tb(delete_row)
+
+    write_by_xy = ts.base.write_by_xy
+    assert write_by_xy[(21, 5)] == ((), " "), write_by_xy
+    assert len(write_by_xy) == (21 + 4), write_by_xy
+
+    # A delete on the last Row drops that Row and fills it, and moves nothing else
+
+    fake = FakeWriteBoss()
+    ts = shadow_five_rows(fake, screen_width=20)
+    ts.shadow_read_data_else(b"\033[5;1R")
+    ts.str_write_base_tb(delete_row)
+
+    write_by_xy = ts.base.write_by_xy
+    letter_by_xy = dict((xy, write[1]) for xy, write in write_by_xy.items() if write[1] != " ")
+    assert letter_by_xy == {(1, 1): "a", (1, 2): "b", (1, 3): "c", (1, 4): "d"}, letter_by_xy
+    assert len(write_by_xy) == (20 + 4), write_by_xy
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (1, 5), ts.base_place
+
+    # A delete on Row 1 drops a, moves every other Row up, and fills the last Row
+
+    fake = FakeWriteBoss()
+    ts = shadow_five_rows(fake, screen_width=20)
+    ts.shadow_read_data_else(b"\033[1;1R")
+    ts.str_write_base_tb(delete_row)
+
+    write_by_xy = ts.base.write_by_xy
+    letter_by_xy = dict((xy, write[1]) for xy, write in write_by_xy.items() if write[1] != " ")
+    assert letter_by_xy == {(1, 1): "b", (1, 2): "c", (1, 3): "d", (1, 4): "e"}, letter_by_xy
+    assert len(write_by_xy) == (20 + 4), write_by_xy
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (1, 1), ts.base_place
+
+    # A delete while waiting to wrap leaves the Cursor waiting to wrap, as no Move does
+
+    fake = FakeWriteBoss()
+    ts = shadow_five_rows(fake, screen_width=20)
+    ts.shadow_read_data_else(b"\033[3;20R")
+    ts.str_write_base_tb("z")  # lands in Column 20, and then the Cursor waits in Column 21
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (21, 3), ts.base_place
+    ts.str_write_base_tb(delete_row)
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (21, 3), ts.base_place
+    assert (20, 3) not in ts.base.write_by_xy.keys(), ts.base.write_by_xy  # dropped the z
+
+    # A delete with a Pn fails an assert before any Byte goes out
+
+    fake = FakeWriteBoss()
+    ts = shadow_five_rows(fake, screen_width=20)
+    writes_before = list(fake.writes)
+    write_by_xy_before = dict(ts.base.write_by_xy)
+
+    for text in ("\033[0M", "\033[1M", "\033[2M"):
+        assert asserts_for(ts.str_write_base_tb, text), (text, ts.base_place)
+
+    assert fake.writes == writes_before, (fake.writes, writes_before)
+    assert ts.base.write_by_xy == write_by_xy_before, (ts.base.write_by_xy, write_by_xy_before)
+
+    # A delete through the Top Layer fails an assert before any Byte goes out
+
+    assert asserts_for(ts.str_write_top_tb, delete_row), ts.base_place
+    assert fake.writes == writes_before, (fake.writes, writes_before)
+    assert not ts.top, ts.top.place
+
+    # A delete through the Base Layer, while the Top Layer is on, fails an assert before any Byte
+
+    ts.str_write_top_tb("X")
+    writes_before = list(fake.writes)
+    write_by_xy_before = dict(ts.base.write_by_xy)
+    assert ts.top, ts.top.place
+
+    assert asserts_for(ts.str_write_base_tb, delete_row), (ts.top.place, ts.base_place)
+    assert fake.writes == writes_before, (fake.writes, writes_before)
+    assert ts.base.write_by_xy == write_by_xy_before, (ts.base.write_by_xy, write_by_xy_before)
+
+    ts.str_write_base_tb("\b")  # other Base Writes while the Top is on go on as before
+    assert fake.writes[-1] == b"\b", fake.writes
+
+    # An insert and then a delete at the same Cursor put back each Write above the last Row
+
+    fake = FakeWriteBoss()
+    ts = shadow_five_rows(fake, screen_width=20)
+    write_by_xy_before = dict(ts.base.write_by_xy)
+
+    ts.str_write_base_tb(insert_row)
+    ts.str_write_base_tb(delete_row)
+
+    write_by_xy = ts.base.write_by_xy
+    above_by_xy = dict((xy, write) for xy, write in write_by_xy.items() if xy[1] < 5)
+    above_by_xy_before = dict((xy, write) for xy, write in write_by_xy_before.items() if xy[1] < 5)
+    assert above_by_xy == above_by_xy_before, (above_by_xy, above_by_xy_before)
+    assert len(above_by_xy) == 4, above_by_xy
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (5, 3), ts.base_place
 
 
 def _try_shadow_top_layer_() -> None:

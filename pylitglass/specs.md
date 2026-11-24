@@ -567,7 +567,8 @@ running --egg=skater and --egg=strikes on a macOS pty:
 ```
 Spec of TerminalLayer.
 
-We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, and _try_shadow_insert_row_:
+We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, _try_shadow_insert_row_, and
+_try_shadow_delete_row_:
 
     1. Give a Layer its own .place, .text_styles, and .write_by_xy, and write no Byte anywhere from
        it.
@@ -580,7 +581,8 @@ We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, and _try_shad
 
     4. Keep nothing for a Move or a Backspace, but steer where the next Char lands. Keep nothing and
        steer nothing for hiding or showing the Cursor, ⎋[⇧?25L or ⎋[⇧?25H. Fail an assert on any
-       other Control, not silently. Insert a Row at the Cursor on ⎋[⇧L, as item 14 says.
+       other Control, not silently. Insert a Row at the Cursor on ⎋[⇧L, as item 14 says, and delete
+       one on ⎋[⇧M, as item 15 says.
 
     5. Start the Text Styles in force over at ⎋[M, and carry them to the next write. Join them once
        on ⎋[7M however often said. Fail an assert on any other SGR, such as ⎋[27M or ⎋[1M, not
@@ -619,13 +621,21 @@ We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, and _try_shad
         the Cursor where it is, and leave it waiting to wrap while it waits, as macOS Terminal
         does and as no Move does. Do the work in the same dict of Writes, never a copy. Fail an
         assert on ⎋[2⇧L or any other Pn, not silently.
+
+    15. Delete the Row at the Cursor on ⎋[⇧M, the 3 Chars "\e[M", in _write_some_or_all_strs_ and
+        in this order. Drop the Writes of the Cursor Row. Move up one Row each Write of each Row
+        below the Cursor, and leave each Write above the Cursor Row where it is. Write the last Row
+        full of plain Spaces, from Column 1 to the real Width W+1 of an odd Width, and plain even
+        while ⎋[7M is in force, as macOS Terminal paints it. Leave the Cursor where it is, and
+        leave it waiting to wrap while it waits, as macOS Terminal does. Do the work in the same
+        dict of Writes, never a copy. Fail an assert on ⎋[1⇧M, ⎋[2⇧M or any other Pn, not silently.
 ```
 
 ```
 Spec of TerminalShadow.
 
-We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, _try_shadow_top_layer_, and
-_try_shadow_insert_row_:
+We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, _try_shadow_top_layer_,
+_try_shadow_insert_row_, and _try_shadow_delete_row_:
 
     1. Hold a Terminal, a Base Layer named .base, and a Top Layer named .top. Read everything
        known of the Screen from .base. Forward .base_place by property and is_writeable_base_area
@@ -673,8 +683,8 @@ _try_shadow_insert_row_:
         step is 0 or more and that the Row matches. Let the Shadow cope with a Pn after ⎋[ and
         before A B C D, and assert on a Pn of 0.
 
-    13. Refuse ⎋[⇧L through the Top Layer, since the Top Layer as yet cannot undo a Row Insert. In
-        str_write_top_tb, fail an assert before any Byte goes out on a Str holding ⎋[⇧L. In
-        str_write_base_tb, fail an assert before any Byte goes out on a Str holding ⎋[⇧L while .top
-        is on, and take every other Write as before.
+    13. Refuse ⎋[⇧L and ⎋[⇧M through the Top Layer, since the Top Layer as yet cannot undo a Row
+        Insert or a Row Delete. In str_write_top_tb, fail an assert before any Byte goes out on a
+        Str holding ⎋[⇧L or ⎋[⇧M. In str_write_base_tb, fail an assert before any Byte goes out on
+        a Str holding ⎋[⇧L or ⎋[⇧M while .top is on, and take every other Write as before.
 ```

@@ -13,6 +13,7 @@ quirks:
   never quits on an arrow key, since it moves the cursor instead
   never quits on a Space, which toggles the Pixel at the Cursor between Reverse and Plain
   never quits on ⎋[⇧L, which inserts a Row at the Cursor
+  never quits on ⎋[⇧M, which deletes the Row at the Cursor
   replays io.typescript from where the Cursor starts, and rewrites io.typescript at quit
 
 examples:
@@ -117,11 +118,12 @@ class SqaxelsWorker:
             _, stalwart_arrow = stalwart_split
             assert stalwart_arrow in ["←", "↑", "→", "↓"], (stalwart_caps,)
 
-        # Choose the ⎋[⇧L that inserts a Row to not tell us to quit either
+        # Choose the ⎋[⇧L that inserts a Row and the ⎋[⇧M that deletes one to not tell us to quit
 
         assert litpyglass.IL_Y.format("") == "\033[" "L"
+        assert litpyglass.DL_Y.format("") == "\033[" "M"
 
-        stalwarts = arrow_stalwarts + (b"\033[" b"L",)
+        stalwarts = arrow_stalwarts + (b"\033[" b"L", b"\033[" b"M")
 
         # Choose what to write at exit
 
@@ -285,6 +287,14 @@ class SqaxelsWorker:
 
             if taken and (data == b"\033[" b"L"):
                 ts.str_write_base_tb("\033[" "L")
+                continue
+
+            # Delete the Row at the Cursor, and leave the Cursor where it is
+
+            assert litpyglass.DL_Y.format("") == "\033[" "M"
+
+            if taken and (data == b"\033[" b"M"):
+                ts.str_write_base_tb("\033[" "M")
                 continue
 
             # Wait for the Frame to be taken while Bytes are still typed ahead, since
