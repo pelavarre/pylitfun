@@ -63,6 +63,7 @@ def main() -> None:
     _try_terminal_boss_return_()  # ~300ms, 2 child Pythons on Ptys at once
     _try_terminal_boss_farewell_()  # ~100ms, 1 child Python
     _try_is_quitting_frames_()  # ~1600ms, 7 Ptys at once, the slowest 6 ⎋ at 150ms apart + 500ms
+    _try_is_quitting_stalwarts_()  # ~1ms
     _try_is_quitting_shape_()  # ~1ms
     _try_strikes_spill_()  # ~1000ms, 3 ⏎ at 150ms apart, then 300ms of reading what is left
     _try_terminal_boss_typeahead_()  # ~600ms, 150ms per Typeahead Byte
@@ -1196,6 +1197,54 @@ def _try_typeahead_() -> None:
 
     screen_decode = bytes(terminal_output).decode(errors="replace")
     assert returncode == 0, (returncode, screen_decode)
+
+
+def _try_is_quitting_stalwarts_() -> None:
+    """Try that a Stalwart is a Regex of the whole Bytes of a Frame, as specs.md § 4 says"""
+
+    north = b"\033[A"
+    mega = 10**6
+
+    # Take three same Frames, 200 ms apart, the last one just now, which do tell us to quit
+
+    fake = FakeKeeperBoss()
+    boss = typing.cast(litpyglass.TerminalBoss, fake)
+    tft = litpyglass.TerminalFrameTaker(boss)
+
+    now_nano = time.perf_counter_ns()  # is_quitting_shape reads this same clock
+    for i in range(3):
+        nano = now_nano - ((2 - i) * 200 * mega)
+        for code in north:
+            b = bytes([code])
+            fake.ibk.append_one_byte(b, nano=nano)
+            tft.take_one_byte(b, peek="")
+
+    datas = list(_.to_frame_bytes() for _ in tft.frames)
+    assert datas == [north, north, north], (datas,)
+
+    # Quit, or do not quit, by whether a Stalwart matches the whole Frame
+
+    cases: tuple[tuple[tuple[bytes, ...], bool], ...] = (
+        ((), True),  # no Stalwart
+        ((rb"\033\[A",), False),  # the whole Frame, spelled out
+        ((re.escape(north),), False),  # the whole Frame, escaped
+        ((rb"\033\[[A-D]",), False),  # any of four Frames
+        ((rb"\033\[[0-9]*A",), False),  # with a Pn or with none
+        ((rb"\033\[",), True),  # only its start
+        ((rb"\[A",), True),  # only its end
+        ((rb"\033\[B", rb"\033\[A"), False),  # the second Stalwart of two
+    )
+
+    for stalwarts, want in cases:
+        got = tft.is_quitting_frames(stalwarts=stalwarts)
+        assert got is want, (got, want, stalwarts)
+
+
+class FakeKeeperBoss:
+    """Stand in for a TerminalBoss that only keeps Input Bytes and when they came"""
+
+    def __init__(self) -> None:
+        self.ibk = litpyglass.ByteKeeper()
 
 
 def _try_is_quitting_frames_() -> None:

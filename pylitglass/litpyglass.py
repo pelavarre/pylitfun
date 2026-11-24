@@ -491,8 +491,10 @@ class GlassWorker:
         stalwarts_list += "⇧← ⇧→ ⌥← ⌥→ ⌥↑ ⌥↓ ⎋⇧← ⎋⇧→".split()
         stalwarts_list += "⇧Fn↑ ⇧Fn↓ ⇧Fn→ ⇧Fn←".split()
 
-        stalwarts = tuple(kd.decode_by_echo[_].encode() for _ in stalwarts_list)
-        assert tuple(_.decode() for _ in stalwarts[:4]) == _CARDINAL_ENWS_ARROWS_
+        stalwart_encodes = tuple(kd.decode_by_echo[_].encode() for _ in stalwarts_list)
+        assert tuple(_.decode() for _ in stalwart_encodes[:4]) == _CARDINAL_ENWS_ARROWS_
+
+        stalwarts = tuple(re.escape(_) for _ in stalwart_encodes)  # each a Regex of a whole Frame
 
         for stalwart_caps in stalwarts_list:
             stalwart_split = InputStrikeTaker.caps_split_arrow_else(stalwart_caps)
@@ -2710,8 +2712,9 @@ class TerminalFrameTaker:
             if frames[-1].encodes:  # no quitting on repeated Text Frames
                 return False
 
-            if frames[-1].to_frame_bytes() in stalwarts:
-                return False  # never quits on a Stalwart
+            last_data = frames[-1].to_frame_bytes()
+            if any(re.fullmatch(_, last_data) for _ in stalwarts):
+                return False  # never quits on a Frame that a Stalwart Regex matches in full
 
             return True
 

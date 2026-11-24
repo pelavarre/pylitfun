@@ -30,6 +30,7 @@ from __future__ import annotations  # backports new Datatype Syntaxes into old P
 
 import dataclasses
 import os
+import re
 import sys
 import textwrap
 
@@ -108,8 +109,8 @@ class SqaxelsWorker:
         stalwarts_list += "⇧← ⇧→ ⌥← ⌥→ ⌥↑ ⌥↓ ⎋⇧← ⎋⇧→".split()
         stalwarts_list += "⇧Fn↑ ⇧Fn↓ ⇧Fn→ ⇧Fn←".split()
 
-        arrow_stalwarts = tuple(kd.decode_by_echo[_].encode() for _ in stalwarts_list)
-        assert tuple(_.decode() for _ in arrow_stalwarts[:4]) == litpyglass._CARDINAL_ENWS_ARROWS_
+        arrow_encodes = tuple(kd.decode_by_echo[_].encode() for _ in stalwarts_list)
+        assert tuple(_.decode() for _ in arrow_encodes[:4]) == litpyglass._CARDINAL_ENWS_ARROWS_
 
         for stalwart_caps in stalwarts_list:
             stalwart_split = litpyglass.InputStrikeTaker.caps_split_arrow_else(stalwart_caps)
@@ -123,7 +124,8 @@ class SqaxelsWorker:
         assert litpyglass.IL_Y.format("") == "\033[" "L"
         assert litpyglass.DL_Y.format("") == "\033[" "M"
 
-        stalwarts = arrow_stalwarts + (b"\033[" b"L", b"\033[" b"M")
+        arrow_stalwarts = tuple(re.escape(_) for _ in arrow_encodes)
+        stalwarts = arrow_stalwarts + (rb"\033\[L", rb"\033\[M")  # each a Regex of a whole Frame
 
         # Choose what to write at exit
 

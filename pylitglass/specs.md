@@ -199,6 +199,12 @@ We meet spec as tested by _try_frame_reader_tilt_:
 
     9. Take the Open Frame as closed, with tilt_open_frame_if, when it holds just ⎋[⇧M. Leave any
        other Open Frame open.
+
+We meet spec as tested by _try_is_quitting_stalwarts_:
+
+    10. Take each Stalwart as a Regex of Bytes. Never quit on a Frame that a Stalwart matches in
+        full, from its first Byte to its last, such as ⎋[7D by "\033\[[0-9]*d". Do quit on a Frame
+        that a Stalwart matches only in part.
 ```
 
 ```
@@ -437,7 +443,7 @@ _try_skater_fuzz_, and _try_skater_launch_edge_, running --egg=skater on a macOS
 
     11. Move on every Shifted Arrow, Cardinal or joined, as its bare Arrow moves, such as ⇧← moving
         as ←, and ⌥⇧↗ moving as ↗. Never quit on a Shifted Cardinal Arrow: the stalwarts are ← ↑ → ↓
-        and ⇧← ⇧→ ⌥← ⌥→ ⌥↑ ⌥↓ ⎋⇧← ⎋⇧→ ⇧Fn↑ ⇧Fn↓ ⇧Fn→ ⇧Fn←, each by its Bytes.
+        and ⇧← ⇧→ ⌥← ⌥→ ⌥↑ ⌥↓ ⎋⇧← ⎋⇧→ ⇧Fn↑ ⇧Fn↓ ⇧Fn→ ⇧Fn←, each by a Regex of its Bytes.
 
     12. On a Screen 20 or 21 Columns wide, fill the Row with → to Column 20 and then bounce back off
         the East edge. Never write Column 21, and never wrap to the next Row. Bounce likewise off
