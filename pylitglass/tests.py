@@ -3285,9 +3285,9 @@ def _intercardinal_taken_ahead_(
     pairs: list[tuple[str, bytes]] = list()
     for strike in ist.take_input_strikes_and_yield_each(stalwarts=()):
         if strike.taken:
-            pairs.append((strike.caps, strike.to_frame_bytes()))
+            pairs.append((strike.caps, strike.to_strike_bytes()))
             join_fake.events.append("yield")
-        elif not strike.to_frame_bytes():
+        elif not strike.to_strike_bytes():
             join_fake.events.append("idle")  # the empty Open Frame, yielded before a read
         else:
             join_fake.events.append("grow")  # the Open Frame that holds Bytes, yielded after a read
@@ -3475,7 +3475,7 @@ def _try_intercardinal_joins_() -> None:
             joined = litpyglass.InputStrikeTaker.arrows_join_else(first_strike, second_strike)
             assert joined is not None, (caps_pair,)
             assert joined.caps == want_caps, (joined.caps, want_caps, caps_pair)
-            assert joined.to_frame_bytes() == north + east, (joined.frames, caps_pair)
+            assert joined.to_strike_bytes() == north + east, (joined.frames, caps_pair)
             assert joined.taken, (joined,)
 
     # Catenate in order of arrival, so one Intercardinal Arrow has two Frames
@@ -3487,8 +3487,8 @@ def _try_intercardinal_joins_() -> None:
         taken_strike("→", east), taken_strike("↑", north)
     )
     assert north_east is not None and east_north is not None, (north_east, east_north)
-    assert (north_east.caps, north_east.to_frame_bytes()) == ("↗", b"\033[A\033[C")
-    assert (east_north.caps, east_north.to_frame_bytes()) == ("↗", b"\033[C\033[A")
+    assert (north_east.caps, north_east.to_strike_bytes()) == ("↗", b"\033[A\033[C")
+    assert (east_north.caps, east_north.to_strike_bytes()) == ("↗", b"\033[C\033[A")
 
     # Hold two Frames in a joined Strike, each one Cardinal Arrow's, and one Frame in an ordinary Strike
 
@@ -3502,7 +3502,7 @@ def _try_intercardinal_joins_() -> None:
     assert joined_first.closed and joined_second.closed, (joined,)
     assert joined_first.to_frame_bytes() == north, (joined_first,)
     assert joined_second.to_frame_bytes() == east, (joined_second,)
-    assert joined.to_frame_bytes() == north + east, (joined,)
+    assert joined.to_strike_bytes() == north + east, (joined,)
 
     # Never hold a Frame with Bytes other than one Cardinal Arrow's, in a joined Strike
 

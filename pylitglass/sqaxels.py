@@ -283,7 +283,7 @@ class SqaxelsWorker:
                 open_frame = frame
                 open_length = 0  # a later Frame, whether or not this Strike took it
 
-            data = strike.to_frame_bytes()  # Bytes from 0, 1, or more Frames
+            data = strike.to_strike_bytes()  # Bytes from 0, 1, or more Frames
             assert len(data) >= open_length, (len(data), open_length)
             fresh_data = data[open_length:]
 

@@ -426,7 +426,7 @@ class GlassWorker:
 
                 # Prompt for the first Byte of a Frame
 
-                data = strike.to_frame_bytes()  # maybe empty
+                data = strike.to_strike_bytes()  # maybe empty
                 if not data:
                     assert not taken, (taken, strike)
 
@@ -574,7 +574,7 @@ class GlassWorker:
 
                 assert BS == "\b"
 
-                data = strike.to_frame_bytes()  # Bytes from 0, 1, or more Frames
+                data = strike.to_strike_bytes()  # Bytes from 0, 1, or more Frames
                 if not taken:
                     (frame,) = strike.frames  # a Strike not taken holds the one Open Frame
                     assert not frame.closed, (frame,)
@@ -778,7 +778,7 @@ class InputStrikeTaker:
 
         tags: list[str] = list()  # the kinds of reply taken, "YX" and "HW"
         for strike in self.take_input_strikes_and_yield_each(stalwarts=stalwarts):
-            data = strike.to_frame_bytes()
+            data = strike.to_strike_bytes()
 
             # Drop every partial Strike yielded and not taken before the last Reply
 
@@ -836,7 +836,7 @@ class InputStrikeTaker:
         # Yield each Strike taken since, except swallow Replies to YX HW Asks
 
         for strike in self.take_input_strikes_and_yield_each(stalwarts=stalwarts):
-            data = strike.to_frame_bytes()  # maybe empty
+            data = strike.to_strike_bytes()  # maybe empty
 
             reply = ts.shadow_read_data_else(data)
             if reply:
@@ -1023,7 +1023,7 @@ class InputStrike:
     printables: str  # the Bytes decoded, if printable, else ''
     frames: tuple[TerminalByteFrame, ...]  # the Frames in order of arrival (often just one)
 
-    def to_frame_bytes(self) -> bytes:
+    def to_strike_bytes(self) -> bytes:
         """Return the Bytes of the Frames, catenated in order of arrival"""
 
         frames = self.frames
