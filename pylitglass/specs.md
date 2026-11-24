@@ -194,6 +194,11 @@ We meet spec as tested by _try_terminal_boss_keeps_input_:
 
     8. Build the TerminalFrameTaker with its TerminalBoss, and read the Bytes and their Nanos from
        the Input Keeper of that Boss.
+
+We meet spec as tested by _try_frame_reader_tilt_:
+
+    9. Take the Open Frame as closed, with tilt_open_frame_if, when it holds just ⎋[⇧M. Leave any
+       other Open Frame open.
 ```
 
 ```
@@ -212,8 +217,8 @@ We meet spec as tested by _try_is_quitting_shape_:
 ```
 Spec of TerminalFrameReader.take_frames_and_yield_each.
 
-We meet spec as tested by _try_frame_reader_quits_midbatch_, _try_frame_reader_nanobytes_, and
-_try_frame_reader_peek_:
+We meet spec as tested by _try_frame_reader_quits_midbatch_, _try_frame_reader_nanobytes_,
+_try_frame_reader_peek_, and _try_frame_reader_tilt_:
 
     1. Leave the third Taken Frame of one read for the next pass, when a Caller quits after the
        second of three.
@@ -231,6 +236,10 @@ _try_frame_reader_peek_:
        4 Bytes that is a Combining Mark, of Category Mn, Mc, or Me, keep the Frame open for it, as
        § 3 item 11 says. Close the Frame at once when the Char is no Mark, and when the Mark comes
        in a later read.
+
+    6. Close a ⎋[⇧M as the Csi Frame ⎋[⇧M with no Pn, when its ⇧M comes alone in its read and 10 ms
+       or more after the Byte before it. Leave it open for {b}{x}{y} when Bytes follow the ⇧M in the
+       same read, when the ⇧M comes faster, and always while Typeahead waits.
 ```
 
 ## § 6 KeyboardDecoder

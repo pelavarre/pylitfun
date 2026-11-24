@@ -68,7 +68,7 @@ _2_COLUMNS_ = 2  # our Square Pixels print as two Spaces side by side
 _20_COLUMNS_ = 20  # macOS Terminal `stty size` always says width of 20 or more
 
 _3_GIGA_NANOS_ = 3 * 10**9  # too slow to take 3 same inputs in a row as a quit request
-_10_MEGA_NANOS_ = 10 * 10**6  # a Dead Key sends its Accent & Letter closer, two Keys come slower
+_10_MEGA_NANOS_ = 10 * 10**6  # a Dead Key or a Mouse Report sends its Bytes closer, Keys come slower
 _50_MEGA_NANOS_ = 50 * 10**6  # two Arrow Keys struck together come closer, a held Key repeats slower
 _100_MEGA_NANOS_ = 100 * 10**6  # too fast to take 3 in a row as a quit request
 _150_MEGA_NANOS_ = 150 * 10**6  # keys typed ahead can come about as fast as a typist's
@@ -1657,6 +1657,8 @@ class KeyboardDecoder:
             caps = self._burst_bytes_to_key_caps_if_(data)
             return caps  # ↑ when typed slowly as ⎋ [ ⇧A
 
+            # todo: echo ⎋[⇧M{b}{x}{y} lots more meaningfully than ⎋ [ ⇧M A B C, as Button and X Y
+
         # Cut Text into bursts, before each Char whose last Byte came slowly
 
         bursts: list[str] = list()
@@ -2385,6 +2387,7 @@ class TerminalFrameReader:
             sys.stdout.flush()  # flushes well-known outputs before blocking on well-known input
             sys.stderr.flush()
 
+            had_typeahead = bool(tb.typeahead)  # before the read pops a Typeahead Byte
             data = tb.read_some_bytes_if()
             if not data:
                 break  # quits at Stdin Eof
@@ -2412,6 +2415,17 @@ class TerminalFrameReader:
                 # Take the Byte (but leave a Frame EndsWith Text open if Combining Mark peeked)
 
                 tft.take_one_byte(b, peek=peek)
+
+                # Close a typed ⎋[⇧M as Delete Row, since a Mouse Report comes whole in one burst
+
+                assert _10_MEGA_NANOS_ == 10 * 10**6  # Mouse Report Bytes come closer, Keys slower
+                is_slow_alone_without_typeahead = (
+                    (not beyond) and (waited >= _10_MEGA_NANOS_) and (not had_typeahead)
+                )
+                if is_slow_alone_without_typeahead:
+                    tft.tilt_open_frame_if()
+
+                    # todo: a Mouse Report cut by a slow link, right after its ⇧M, reads as typed
 
                 # Mark how slowly this Byte arrived
 
@@ -2543,6 +2557,23 @@ class TerminalFrameTaker:
         assert not next_frame.closed, (next_frame,)
 
         return extras
+
+    def tilt_open_frame_if(self) -> None:
+        """Take the Open Frame as a closed ⎋[⇧M Delete Row, if it was a bare ⎋[⇧M"""
+
+        frame = self.frame
+        frames = self.frames
+
+        assert not frame.closed, (frame,)
+
+        frame.tilt_to_close_frame()  # does nothing unless the Frame holds just ⎋[⇧M
+        if not frame.closed:
+            return
+
+        frames.append(frame)
+
+        next_frame = TerminalByteFrame(b"")  # empty and open
+        self.frame = next_frame
 
     def take_open_frame_else(self) -> None:
         """Take the Open Frame as cut off, despite unclosed, if it holds Bytes, as at Quit"""
@@ -2701,6 +2732,9 @@ _ = r"""
 In the leftmost Column are the Bytes in the Frame, from before you offered one more.
 
 The Frames ending with '+' were still open, the others were already closed.
+
+The ⎋[⇧M + Row stays open for its {b}{x}{y} when its ⇧M comes in a burst, but closes as ⎋[⇧M Delete
+Row when its ⇧M comes alone and slowly, as typed, and never when Typeahead waits.
 
     Frame     \a      ⇥       ⎋       ;       A       ́       €       \xff
 
@@ -2869,7 +2903,7 @@ class TerminalByteFrame:
 
         self.closed = False
 
-    def tilt_to_close_frame(self) -> None:  # todo: add 1st call
+    def tilt_to_close_frame(self) -> None:
         """Transform into a Closed DL_Y without explicit Pn, if it was _CLICK3_ and no Stash"""
 
         encodes = self.encodes

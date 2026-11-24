@@ -72,6 +72,7 @@ def main() -> None:
     _try_frame_reader_quits_midbatch_()  # ~1ms
     _try_frame_reader_nanobytes_()  # ~10ms, 3 reads of 2ms each
     _try_frame_reader_peek_()  # ~1ms
+    _try_frame_reader_tilt_()  # ~180ms, 12 reads of 15ms each
     _try_frame_print_()  # ~1ms
     _try_pull_ends_without_replies_()  # ~1ms
     _try_placed_input_strikes_()  # ~150ms, 1 Pty and 1 child Python off a Terminal
@@ -1725,6 +1726,7 @@ class FakeReadBoss:
 
     def __init__(self) -> None:
         self.ibk = litpyglass.ByteKeeper()  # every Byte read, and when
+        self.typeahead = bytearray()  # no Typeahead Bytes, ever
         self.reads = 0
 
     def read_some_bytes_if(self) -> bytes:
@@ -1739,6 +1741,7 @@ class FakeSlowBoss:
 
     def __init__(self) -> None:
         self.ibk = litpyglass.ByteKeeper()  # every Byte read, and when
+        self.typeahead = bytearray()  # no Typeahead Bytes, ever
         self.chunks = [b"\033[B", b"q"]
 
     def read_some_bytes_if(self) -> bytes:
@@ -1753,6 +1756,7 @@ class FakeLateBoss:
 
     def __init__(self, chunks: list[bytes]) -> None:
         self.ibk = litpyglass.ByteKeeper()  # every Byte read, and when
+        self.typeahead = bytearray()  # no Typeahead Bytes, ever
         self.chunks = list(chunks)
 
     def read_some_bytes_if(self) -> bytes:
@@ -1767,6 +1771,7 @@ class FakeChunkBoss:
 
     def __init__(self, chunks: list[bytes]) -> None:
         self.ibk = litpyglass.ByteKeeper()  # every Byte read, and when
+        self.typeahead = bytearray()  # no Typeahead Bytes, ever
         self.chunks = list(chunks)
 
     def read_some_bytes_if(self) -> bytes:
@@ -1782,6 +1787,7 @@ class FakeEndBoss:
 
     def __init__(self) -> None:
         self.ibk = litpyglass.ByteKeeper()  # every Byte read, and when
+        self.typeahead = bytearray()  # no Typeahead Bytes, ever
 
     def asks_write_flush(self, data: bytes) -> None:
         pass
@@ -3245,6 +3251,110 @@ def _try_frame_reader_peek_() -> None:
     taken, opened = _frames_of_([b"j", acute])
     assert taken == [b"j" + acute], (taken,)
     assert opened == [b"", b"j", b"j" + acute], (opened,)
+
+
+def _try_frame_reader_tilt_() -> None:
+    """Try that a typed ⎋[⇧M closes at once as Delete Row, as specs.md § 5 says"""
+
+    # Close a ⎋[⇧M typed slowly, one Byte per read
+
+    fake = FakeTiltBoss([(15, b"\033"), (15, b"["), (15, b"M")], typeahead=b"")
+    taken, frames = _tilt_taken_(fake)
+    occasion = (fake.chunks, fake.opens, taken, frames)
+    (frame,) = frames
+    assert taken == [b"\033[M"], occasion
+    shape = (frame.closed, bytes(frame.head), bytes(frame.neck), bytes(frame.backtail))
+    assert shape == (True, b"\033[", b"", b"M"), (shape, frame, occasion)
+    assert fake.opens[-1] == b"", occasion  # the Open Frame after is empty
+
+    # Leave it open for {b}{x}{y}, when a whole Mouse Report comes in one read
+
+    fake = FakeTiltBoss([(15, b"\033[M !!")], typeahead=b"")
+    taken, frames = _tilt_taken_(fake)
+    occasion = (fake.chunks, fake.opens, taken, frames)
+    assert taken == [b"\033[M !!"], occasion
+
+    # Leave it open, when the ⇧M comes last in its read but not first, so not slowly
+
+    fake = FakeTiltBoss([(0, b"\033[M"), (15, b" !!")], typeahead=b"")
+    taken, frames = _tilt_taken_(fake)
+    occasion = (fake.chunks, fake.opens, taken, frames)
+    assert taken == [b"\033[M !!"], occasion
+
+    # Leave it open, when the ⇧M comes slowly but not alone, as a Mouse Report cut before its ⇧M
+
+    fake = FakeTiltBoss([(0, b"\033["), (15, b"M !!")], typeahead=b"")
+    taken, frames = _tilt_taken_(fake)
+    occasion = (fake.chunks, fake.opens, taken, frames)
+    assert taken == [b"\033[M !!"], occasion
+
+    # Leave it open, when the ⇧M comes alone but fast, with no sleep so under 10 ms
+
+    fake = FakeTiltBoss([(0, b"\033["), (0, b"M"), (0, b" !!")], typeahead=b"")
+    taken, frames = _tilt_taken_(fake)
+    occasion = (fake.chunks, fake.opens, taken, frames)
+    assert taken == [b"\033[M !!"], occasion
+    assert fake.opens[2] == b"\033[M", occasion  # stayed open after the M
+
+    # Leave it open while Typeahead waits, and take it cut off at the end of Input
+
+    fake = FakeTiltBoss([], typeahead=b"\033[M")
+    taken, frames = _tilt_taken_(fake)
+    occasion = (fake.chunks, fake.opens, taken, frames)
+    (frame,) = frames
+    assert taken == [b"\033[M"], occasion
+    shape = (frame.closed, bytes(frame.head), bytes(frame.neck), bytes(frame.backtail))
+    assert shape == (False, b"\033[M", b"", b""), (shape, frame, occasion)
+
+    # Close the ordinary ⎋[1⇧M as ever, when typed slowly
+
+    fake = FakeTiltBoss([(15, b"\033"), (15, b"["), (15, b"1"), (15, b"M")], typeahead=b"")
+    taken, frames = _tilt_taken_(fake)
+    occasion = (fake.chunks, fake.opens, taken, frames)
+    (frame,) = frames
+    assert taken == [b"\033[1M"], occasion
+    shape = (frame.closed, bytes(frame.head), bytes(frame.neck), bytes(frame.backtail))
+    assert shape == (True, b"\033[", b"1", b"M"), (shape, frame, occasion)
+
+
+class FakeTiltBoss:
+    """Pretend to be a TerminalBoss that reads each chunk after its ms wait, Typeahead first"""
+
+    def __init__(self, chunks: list[tuple[int, bytes]], typeahead: bytes) -> None:
+        self.ibk = litpyglass.ByteKeeper()  # every Byte read, and when
+        self.chunks = list(chunks)  # (ms to wait, Bytes of the read), in order
+        self.typeahead = bytearray(typeahead)  # Bytes that come one per read, each after 15 ms
+        self.opens: list[bytes] = list()  # the Open Frame yielded before each read
+
+    def read_some_bytes_if(self) -> bytes:
+        data = b""
+        if self.typeahead:
+            time.sleep(0.015)
+            data = bytes([self.typeahead.pop(0)])
+        elif self.chunks:
+            ms, data = self.chunks.pop(0)
+            time.sleep(ms / 1e3)
+
+        self.ibk.append_some_bytes(data, nano=time.perf_counter_ns())
+        return data
+
+
+def _tilt_taken_(fake: FakeTiltBoss) -> tuple[list[bytes], list[litpyglass.TerminalByteFrame]]:
+    """Read every chunk of the fake, and return the Taken Frames as Bytes, and as Frames"""
+
+    boss = typing.cast(litpyglass.TerminalBoss, fake)
+    tfr = litpyglass.TerminalFrameReader(boss)
+
+    takens: list[bytes] = list()
+    frames: list[litpyglass.TerminalByteFrame] = list()
+    for taken, frame, _ in tfr.take_frames_and_yield_each(stalwarts=()):
+        if taken:
+            takens.append(frame.to_frame_bytes())
+            frames.append(frame)
+        else:
+            fake.opens.append(frame.to_frame_bytes())
+
+    return (takens, frames)
 
 
 def _frames_of_(chunks: list[bytes]) -> tuple[list[bytes], list[bytes]]:
