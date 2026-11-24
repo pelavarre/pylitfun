@@ -12,6 +12,7 @@ quirks:
   quits when given an unprintable, 3 times in a row, but 100ms or more apart, across less than 3s
   never quits on an arrow key, since it moves the cursor instead
   never quits on a Space, which toggles the Pixel at the Cursor between Reverse and Plain
+  never quits on ⎋[⇧L, which inserts a Row at the Cursor
   replays io.typescript from where the Cursor starts, and rewrites io.typescript at quit
 
 examples:
@@ -106,8 +107,8 @@ class SqaxelsWorker:
         stalwarts_list += "⇧← ⇧→ ⌥← ⌥→ ⌥↑ ⌥↓ ⎋⇧← ⎋⇧→".split()
         stalwarts_list += "⇧Fn↑ ⇧Fn↓ ⇧Fn→ ⇧Fn←".split()
 
-        stalwarts = tuple(kd.decode_by_echo[_].encode() for _ in stalwarts_list)
-        assert tuple(_.decode() for _ in stalwarts[:4]) == litpyglass._CARDINAL_ENWS_ARROWS_
+        arrow_stalwarts = tuple(kd.decode_by_echo[_].encode() for _ in stalwarts_list)
+        assert tuple(_.decode() for _ in arrow_stalwarts[:4]) == litpyglass._CARDINAL_ENWS_ARROWS_
 
         for stalwart_caps in stalwarts_list:
             stalwart_split = litpyglass.InputStrikeTaker.caps_split_arrow_else(stalwart_caps)
@@ -115,6 +116,12 @@ class SqaxelsWorker:
 
             _, stalwart_arrow = stalwart_split
             assert stalwart_arrow in ["←", "↑", "→", "↓"], (stalwart_caps,)
+
+        # Choose the ⎋[⇧L that inserts a Row to not tell us to quit either
+
+        assert litpyglass.IL_Y.format("") == "\033[" "L"
+
+        stalwarts = arrow_stalwarts + (b"\033[" b"L",)
 
         # Choose what to write at exit
 
@@ -231,6 +238,8 @@ class SqaxelsWorker:
             caps = strike.caps
             printables = strike.printables
 
+            data = strike.to_strike_bytes()  # Bytes from 0, 1, or more Frames
+
             # Pick out the bounces back, if these Key Caps are Arrows saying move ahead
 
             bounce_caps_tuple_by_caps = {  # sorted by Caps Codepoints
@@ -270,6 +279,14 @@ class SqaxelsWorker:
                 ts.str_write_base_tb(writable_leaps[0])
                 continue
 
+            # Insert a Row at the Cursor, and leave the Cursor where it is
+
+            assert litpyglass.IL_Y.format("") == "\033[" "L"
+
+            if taken and (data == b"\033[" b"L"):
+                ts.str_write_base_tb("\033[" "L")
+                continue
+
             # Wait for the Frame to be taken while Bytes are still typed ahead, since
             # an Arrow struck before this Open Frame may be held back and yield after it
 
@@ -283,7 +300,6 @@ class SqaxelsWorker:
                 open_frame = frame
                 open_length = 0  # a later Frame, whether or not this Strike took it
 
-            data = strike.to_strike_bytes()  # Bytes from 0, 1, or more Frames
             assert len(data) >= open_length, (len(data), open_length)
             fresh_data = data[open_length:]
 

@@ -1864,10 +1864,17 @@ class TerminalShadow:
 
         tb = self.tb
         base = self.base
+        top = self.top
 
         # Require a Write that we can shadow in full
 
         assert base, (base.place, text)
+
+        assert IL_Y.format("") == "\033[" "L"
+        if IL_Y.format("") in text:
+            assert not top, (top.place, text)
+
+            # todo: insert Rows while the Top Layer is on
 
         fork_layer = base.fork_layer()
         fork_written = fork_layer._write_some_or_all_strs_(text)
@@ -1892,6 +1899,9 @@ class TerminalShadow:
         # Require a Write that we can shadow
 
         assert base, (base.place, text)
+
+        assert IL_Y.format("") == "\033[" "L"
+        assert IL_Y.format("") not in text, (text,)
 
         area_layer = top if top else base
         fork_layer = area_layer.fork_layer()
@@ -2143,6 +2153,16 @@ class TerminalLayer:
                 place.write_str_at_place(split)
                 continue
 
+            # Shadow the Insert of a Row at the Cursor, without moving the Cursor,
+            # not even a Cursor waiting to wrap, as macOS Terminal does
+
+            assert IL_Y.format("") == "\033[" "L"
+
+            if final == "L":
+                assert not params, (params,)  # copes with ⎋[⇧L but not yet ⎋[2⇧L
+                self._row_insert_at_place_()
+                continue
+
             # Shadow Printable Text Writes placed in Writable Columns on-screen
 
             if t and t.isprintable():
@@ -2175,6 +2195,42 @@ class TerminalLayer:
         # Succeed
 
         return True
+
+    def _row_insert_at_place_(self) -> None:
+        """Drop the last Row, move down the Rows at & below the Cursor, & fill the Cursor Row"""
+
+        place = self.place
+        write_by_xy = self.write_by_xy
+
+        assert place.is_onscreen_place(), (place,)
+
+        # Move down each Write at or below the Cursor Row, but drop each Write of the last Row
+
+        write_by_xy_was = dict(write_by_xy)
+        write_by_xy.clear()  # in place, since the Shadow holds this same dict
+
+        for (x, y), write in write_by_xy_was.items():
+            if y < place.row_y:  # stays, above the Cursor Row
+                assert (x, y) not in write_by_xy.keys(), (x, y)
+                write_by_xy[(x, y)] = write
+
+            if place.row_y <= y < place.y_height:  # moves down
+                assert (x, y + 1) not in write_by_xy.keys(), (x, y)
+                write_by_xy[(x, y + 1)] = write
+
+            # drops the Write, when in the last Row
+
+        # Fill the Cursor Row with plain Spaces, Column W+1 too, even while ⎋[7M Reverse in force
+
+        assert SP == " "
+
+        plain_styles: tuple[str, ...] = ()  # as macOS Terminal paints it, after ⎋[M or ⎋[7M
+
+        for x in range(1, place.x_width + 1):
+            assert (x, place.row_y) not in write_by_xy.keys(), (x, place.row_y)
+            write_by_xy[(x, place.row_y)] = (plain_styles, " ")
+
+        # todo: fill with the Background Colour in force, as after ⎋[44M, when we shadow Colours
 
     @staticmethod
     def text_styles_compress(text_styles: tuple[str, ...]) -> tuple[str, ...]:
