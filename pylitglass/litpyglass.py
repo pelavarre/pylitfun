@@ -1865,19 +1865,20 @@ class TerminalShadow:
         tb = self.tb
         base = self.base
 
-        # Require a Write that we can shadow
+        # Require a Write that we can shadow in full
 
         assert base, (base.place, text)
 
         fork_layer = base.fork_layer()
-        all_written_on_screen = fork_layer._write_some_or_all_strs_(text)
-        assert all_written_on_screen, (text, base.place)
+        fork_written = fork_layer._write_some_or_all_strs_(text)
+        assert fork_written, (text, base.place)
 
-        # Shadow it
+        # Shadow in full
 
-        fork_layer.shadow_screen_into(base)
+        again = base._write_some_or_all_strs_(text)
+        assert again is fork_written, (again, fork_written)
 
-        # Write it for real
+        # Write in full, for real
 
         tb.bytes_write_flush(text.encode())
 
@@ -1896,14 +1897,21 @@ class TerminalShadow:
         fork_layer = area_layer.fork_layer()
         assert fork_layer, (fork_layer.place,)
 
-        all_written_on_screen = fork_layer._write_some_or_all_strs_(text)
-        assert all_written_on_screen, (text, area_layer.place)
+        fork_written = fork_layer._write_some_or_all_strs_(text)
+        assert fork_written, (text, area_layer.place)
 
-        # Shadow it in the Top Layer only, leaving the Base Layer's Place and Text Styles unchanged
+        # Turn the Top Layer on where the Base Layer is, when it was off
 
-        fork_layer.shadow_screen_into(top)
+        if not top:
+            top.place = dataclasses.replace(base.place)  # clones
+            top.text_styles = base.text_styles  # immutable
 
-        # Write it for real
+        # Shadow in full, in the Top Layer only, leaving the Base Layer as it was
+
+        again = top._write_some_or_all_strs_(text)
+        assert again is fork_written, (again, fork_written)
+
+        # Write in full, for real
 
         tb.bytes_write_flush(text.encode())
 
@@ -1940,7 +1948,8 @@ class TerminalShadow:
             leap = TerminalShadow.form_leap_back(hope_layer.place, column_x=x, row_y=y)
             cell_styles, cell_text = base.write_by_xy[(x, y)]
             cell_write = leap + NO_SGR_PS + "".join(cell_styles) + cell_text
-            assert hope_layer._write_some_or_all_strs_(cell_write), (cell_write, hope_layer.place)
+            hope_written = hope_layer._write_some_or_all_strs_(cell_write)
+            assert hope_written, (cell_write, hope_layer.place)
 
             hope_text += cell_write
 
@@ -1953,7 +1962,8 @@ class TerminalShadow:
         )
         end_text = NO_SGR_PS + "".join(base_styles) + leap
 
-        assert hope_layer._write_some_or_all_strs_(end_text), (end_text, hope_layer.place)
+        hope_written = hope_layer._write_some_or_all_strs_(end_text)
+        assert hope_written, (end_text, hope_layer.place)
         assert hope_layer.place == base_place, (hope_layer.place, base_place)
 
         hope_text += end_text
@@ -1993,7 +2003,8 @@ class TerminalShadow:
         assert base_place.is_writable_place(), (base_place,)
 
         fork_layer = base.fork_layer()
-        if not fork_layer._write_some_or_all_strs_(text):
+        fork_written = fork_layer._write_some_or_all_strs_(text)
+        if not fork_written:
             return False
 
         fork_place = fork_layer.place
@@ -2085,13 +2096,6 @@ class TerminalLayer:
         )
 
         return layer
-
-    def shadow_screen_into(self, layer: TerminalLayer) -> None:
-        """Copy this Layer's Place, Text Styles, and Writes over another Layer's"""
-
-        layer.place = dataclasses.replace(self.place)  # clones
-        layer.text_styles = self.text_styles  # immutable
-        layer.write_by_xy.update(self.write_by_xy)  # replaces or adds each Write
 
     def _write_some_or_all_strs_(self, text: str) -> bool:
         """Write all the Str into this Layer and return True, or less than all and return False"""

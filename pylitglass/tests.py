@@ -2373,28 +2373,6 @@ def _try_shadow_layer_() -> None:
     assert after == before, (after, before)
     assert fake.writes == [written.encode()], fake.writes
 
-    # Layer 14: a Layer gives its Place, Text Styles, and Writes to another, and keeps itself
-
-    giving_layer = base_layer.fork_layer()
-    assert giving_layer._write_some_or_all_strs_("\033[m" + "z\b")
-    assert (giving_layer.place.column_x, giving_layer.place.row_y) == (5, 2), giving_layer.place
-    assert tuple(giving_layer.text_styles) == (no_sgr_csi,), giving_layer.text_styles
-    assert giving_layer.write_by_xy == {(5, 2): ((no_sgr_csi,), "z")}, giving_layer.write_by_xy
-
-    receiving_layer = base_layer.fork_layer()
-    receiving_layer.write_by_xy[(9, 9)] = ((no_sgr_csi,), "k")  # a Write the giver lacks
-    receiving_layer.write_by_xy[(5, 2)] = ((no_sgr_csi,), "c")  # a Write the giver replaces
-
-    giving_copy = dataclasses.replace(giving_layer, write_by_xy=dict(giving_layer.write_by_xy))
-    giving_layer.shadow_screen_into(receiving_layer)
-
-    assert receiving_layer.place == giving_layer.place, receiving_layer.place
-    assert receiving_layer.place is not giving_layer.place, receiving_layer.place
-    assert receiving_layer.text_styles == giving_layer.text_styles, receiving_layer.text_styles
-    assert receiving_layer.write_by_xy[(5, 2)] == ((no_sgr_csi,), "z"), receiving_layer.write_by_xy
-    assert receiving_layer.write_by_xy[(9, 9)] == ((no_sgr_csi,), "k"), receiving_layer.write_by_xy
-    assert giving_layer == giving_copy, (giving_layer, giving_copy)
-
     # Shadow 4: str_write_base_tb asserts the Write can be made, before any Byte goes out
 
     fake.writes.clear()
@@ -2664,7 +2642,9 @@ def _try_shadow_top_layer_() -> None:
 
     # A Plain Pair and then an X, written into the Top Layer, land only in the Top Layer
 
-    ts.str_write_top_tb("  \b\b")
+    ts.str_write_top_tb("  ")  # leaves the Top Layer's Cursor East of the Base Layer's
+    assert (ts.top.place.column_x, ts.base_place.column_x) == (5, 3), (ts.top.place, ts.base_place)
+    ts.str_write_top_tb("\b\b")
     ts.str_write_top_tb("X\b")
     assert ts.base.write_by_xy == base_writes, (ts.base.write_by_xy, base_writes)
     assert ts.top.write_by_xy == {

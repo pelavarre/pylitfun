@@ -601,10 +601,6 @@ We meet spec as tested by _try_shadow_layer_ and _try_shadow_writes_:
         def in the Shadow, and ship no second copy of the rules.
 
     13. Change no other Layer on any Write into a Layer. Never write through unasked.
-
-    14. Give a Layer's Place, Text Styles, and Writes to another Layer when asked, by
-        shadow_screen_into. Let each Write replace the Write at the same (Column, Row), leave each
-        other Write as it was, and leave the Layer that gives as it was.
 ```
 
 ```
@@ -621,10 +617,10 @@ We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, and _try_shad
     3. Fail an assert before any Byte goes out, on any write made before the Terminal replies, even
        one of no Char.
 
-    4. In str_write_base_tb, take each Write through a new Layer made from .base. Assert the Write
-       can be made, call shadow_screen_into to update .base, and only then write the Bytes to the
-       Terminal. Fail an assert before any Byte goes out on a Write that cannot be made, and leave
-       the Shadow as it was.
+    4. In str_write_base_tb, take each Write through a new Layer made from .base as a trial.
+       Assert the Write can be made, then take the same Write into .base itself, and only then
+       write the Bytes to the Terminal. Fail an assert before any Byte goes out on a Write that
+       cannot be made, and leave the Shadow as it was.
 
     5. In is_writable_place_after_strs, take the Write through a new Layer, drop that Layer, and say
        yes only when the Cursor ends inside the Writable Area. Say no to a Char into the last Column
@@ -632,8 +628,9 @@ We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, and _try_shad
 
     6. Call .top off when its Place is 1 by 1, as at the start, and on once str_write_top_tb has
        written through it. In str_write_top_tb, take each Write through a new Layer made from .top
-       while .top is on, else from .base, and keep the Writes, the Place, and the Text Styles in
-       .top. Leave .base as it was, its Place and its Text Styles too.
+       while .top is on, else from .base, as a trial. Assert the Write can be made. Turn .top on
+       at the Place and Text Styles of .base while it is off, then take the same Write into .top
+       itself. Leave .base as it was, its Place and its Text Styles too.
 
     7. In undo_top_tb, write nothing while .top is off. Else walk the Terminal Cursor from where
        .top has it over each Cell of .top, row by row, assert that .base wrote that Cell, and write
