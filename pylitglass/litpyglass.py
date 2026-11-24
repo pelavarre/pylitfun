@@ -1878,7 +1878,8 @@ class TerminalShadow:
 
         assert IL_Y.format("") == "\033[" "L"
         assert DL_Y.format("") == "\033[" "M"
-        if (IL_Y.format("") in text) or (DL_Y.format("") in text):
+        row_edit = re.search(r"\033\[[0-9]*[LM]", text)  # ⎋[⇧L or ⎋[3⇧M, but not ⎋[1;2⇧L
+        if row_edit:
             assert not top, (top.place, text)
 
             # todo: insert or delete Rows while the Top Layer is on
@@ -1910,8 +1911,8 @@ class TerminalShadow:
         assert IL_Y.format("") == "\033[" "L"
         assert DL_Y.format("") == "\033[" "M"
 
-        assert IL_Y.format("") not in text, (text,)
-        assert DL_Y.format("") not in text, (text,)
+        row_edit = re.search(r"\033\[[0-9]*[LM]", text)  # ⎋[⇧L or ⎋[3⇧M, but not ⎋[1;2⇧L
+        assert not row_edit, (row_edit, text)
 
         area_layer = top if top else base
         fork_layer = area_layer.fork_layer()
@@ -2171,46 +2172,14 @@ class TerminalLayer:
                     self.xy_chops += 1
                 continue
 
-            # Shadow the Leap to a Row, in the same Column, even for a Cursor waiting to wrap
+            # Shadow each Control that takes one Pn: a Leap to a Row or to a Column,
+            # or an Insert or a Delete of Rows
 
             assert PN1 == 1
-            assert VPA_Y.format("") == "\033[" "d"
-            if final == "d":
-                assert (not params) or params.isdigit(), (params,)  # copes with ⎋[D and ⎋[7D
+            if final in ("d", "G", "L", "M"):
+                assert (not params) or params.isdigit(), (params,)  # copes with ⎋[D and ⎋[7D etc
                 pn = int(params) if params else PN1
-                chopped = place.row_y_leap_to(pn)
-                if chopped:
-                    self.xy_chops += 1
-                continue
-
-            # Shadow the Leap to a Column, in the same Row, which ends the wait of a Cursor to wrap
-
-            assert PN1 == 1
-            assert CHA_X.format("") == "\033[" "G"
-            if final == "G":
-                assert (not params) or params.isdigit(), (params,)  # copes with ⎋[⇧G and ⎋[7⇧G
-                pn = int(params) if params else PN1
-                chopped = place.column_x_leap_to(pn)
-                if chopped:
-                    self.xy_chops += 1
-                continue
-
-            # Shadow the Insert of a Row at the Cursor, without moving the Cursor,
-            # not even a Cursor waiting to wrap, as macOS Terminal does
-
-            assert IL_Y.format("") == "\033[" "L"
-            if final == "L":
-                assert not params, (params,)  # copes with ⎋[⇧L but not yet ⎋[2⇧L
-                self._row_insert_at_place_()
-                continue
-
-            # Shadow the Delete of the Row at the Cursor, without moving the Cursor,
-            # not even a Cursor waiting to wrap, as macOS Terminal does
-
-            assert DL_Y.format("") == "\033[" "M"
-            if final == "M":
-                assert not params, (params,)  # copes with ⎋[⇧M but not yet ⎋[1⇧M nor ⎋[2⇧M
-                self._row_delete_at_place_()
+                self._write_pn_control_(final, pn=pn)
                 continue
 
             # Shadow Printable Text Writes placed in Writable Columns on-screen
@@ -2242,6 +2211,53 @@ class TerminalLayer:
         assert place.is_onscreen_place(), (place,)
 
         return True
+
+    def _write_pn_control_(self, final: str, pn: int) -> None:
+        """Shadow one Control that takes one Pn: a Leap, or an Insert or a Delete of Rows"""
+
+        place = self.place
+
+        # Shadow the Leap to a Row, in the same Column, even for a Cursor waiting to wrap
+
+        assert VPA_Y.format("") == "\033[" "d"
+        if final == "d":
+            chopped = place.row_y_leap_to(pn)
+            if chopped:
+                self.xy_chops += 1
+            return
+
+        # Shadow the Leap to a Column, in the same Row, which ends the wait of a Cursor to wrap
+
+        assert CHA_X.format("") == "\033[" "G"
+        if final == "G":
+            chopped = place.column_x_leap_to(pn)
+            if chopped:
+                self.xy_chops += 1
+            return
+
+        # Shadow the Insert of Rows at the Cursor, without moving the Cursor,
+        # not even a Cursor waiting to wrap, as macOS Terminal does
+
+        assert IL_Y.format("") == "\033[" "L"
+        if final == "L":
+            row_count = place.pn_to_at_plus_below_row_count(pn)
+            for row_index in range(row_count):
+                self._row_insert_at_place_()
+            return
+
+        # Shadow the Delete of Rows at the Cursor, without moving the Cursor,
+        # not even a Cursor waiting to wrap, as macOS Terminal does
+
+        assert DL_Y.format("") == "\033[" "M"
+        if final == "M":
+            row_count = place.pn_to_at_plus_below_row_count(pn)
+            for row_index in range(row_count):
+                self._row_delete_at_place_()
+            return
+
+        # Freak when asked to shadow anything else
+
+        assert False, (final, pn)
 
     def _row_insert_at_place_(self) -> None:
         """Drop the last Row, move down the Rows at & below the Cursor, & fill the Cursor Row"""
@@ -2376,7 +2392,9 @@ class TerminalPlace:
         assert CUF_X.format("") == "\033[" "C"
         assert CUB_X.format("") == "\033[" "D"
 
-        count = 1
+        assert PN1 == 1
+
+        count = PN1
         split_control = control
 
         csi = re.fullmatch(r"\033\[([0-9]*)([ABCD])", control)
@@ -2384,8 +2402,8 @@ class TerminalPlace:
             ps, final = csi.groups()
             if ps:
 
-                count = int(ps)  # loosely accepts even '0010' as 10, etc
-                assert count >= 1, (count, ps)
+                pn = int(ps)  # loosely accepts even '0010' as 10, etc
+                count = pn if pn else PN1  # as macOS Terminal does for ⎋[0⇧A, a move of 1
                 split_control = "\033[" + final
 
         # Settle a Cursor waiting to wrap in the last Column, before every Control but one
@@ -2465,6 +2483,21 @@ class TerminalPlace:
 
         is_chopped = pn > x_width
         return is_chopped
+
+    def pn_to_at_plus_below_row_count(self, pn: int) -> int:
+        """Give the Rows that ⎋[3⇧L or ⎋[3⇧M changes, at most those from the Cursor down"""
+
+        at_plus_below_rows = self.y_height - self.row_y + 1
+
+        assert pn >= 0, (pn,)
+
+        row_count = pn
+        if pn < 1:
+            row_count = 1  # as macOS Terminal does for ⎋[0⇧L and ⎋[0⇧M
+        if pn > at_plus_below_rows:
+            row_count = at_plus_below_rows  # as macOS Terminal does for ⎋[32100⇧L and ⎋[32100⇧M
+
+        return row_count
 
     def is_onscreen_place(self) -> bool:
         """Say if the Cursor sits on the Screen, or just past the right edge, waiting to wrap"""

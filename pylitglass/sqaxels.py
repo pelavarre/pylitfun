@@ -13,8 +13,8 @@ quirks:
   never quits on an arrow key, since it moves the cursor instead
   never quits on a Space, which toggles the Pixel at the Cursor between Reverse and Plain
   starts each Pixel in an odd Column, and so steps one Column West at launch from an even one
-  never quits on ⎋[⇧L, which inserts a Row at the Cursor
-  never quits on ⎋[⇧M, which deletes the Row at the Cursor
+  never quits on ⎋[⇧L, which inserts a Row at the Cursor, as ⎋[3⇧L inserts three
+  never quits on ⎋[⇧M, which deletes the Row at the Cursor, as ⎋[3⇧M deletes three
   never quits on ⎋[D, which leaps the Cursor to Row 1, as ⎋[7D leaps it to Row 7
   never quits on ⎋[⇧G, which leaps the Cursor to the Pixel at Column 1, as ⎋[7⇧G to Column 7
   replays io.typescript from where the Cursor starts, and rewrites io.typescript at quit
@@ -122,8 +122,9 @@ class SqaxelsWorker:
             _, stalwart_arrow = stalwart_split
             assert stalwart_arrow in ["←", "↑", "→", "↓"], (stalwart_caps,)
 
-        # Choose the ⎋[⇧L that inserts a Row, the ⎋[⇧M that deletes one, the ⎋[D or ⎋[7D
-        # that leaps to a Row, and the ⎋[⇧G or ⎋[7⇧G that leaps to a Column, to not tell us to quit
+        # Choose the ⎋[⇧L or ⎋[3⇧L that inserts Rows, the ⎋[⇧M or ⎋[3⇧M that deletes them,
+        # the ⎋[D or ⎋[7D that leaps to a Row, and the ⎋[⇧G or ⎋[7⇧G that leaps to a Column,
+        # to not tell us to quit
 
         assert litpyglass.IL_Y.format("") == "\033[" "L"
         assert litpyglass.DL_Y.format("") == "\033[" "M"
@@ -131,7 +132,7 @@ class SqaxelsWorker:
         assert litpyglass.CHA_X.format("") == "\033[" "G"
 
         arrow_stalwarts = tuple(re.escape(_) for _ in arrow_encodes)
-        row_stalwarts = (rb"\033\[L", rb"\033\[M", rb"\033\[[0-9]*d")
+        row_stalwarts = (rb"\033\[[0-9]*[LMd]",)
         column_stalwarts = (rb"\033\[[0-9]*G",)
         stalwarts = arrow_stalwarts + row_stalwarts + column_stalwarts  # each a Regex of a Frame
 
@@ -307,27 +308,14 @@ class SqaxelsWorker:
                 ts.str_write_base_tb(writable_leaps[0])
                 continue
 
-            # Insert a Row at the Cursor, and leave the Cursor where it is
+            # Write as struck the ⎋[⇧L or ⎋[3⇧L that inserts Rows at the Cursor, the ⎋[⇧M or ⎋[3⇧M
+            # that deletes them, and the ⎋[D or ⎋[7D that leaps the Cursor to a Row
 
             assert litpyglass.IL_Y.format("") == "\033[" "L"
-
-            if taken and (data == b"\033[" b"L"):
-                ts.str_write_base_tb("\033[" "L")
-                continue
-
-            # Delete the Row at the Cursor, and leave the Cursor where it is
-
             assert litpyglass.DL_Y.format("") == "\033[" "M"
-
-            if taken and (data == b"\033[" b"M"):
-                ts.str_write_base_tb("\033[" "M")
-                continue
-
-            # Leap the Cursor to a Row, as ⎋[D or ⎋[7D says, and leave the Column where it is
-
             assert litpyglass.VPA_Y.format("") == "\033[" "d"
 
-            if taken and re.fullmatch(rb"\033\[[0-9]*d", data):
+            if taken and re.fullmatch(rb"\033\[[0-9]*[LMd]", data):
                 ts.str_write_base_tb(data.decode())
                 continue
 

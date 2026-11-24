@@ -2804,6 +2804,37 @@ def _try_shadow_chops_() -> None:
         got = xy_count_after(new_shadow(b"\033[3;10R"), text)
         assert got == expect, (text, got, expect)
 
+    # Layer 8: a Pn of 0 moves 1 and counts 0, and a Pn of 003 moves 3, for A C D
+
+    zero_cases = (
+        ("\033[0A", (10, 3, 0)),
+        ("\033[0B", (10, 5, 0)),
+        ("\033[0C", (11, 4, 0)),
+        ("\033[0D", (9, 4, 0)),
+        ("\033[003A", (10, 1, 0)),
+        ("\033[003C", (13, 4, 0)),
+        ("\033[003D", (7, 4, 0)),
+    )
+    for text, expect in zero_cases:
+        got = xy_count_after(new_shadow(b"\033[4;10R"), text)
+        assert got == expect, (text, got, expect)
+
+    # Layer 16 and 17: pn_to_at_plus_below_row_count gives the Rows from the Cursor Row down,
+    # at most to the last
+
+    for row_y, at_plus_below_rows in ((1, 5), (3, 3), (5, 1)):
+        place = litpyglass.TerminalPlace(column_x=1, x_max=20, x_width=20, row_y=row_y, y_height=5)
+        for pn, expect_count in (
+            (0, 1),
+            (1, 1),
+            (at_plus_below_rows, at_plus_below_rows),  # exactly the Rows that fit
+            (at_plus_below_rows + 1, at_plus_below_rows),  # one more
+            (32100, at_plus_below_rows),
+        ):
+            row_count = place.pn_to_at_plus_below_row_count(pn)
+            count_occasion = (row_y, at_plus_below_rows, pn, expect_count, row_count, place)
+            assert row_count == expect_count, count_occasion
+
     # Shadow 5: is_writable_place_after_strs says no for a chopped Move, yes one step from the edge
 
     ts = new_shadow(b"\033[3;10R")
@@ -3118,22 +3149,57 @@ def _try_shadow_insert_row_() -> None:
     assert ts.base.write_by_xy[(20, 3)] == ((), " "), ts.base.write_by_xy  # replaced the z
     assert ts.base.write_by_xy[(20, 4)] == ((), "z"), ts.base.write_by_xy  # the z moved down
 
-    # An insert with a Pn, or a Delete Row with a Pn, fails an assert before any Byte goes out
+    # An insert with a Pn does the one-Row An insert that many times, and the Bytes go out once
+
+    rows_from_cursor = 3  # Row 3 of 5
+    for pn_text, pn_int in (
+        ("", 1),
+        ("0", 0),
+        ("1", 1),
+        ("3", 3),
+        ("003", 3),
+        ("4", 4),
+        ("32100", 32100),
+    ):
+        text = f"\033[{pn_text}L"
+        row_count = pn_int if pn_int else 1
+        if row_count > rows_from_cursor:
+            row_count = rows_from_cursor
+
+        fake = FakeWriteBoss()
+        ts = shadow_five_rows(fake, screen_width=20)
+        writes_before = list(fake.writes)
+        ts.str_write_base_tb(text)
+
+        twin_fake = FakeWriteBoss()
+        twin_ts = shadow_five_rows(twin_fake, screen_width=20)
+        for row_index in range(row_count):
+            twin_ts.str_write_base_tb("\033[L")
+
+        occasion = (text, row_count, ts.base_place, ts.base.xy_chops, fake.writes, writes_before)
+        assert ts.base.write_by_xy == twin_ts.base.write_by_xy, occasion
+        assert ts.base_place == twin_ts.base_place, occasion
+        assert ts.base.xy_chops == twin_ts.base.xy_chops, occasion
+        assert ts.base.xy_chops == 0, occasion  # a chopped Pn counts no chop
+        assert fake.writes == (writes_before + [text.encode()]), occasion
+
+    # An insert or a delete with a Pn that is not decimal digits fails an assert before any Byte
 
     fake = FakeWriteBoss()
     ts = shadow_five_rows(fake, screen_width=20)
     writes_before = list(fake.writes)
     write_by_xy_before = dict(ts.base.write_by_xy)
 
-    for text in ("\033[1L", "\033[2L", "\033[2M"):
+    for text in ("\033[1;2L", "\033[?7L", "\033[1;2M", "\033[?7M"):
         assert asserts_for(ts.str_write_base_tb, text), (text, ts.base_place)
 
     assert fake.writes == writes_before, (fake.writes, writes_before)
     assert ts.base.write_by_xy == write_by_xy_before, (ts.base.write_by_xy, write_by_xy_before)
 
-    # An insert through the Top Layer fails an assert before any Byte goes out
+    # An insert through the Top Layer fails an assert before any Byte goes out, with a Pn too
 
-    assert asserts_for(ts.str_write_top_tb, insert_row), ts.base_place
+    for text in (insert_row, "\033[3L", "\033[M", "\033[3M"):
+        assert asserts_for(ts.str_write_top_tb, text), (text, ts.base_place)
     assert fake.writes == writes_before, (fake.writes, writes_before)
     assert not ts.top, ts.top.place
 
@@ -3144,7 +3210,8 @@ def _try_shadow_insert_row_() -> None:
     write_by_xy_before = dict(ts.base.write_by_xy)
     assert ts.top, ts.top.place
 
-    assert asserts_for(ts.str_write_base_tb, insert_row), (ts.top.place, ts.base_place)
+    for text in (insert_row, "\033[3L", "\033[M", "\033[3M"):
+        assert asserts_for(ts.str_write_base_tb, text), (text, ts.top.place, ts.base_place)
     assert fake.writes == writes_before, (fake.writes, writes_before)
     assert ts.base.write_by_xy == write_by_xy_before, (ts.base.write_by_xy, write_by_xy_before)
 
@@ -3263,22 +3330,57 @@ def _try_shadow_delete_row_() -> None:
     assert (ts.base_place.column_x, ts.base_place.row_y) == (21, 3), ts.base_place
     assert (20, 3) not in ts.base.write_by_xy.keys(), ts.base.write_by_xy  # dropped the z
 
-    # A delete with a Pn fails an assert before any Byte goes out
+    # A delete with a Pn does the one-Row delete that many times, and the Bytes go out once
+
+    rows_from_cursor = 3  # Row 3 of 5
+    for pn_text, pn_int in (
+        ("", 1),
+        ("0", 0),
+        ("1", 1),
+        ("3", 3),
+        ("003", 3),
+        ("4", 4),
+        ("32100", 32100),
+    ):
+        text = f"\033[{pn_text}M"
+        row_count = pn_int if pn_int else 1
+        if row_count > rows_from_cursor:
+            row_count = rows_from_cursor
+
+        fake = FakeWriteBoss()
+        ts = shadow_five_rows(fake, screen_width=20)
+        writes_before = list(fake.writes)
+        ts.str_write_base_tb(text)
+
+        twin_fake = FakeWriteBoss()
+        twin_ts = shadow_five_rows(twin_fake, screen_width=20)
+        for row_index in range(row_count):
+            twin_ts.str_write_base_tb(delete_row)
+
+        occasion = (text, row_count, ts.base_place, ts.base.xy_chops, fake.writes, writes_before)
+        assert ts.base.write_by_xy == twin_ts.base.write_by_xy, occasion
+        assert ts.base_place == twin_ts.base_place, occasion
+        assert ts.base.xy_chops == twin_ts.base.xy_chops, occasion
+        assert ts.base.xy_chops == 0, occasion  # a chopped Pn counts no chop
+        assert fake.writes == (writes_before + [text.encode()]), occasion
+
+    # A delete or an insert with a Pn that is not decimal digits fails an assert before any Byte
 
     fake = FakeWriteBoss()
     ts = shadow_five_rows(fake, screen_width=20)
     writes_before = list(fake.writes)
     write_by_xy_before = dict(ts.base.write_by_xy)
 
-    for text in ("\033[0M", "\033[1M", "\033[2M"):
+    for text in ("\033[1;2M", "\033[?7M", "\033[1;2L", "\033[?7L"):
         assert asserts_for(ts.str_write_base_tb, text), (text, ts.base_place)
 
     assert fake.writes == writes_before, (fake.writes, writes_before)
     assert ts.base.write_by_xy == write_by_xy_before, (ts.base.write_by_xy, write_by_xy_before)
 
-    # A delete through the Top Layer fails an assert before any Byte goes out
+    # A delete through the Top Layer fails an assert before any Byte goes out, with a Pn too
 
-    assert asserts_for(ts.str_write_top_tb, delete_row), ts.base_place
+    for text in (delete_row, "\033[3M", insert_row, "\033[3L"):
+        assert asserts_for(ts.str_write_top_tb, text), (text, ts.base_place)
     assert fake.writes == writes_before, (fake.writes, writes_before)
     assert not ts.top, ts.top.place
 
@@ -3289,7 +3391,8 @@ def _try_shadow_delete_row_() -> None:
     write_by_xy_before = dict(ts.base.write_by_xy)
     assert ts.top, ts.top.place
 
-    assert asserts_for(ts.str_write_base_tb, delete_row), (ts.top.place, ts.base_place)
+    for text in (delete_row, "\033[3M", insert_row, "\033[3L"):
+        assert asserts_for(ts.str_write_base_tb, text), (text, ts.top.place, ts.base_place)
     assert fake.writes == writes_before, (fake.writes, writes_before)
     assert ts.base.write_by_xy == write_by_xy_before, (ts.base.write_by_xy, write_by_xy_before)
 
@@ -3518,15 +3621,13 @@ def _try_shadow_top_layer_() -> None:
             asserted = True
         assert asserted, (column_x, row_y)
 
-    # The Shadow asserts on a step of 0, since a Terminal takes it as a step of 1
+    # The Shadow takes a step of 0 as a step of 1, as a Terminal does
 
     zero_place = dataclasses.replace(ts.base_place)
-    try:
-        zero_place.write_str_at_place("\033[0C")
-        asserted = False
-    except AssertionError:
-        asserted = True
-    assert asserted
+    one_place = dataclasses.replace(ts.base_place)
+    zero_place.write_str_at_place("\033[0C")
+    one_place.write_str_at_place("\033[C")
+    assert zero_place == one_place, (zero_place, one_place, ts.base_place)
 
     # Undo at the right edge steps West from Column W+1, where a Cursor waiting to wrap sits
 

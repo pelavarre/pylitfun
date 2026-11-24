@@ -604,14 +604,14 @@ _try_shadow_delete_row_:
        even if the Cursor then moves back inside.
 
     8. Chop a Move or a Backspace at each of the four edges of the Screen, as macOS Terminal does:
-       the Cursor stays at the edge, and a Pn of 32100 stops there. Let a Move East from the last
-       Column stay in the last Column, and do not wait to wrap: the next Char lands in the last
-       Column. Never chop a Return. Settle a Cursor waiting to wrap in the last Column before a
-       Backspace, ⎋[⇧A, ⎋[⇧B, and ⎋[⇧C, but count ⎋[⇧D from Column W+1, as macOS Terminal does: from
-       a waiting Cursor, ⎋[⇧D lands in the last Column and ⎋[2⇧D in the one before it, with no chop
-       counted. Count each chop in .xy_chops, a field of the Layer that starts at 0 and only grows,
-       and count a Leap past the Height or the Width as item 14 and item 15 say. Start a new Layer
-       at 0.
+       the Cursor stays at the edge, and a Pn of 32100 stops there. Take a Pn of 0 as 1, so ⎋[0⇧A
+       moves 1 as ⎋[⇧A does, and ⎋[003⇧A moves 3. Let a Move East from the last Column stay in the
+       last Column, and do not wait to wrap: the next Char lands in the last Column. Never chop a
+       Return. Settle a Cursor waiting to wrap in the last Column before a Backspace, ⎋[⇧A, ⎋[⇧B,
+       and ⎋[⇧C, but count ⎋[⇧D from Column W+1, as macOS Terminal does: from a waiting Cursor, ⎋[⇧D
+       lands in the last Column and ⎋[2⇧D in the one before it, with no chop counted. Count each
+       chop in .xy_chops, a field of the Layer that starts at 0 and only grows, and count a Leap
+       past the Height or the Width as item 14 and item 15 say. Start a new Layer at 0.
 
     9. Land a Return on Column 1 of the same Row, even with the wrap pending after a write into the
        last Column.
@@ -647,17 +647,21 @@ _try_shadow_delete_row_:
         below the Cursor, and leave each Write above the Cursor where it is. Write the Cursor Row
         full of plain Spaces, from Column 1 to the real Width W+1 of an odd Width, and plain even
         while ⎋[7M is in force, as macOS Terminal paints it: Reverse is no Background Colour. Leave
-        the Cursor where it is, and leave it waiting to wrap while it waits, as macOS Terminal
-        does and as no Move does. Do the work in the same dict of Writes, never a copy. Fail an
-        assert on ⎋[2⇧L or any other Pn, not silently.
+        the Cursor where it is, and leave it waiting to wrap while it waits, as macOS Terminal does
+        and as no Move does. Do the work in the same dict of Writes, never a copy. Take a Pn of
+        decimal digits, as ⎋[3⇧L inserts 3 Rows, and a Pn of 0 as 1. Insert no more Rows than lie
+        from the Cursor down, as macOS Terminal does, and count no chop in .xy_chops. Fail an assert
+        on ⎋[1;2⇧L and ⎋[⇧?7⇧L, not silently.
 
-    17. Delete the Row at the Cursor on ⎋[⇧M, the 3 Chars "\e[M", in _write_some_or_all_strs_ and
-        in this order. Drop the Writes of the Cursor Row. Move up one Row each Write of each Row
-        below the Cursor, and leave each Write above the Cursor Row where it is. Write the last Row
-        full of plain Spaces, from Column 1 to the real Width W+1 of an odd Width, and plain even
-        while ⎋[7M is in force, as macOS Terminal paints it. Leave the Cursor where it is, and
-        leave it waiting to wrap while it waits, as macOS Terminal does. Do the work in the same
-        dict of Writes, never a copy. Fail an assert on ⎋[1⇧M, ⎋[2⇧M or any other Pn, not silently.
+    17. Delete the Row at the Cursor on ⎋[⇧M, the 3 Chars "\e[M", in _write_some_or_all_strs_ and in
+        this order. Drop the Writes of the Cursor Row. Move up one Row each Write of each Row below
+        the Cursor, and leave each Write above the Cursor Row where it is. Write the last Row full
+        of plain Spaces, from Column 1 to the real Width W+1 of an odd Width, and plain even while
+        ⎋[7M is in force, as macOS Terminal paints it. Leave the Cursor where it is, and leave it
+        waiting to wrap while it waits, as macOS Terminal does. Do the work in the same dict of
+        Writes, never a copy. Take a Pn of decimal digits, as ⎋[3⇧M deletes 3 Rows, and a Pn of 0 as
+        1. Delete no more Rows than lie from the Cursor down, as macOS Terminal does, and count no
+        chop in .xy_chops. Fail an assert on ⎋[1;2⇧M and ⎋[⇧?7⇧M, not silently.
 ```
 
 ```
@@ -714,10 +718,11 @@ _try_shadow_insert_row_, and _try_shadow_delete_row_:
         Column W+1 while the Cursor waits to wrap, as ⎋[⇧D counts it, so the step lands on the
         Column asked for. Spell nothing for a step of 0. Assert that the
         step is 0 or more and that the Row matches. Let the Shadow cope with a Pn after ⎋[ and
-        before A B C D, and assert on a Pn of 0.
+        before A B C D, and take a Pn of 0 as 1.
 
-    13. Refuse ⎋[⇧L and ⎋[⇧M through the Top Layer, since the Top Layer as yet cannot undo a Row
-        Insert or a Row Delete. In str_write_top_tb, fail an assert before any Byte goes out on a
-        Str holding ⎋[⇧L or ⎋[⇧M. In str_write_base_tb, fail an assert before any Byte goes out on
-        a Str holding ⎋[⇧L or ⎋[⇧M while .top is on, and take every other Write as before.
+    13. Refuse ⎋[⇧L and ⎋[⇧M, with or without a Pn of decimal digits, through the Top Layer, since
+        the Top Layer as yet cannot undo a Row Insert or a Row Delete. In str_write_top_tb, fail an
+        assert before any Byte goes out on a Str holding ⎋[⇧L, ⎋[3⇧L, ⎋[⇧M or ⎋[3⇧M. In
+        str_write_base_tb, fail an assert before any Byte goes out on such a Str while .top is on,
+        and take every other Write as before.
 ```
