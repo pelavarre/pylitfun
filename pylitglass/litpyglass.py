@@ -555,6 +555,8 @@ class GlassWorker:
 
             ts.str_write_base_tb(hail_text)  # calls to shadow Hail only after pulling X W Y H
 
+            # todo: think more about if we mind starting on an Even Screen Column
+
             assert _2_COLUMNS_ == 2
             assert _1_ROW_ == 1
             assert ts.is_writeable_base_area(area_width=2, area_height=1), (ts.base_place,)
@@ -2161,6 +2163,26 @@ class TerminalLayer:
                 place.write_str_at_place(split)
                 continue
 
+            # Shadow the Leap to a Row, in the same Column, even for a Cursor waiting to wrap
+
+            assert PN1 == 1
+            assert VPA_Y.format("") == "\033[" "d"
+            if final == "d":
+                assert (not params) or params.isdigit(), (params,)  # copes with ⎋[D and ⎋[7D
+                pn = int(params) if params else PN1
+                place.row_y_leap_to(pn)
+                continue
+
+            # Shadow the Leap to a Column, in the same Row, which ends the wait of a Cursor to wrap
+
+            assert PN1 == 1
+            assert CHA_X.format("") == "\033[" "G"
+            if final == "G":
+                assert (not params) or params.isdigit(), (params,)  # copes with ⎋[⇧G and ⎋[7⇧G
+                pn = int(params) if params else PN1
+                place.column_x_leap_to(pn)
+                continue
+
             # Shadow the Insert of a Row at the Cursor, without moving the Cursor,
             # not even a Cursor waiting to wrap, as macOS Terminal does
 
@@ -2373,6 +2395,36 @@ class TerminalPlace:
 
         self.column_x += count * step_x
         self.row_y += count * step_y
+
+    def row_y_leap_to(self, pn: int) -> None:
+        """Leap the Cursor to Row Pn, in the same Column, or to Row 1 for 0, or to the last Row"""
+
+        y_height = self.y_height
+
+        assert pn >= 0, (pn,)
+
+        next_y = pn
+        if pn < 1:
+            next_y = 1  # as macOS Terminal does for ⎋[0D
+        if pn > y_height:
+            next_y = y_height  # as macOS Terminal does for ⎋[32100D
+
+        self.row_y = next_y
+
+    def column_x_leap_to(self, pn: int) -> None:
+        """Leap the Cursor to Column Pn, in the same Row, or to Column 1 for 0, or the last Column"""
+
+        x_width = self.x_width
+
+        assert pn >= 0, (pn,)
+
+        next_x = pn
+        if pn < 1:
+            next_x = 1  # as macOS Terminal does for ⎋[0⇧G
+        if pn > x_width:
+            next_x = x_width  # as macOS Terminal does for ⎋[32100⇧G
+
+        self.column_x = next_x  # never past the Width, so never waiting to wrap
 
     def is_onscreen_place(self) -> bool:
         """Say if the Cursor sits on the Screen, or just past the right edge, waiting to wrap"""
@@ -3894,7 +3946,7 @@ Y1 = 1  # min Y of Terminal Cursor
 
 PS0 = 0  # default CSI Ps = 0 for some
 
-PN1 = 1  # default CSI Pn = 1 for others
+PN1 = 1  # default CSI Pn = 1 for some
 _MAX_PN_32100_ = 32100  # max CSI Pn = 32100 exceeds the .x_wide .y_high of most Terminal Screens
 
 
@@ -3906,6 +3958,7 @@ CUU_Y = "\033[" "{}" "A"  # CSI 04/01 Cursor Up [Pn] [Rows]
 CUD_Y = "\033[" "{}" "B"  # CSI 04/02 Cursor Down [Pn] [Rows]
 CUF_X = "\033[" "{}" "C"  # CSI 04/03 Cursor Forward [Pn] [Columns]
 CUB_X = "\033[" "{}" "D"  # CSI 04/04 Cursor Backward [Pn] [Columns]
+CHA_X = "\033[" "{}" "G"  # CSI 04/07 Cursor Character Absolute [Column]
 CUP_Y_X = "\033[" "{};{}H"  # CSI 04/08 [Choose] Cursor Position [Y and X]
 ED_PS = "\033[" "{}" "J"  # CSI 04/10 Erase in Display  # 0 Tail # 1 Head # 2 Rows # 3 Scrollback
 EL_PS = "\033[" "{}" "K"  # CSI 04/11 Erase in Line [Row]  # 0 Tail # 1 Head # 2 Row

@@ -573,8 +573,8 @@ running --egg=skater and --egg=strikes on a macOS pty:
 ```
 Spec of TerminalLayer.
 
-We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, _try_shadow_insert_row_, and
-_try_shadow_delete_row_:
+We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, _try_shadow_row_leap_,
+_try_shadow_column_leap_, _try_shadow_insert_row_, and _try_shadow_delete_row_:
 
     1. Give a Layer its own .place, .text_styles, and .write_by_xy, and write no Byte anywhere from
        it.
@@ -587,8 +587,9 @@ _try_shadow_delete_row_:
 
     4. Keep nothing for a Move or a Backspace, but steer where the next Char lands. Keep nothing and
        steer nothing for hiding or showing the Cursor, ⎋[⇧?25L or ⎋[⇧?25H. Fail an assert on any
-       other Control, not silently. Insert a Row at the Cursor on ⎋[⇧L, as item 14 says, and delete
-       one on ⎋[⇧M, as item 15 says.
+       other Control, not silently. Leap to a Row on ⎋[D, as item 14 says, and to a Column on
+       ⎋[⇧G, as item 15 says. Insert a Row at the Cursor on ⎋[⇧L, as item 16 says, and delete one
+       on ⎋[⇧M, as item 17 says.
 
     5. Start the Text Styles in force over at ⎋[M, and carry them to the next write. Join them once
        on ⎋[7M however often said. Fail an assert on any other SGR, such as ⎋[27M or ⎋[1M, not
@@ -619,7 +620,19 @@ _try_shadow_delete_row_:
 
     13. Change no other Layer on any Write into a Layer. Never write through unasked.
 
-    14. Insert a Row at the Cursor on ⎋[⇧L, the 3 Chars "\e[L", in _write_some_or_all_strs_ and in
+    14. Leap to a Row on ⎋[D, ⎋[0D, ⎋[1D, ⎋[7D or ⎋[007D, the Pn being 1 or more decimal digits, in
+        _write_some_or_all_strs_. Leap to Row 1 on ⎋[D, ⎋[0D and ⎋[1D. Chop a Pn past the Height to
+        the last Row, as macOS Terminal does. Keep the Column. Leave a Cursor waiting to wrap still
+        waiting, as macOS Terminal does and as no A B C D Move does. Fail an assert on ⎋[1;2D and
+        ⎋[⇧?7D, not silently.
+
+    15. Leap to a Column on ⎋[⇧G, ⎋[0⇧G, ⎋[1⇧G, ⎋[7⇧G or ⎋[007⇧G, the Pn being 1 or more decimal
+        digits, in _write_some_or_all_strs_. Leap to Column 1 on ⎋[⇧G, ⎋[0⇧G and ⎋[1⇧G. Chop a Pn
+        past the Width to the last Column, the real Width W+1 of an odd Width, as macOS Terminal
+        does. Keep the Row. End the wait of a Cursor waiting to wrap, as macOS Terminal does. Fail
+        an assert on ⎋[1;2⇧G and ⎋[⇧?7⇧G, not silently.
+
+    16. Insert a Row at the Cursor on ⎋[⇧L, the 3 Chars "\e[L", in _write_some_or_all_strs_ and in
         this order. Drop the Writes of the last Row. Move down one Row each Write of each Row at or
         below the Cursor, and leave each Write above the Cursor where it is. Write the Cursor Row
         full of plain Spaces, from Column 1 to the real Width W+1 of an odd Width, and plain even
@@ -628,7 +641,7 @@ _try_shadow_delete_row_:
         does and as no Move does. Do the work in the same dict of Writes, never a copy. Fail an
         assert on ⎋[2⇧L or any other Pn, not silently.
 
-    15. Delete the Row at the Cursor on ⎋[⇧M, the 3 Chars "\e[M", in _write_some_or_all_strs_ and
+    17. Delete the Row at the Cursor on ⎋[⇧M, the 3 Chars "\e[M", in _write_some_or_all_strs_ and
         in this order. Drop the Writes of the Cursor Row. Move up one Row each Write of each Row
         below the Cursor, and leave each Write above the Cursor Row where it is. Write the last Row
         full of plain Spaces, from Column 1 to the real Width W+1 of an odd Width, and plain even

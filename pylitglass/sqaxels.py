@@ -12,8 +12,11 @@ quirks:
   quits when given an unprintable, 3 times in a row, but 100ms or more apart, across less than 3s
   never quits on an arrow key, since it moves the cursor instead
   never quits on a Space, which toggles the Pixel at the Cursor between Reverse and Plain
+  starts each Pixel in an odd Column, and so steps one Column West at launch from an even one
   never quits on ⎋[⇧L, which inserts a Row at the Cursor
   never quits on ⎋[⇧M, which deletes the Row at the Cursor
+  never quits on ⎋[D, which leaps the Cursor to Row 1, as ⎋[7D leaps it to Row 7
+  never quits on ⎋[⇧G, which leaps the Cursor to the Pixel at Column 1, as ⎋[7⇧G to Column 7
   replays io.typescript from where the Cursor starts, and rewrites io.typescript at quit
 
 examples:
@@ -119,13 +122,18 @@ class SqaxelsWorker:
             _, stalwart_arrow = stalwart_split
             assert stalwart_arrow in ["←", "↑", "→", "↓"], (stalwart_caps,)
 
-        # Choose the ⎋[⇧L that inserts a Row and the ⎋[⇧M that deletes one to not tell us to quit
+        # Choose the ⎋[⇧L that inserts a Row, the ⎋[⇧M that deletes one, the ⎋[D or ⎋[7D
+        # that leaps to a Row, and the ⎋[⇧G or ⎋[7⇧G that leaps to a Column, to not tell us to quit
 
         assert litpyglass.IL_Y.format("") == "\033[" "L"
         assert litpyglass.DL_Y.format("") == "\033[" "M"
+        assert litpyglass.VPA_Y.format("") == "\033[" "d"
+        assert litpyglass.CHA_X.format("") == "\033[" "G"
 
         arrow_stalwarts = tuple(re.escape(_) for _ in arrow_encodes)
-        stalwarts = arrow_stalwarts + (rb"\033\[L", rb"\033\[M")  # each a Regex of a whole Frame
+        row_stalwarts = (rb"\033\[L", rb"\033\[M", rb"\033\[[0-9]*d")
+        column_stalwarts = (rb"\033\[[0-9]*G",)
+        stalwarts = arrow_stalwarts + row_stalwarts + column_stalwarts  # each a Regex of a Frame
 
         # Choose what to write at exit
 
@@ -167,19 +175,17 @@ class SqaxelsWorker:
             assert litpyglass.BS == "\b"
             assert litpyglass.SHOW_CUSR_SM_PSQ25 == "\033[" "?25h"
 
-            base_place = ts.base_place
-            max_first_x = base_place.x_max - 1  # the last Column where a Pair of Spaces fits
-            back_count = max(0, base_place.column_x - max_first_x)  # zero or more Backspaces
-            assert back_count >= 0, (back_count,)
+            back_text = self.form_pixel_back_text(ts.base_place)
 
             hails = (
                 "\033[" "m",  # reverts the Text Styles
                 "\033[" "?25h",  # shows the Real Cursor
-                "\b" * back_count,  # steps West as far as it must, no more
+                back_text,  # steps West as far as it must, to an odd Column, no more
             )
             hail_text = "".join(hails)
 
             ts.str_write_base_tb(hail_text)  # calls to shadow Hail only after pulling X W Y H
+            assert ts.base_place.column_x % 2, (ts.base_place,)  # a Pixel starts in an odd Column
 
             assert litpyglass._2_COLUMNS_ == 2
             assert litpyglass._1_ROW_ == 1
@@ -222,6 +228,24 @@ class SqaxelsWorker:
             sys.exit(1)
 
         return tb
+
+    def form_pixel_back_text(self, place: litpyglass.TerminalPlace) -> str:
+        """Spell the Backspaces from the Cursor West to the West Column of a Square Pixel"""
+
+        assert litpyglass.BS == "\b"
+
+        from_x = min(place.column_x, place.x_width)  # (x > width) waits to wrap
+        max_first_x = place.x_max - 1  # the last Column where a Pair of Spaces fits
+
+        fit_x = min(from_x, max_first_x)  # as far East as a Pair fits
+        odd_x = fit_x - (0 if (fit_x % 2) else 1)  # a Pixel starts in an odd Column: 1, 3, etc
+
+        back_count = from_x - odd_x  # zero or more Backspaces
+        assert back_count >= 0, (back_count, from_x, odd_x)
+        assert odd_x % 2, (odd_x, from_x, place)
+
+        back_text = "\b" * back_count
+        return back_text
 
     def take_strikes_tb(
         self,
@@ -299,6 +323,27 @@ class SqaxelsWorker:
                 ts.str_write_base_tb("\033[" "M")
                 continue
 
+            # Leap the Cursor to a Row, as ⎋[D or ⎋[7D says, and leave the Column where it is
+
+            assert litpyglass.VPA_Y.format("") == "\033[" "d"
+
+            if taken and re.fullmatch(rb"\033\[[0-9]*d", data):
+                ts.str_write_base_tb(data.decode())
+                continue
+
+            # Leap the Cursor to the Pixel at a Column, as ⎋[⇧G or ⎋[7⇧G says: leap as struck,
+            # and then step West by Backspaces onto the Pixel
+
+            assert litpyglass.CHA_X.format("") == "\033[" "G"
+
+            if taken and re.fullmatch(rb"\033\[[0-9]*G", data):
+                ts.str_write_base_tb(data.decode())
+
+                back_text = self.form_pixel_back_text(ts.base_place)
+                if back_text:
+                    ts.str_write_base_tb(back_text)
+                continue
+
             # Wait for the Frame to be taken while Bytes are still typed ahead, since
             # an Arrow struck before this Open Frame may be held back and yield after it
 
@@ -324,6 +369,7 @@ class SqaxelsWorker:
                 self.ts_toggle_pixel_tb(ts)
 
             # todo: no visible change at a Strike that is neither Arrow nor Space
+            # todo: no visible rejection of such wrong choices as ⎋[G struck in place of ⎋[⇧G
 
     def form_leap_text(self, caps: str) -> str:
         """Spell the step of one Square Pixel toward an Arrow Key, without any Pair"""
