@@ -94,6 +94,7 @@ def main() -> None:
     _try_shadow_writes_()  # ~1ms
     _try_shadow_layer_()  # ~1ms
     _try_shadow_top_layer_()  # ~1ms
+    _try_shadow_chops_()  # ~1ms
     _try_shadow_row_leap_()  # ~1ms
     _try_shadow_column_leap_()  # ~1ms
     _try_shadow_insert_row_()  # ~1ms
@@ -2397,13 +2398,19 @@ def _try_shadow_layer_() -> None:
     assert forked_layer.write_by_xy == {}, forked_layer.write_by_xy
     assert len(base_layer.write_by_xy) == 2, base_layer.write_by_xy
 
-    # Layer 11: a Write that cannot be made says so, and leaves the Layer half written
+    # Layer 8: a Move that would leave the Screen chops at the edge, and the Layer counts the chop
 
     north_layer = base_layer.fork_layer()
-    # a, b, then off the North edge at the 2nd Move
-    assert not north_layer._write_some_or_all_strs_("ab\033[A\033[A")
-    assert not north_layer.place.is_onscreen_place(), north_layer.place
-    assert north_layer.write_by_xy != {}, north_layer.write_by_xy  # keeps the Writes before it
+    # a, b, then the 1st Move fits and the 2nd Move chops at the North edge
+    north_written = north_layer._write_some_or_all_strs_("ab\033[A\033[A")
+    north_xy = (north_layer.place.column_x, north_layer.place.row_y)
+    occasion = (north_written, north_xy, north_layer.xy_chops, north_layer.place)
+    assert north_written, occasion
+    assert north_xy == (7, 1), occasion
+    assert north_layer.xy_chops == 1, occasion
+    assert north_layer.write_by_xy != {}, occasion  # keeps the Writes before it
+
+    # Layer 11: a Write that cannot be made says so, and leaves the Layer half written
 
     edge_layer = base_layer.fork_layer()
     edge_layer.place.column_x = 20  # the last Column we write
@@ -2432,14 +2439,24 @@ def _try_shadow_layer_() -> None:
     assert after == before, (after, before)
     assert fake.writes == [written.encode()], fake.writes
 
-    # Shadow 4: str_write_base_tb asserts the Write can be made, before any Byte goes out
+    # Shadow 4: str_write_base_tb asserts the Write can be made, before any Byte goes out,
+    # and takes a Move chopped at an edge, as the Terminal does
 
     fake.writes.clear()
     ts_north = litpyglass.TerminalShadow(boss)
     ts_north.shadow_read_data_else(b"\033[1;1R")
     ts_north.shadow_read_data_else(b"\033[8;5;20t")
+    ts_north.str_write_base_tb("\033[A")  # chopped at the North edge
+    north_xy = (ts_north.base_place.column_x, ts_north.base_place.row_y)
+    occasion = (north_xy, ts_north.base.xy_chops, fake.writes)
+    assert north_xy == (1, 1), occasion
+    assert ts_north.base.xy_chops == 1, occasion
+    assert fake.writes == [b"\033[A"], occasion
+
+    fake.writes.clear()
+    ts_north.shadow_read_data_else(b"\033[1;20R")
     try:
-        ts_north.str_write_base_tb("\033[A")  # off the North edge
+        ts_north.str_write_base_tb("ab")  # b would land in Column 21
         asserted = False
     except AssertionError:
         asserted = True
@@ -2559,8 +2576,9 @@ def _try_shadow_writes_() -> None:
     next_layer = _layer_after_(ts, text="\033[C" * 19)
     assert next_layer and (next_layer.place.column_x, next_layer.place.row_y) == (20, 1), next_layer
     assert ts.is_writable_place_after_strs(text="\033[C" * 19)
-    next_layer = _layer_after_(ts, text="\033[C" * 20)  # on-screen, waiting to wrap
+    next_layer = _layer_after_(ts, text="\033[C" * 20)  # in Column W, which is past x_max
     assert next_layer and (next_layer.place.column_x, next_layer.place.row_y) == (21, 1), next_layer
+    assert next_layer.xy_chops == 0, next_layer
     assert not ts.is_writable_place_after_strs(text="\033[C" * 20)
 
     # A Char that would land in Column W+1 cannot be written, even if the Cursor then moves back,
@@ -2602,20 +2620,28 @@ def _try_shadow_writes_() -> None:
     ts.shadow_read_data_else(b"\033[8;5;20t")  # an even Width acts as itself
     assert (ts.base_place.x_width, ts.base_place.x_max) == (20, 20), ts.base_place
 
-    # A Move that would leave the Screen cannot be written, at the North, West, and South edges
+    # A Move that would leave the Screen chops at the North, West, South, and East edges
 
     # Row 1 Column 1 of a Screen 5 high, 20 wide
-    assert _layer_after_(ts, text="\033[A") is None  # ↑ off the North edge
-    assert _layer_after_(ts, text="\033[D") is None  # ← off the West edge
-    assert _layer_after_(ts, text="\b") is None  # a Backspace off the West edge
+    for text in ("\033[A", "\033[D", "\b"):  # ↑ at the North edge, ← and Backspace at the West
+        next_layer = _layer_after_(ts, text=text)
+        assert next_layer, text
+        next_xy = (next_layer.place.column_x, next_layer.place.row_y)
+        assert next_xy == (1, 1), (text, next_xy, next_layer.xy_chops)
+        assert next_layer.xy_chops == 1, (text, next_xy, next_layer.xy_chops)
 
     ts.shadow_read_data_else(b"\033[5;20R")  # Row 5 Column 20, the far South East
-    assert _layer_after_(ts, text="\033[B") is None  # ↓ off the South edge
-    assert not ts.is_writable_place_after_strs(text="\033[C")  # → past x_max
-    next_layer = _layer_after_(ts, text="\033[C")  # still on-screen, waiting to wrap
-    assert next_layer and (next_layer.place.column_x, next_layer.place.row_y) == (21, 5), next_layer
-    next_layer = _layer_after_(ts, text="\033[A")  # ↑ back inside
+    for text in ("\033[B", "\033[C"):  # ↓ at the South edge, → at the East edge
+        assert not ts.is_writable_place_after_strs(text=text), text
+        next_layer = _layer_after_(ts, text=text)
+        assert next_layer, text
+        next_xy = (next_layer.place.column_x, next_layer.place.row_y)
+        assert next_xy == (20, 5), (text, next_xy, next_layer.xy_chops)
+        assert next_layer.xy_chops == 1, (text, next_xy, next_layer.xy_chops)
+
+    next_layer = _layer_after_(ts, text="\033[A")  # ↑ back inside, with no chop
     assert next_layer and (next_layer.place.column_x, next_layer.place.row_y) == (20, 4), next_layer
+    assert next_layer.xy_chops == 0, next_layer
 
     # A Return lands on Column 1, even with the wrap pending after a write into the last Column
 
@@ -2659,6 +2685,162 @@ def _try_shadow_writes_() -> None:
 
     assert early.writes == [], early.writes  # no Byte went out
     assert ts.base.write_by_xy == {}, ts.base.write_by_xy
+
+
+def _try_shadow_chops_() -> None:
+    """Try TerminalLayer chopping a Move or a Leap at each edge, as specs.md § 10 says"""
+
+    fake = FakeWriteBoss()
+    boss = typing.cast(litpyglass.TerminalBoss, fake)
+
+    def new_shadow(yx_reply: bytes) -> litpyglass.TerminalShadow:
+        """Start a Shadow of a Screen 5 high, 20 wide, with the Cursor at the Reply"""
+
+        ts = litpyglass.TerminalShadow(boss)
+        ts.shadow_read_data_else(yx_reply)
+        ts.shadow_read_data_else(b"\033[8;5;20t")
+        return ts
+
+    def xy_count_after(ts: litpyglass.TerminalShadow, text: str) -> tuple[int, int, int]:
+        """Say the Column, the Row, and the xy_chops after the Str, in a new Layer"""
+
+        layer = _layer_after_(ts, text=text)
+        assert layer, (text, ts.base_place)
+        return (layer.place.column_x, layer.place.row_y, layer.xy_chops)
+
+    # Layer 8: each Move stays at its edge, and counts 1, for each of A B C D and Backspace
+
+    edge_cases = (
+        (b"\033[1;1R", "\033[A", (1, 1, 1)),  # ↑ at the North edge
+        (b"\033[1;1R", "\033[D", (1, 1, 1)),  # ← at the West edge
+        (b"\033[1;1R", "\b", (1, 1, 1)),  # Backspace at the West edge
+        (b"\033[5;20R", "\033[B", (20, 5, 1)),  # ↓ at the South edge
+        (b"\033[5;20R", "\033[C", (20, 5, 1)),  # → at the East edge
+    )
+    for yx_reply, text, expect in edge_cases:
+        got = xy_count_after(new_shadow(yx_reply), text)
+        assert got == expect, (yx_reply, text, got, expect)
+
+    # Layer 8: a Pn of 32100 stops at the edge, and counts 1
+
+    far_cases = (
+        ("\033[32100A", (10, 1, 1)),
+        ("\033[32100B", (10, 5, 1)),
+        ("\033[32100C", (20, 3, 1)),
+        ("\033[32100D", (1, 3, 1)),
+    )
+    for text, expect in far_cases:
+        got = xy_count_after(new_shadow(b"\033[3;10R"), text)
+        assert got == expect, (text, got, expect)
+
+    # Layer 8: a Move that fits counts 0
+
+    fit_cases = (
+        ("\033[A", (10, 2, 0)),
+        ("\033[B", (10, 4, 0)),
+        ("\033[C", (11, 3, 0)),
+        ("\033[D", (9, 3, 0)),
+        ("\b", (9, 3, 0)),
+        ("\033[2A", (10, 1, 0)),  # a Pn that lands exactly on the North edge
+        ("\033[10C", (20, 3, 0)),  # a Pn that lands exactly on the East edge
+        ("\r", (1, 3, 0)),  # a Return never chops
+    )
+    for text, expect in fit_cases:
+        got = xy_count_after(new_shadow(b"\033[3;10R"), text)
+        assert got == expect, (text, got, expect)
+
+    # Layer 8: a Move East from the last Column stays there, and the next Char lands there
+
+    ts = new_shadow(b"\033[1;20R")
+    layer = _layer_after_(ts, text="\033[Ca")
+    assert layer, ts.base_place
+    occasion = (layer.place, layer.write_by_xy, layer.xy_chops)
+    assert list(layer.write_by_xy.keys()) == [(20, 1)], occasion
+    assert (layer.place.column_x, layer.place.row_y) == (21, 1), occasion
+    assert layer.xy_chops == 1, occasion
+    assert _layer_after_(ts, text="\033[Cab") is None  # b would land in Column 21
+
+    # Layer 8 and 10: from a Cursor waiting to wrap, a Move ends the wait in the last Column
+
+    wait_cases = (
+        ("a\033[A", (20, 2, 0)),
+        ("a\033[B", (20, 4, 0)),
+        ("a\033[C", (20, 3, 1)),
+        ("a\b", (19, 3, 0)),
+        ("a\r", (1, 3, 0)),
+        ("a\033[D", (20, 3, 0)),  # ⎋[⇧D counts from Column W+1, so it lands in Column W
+        ("a\033[2D", (19, 3, 0)),  # and ⎋[2⇧D lands in Column W-1
+        ("a\033[1D", (20, 3, 0)),
+    )
+    for text, expect in wait_cases:
+        got = xy_count_after(new_shadow(b"\033[3;20R"), text)
+        assert got == expect, (text, got, expect)
+
+    # Shadow 12: form_leap_back counts from Column W+1 while waiting, and lands on its target
+
+    ts = new_shadow(b"\033[3;20R")
+    ts.str_write_base_tb("a")  # waits to wrap past Column 20
+    wait_place = ts.base_place
+    assert 20 < wait_place.column_x <= 21, wait_place  # waits to wrap, one past the Width
+    for target_x, want_leap in ((20, "\033[1D"), (19, "\033[2D"), (1, "\033[20D")):
+        leap = litpyglass.TerminalShadow.form_leap_back(wait_place, column_x=target_x, row_y=3)
+        got = xy_count_after(ts, leap)
+        assert leap == want_leap, (leap, want_leap, target_x, wait_place)
+        assert got == (target_x, 3, 0), (leap, got, target_x, wait_place)
+
+    # Layer 14 and 15: a Leap past the Height or the Width counts 1, and a Pn of 0 counts 0
+
+    leap_cases = (
+        ("\033[32100d", (10, 5, 1)),
+        ("\033[32100G", (20, 3, 1)),
+        ("\033[6d", (10, 5, 1)),  # one Row past the Height
+        ("\033[21G", (20, 3, 1)),  # one Column past the Width
+        ("\033[5d", (10, 5, 0)),  # the last Row
+        ("\033[20G", (20, 3, 0)),  # the last Column
+        ("\033[0d", (10, 1, 0)),
+        ("\033[0G", (1, 3, 0)),
+    )
+    for text, expect in leap_cases:
+        got = xy_count_after(new_shadow(b"\033[3;10R"), text)
+        assert got == expect, (text, got, expect)
+
+    # Shadow 5: is_writable_place_after_strs says no for a chopped Move, yes one step from the edge
+
+    ts = new_shadow(b"\033[3;10R")
+    for text, expect_fit in (
+        ("\033[32100d", False),
+        ("\033[5d", True),
+        ("\033[6d", False),
+        ("\033[3A", False),
+        ("\033[2A", True),
+        ("\033[C" * 11, False),
+        ("\033[C" * 10, True),
+    ):
+        is_writable = ts.is_writable_place_after_strs(text=text)
+        assert is_writable is expect_fit, (text, is_writable, expect_fit, ts.base_place)
+
+    # Layer 8: .xy_chops is a log on the Layer, grows across writes, and a fork starts at 0
+
+    ts = new_shadow(b"\033[3;10R")
+    assert ts.base.xy_chops == 0, ts.base.xy_chops
+
+    ts.str_write_base_tb("\033[32100A")
+    count1 = ts.base.xy_chops
+    ts.str_write_base_tb("\033[32100D")
+    count2 = ts.base.xy_chops
+    log_occasion = (count1, count2, ts.base_place)
+    assert count1 == 1, log_occasion
+    assert count2 == 2, log_occasion
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (1, 1), log_occasion
+
+    fork_layer = ts.base.fork_layer()
+    assert fork_layer.xy_chops == 0, (fork_layer.xy_chops, ts.base.xy_chops)
+    assert ts.base.xy_chops == 2, (fork_layer.xy_chops, ts.base.xy_chops)
+
+    # Shadow 8: clear_layer puts the count back to 0
+
+    ts.base.clear_layer()
+    assert ts.base.xy_chops == 0, (ts.base.xy_chops, ts.base.place)
 
 
 def _try_shadow_row_leap_() -> None:
@@ -3346,7 +3528,7 @@ def _try_shadow_top_layer_() -> None:
         asserted = True
     assert asserted
 
-    # Undo at the right edge steps West from the last Column, where a Cursor waiting to wrap sits
+    # Undo at the right edge steps West from Column W+1, where a Cursor waiting to wrap sits
 
     fake3 = FakeWriteBoss()
     ts3 = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, fake3))
@@ -3465,14 +3647,17 @@ def _screen_of_(
                 assert ps.isdigit() or (not ps), repr(text)  # models only a lone Pn
                 if final == "A":
                     row_y = max(1, row_y - n)
+                    wrap_pending = False  # ⎋[⇧A ends the wait, in the last Column
                 elif final == "B":
                     row_y = min(screen_height, row_y + n)
+                    wrap_pending = False  # ⎋[⇧B ends the wait, in the last Column
                 elif final == "C":
                     column_x = min(screen_width, column_x + n)
                     wrap_pending = False
                 else:
                     assert final == "D", (final,)
-                    column_x = max(1, column_x - n)
+                    wait_x = 1 if wrap_pending else 0  # ⎋[⇧D counts from Column W+1
+                    column_x = max(1, column_x + wait_x - n)
                     wrap_pending = False
             continue
 

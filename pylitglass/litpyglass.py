@@ -1783,10 +1783,10 @@ class TerminalShadow:
         place = TerminalPlace(column_x=1, x_max=1, x_width=1, row_y=1, y_height=1)
         assert not place, (place,)
 
-        self.base = TerminalLayer(place=place, text_styles=(), write_by_xy=dict())
+        self.base = TerminalLayer(place=place, text_styles=(), write_by_xy=dict(), xy_chops=0)
 
         top_place = dataclasses.replace(place)  # clones
-        self.top = TerminalLayer(place=top_place, text_styles=(), write_by_xy=dict())
+        self.top = TerminalLayer(place=top_place, text_styles=(), write_by_xy=dict(), xy_chops=0)
 
     @property
     def base_place(self) -> TerminalPlace:
@@ -2002,7 +2002,7 @@ class TerminalShadow:
 
         assert place.row_y == row_y, (place.row_y, row_y)
 
-        from_x = min(place.column_x, place.x_width)  # (x > width) is while waiting to wrap
+        from_x = place.column_x  # counted from Column W+1 while waiting to wrap, as ⎋[⇧D does
         x_west = from_x - column_x
         assert x_west >= 0, (x_west, from_x, column_x)
 
@@ -2015,7 +2015,7 @@ class TerminalShadow:
         # todo: cope with a pasted ⎋[1;4R that comes while the Top Layer is on
 
     def is_writable_place_after_strs(self, text: str) -> bool:
-        """Say if writing the Str keeps the Terminal Cursor inside the Writable Area"""
+        """Say if the Str moves in full, with no chop at an edge, and ends in the Writable Area"""
 
         base = self.base
         base_place = base.place
@@ -2025,6 +2025,9 @@ class TerminalShadow:
         fork_layer = base.fork_layer()
         fork_written = fork_layer._write_some_or_all_strs_(text)
         if not fork_written:
+            return False
+
+        if fork_layer.xy_chops > 0:
             return False
 
         fork_place = fork_layer.place
@@ -2045,12 +2048,14 @@ class TerminalLayer:
     place: TerminalPlace  # where the Cursor, how big the Screen
     text_styles: tuple[str, ...]  # the Text Styles in force
     write_by_xy: dict[tuple[int, int], tuple[tuple[str, ...], str]]  # (texts, t) by (x, y)
+    xy_chops: int  # how often an edge of the Screen cut short a Move or a Leap, so far
 
     def __bool__(self) -> bool:
         truthy = bool(self.place)
         if not truthy:  # all falsey if .place falsey, vs maybe and maybe-not while .place truthy
             assert not self.text_styles, (self.text_styles,)
             assert not self.write_by_xy, (self.write_by_xy,)
+            assert not self.xy_chops, (self.xy_chops,)
         return truthy
 
     def clear_layer(self) -> None:
@@ -2059,6 +2064,7 @@ class TerminalLayer:
         self.place = TerminalPlace(column_x=1, x_max=1, x_width=1, row_y=1, y_height=1)
         self.text_styles = ()
         self.write_by_xy.clear()
+        self.xy_chops = 0
 
         assert not self, (self.place,)
 
@@ -2113,6 +2119,7 @@ class TerminalLayer:
             place=fork_place,
             text_styles=text_styles,  # immutable
             write_by_xy=dict(),
+            xy_chops=0,
         )
 
         return layer
@@ -2133,10 +2140,9 @@ class TerminalLayer:
             params, final, t = m.groups()
             split = m.group(0)
 
-            # Fail fast
+            # Expect the Cursor on the Screen, since a Move or a Leap chops at each edge
 
-            if not place.is_onscreen_place():
-                return False
+            assert place.is_onscreen_place(), (place, split)
 
             # Shadow change of (or reaffirmation of) Text Styles
 
@@ -2160,7 +2166,9 @@ class TerminalLayer:
 
             if (t in ("\b", "\r")) or (final in ("A", "B", "C", "D")):
                 assert (not params) or params.isdigit(), (params,)  # copes with ⎋[A and ⎋[3A
-                place.write_str_at_place(split)
+                chopped = place.write_str_at_place(split)
+                if chopped:
+                    self.xy_chops += 1
                 continue
 
             # Shadow the Leap to a Row, in the same Column, even for a Cursor waiting to wrap
@@ -2170,7 +2178,9 @@ class TerminalLayer:
             if final == "d":
                 assert (not params) or params.isdigit(), (params,)  # copes with ⎋[D and ⎋[7D
                 pn = int(params) if params else PN1
-                place.row_y_leap_to(pn)
+                chopped = place.row_y_leap_to(pn)
+                if chopped:
+                    self.xy_chops += 1
                 continue
 
             # Shadow the Leap to a Column, in the same Row, which ends the wait of a Cursor to wrap
@@ -2180,7 +2190,9 @@ class TerminalLayer:
             if final == "G":
                 assert (not params) or params.isdigit(), (params,)  # copes with ⎋[⇧G and ⎋[7⇧G
                 pn = int(params) if params else PN1
-                place.column_x_leap_to(pn)
+                chopped = place.column_x_leap_to(pn)
+                if chopped:
+                    self.xy_chops += 1
                 continue
 
             # Shadow the Insert of a Row at the Cursor, without moving the Cursor,
@@ -2225,12 +2237,9 @@ class TerminalLayer:
 
             assert False, (split,)
 
-        # Fail even when it was the last Split that stepped off screen
-
-        if not place.is_onscreen_place():
-            return False
-
         # Succeed
+
+        assert place.is_onscreen_place(), (place,)
 
         return True
 
@@ -2346,13 +2355,13 @@ class TerminalPlace:
 
         # todo: think harder about how filling X Y in early can make __bool__ unavailable
 
-    def write_str_at_place(self, text: str) -> None:
-        """Shadow how writing this Str moves the Terminal Cursor"""
+    def write_str_at_place(self, text: str) -> bool:
+        """Shadow how writing this Str moves the Terminal Cursor, and say if an edge cut it short"""
 
         if text.isprintable():
             assert len(text) == 1, (text,)
             self.column_x += 1
-            return
+            return False
 
             # todo0: cope with double-wide Chars
             # macOS Terminal moves across double-wide Chars
@@ -2360,24 +2369,12 @@ class TerminalPlace:
 
         control = text
 
-        if self.column_x > self.x_width:
-            self.column_x = self.x_width  # doesn't wrap when control written
-
         assert BS == "\b"
         assert CR == "\r"
         assert CUU_Y.format("") == "\033[" "A"
         assert CUD_Y.format("") == "\033[" "B"
         assert CUF_X.format("") == "\033[" "C"
         assert CUB_X.format("") == "\033[" "D"
-
-        xy_step_by_split = {
-            "\b": (-1, 0),  # one step West
-            "\r": (1 - self.column_x, 0),  # far West
-            "\033[" "A": (0, -1),  # one step North
-            "\033[" "B": (0, 1),  # one step South
-            "\033[" "C": (1, 0),  # one step East
-            "\033[" "D": (-1, 0),  # one step West
-        }
 
         count = 1
         split_control = control
@@ -2391,13 +2388,50 @@ class TerminalPlace:
                 assert count >= 1, (count, ps)
                 split_control = "\033[" + final
 
+        # Settle a Cursor waiting to wrap in the last Column, before every Control but one
+
+        counts_from_wait = ("\033[" "D",)  # as measured, only ⎋[⇧D counts from Column W+1
+        if (self.column_x > self.x_width) and (split_control not in counts_from_wait):
+            self.column_x = self.x_width  # doesn't wrap when control written
+
+        xy_step_by_split = {
+            "\b": (-1, 0),  # one step West
+            "\r": (1 - self.column_x, 0),  # far West
+            "\033[" "A": (0, -1),  # one step North
+            "\033[" "B": (0, 1),  # one step South
+            "\033[" "C": (1, 0),  # one step East
+            "\033[" "D": (-1, 0),  # one step West
+        }
+
         step_x, step_y = xy_step_by_split[split_control]
 
-        self.column_x += count * step_x
-        self.row_y += count * step_y
+        free_x = self.column_x + count * step_x
+        free_y = self.row_y + count * step_y
 
-    def row_y_leap_to(self, pn: int) -> None:
-        """Leap the Cursor to Row Pn, in the same Column, or to Row 1 for 0, or to the last Row"""
+        # Chop at each edge of the Screen, as macOS Terminal does, East at the last Column
+
+        chopped_x = free_x
+        if free_x < 1:
+            chopped_x = 1
+        if free_x > self.x_width:
+            chopped_x = self.x_width
+
+        chopped_y = free_y
+        if free_y < 1:
+            chopped_y = 1
+        if free_y > self.y_height:
+            chopped_y = self.y_height
+
+        self.column_x = chopped_x
+        self.row_y = chopped_y
+
+        free_xy = (free_x, free_y)
+        chopped_xy = (chopped_x, chopped_y)
+        is_chopped = chopped_xy != free_xy
+        return is_chopped
+
+    def row_y_leap_to(self, pn: int) -> bool:
+        """Leap the Cursor to Row Pn, in the same Column, and say if Pn was past the last Row"""
 
         y_height = self.y_height
 
@@ -2411,8 +2445,11 @@ class TerminalPlace:
 
         self.row_y = next_y
 
-    def column_x_leap_to(self, pn: int) -> None:
-        """Leap the Cursor to Column Pn, in the same Row, or to Column 1 for 0, or the last Column"""
+        is_chopped = pn > y_height
+        return is_chopped
+
+    def column_x_leap_to(self, pn: int) -> bool:
+        """Leap the Cursor to Column Pn, in the same Row, and say if Pn was past the last Column"""
 
         x_width = self.x_width
 
@@ -2425,6 +2462,9 @@ class TerminalPlace:
             next_x = x_width  # as macOS Terminal does for ⎋[32100⇧G
 
         self.column_x = next_x  # never past the Width, so never waiting to wrap
+
+        is_chopped = pn > x_width
+        return is_chopped
 
     def is_onscreen_place(self) -> bool:
         """Say if the Cursor sits on the Screen, or just past the right edge, waiting to wrap"""

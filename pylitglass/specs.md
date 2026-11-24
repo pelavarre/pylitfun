@@ -573,8 +573,9 @@ running --egg=skater and --egg=strikes on a macOS pty:
 ```
 Spec of TerminalLayer.
 
-We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, _try_shadow_row_leap_,
-_try_shadow_column_leap_, _try_shadow_insert_row_, and _try_shadow_delete_row_:
+We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, _try_shadow_chops_,
+_try_shadow_row_leap_, _try_shadow_column_leap_, _try_shadow_insert_row_, and
+_try_shadow_delete_row_:
 
     1. Give a Layer its own .place, .text_styles, and .write_by_xy, and write no Byte anywhere from
        it.
@@ -602,8 +603,15 @@ _try_shadow_column_leap_, _try_shadow_insert_row_, and _try_shadow_delete_row_:
     7. Write only inside the rectangle of Height by x_max: refuse a Char that would land outside it,
        even if the Cursor then moves back inside.
 
-    8. Refuse a Move or a Backspace that would leave the Screen, at the North, West, and South
-       edges. Let a Move East from the last Column wait in Column W+1, still on the Screen.
+    8. Chop a Move or a Backspace at each of the four edges of the Screen, as macOS Terminal does:
+       the Cursor stays at the edge, and a Pn of 32100 stops there. Let a Move East from the last
+       Column stay in the last Column, and do not wait to wrap: the next Char lands in the last
+       Column. Never chop a Return. Settle a Cursor waiting to wrap in the last Column before a
+       Backspace, ⎋[⇧A, ⎋[⇧B, and ⎋[⇧C, but count ⎋[⇧D from Column W+1, as macOS Terminal does: from
+       a waiting Cursor, ⎋[⇧D lands in the last Column and ⎋[2⇧D in the one before it, with no chop
+       counted. Count each chop in .xy_chops, a field of the Layer that starts at 0 and only grows,
+       and count a Leap past the Height or the Width as item 14 and item 15 say. Start a new Layer
+       at 0.
 
     9. Land a Return on Column 1 of the same Row, even with the wrap pending after a write into the
        last Column.
@@ -612,8 +620,9 @@ _try_shadow_column_leap_, _try_shadow_insert_row_, and _try_shadow_delete_row_:
         past x_max: an even Width has no Column W+1 for it, and an odd Width acts as W. After a
         Backspace or a Return after it, leave the Cursor inside the Writable Area.
 
-    11. Say so when a Write cannot be made, and leave the Layer half written. Let the caller drop
-        that Layer.
+    11. Say so when a Char cannot be written, since it lands outside the Writable Area, and leave
+        the Layer half written. Let the caller drop that Layer. Never say so for a chopped Move,
+        since a Move cannot leave the Screen.
 
     12. Do the work of items 3 to 11 in one def on the Layer, _write_some_or_all_strs_. Run that one
         def in the Shadow, and ship no second copy of the rules.
@@ -622,15 +631,16 @@ _try_shadow_column_leap_, _try_shadow_insert_row_, and _try_shadow_delete_row_:
 
     14. Leap to a Row on ⎋[D, ⎋[0D, ⎋[1D, ⎋[7D or ⎋[007D, the Pn being 1 or more decimal digits, in
         _write_some_or_all_strs_. Leap to Row 1 on ⎋[D, ⎋[0D and ⎋[1D. Chop a Pn past the Height to
-        the last Row, as macOS Terminal does. Keep the Column. Leave a Cursor waiting to wrap still
-        waiting, as macOS Terminal does and as no A B C D Move does. Fail an assert on ⎋[1;2D and
-        ⎋[⇧?7D, not silently.
+        the last Row, as macOS Terminal does, and count the chop in .xy_chops. Count nothing for a
+        Pn of 0. Keep the Column. Leave a Cursor waiting to wrap still waiting, as macOS Terminal
+        does and as no A B C D Move does. Fail an assert on ⎋[1;2D and ⎋[⇧?7D, not silently.
 
     15. Leap to a Column on ⎋[⇧G, ⎋[0⇧G, ⎋[1⇧G, ⎋[7⇧G or ⎋[007⇧G, the Pn being 1 or more decimal
         digits, in _write_some_or_all_strs_. Leap to Column 1 on ⎋[⇧G, ⎋[0⇧G and ⎋[1⇧G. Chop a Pn
         past the Width to the last Column, the real Width W+1 of an odd Width, as macOS Terminal
-        does. Keep the Row. End the wait of a Cursor waiting to wrap, as macOS Terminal does. Fail
-        an assert on ⎋[1;2⇧G and ⎋[⇧?7⇧G, not silently.
+        does, and count the chop in .xy_chops. Count nothing for a Pn of 0. Keep the Row. End the
+        wait of a Cursor waiting to wrap, as macOS Terminal does. Fail an assert on ⎋[1;2⇧G and
+        ⎋[⇧?7⇧G, not silently.
 
     16. Insert a Row at the Cursor on ⎋[⇧L, the 3 Chars "\e[L", in _write_some_or_all_strs_ and in
         this order. Drop the Writes of the last Row. Move down one Row each Write of each Row at or
@@ -671,8 +681,10 @@ _try_shadow_insert_row_, and _try_shadow_delete_row_:
        cannot be made, and leave the Shadow as it was.
 
     5. In is_writable_place_after_strs, take the Write through a new Layer, drop that Layer, and say
-       yes only when the Cursor ends inside the Writable Area. Say no to a Char into the last Column
-       with nothing after it, and yes to a Backspace or a Return after it.
+       yes only when the Write moves in full, with no chop counted, and the Cursor ends inside the
+       Writable Area. Say no to a Move or a Leap that an edge cuts short, and yes to the same one a
+       step from the edge. Say no to a Char into the last Column with nothing after it, and yes to a
+       Backspace or a Return after it.
 
     6. Call .top off when its Place is 1 by 1, as at the start, and on once str_write_top_tb has
        written through it. In str_write_top_tb, take each Write through a new Layer made from .top
@@ -685,7 +697,8 @@ _try_shadow_insert_row_, and _try_shadow_delete_row_:
        the Base Layer's Char there, and guess nothing. Then put the Terminal Cursor and the Text
        Styles where .base has them, even when .top holds no Cell, and turn .top off by clear_layer.
 
-    8. In clear_layer, forget the Layer's Writes and Text Styles, and shrink its Place to 1 by 1.
+    8. In clear_layer, forget the Layer's Writes and Text Styles, set .xy_chops back to 0, and
+       shrink its Place to 1 by 1.
 
     9. Say a Layer is_writeable_area only when every Cell of the Area, from the Cursor east for the
        width and south for the height that the caller gives, is a Cell where a Char may be written.
@@ -697,8 +710,9 @@ _try_shadow_insert_row_, and _try_shadow_delete_row_:
         Take a Screen size Reply into .base, and into .top too while .top is on. Never turn an
         off .top on by a Reply.
 
-    12. In form_leap_back, spell a step West by CUB_X along the Row, never a Return, counted from the
-        last Column while the Cursor waits to wrap. Spell nothing for a step of 0. Assert that the
+    12. In form_leap_back, spell a step West by CUB_X along the Row, never a Return, counted from
+        Column W+1 while the Cursor waits to wrap, as ⎋[⇧D counts it, so the step lands on the
+        Column asked for. Spell nothing for a step of 0. Assert that the
         step is 0 or more and that the Row matches. Let the Shadow cope with a Pn after ⎋[ and
         before A B C D, and assert on a Pn of 0.
 
