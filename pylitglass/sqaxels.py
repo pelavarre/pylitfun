@@ -17,6 +17,8 @@ quirks:
   never quits on ⎋[⇧M, which deletes the Row at the Cursor, as ⎋[3⇧M deletes three
   never quits on ⎋[⇧@, which inserts Chars at the Cursor, as ⎋[2⇧@ inserts two
   never quits on ⎋[⇧P, which deletes Chars at the Cursor, as ⎋[2⇧P deletes two
+  never quits on ⎋['⇧}, which inserts a Column at the Cursor, as ⎋[2'⇧} inserts two
+  never quits on ⎋['⇧~, which deletes the Column at the Cursor, as ⎋[2'⇧~ deletes two
   never quits on ⎋[D, which leaps the Cursor to Row 1, as ⎋[7D leaps it to Row 7
   never quits on ⎋[⇧G, which leaps the Cursor to the Pixel at Column 1, as ⎋[7⇧G to Column 7
   never quits on ⎋[;⇧H, which leaps to the Pixel at Row 1 Column 1, as ⎋[5;7⇧H to Row 5 Column 7
@@ -127,6 +129,7 @@ class SqaxelsWorker:
 
         # Choose the ⎋[⇧L or ⎋[3⇧L that inserts Rows, the ⎋[⇧M or ⎋[3⇧M that deletes them,
         # the ⎋[⇧@ or ⎋[2⇧@ that inserts Chars, the ⎋[⇧P or ⎋[2⇧P that deletes them,
+        # the ⎋['⇧} or ⎋[2'⇧} that inserts Columns, the ⎋['⇧~ or ⎋[2'⇧~ that deletes them,
         # the ⎋[D or ⎋[7D that leaps to a Row, the ⎋[⇧G or ⎋[7⇧G that leaps to a Column,
         # and the ⎋[;⇧H or ⎋[5;7⇧H that leaps to a Row and a Column, to not tell us to quit
 
@@ -137,9 +140,15 @@ class SqaxelsWorker:
         assert litpyglass.VPA_Y.format("") == "\033[" "d"
         assert litpyglass.CHA_X.format("") == "\033[" "G"
         assert litpyglass.CUP_Y_X.format("", "") == "\033[" ";H"
+        assert litpyglass.DECIC_X.format("") == "\033[" "'}"
+        assert litpyglass.DECDC_X.format("") == "\033[" "'~"
 
         arrow_stalwarts = tuple(re.escape(_) for _ in arrow_encodes)
-        csi_stalwarts = (rb"\033\[[0-9]*[@LMPd]", rb"\033\[[0-9]*(G|(;[0-9]*)?H)")
+        csi_stalwarts = (
+            rb"\033\[[0-9]*[@LMPd]",
+            rb"\033\[[0-9]*(G|(;[0-9]*)?H)",
+            rb"\033\[[0-9]*'[}~]",
+        )
         stalwarts = arrow_stalwarts + csi_stalwarts  # each a Regex of a whole Frame
 
         # Choose what to write at exit
@@ -366,6 +375,17 @@ class SqaxelsWorker:
                     ts.str_write_base_tb(back_text)
                 continue
 
+            # Insert Columns at the Cursor, as ⎋['⇧} or ⎋[2'⇧} says, or delete them, as ⎋['⇧~ or
+            # ⎋[2'⇧~ says, by an ⎋[⇧@ or an ⎋[⇧P in every Row, since macOS Terminal takes neither
+
+            assert litpyglass.DECIC_X.format("") == "\033[" "'}"
+            assert litpyglass.DECDC_X.format("") == "\033[" "'~"
+
+            if taken and re.fullmatch(rb"\033\[[0-9]*'[}~]", data):
+                columns_edit_text = self.form_columns_edit_text(ts.base_place, data=data)
+                ts.str_write_base_tb(columns_edit_text)
+                continue
+
             # Wait for the Frame to be taken while Bytes are still typed ahead, since
             # an Arrow struck before this Open Frame may be held back and yield after it
 
@@ -414,6 +434,40 @@ class SqaxelsWorker:
 
         leap = square_leap_by_caps[caps]
         return leap
+
+    def form_columns_edit_text(self, place: litpyglass.TerminalPlace, data: bytes) -> str:
+        """Spell the ⎋[⇧@ or the ⎋[⇧P of every Row, for the ⎋['⇧} or the ⎋['⇧~ struck"""
+
+        row_y = place.row_y
+        y_height = place.y_height
+
+        assert 1 <= row_y <= y_height, (row_y, y_height)
+
+        assert litpyglass.ICH_X == "\033[" "{}" "@"
+        assert litpyglass.DCH_X == "\033[" "{}" "P"
+        assert litpyglass.VPA_Y == "\033[" "{}" "d"
+
+        # Pick the ⎋[⇧@ that inserts Chars, else the ⎋[⇧P that deletes them, with the Pn as struck
+
+        m = re.fullmatch(rb"\033\[([0-9]*)'([}~])", data)
+        assert m, (data,)
+
+        digits = m.group(1).decode()
+        chars_edit = litpyglass.ICH_X if (m.group(2) == b"}") else litpyglass.DCH_X
+
+        # Leap to each Row by ⎋[D, in the same Column, and edit its Chars there
+
+        texts: list[str] = list()
+        for y in range(1, y_height + 1):
+            texts.append(litpyglass.VPA_Y.format(y))
+            texts.append(chars_edit.format(digits))
+
+        # Leap back to the Row of the Cursor, as the Shadow knows it
+
+        texts.append(litpyglass.VPA_Y.format(row_y))
+
+        columns_edit_text = "".join(texts)
+        return columns_edit_text
 
     def ts_toggle_pixel_tb(self, ts: litpyglass.TerminalShadow) -> None:
         """Write the Pair at the Cursor as Reverse if it is not, else as Plain, and stay put"""
