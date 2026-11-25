@@ -1886,11 +1886,13 @@ class TerminalShadow:
 
         assert IL_Y.format("") == "\033[" "L"
         assert DL_Y.format("") == "\033[" "M"
-        row_edit = re.search(r"\033\[[0-9]*[LM]", text)  # ⎋[⇧L or ⎋[3⇧M, but not ⎋[1;2⇧L
-        if row_edit:
+        assert ICH_X.format("") == "\033[" "@"
+        assert DCH_X.format("") == "\033[" "P"
+        row_or_char_edit = re.search(r"\033\[[0-9]*[@LMP]", text)  # ⎋[⇧L or ⎋[3⇧@, not ⎋[1;2⇧L
+        if row_or_char_edit:
             assert not top, (top.place, text)
 
-            # todo: insert or delete Rows while the Top Layer is on
+            # todo: insert or delete Rows or Chars while the Top Layer is on
 
         fork_layer = base.fork_layer()
         fork_written = fork_layer._write_some_or_all_strs_(text)
@@ -1918,9 +1920,11 @@ class TerminalShadow:
 
         assert IL_Y.format("") == "\033[" "L"
         assert DL_Y.format("") == "\033[" "M"
+        assert ICH_X.format("") == "\033[" "@"
+        assert DCH_X.format("") == "\033[" "P"
 
-        row_edit = re.search(r"\033\[[0-9]*[LM]", text)  # ⎋[⇧L or ⎋[3⇧M, but not ⎋[1;2⇧L
-        assert not row_edit, (row_edit, text)
+        row_or_char_edit = re.search(r"\033\[[0-9]*[@LMP]", text)  # ⎋[⇧L or ⎋[3⇧@, not ⎋[1;2⇧L
+        assert not row_or_char_edit, (row_or_char_edit, text)
 
         area_layer = top if top else base
         fork_layer = area_layer.fork_layer()
@@ -2367,10 +2371,10 @@ class TerminalLayer:
                 continue
 
             # Shadow each Control that takes one Pn: a Leap to a Row or to a Column,
-            # or an Insert or a Delete of Rows
+            # an Insert or a Delete of Rows, or an Insert or a Delete of Chars
 
             assert PN1 == 1
-            if final in ("d", "G", "L", "M"):
+            if final in ("@", "G", "L", "M", "P", "d"):
                 assert (not params) or params.isdigit(), (params,)  # copes with ⎋[D and ⎋[7D etc
                 pn = int(params) if params else PN1
                 self._write_pn_control_(final, pn=pn)
@@ -2414,7 +2418,7 @@ class TerminalLayer:
         return True
 
     def _write_pn_control_(self, final: str, pn: int) -> None:
-        """Shadow one Control that takes one Pn: a Leap, or an Insert or a Delete of Rows"""
+        """Shadow one Control that takes one Pn: a Leap, or an Insert or a Delete of Rows or Chars"""
 
         place = self.place
 
@@ -2454,6 +2458,22 @@ class TerminalLayer:
             row_count = place.pn_to_at_plus_below_row_count(pn)
             for row_index in range(row_count):
                 self._row_delete_at_place_()
+            return
+
+        # Shadow the Insert of Chars at the Cursor, without moving the Cursor,
+        # not even a Cursor waiting to wrap, as macOS Terminal does
+
+        assert ICH_X.format("") == "\033[" "@"
+        if final == "@":
+            self._chars_insert_at_place_(pn)
+            return
+
+        # Shadow the Delete of Chars at the Cursor, without moving the Cursor,
+        # not even a Cursor waiting to wrap, as macOS Terminal does
+
+        assert DCH_X.format("") == "\033[" "P"
+        if final == "P":
+            self._chars_delete_at_place_(pn)
             return
 
         # Freak when asked to shadow anything else
@@ -2558,6 +2578,119 @@ class TerminalLayer:
             write_by_xy[(x, place.y_height)] = (plain_styles, " ")
 
         # todo: fill with the Background Colour in force, as after ⎋[44M, when we shadow Colours
+
+    def _chars_insert_at_place_(self, pn: int) -> None:
+        """Move East each Write from the Cursor on, drop each pushed past the Row, & fill the gap"""
+
+        place = self.place
+        write_by_xy = self.write_by_xy
+
+        assert place.is_onscreen_place(), (place,)
+        assert pn >= 0, (pn,)
+
+        # Refuse a count past the end of the Row, since macOS Terminal spills such an insert onto
+        # the Rows below, and ⎋[32100⇧@ can wipe the whole Screen
+
+        column_count = place.pn_to_at_plus_east_column_count(pn)  # 1 or more, chopped to the Row
+        assert pn <= column_count, (pn, column_count, place)
+
+        acting_x = place.column_x_acting()
+        row_y = place.row_y
+        x_width = place.x_width
+
+        assert 1 <= acting_x <= x_width, (acting_x, x_width)
+        assert 1 <= row_y <= place.y_height, (row_y, place.y_height)
+
+        # Move East each Write of the Cursor Row at or East of the Cursor, but drop each Write
+        # pushed past the last Column
+
+        write_by_xy_was = dict(write_by_xy)
+        write_by_xy.clear()  # in place, since the Shadow holds this same dict
+
+        for (x, y), write in write_by_xy_was.items():
+            assert 1 <= y <= place.y_height, (y, place.y_height)
+            if y != row_y:  # stays, in another Row
+                assert (x, y) not in write_by_xy.keys(), (x, y)
+                write_by_xy[(x, y)] = write
+                continue
+
+            assert 1 <= x <= x_width, (x, x_width)
+            if x < acting_x:  # stays, West of the Cursor
+                assert (x, y) not in write_by_xy.keys(), (x, y)
+                write_by_xy[(x, y)] = write
+
+            if acting_x <= x <= (x_width - column_count):  # moves East
+                assert (x + column_count, y) not in write_by_xy.keys(), (x, y)
+                write_by_xy[(x + column_count, y)] = write
+
+            # drops the Write, when pushed past the last Column
+
+        # Fill the Columns from the Cursor with plain Spaces, even while ⎋[7M Reverse in force
+
+        assert SP == " "
+
+        plain_styles: tuple[str, ...] = ()  # as macOS Terminal paints it, after ⎋[M or ⎋[7M
+
+        for x in range(acting_x, acting_x + column_count):
+            assert x <= x_width, (x, x_width)
+            assert (x, row_y) not in write_by_xy.keys(), (x, row_y)
+            write_by_xy[(x, row_y)] = (plain_styles, " ")
+
+        # todo: fill with the Background Colour in force, as after ⎋[44⇧@, when we shadow Colours
+
+    def _chars_delete_at_place_(self, pn: int) -> None:
+        """Drop the Writes at the Cursor, move West each Write East of them, & fill the Row end"""
+
+        place = self.place
+        write_by_xy = self.write_by_xy
+
+        assert place.is_onscreen_place(), (place,)
+        assert pn >= 0, (pn,)
+
+        acting_x = place.column_x_acting()
+        column_count = place.pn_to_at_plus_east_column_count(pn)  # chops a Pn past the Row
+        row_y = place.row_y
+        x_width = place.x_width
+
+        assert 1 <= acting_x <= x_width, (acting_x, x_width)
+        assert 1 <= row_y <= place.y_height, (row_y, place.y_height)
+        assert 1 <= column_count <= (x_width - acting_x + 1), (column_count, acting_x, x_width)
+
+        # Drop each Write of the Cursor Row in the Columns from the Cursor, and move West each
+        # Write East of them
+
+        write_by_xy_was = dict(write_by_xy)
+        write_by_xy.clear()  # in place, since the Shadow holds this same dict
+
+        for (x, y), write in write_by_xy_was.items():
+            assert 1 <= y <= place.y_height, (y, place.y_height)
+            if y != row_y:  # stays, in another Row
+                assert (x, y) not in write_by_xy.keys(), (x, y)
+                write_by_xy[(x, y)] = write
+                continue
+
+            assert 1 <= x <= x_width, (x, x_width)
+            if x < acting_x:  # stays, West of the Cursor
+                assert (x, y) not in write_by_xy.keys(), (x, y)
+                write_by_xy[(x, y)] = write
+
+            if (acting_x + column_count) <= x:  # moves West
+                assert (x - column_count, y) not in write_by_xy.keys(), (x, y)
+                write_by_xy[(x - column_count, y)] = write
+
+            # drops the Write, when in the Columns deleted
+
+        # Fill the last Columns of the Row with plain Spaces, even while ⎋[7M Reverse in force
+
+        assert SP == " "
+
+        plain_styles: tuple[str, ...] = ()  # as macOS Terminal paints it, after ⎋[M or ⎋[7M
+
+        for x in range(x_width - column_count + 1, x_width + 1):
+            assert (x, row_y) not in write_by_xy.keys(), (x, row_y)
+            write_by_xy[(x, row_y)] = (plain_styles, " ")
+
+        # todo: fill with the Background Colour in force, as after ⎋[44⇧P, when we shadow Colours
 
     @staticmethod
     def text_styles_in_force(text_styles: tuple[str, ...]) -> tuple[str, ...]:
@@ -2744,6 +2877,38 @@ class TerminalPlace:
             row_count = at_plus_below_rows  # as macOS Terminal does for ⎋[32100⇧L and ⎋[32100⇧M
 
         return row_count
+
+    def column_x_acting(self) -> int:
+        """Give the Column where ⎋[3⇧@ or ⎋[3⇧P acts, the last Column for a Cursor waiting to wrap"""
+
+        column_x = self.column_x
+        x_width = self.x_width
+
+        assert 1 <= column_x <= (x_width + 1), (column_x, x_width)
+
+        acting_x = min(column_x, x_width)  # not Column W+1, where a Cursor waits to wrap
+
+        assert 1 <= acting_x <= x_width, (acting_x, x_width)
+        return acting_x
+
+    def pn_to_at_plus_east_column_count(self, pn: int) -> int:
+        """Give the Columns that ⎋[3⇧@ or ⎋[3⇧P changes, at most those from the Cursor East"""
+
+        x_width = self.x_width
+        acting_x = self.column_x_acting()
+
+        assert 1 <= acting_x <= x_width, (acting_x, x_width)
+        at_plus_east_columns = x_width - acting_x + 1
+
+        assert pn >= 0, (pn,)
+
+        column_count = pn
+        if pn < 1:
+            column_count = 1  # as macOS Terminal does for ⎋[0⇧@ and ⎋[0⇧P
+        if pn > at_plus_east_columns:
+            column_count = at_plus_east_columns  # as macOS Terminal does for ⎋[32100⇧P
+
+        return column_count
 
     def is_onscreen_place(self) -> bool:
         """Say if the Cursor sits on the Screen, or just past the right edge, waiting to wrap"""

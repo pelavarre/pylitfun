@@ -15,6 +15,8 @@ quirks:
   starts each Pixel in an odd Column, and so steps one Column West at launch from an even one
   never quits on ⎋[⇧L, which inserts a Row at the Cursor, as ⎋[3⇧L inserts three
   never quits on ⎋[⇧M, which deletes the Row at the Cursor, as ⎋[3⇧M deletes three
+  never quits on ⎋[⇧@, which inserts Chars at the Cursor, as ⎋[2⇧@ inserts two
+  never quits on ⎋[⇧P, which deletes Chars at the Cursor, as ⎋[2⇧P deletes two
   never quits on ⎋[D, which leaps the Cursor to Row 1, as ⎋[7D leaps it to Row 7
   never quits on ⎋[⇧G, which leaps the Cursor to the Pixel at Column 1, as ⎋[7⇧G to Column 7
   never quits on ⎋[;⇧H, which leaps to the Pixel at Row 1 Column 1, as ⎋[5;7⇧H to Row 5 Column 7
@@ -124,17 +126,20 @@ class SqaxelsWorker:
             assert stalwart_arrow in ["←", "↑", "→", "↓"], (stalwart_caps,)
 
         # Choose the ⎋[⇧L or ⎋[3⇧L that inserts Rows, the ⎋[⇧M or ⎋[3⇧M that deletes them,
+        # the ⎋[⇧@ or ⎋[2⇧@ that inserts Chars, the ⎋[⇧P or ⎋[2⇧P that deletes them,
         # the ⎋[D or ⎋[7D that leaps to a Row, the ⎋[⇧G or ⎋[7⇧G that leaps to a Column,
         # and the ⎋[;⇧H or ⎋[5;7⇧H that leaps to a Row and a Column, to not tell us to quit
 
         assert litpyglass.IL_Y.format("") == "\033[" "L"
         assert litpyglass.DL_Y.format("") == "\033[" "M"
+        assert litpyglass.ICH_X.format("") == "\033[" "@"
+        assert litpyglass.DCH_X.format("") == "\033[" "P"
         assert litpyglass.VPA_Y.format("") == "\033[" "d"
         assert litpyglass.CHA_X.format("") == "\033[" "G"
         assert litpyglass.CUP_Y_X.format("", "") == "\033[" ";H"
 
         arrow_stalwarts = tuple(re.escape(_) for _ in arrow_encodes)
-        csi_stalwarts = (rb"\033\[[0-9]*[LMd]", rb"\033\[[0-9]*(G|(;[0-9]*)?H)")
+        csi_stalwarts = (rb"\033\[[0-9]*[@LMPd]", rb"\033\[[0-9]*(G|(;[0-9]*)?H)")
         stalwarts = arrow_stalwarts + csi_stalwarts  # each a Regex of a whole Frame
 
         # Choose what to write at exit
@@ -330,13 +335,19 @@ class SqaxelsWorker:
                 continue
 
             # Write as struck the ⎋[⇧L or ⎋[3⇧L that inserts Rows at the Cursor, the ⎋[⇧M or ⎋[3⇧M
-            # that deletes them, and the ⎋[D or ⎋[7D that leaps the Cursor to a Row
+            # that deletes them, the ⎋[⇧@ or ⎋[2⇧@ that inserts Chars, the ⎋[⇧P or ⎋[2⇧P that
+            # deletes them, and the ⎋[D or ⎋[7D that leaps the Cursor to a Row. A ⎋[32100⇧@ fails
+            # an assert in the Layer before any Byte goes out, since it spills past the Row
 
             assert litpyglass.IL_Y.format("") == "\033[" "L"
             assert litpyglass.DL_Y.format("") == "\033[" "M"
+            assert litpyglass.ICH_X.format("") == "\033[" "@"
+            assert litpyglass.DCH_X.format("") == "\033[" "P"
             assert litpyglass.VPA_Y.format("") == "\033[" "d"
 
-            if taken and re.fullmatch(rb"\033\[[0-9]*[LMd]", data):
+            # todo: ⎋[⇧@ or ⎋[⇧P of an odd count shifts the Pixels East of it half a Pixel askew
+
+            if taken and re.fullmatch(rb"\033\[[0-9]*[@LMPd]", data):
                 ts.str_write_base_tb(data.decode())
                 continue
 

@@ -100,6 +100,8 @@ def main() -> None:
     _try_shadow_yx_leap_()  # ~1ms
     _try_shadow_insert_row_()  # ~1ms
     _try_shadow_delete_row_()  # ~1ms
+    _try_shadow_insert_chars_()  # ~1ms
+    _try_shadow_delete_chars_()  # ~1ms
     _try_shadow_dump_()  # ~100ms, 9 Layers dumped, then each replayed 9 ways
     _try_shadow_drop_()  # ~1ms
     _try_screen_replay_()  # ~1ms
@@ -3554,6 +3556,374 @@ def _try_shadow_delete_row_() -> None:
     assert above_by_xy == above_by_xy_before, (above_by_xy, above_by_xy_before)
     assert len(above_by_xy) == 4, above_by_xy
     assert (ts.base_place.column_x, ts.base_place.row_y) == (5, 3), ts.base_place
+
+
+def _try_shadow_insert_chars_() -> None:
+    """Try a TerminalShadow taking ⎋[⇧@ to insert Chars, as specs.md § 10 says"""
+
+    insert_chars = "\033[@"  # ⎋[⇧@
+    reverse = "\033[7m"  # ⎋[7M
+
+    # A Plain insert moves d to h East by one, leaves a b c and the other Rows, and fills plain
+
+    fake = FakeWriteBoss()
+    ts = _shadow_chars_row_(fake, screen_width=20, cursor_x=4)
+    write_by_xy_before = dict(ts.base.write_by_xy)
+    ts.str_write_base_tb(insert_chars)
+
+    write_by_xy = ts.base.write_by_xy
+    letters = _shadow_letters_(ts)
+    expect_row3 = {(1, 3): "a", (2, 3): "b", (3, 3): "c", (5, 3): "d", (6, 3): "e", (7, 3): "f"}
+    expect_row3.update({(8, 3): "g", (9, 3): "h"})
+    expect_letters = dict((xy, c) for xy, c in letters.items() if xy[1] != 3)
+    assert expect_letters == {(1, 2): "x", (19, 2): "y", (5, 4): "z"}, letters  # other Rows stay
+    assert dict((xy, c) for xy, c in letters.items() if xy[1] == 3) == expect_row3, letters
+
+    assert fake.writes[-1] == insert_chars.encode(), fake.writes
+    assert write_by_xy[(4, 3)] == ((), " "), write_by_xy
+    assert ts.base.text_styles == (), ts.base.text_styles
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (4, 3), ts.base_place
+    assert ts.base.xy_chops == 0, ts.base.xy_chops
+    assert len(write_by_xy) == (len(write_by_xy_before) + 1), (len(write_by_xy), write_by_xy)
+
+    # A Reverse insert fills plain Spaces, though Reverse stays in force, and the Writes East
+    # keep their own Text Styles
+
+    fake = FakeWriteBoss()
+    ts = _shadow_chars_row_(fake, screen_width=20, cursor_x=8)
+    ts.str_write_base_tb(reverse + "H" + "\033[m")
+    ts.shadow_read_data_else(b"\033[3;4R")
+    ts.str_write_base_tb(reverse)
+    ts.str_write_base_tb("\033[3@")
+
+    write_by_xy = ts.base.write_by_xy
+    for x in (4, 5, 6):
+        assert write_by_xy[(x, 3)] == ((), " "), (x, write_by_xy)  # plain, though ⎋[7M in force
+    assert write_by_xy[(7, 3)] == ((), "d"), write_by_xy
+    assert write_by_xy[(11, 3)] == ((reverse,), "H"), write_by_xy  # H keeps its Reverse
+    assert ts.base.text_styles == ("\033[m", reverse), ts.base.text_styles  # ⎋[M, then ⎋[7M
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (4, 3), ts.base_place
+
+    # An insert drops each Write pushed past the last Column, the real Width W+1 of an odd Width
+
+    for screen_width in (20, 21):
+        fake = FakeWriteBoss()
+        ts = _shadow_chars_row_(fake, screen_width=screen_width, cursor_x=18)
+        ts.str_write_base_tb("pqr")  # fills Columns 18, 19 and 20
+        ts.shadow_read_data_else(b"\033[3;19R")
+        ts.str_write_base_tb("\033[2@")
+
+        write_by_xy = ts.base.write_by_xy
+        row3 = dict((x, write_by_xy[(x, y)][1]) for (x, y) in write_by_xy.keys() if y == 3)
+        drop_occasion = (screen_width, row3, ts.base_place)
+        assert row3[18] == "p", drop_occasion
+        assert row3[19] == " ", drop_occasion
+        assert row3[20] == " ", drop_occasion
+        assert "r" not in row3.values(), drop_occasion  # pushed past the last Column, so dropped
+        assert (screen_width + 1) not in row3.keys(), drop_occasion
+        assert (21 in row3.keys()) is (screen_width == 21), drop_occasion  # q fits in Column W+1
+        assert ("q" in row3.values()) is (screen_width == 21), drop_occasion
+        assert (ts.base_place.column_x, ts.base_place.row_y) == (19, 3), drop_occasion
+
+    # A Pn of exactly W - x + 1 blanks from the Cursor to the end of the Row and no more, but a
+    # Pn of W - x + 2 or 32100 fails an assert before any Byte, and leaves the Shadow unchanged
+
+    for screen_width in (20, 21):
+        exact = screen_width - 4 + 1
+        for pn in (exact, exact + 1, 32100):
+            fake = FakeWriteBoss()
+            ts = _shadow_chars_row_(fake, screen_width=screen_width, cursor_x=4)
+            writes_before = list(fake.writes)
+            write_by_xy_before = dict(ts.base.write_by_xy)
+            place_before = dataclasses.replace(ts.base_place)
+
+            text = f"\033[{pn}@"
+            is_asserted = _write_asserts_for_(ts.str_write_base_tb, text)
+            exact_occasion = (screen_width, pn, exact, is_asserted, ts.base_place)
+            assert is_asserted is (pn > exact), exact_occasion
+
+            row3_xs = sorted(x for (x, y) in ts.base.write_by_xy.keys() if y == 3)
+            if pn > exact:
+                assert fake.writes == writes_before, (fake.writes, writes_before)
+                assert ts.base.write_by_xy == write_by_xy_before, exact_occasion
+                assert ts.base_place == place_before, exact_occasion
+                assert ts.base.xy_chops == 0, exact_occasion
+                continue
+
+            assert fake.writes == (writes_before + [text.encode()]), exact_occasion
+            assert row3_xs == list(range(1, screen_width + 1)), (row3_xs, exact_occasion)
+            assert _shadow_letters_(ts)[(3, 3)] == "c", exact_occasion
+            assert (4, 3) not in _shadow_letters_(ts).keys(), exact_occasion
+            assert (screen_width, 3) not in _shadow_letters_(ts).keys(), exact_occasion
+            assert ts.base_place == place_before, exact_occasion
+
+    # An insert with a Pn does the one-Char insert that many times, and the Bytes go out once
+
+    for pn_text, pn_int in (("", 1), ("0", 0), ("1", 1), ("3", 3), ("003", 3), ("17", 17)):
+        text = f"\033[{pn_text}@"
+        char_count = pn_int if pn_int else 1
+
+        fake = FakeWriteBoss()
+        ts = _shadow_chars_row_(fake, screen_width=20, cursor_x=4)
+        writes_before = list(fake.writes)
+        ts.str_write_base_tb(text)
+
+        twin_fake = FakeWriteBoss()
+        twin_ts = _shadow_chars_row_(twin_fake, screen_width=20, cursor_x=4)
+        for char_index in range(char_count):
+            twin_ts.str_write_base_tb(insert_chars)
+
+        twin_occasion = (
+            text,
+            char_count,
+            ts.base_place,
+            ts.base.xy_chops,
+            fake.writes,
+            writes_before,
+        )
+        assert ts.base.write_by_xy == twin_ts.base.write_by_xy, twin_occasion
+        assert ts.base_place == twin_ts.base_place, twin_occasion
+        assert ts.base.xy_chops == 0, twin_occasion
+        assert fake.writes == (writes_before + [text.encode()]), twin_occasion
+
+    # An insert while waiting to wrap acts at the last Column, and the Cursor still waits
+
+    fake = FakeWriteBoss()
+    ts = _shadow_chars_row_(fake, screen_width=20, cursor_x=20)
+    ts.str_write_base_tb("w")  # lands in the last Column, and then the Cursor waits
+    assert ts.base_place.column_x == 21, ts.base_place
+
+    ts.str_write_base_tb(insert_chars)
+    write_by_xy = ts.base.write_by_xy
+    wait_occasion = (ts.base_place, write_by_xy)
+    assert ts.base_place.column_x == 21, wait_occasion
+    assert write_by_xy[(20, 3)] == ((), " "), wait_occasion  # replaced the w
+    assert "w" not in _shadow_letters_(ts).values(), wait_occasion
+
+    writes_before = list(fake.writes)
+    assert _write_asserts_for_(ts.str_write_base_tb, "\033[2@"), wait_occasion
+    assert fake.writes == writes_before, (fake.writes, writes_before)
+
+    # An insert while waiting to wrap in Column W+2 of an odd Width acts in Column W+1
+
+    fake = FakeWriteBoss()
+    ts = _shadow_chars_row_(fake, screen_width=21, cursor_x=4)
+    ts.base.place.column_x = 22  # as if Column 21 took a Write, which the Shadow does not yet
+    ts.str_write_base_tb(insert_chars)
+
+    write_by_xy = ts.base.write_by_xy
+    wait_occasion = (ts.base_place, write_by_xy)
+    assert ts.base_place.column_x == 22, wait_occasion
+    assert write_by_xy[(21, 3)] == ((), " "), wait_occasion
+    assert (20, 3) not in write_by_xy.keys(), wait_occasion
+    assert _shadow_letters_(ts)[(8, 3)] == "h", wait_occasion  # West of the Cursor, so stays
+
+    writes_before = list(fake.writes)
+    assert _write_asserts_for_(ts.str_write_base_tb, "\033[2@"), wait_occasion
+    assert fake.writes == writes_before, (fake.writes, writes_before)
+
+    # An insert or a delete with a Pn that is not decimal digits fails an assert before any Byte
+
+    fake = FakeWriteBoss()
+    ts = _shadow_chars_row_(fake, screen_width=20, cursor_x=4)
+    writes_before = list(fake.writes)
+    write_by_xy_before = dict(ts.base.write_by_xy)
+
+    for text in ("\033[1;2@", "\033[?7@", "\033[1;2P", "\033[?7P"):
+        assert _write_asserts_for_(ts.str_write_base_tb, text), (text, ts.base_place)
+
+    assert fake.writes == writes_before, (fake.writes, writes_before)
+    assert ts.base.write_by_xy == write_by_xy_before, (ts.base.write_by_xy, write_by_xy_before)
+
+    # An insert or a delete through the Top Layer fails an assert before any Byte goes out
+
+    for text in (insert_chars, "\033[3@", "\033[P", "\033[3P"):
+        assert _write_asserts_for_(ts.str_write_top_tb, text), (text, ts.base_place)
+    assert fake.writes == writes_before, (fake.writes, writes_before)
+    assert not ts.top, ts.top.place
+
+    # An insert or a delete through the Base Layer, while the Top Layer is on, fails an assert
+
+    ts.str_write_top_tb("X")
+    writes_before = list(fake.writes)
+    write_by_xy_before = dict(ts.base.write_by_xy)
+    assert ts.top, ts.top.place
+
+    for text in (insert_chars, "\033[3@", "\033[P", "\033[3P"):
+        assert _write_asserts_for_(ts.str_write_base_tb, text), (text, ts.top.place, ts.base_place)
+    assert fake.writes == writes_before, (fake.writes, writes_before)
+    assert ts.base.write_by_xy == write_by_xy_before, (ts.base.write_by_xy, write_by_xy_before)
+
+    ts.str_write_base_tb("\b")  # other Base Writes while the Top is on go on as before
+    assert fake.writes[-1] == b"\b", fake.writes
+
+
+def _try_shadow_delete_chars_() -> None:
+    """Try a TerminalShadow taking ⎋[⇧P to delete Chars, as specs.md § 10 says"""
+
+    delete_chars = "\033[P"  # ⎋[⇧P
+    reverse = "\033[7m"  # ⎋[7M
+
+    # A Plain delete drops d, moves e to h West by one, leaves a b c and the other Rows, and fills
+    # the last Column plain
+
+    fake = FakeWriteBoss()
+    ts = _shadow_chars_row_(fake, screen_width=20, cursor_x=4)
+    write_by_xy_before = dict(ts.base.write_by_xy)
+    ts.str_write_base_tb(delete_chars)
+
+    write_by_xy = ts.base.write_by_xy
+    letters = _shadow_letters_(ts)
+    expect_row3 = {(1, 3): "a", (2, 3): "b", (3, 3): "c", (4, 3): "e", (5, 3): "f", (6, 3): "g"}
+    expect_row3.update({(7, 3): "h"})
+    expect_letters = dict((xy, c) for xy, c in letters.items() if xy[1] != 3)
+    assert expect_letters == {(1, 2): "x", (19, 2): "y", (5, 4): "z"}, letters  # other Rows stay
+    assert dict((xy, c) for xy, c in letters.items() if xy[1] == 3) == expect_row3, letters
+
+    assert fake.writes[-1] == delete_chars.encode(), fake.writes
+    assert write_by_xy[(20, 3)] == ((), " "), write_by_xy
+    assert ts.base.text_styles == (), ts.base.text_styles
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (4, 3), ts.base_place
+    assert ts.base.xy_chops == 0, ts.base.xy_chops
+    assert len(write_by_xy) == (len(write_by_xy_before) + 1 - 1), (len(write_by_xy), write_by_xy)
+
+    # A Reverse delete fills plain Spaces, though Reverse stays in force, and the Writes East
+    # keep their own Text Styles
+
+    fake = FakeWriteBoss()
+    ts = _shadow_chars_row_(fake, screen_width=20, cursor_x=8)
+    ts.str_write_base_tb(reverse + "H" + "\033[m")
+    ts.shadow_read_data_else(b"\033[3;4R")
+    ts.str_write_base_tb(reverse)
+    ts.str_write_base_tb("\033[3P")
+
+    write_by_xy = ts.base.write_by_xy
+    for x in (18, 19, 20):
+        assert write_by_xy[(x, 3)] == ((), " "), (x, write_by_xy)  # plain, though ⎋[7M in force
+    assert write_by_xy[(4, 3)] == ((), "g"), write_by_xy
+    assert write_by_xy[(5, 3)] == ((reverse,), "H"), write_by_xy  # H keeps its Reverse
+    assert ts.base.text_styles == ("\033[m", reverse), ts.base.text_styles  # ⎋[M, then ⎋[7M
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (4, 3), ts.base_place
+
+    # A delete with a Pn does the one-Char delete that many times, and the Bytes go out once, and
+    # a Pn past the end of the Row deletes to the end of the Row and stops there, counting no chop
+
+    chars_from_cursor = 17  # Column 4 of 20
+    for pn_text, pn_int in (
+        ("", 1),
+        ("0", 0),
+        ("1", 1),
+        ("3", 3),
+        ("003", 3),
+        ("17", 17),
+        ("18", 18),
+        ("32100", 32100),
+    ):
+        text = f"\033[{pn_text}P"
+        char_count = min((pn_int if pn_int else 1), chars_from_cursor)
+
+        fake = FakeWriteBoss()
+        ts = _shadow_chars_row_(fake, screen_width=20, cursor_x=4)
+        writes_before = list(fake.writes)
+        ts.str_write_base_tb(text)
+
+        twin_fake = FakeWriteBoss()
+        twin_ts = _shadow_chars_row_(twin_fake, screen_width=20, cursor_x=4)
+        for char_index in range(char_count):
+            twin_ts.str_write_base_tb(delete_chars)
+
+        twin_occasion = (
+            text,
+            char_count,
+            ts.base_place,
+            ts.base.xy_chops,
+            fake.writes,
+            writes_before,
+        )
+        assert ts.base.write_by_xy == twin_ts.base.write_by_xy, twin_occasion
+        assert ts.base_place == twin_ts.base_place, twin_occasion
+        assert ts.base.xy_chops == 0, twin_occasion  # a chopped Pn counts no chop
+        assert fake.writes == (writes_before + [text.encode()]), twin_occasion
+
+    # A delete to the end of the Row leaves a b c and 17 plain Spaces, even for an odd Width
+
+    for screen_width in (20, 21):
+        fake = FakeWriteBoss()
+        ts = _shadow_chars_row_(fake, screen_width=screen_width, cursor_x=4)
+        ts.str_write_base_tb("\033[32100P")
+
+        write_by_xy = ts.base.write_by_xy
+        row3 = dict((x, write_by_xy[(x, y)]) for (x, y) in write_by_xy.keys() if y == 3)
+        end_occasion = (screen_width, row3, ts.base_place)
+        assert sorted(row3.keys()) == list(range(1, screen_width + 1)), end_occasion
+        assert list(row3[x][1] for x in (1, 2, 3)) == ["a", "b", "c"], end_occasion
+        assert all(row3[x] == ((), " ") for x in range(4, screen_width + 1)), end_occasion
+        assert ts.base.xy_chops == 0, end_occasion
+        assert (ts.base_place.column_x, ts.base_place.row_y) == (4, 3), end_occasion
+
+    # A delete while waiting to wrap acts at the last Column, and the Cursor still waits
+
+    fake = FakeWriteBoss()
+    ts = _shadow_chars_row_(fake, screen_width=20, cursor_x=20)
+    ts.str_write_base_tb("w")  # lands in the last Column, and then the Cursor waits
+    assert ts.base_place.column_x == 21, ts.base_place
+
+    ts.str_write_base_tb("\033[3P")  # deletes only the one Column that lies at or East
+    write_by_xy = ts.base.write_by_xy
+    wait_occasion = (ts.base_place, write_by_xy)
+    assert ts.base_place.column_x == 21, wait_occasion
+    assert write_by_xy[(20, 3)] == ((), " "), wait_occasion  # dropped the w
+    assert "w" not in _shadow_letters_(ts).values(), wait_occasion
+    assert (21, 3) not in write_by_xy.keys(), wait_occasion
+
+    # A delete while waiting to wrap in Column W+2 of an odd Width acts in Column W+1
+
+    fake = FakeWriteBoss()
+    ts = _shadow_chars_row_(fake, screen_width=21, cursor_x=4)
+    ts.base.place.column_x = 22  # as if Column 21 took a Write, which the Shadow does not yet
+    ts.str_write_base_tb("\033[3P")
+
+    write_by_xy = ts.base.write_by_xy
+    wait_occasion = (ts.base_place, write_by_xy)
+    assert ts.base_place.column_x == 22, wait_occasion
+    assert write_by_xy[(21, 3)] == ((), " "), wait_occasion
+    assert _shadow_letters_(ts)[(8, 3)] == "h", wait_occasion  # West of the Cursor, so stays
+    assert ts.base.xy_chops == 0, wait_occasion
+
+
+def _shadow_chars_row_(
+    fake: FakeWriteBoss, screen_width: int, cursor_x: int
+) -> litpyglass.TerminalShadow:
+    """Write x y at Row 2, a to h at Row 3, & z at Row 4 of 5, & leave the Cursor in Row 3"""
+
+    ts = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, fake))
+    ts.shadow_read_data_else(b"\033[1;1R")
+    ts.shadow_read_data_else(f"\033[8;5;{screen_width}t".encode())
+
+    for y, x, text in ((2, 1, "x"), (2, 19, "y"), (3, 1, "abcdefgh"), (4, 5, "z")):
+        ts.shadow_read_data_else(f"\033[{y};{x}R".encode())
+        ts.str_write_base_tb(text)
+
+    ts.shadow_read_data_else(f"\033[3;{cursor_x}R".encode())
+    return ts
+
+
+def _shadow_letters_(ts: litpyglass.TerminalShadow) -> dict[tuple[int, int], str]:
+    """Give each Write of the Base Layer that is more than a Space, by Column and Row"""
+
+    write_by_xy = ts.base.write_by_xy
+    letters = dict((xy, write[1]) for xy, write in write_by_xy.items() if write[1] != " ")
+    return letters
+
+
+def _write_asserts_for_(write: typing.Callable[[str], None], text: str) -> bool:
+    """Say if the Write fails an assert"""
+
+    try:
+        write(text)
+    except AssertionError:
+        return True
+    return False
 
 
 def _shadow_dump_cells_(

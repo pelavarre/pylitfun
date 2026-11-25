@@ -575,7 +575,8 @@ Spec of TerminalLayer.
 
 We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, _try_shadow_chops_,
 _try_shadow_row_leap_, _try_shadow_column_leap_, _try_shadow_yx_leap_, _try_shadow_insert_row_,
-_try_shadow_delete_row_, and _try_shadow_dump_:
+_try_shadow_delete_row_, _try_shadow_insert_chars_, _try_shadow_delete_chars_, and
+_try_shadow_dump_:
 
     1. Give a Layer its own .place, .text_styles, and .write_by_xy, and write no Byte anywhere from
        it.
@@ -591,7 +592,8 @@ _try_shadow_delete_row_, and _try_shadow_dump_:
        other Control, not silently, and on a Line Feed "\n" too: skip no Char of the Str. Leap to a
        Row on ⎋[D, as item 14 says, and to a Column on ⎋[⇧G, as item 15 says. Insert a Row at the
        Cursor on ⎋[⇧L, as item 16 says, and delete one on ⎋[⇧M, as item 17 says. Leap to a Row and
-       a Column on ⎋[⇧H, as item 18 says.
+       a Column on ⎋[⇧H, as item 18 says. Insert Chars at the Cursor on ⎋[⇧@, as item 20 says, and
+       delete them on ⎋[⇧P, as item 21 says.
 
     5. Start the Text Styles in force over at ⎋[M, and carry them to the next write. Join them once
        on ⎋[7M however often said. Fail an assert on any other SGR, such as ⎋[27M or ⎋[1M, not
@@ -692,13 +694,40 @@ _try_shadow_delete_row_, and _try_shadow_dump_:
         Layer on every call, and fail an assert unless the trial counted 0 chops, and ended at the
         Place and in the Text Styles of the Layer, holding the Writes of the Layer that it did not
         skip. Change nothing in the Layer.
+
+    20. Insert Chars at the Cursor on ⎋[⇧@, the 3 Chars "\e[@", in _write_some_or_all_strs_ and in
+        this order. Act at the Cursor Column, or at the last Column for a Cursor waiting to wrap in
+        Column W+1, and leave the Cursor where it is, still waiting to wrap while it waits, as macOS
+        Terminal does and as no Move does. Take a Pn of decimal digits, as ⎋[3⇧@ inserts 3 Chars,
+        and a Pn of 0 as 1. Move East by the Pn each Write of the Cursor Row at or East of the
+        acting Column. Drop each Write pushed past the last Column, the real Width W+1 of an odd
+        Width. Write the Pn Columns from the acting Column full of plain Spaces, plain even while
+        ⎋[7M is in force, as macOS Terminal paints them. Leave every other Row alone. Do the work in
+        the same dict of Writes, never a copy. Fail an assert on a Pn of more than the Columns from
+        the acting Column to the end of the Row, since macOS Terminal does not stop there: it spills
+        the extra blanks onto the Rows below, and ⎋[32100⇧@ wipes the whole Screen. Fail that assert
+        before the Shadow writes any Byte, since the Shadow tries each Write in a fork Layer first.
+        Count no chop in .xy_chops. Fail an assert on ⎋[1;2⇧@ and ⎋[⇧?7⇧@, not silently.
+
+    21. Delete Chars at the Cursor on ⎋[⇧P, the 3 Chars "\e[P", in _write_some_or_all_strs_ and in
+        this order. Act at the Cursor Column, or at the last Column for a Cursor waiting to wrap in
+        Column W+1, and leave the Cursor where it is, still waiting to wrap while it waits, as macOS
+        Terminal does. Take a Pn of decimal digits, as ⎋[3⇧P deletes 3 Chars, and a Pn of 0 as 1.
+        Delete no more Chars than lie from the acting Column to the end of the Row, the real Width
+        W+1 of an odd Width, as macOS Terminal does for ⎋[32100⇧P, and count no chop in .xy_chops.
+        Drop the Writes of the Cursor Row in the deleted Columns. Move West by the count each Write
+        of the Cursor Row East of them. Write the last count Columns of the Row full of plain
+        Spaces, plain even while ⎋[7M is in force, as macOS Terminal paints them. Leave every other
+        Row alone. Do the work in the same dict of Writes, never a copy. Fail an assert on ⎋[1;2⇧P
+        and ⎋[⇧?7⇧P, not silently.
 ```
 
 ```
 Spec of TerminalShadow.
 
 We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, _try_shadow_top_layer_,
-_try_shadow_insert_row_, _try_shadow_delete_row_, and _try_shadow_drop_:
+_try_shadow_insert_row_, _try_shadow_delete_row_, _try_shadow_insert_chars_,
+_try_shadow_delete_chars_, and _try_shadow_drop_:
 
     1. Hold a Terminal, a Base Layer named .base, and a Top Layer named .top. Read everything
        known of the Screen from .base. Forward .base_place by property and is_writeable_base_area
@@ -750,11 +779,12 @@ _try_shadow_insert_row_, _try_shadow_delete_row_, and _try_shadow_drop_:
         step is 0 or more and that the Row matches. Let the Shadow cope with a Pn after ⎋[ and
         before A B C D, and take a Pn of 0 as 1.
 
-    13. Refuse ⎋[⇧L and ⎋[⇧M, with or without a Pn of decimal digits, through the Top Layer, since
-        the Top Layer as yet cannot undo a Row Insert or a Row Delete. In str_write_top_tb, fail an
-        assert before any Byte goes out on a Str holding ⎋[⇧L, ⎋[3⇧L, ⎋[⇧M or ⎋[3⇧M. In
-        str_write_base_tb, fail an assert before any Byte goes out on such a Str while .top is on,
-        and take every other Write as before.
+    13. Refuse ⎋[⇧L, ⎋[⇧M, ⎋[⇧@ and ⎋[⇧P, with or without a Pn of decimal digits, through the Top
+        Layer, since the Top Layer as yet cannot undo a Row Insert, a Row Delete, a Char Insert or a
+        Char Delete. In str_write_top_tb, fail an assert before any Byte goes out on a Str holding
+        ⎋[⇧L, ⎋[3⇧L, ⎋[⇧M, ⎋[3⇧M, ⎋[⇧@, ⎋[3⇧@, ⎋[⇧P or ⎋[3⇧P. In str_write_base_tb, fail an assert
+        before any Byte goes out on such a Str while .top is on, and take every other Write as
+        before.
 
     14. In str_drop_unwritable_chars, take the Write through a new Layer made from .base, one Write
         at a time, as _write_some_or_all_strs_ cuts a Str into Writes. Keep each Control and each
