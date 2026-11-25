@@ -17,6 +17,7 @@ quirks:
   never quits on ⎋[⇧M, which deletes the Row at the Cursor, as ⎋[3⇧M deletes three
   never quits on ⎋[D, which leaps the Cursor to Row 1, as ⎋[7D leaps it to Row 7
   never quits on ⎋[⇧G, which leaps the Cursor to the Pixel at Column 1, as ⎋[7⇧G to Column 7
+  never quits on ⎋[;⇧H, which leaps to the Pixel at Row 1 Column 1, as ⎋[5;7⇧H to Row 5 Column 7
   replays io.typescript from where the Cursor starts, and rewrites io.typescript at quit
 
 examples:
@@ -123,18 +124,18 @@ class SqaxelsWorker:
             assert stalwart_arrow in ["←", "↑", "→", "↓"], (stalwart_caps,)
 
         # Choose the ⎋[⇧L or ⎋[3⇧L that inserts Rows, the ⎋[⇧M or ⎋[3⇧M that deletes them,
-        # the ⎋[D or ⎋[7D that leaps to a Row, and the ⎋[⇧G or ⎋[7⇧G that leaps to a Column,
-        # to not tell us to quit
+        # the ⎋[D or ⎋[7D that leaps to a Row, the ⎋[⇧G or ⎋[7⇧G that leaps to a Column,
+        # and the ⎋[;⇧H or ⎋[5;7⇧H that leaps to a Row and a Column, to not tell us to quit
 
         assert litpyglass.IL_Y.format("") == "\033[" "L"
         assert litpyglass.DL_Y.format("") == "\033[" "M"
         assert litpyglass.VPA_Y.format("") == "\033[" "d"
         assert litpyglass.CHA_X.format("") == "\033[" "G"
+        assert litpyglass.CUP_Y_X.format("", "") == "\033[" ";H"
 
         arrow_stalwarts = tuple(re.escape(_) for _ in arrow_encodes)
-        row_stalwarts = (rb"\033\[[0-9]*[LMd]",)
-        column_stalwarts = (rb"\033\[[0-9]*G",)
-        stalwarts = arrow_stalwarts + row_stalwarts + column_stalwarts  # each a Regex of a Frame
+        csi_stalwarts = (rb"\033\[[0-9]*[LMd]", rb"\033\[[0-9]*(G|(;[0-9]*)?H)")
+        stalwarts = arrow_stalwarts + csi_stalwarts  # each a Regex of a whole Frame
 
         # Choose what to write at exit
 
@@ -326,12 +327,14 @@ class SqaxelsWorker:
                 ts.str_write_base_tb(data.decode())
                 continue
 
-            # Leap the Cursor to the Pixel at a Column, as ⎋[⇧G or ⎋[7⇧G says: leap as struck,
-            # and then step West by Backspaces onto the Pixel
+            # Leap the Cursor to the Pixel at a Column, as ⎋[⇧G or ⎋[7⇧G says, or at a Row and a
+            # Column, as ⎋[;⇧H or ⎋[5;7⇧H says: leap as struck, and then step West by Backspaces
+            # onto the Pixel. Never see the bare ⎋[⇧H here, since Fn← sends it, as an Arrow above
 
             assert litpyglass.CHA_X.format("") == "\033[" "G"
+            assert litpyglass.CUP_Y_X.format("", "") == "\033[" ";H"
 
-            if taken and re.fullmatch(rb"\033\[[0-9]*G", data):
+            if taken and re.fullmatch(rb"\033\[[0-9]*(G|(;[0-9]*)?H)", data):
                 ts.str_write_base_tb(data.decode())
 
                 back_text = self.form_pixel_back_text(ts.base_place)

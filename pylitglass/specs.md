@@ -574,8 +574,8 @@ running --egg=skater and --egg=strikes on a macOS pty:
 Spec of TerminalLayer.
 
 We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, _try_shadow_chops_,
-_try_shadow_row_leap_, _try_shadow_column_leap_, _try_shadow_insert_row_, and
-_try_shadow_delete_row_:
+_try_shadow_row_leap_, _try_shadow_column_leap_, _try_shadow_yx_leap_, _try_shadow_insert_row_,
+and _try_shadow_delete_row_:
 
     1. Give a Layer its own .place, .text_styles, and .write_by_xy, and write no Byte anywhere from
        it.
@@ -590,7 +590,7 @@ _try_shadow_delete_row_:
        steer nothing for hiding or showing the Cursor, ⎋[⇧?25L or ⎋[⇧?25H. Fail an assert on any
        other Control, not silently. Leap to a Row on ⎋[D, as item 14 says, and to a Column on
        ⎋[⇧G, as item 15 says. Insert a Row at the Cursor on ⎋[⇧L, as item 16 says, and delete one
-       on ⎋[⇧M, as item 17 says.
+       on ⎋[⇧M, as item 17 says. Leap to a Row and a Column on ⎋[⇧H, as item 18 says.
 
     5. Start the Text Styles in force over at ⎋[M, and carry them to the next write. Join them once
        on ⎋[7M however often said. Fail an assert on any other SGR, such as ⎋[27M or ⎋[1M, not
@@ -662,6 +662,16 @@ _try_shadow_delete_row_:
         Writes, never a copy. Take a Pn of decimal digits, as ⎋[3⇧M deletes 3 Rows, and a Pn of 0 as
         1. Delete no more Rows than lie from the Cursor down, as macOS Terminal does, and count no
         chop in .xy_chops. Fail an assert on ⎋[1;2⇧M and ⎋[⇧?7⇧M, not silently.
+
+    18. Leap to a Row and a Column on ⎋[⇧H, ⎋[;⇧H, ⎋[5⇧H, ⎋[5;⇧H, ⎋[;7⇧H, ⎋[5;7⇧H or
+        ⎋[005;007⇧H, in _write_some_or_all_strs_. Take zero, one or two Pn, each empty or 1 or more
+        decimal digits, the Row first and then the Column. Take an empty or missing Pn as 1, and a
+        Pn of 0 as 1, so ⎋[⇧H and ⎋[0;0⇧H leap to Row 1 Column 1. Leap to the Row as item 14 says
+        and to the Column as item 15 says, so ⎋[5;7⇧H leaps to Row 5 Column 7. Chop a Pn past the
+        Height to the last Row, and a Pn past the Width to the last Column, the real Width W+1 of
+        an odd Width, as macOS Terminal does, and count each chop in .xy_chops: 0, 1 or 2 for one
+        ⎋[⇧H. Count nothing for a Pn of 0. End the wait of a Cursor waiting to wrap, as macOS
+        Terminal does. Fail an assert on ⎋[3;7;9⇧H and ⎋[⇧?7⇧H, not silently.
 ```
 
 ```

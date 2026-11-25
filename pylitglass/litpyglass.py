@@ -2191,6 +2191,13 @@ class TerminalLayer:
                 self._write_pn_control_(final, pn=pn)
                 continue
 
+            # Shadow the Leap to a Row and a Column, from the one or two Pn of a Cursor Position
+
+            assert CUP_Y_X.format("", "") == "\033[" ";H"
+            if final == "H":
+                self._write_yx_leap_(params)
+                continue
+
             # Shadow Printable Text Writes placed in Writable Columns on-screen
 
             if t and t.isprintable():
@@ -2267,6 +2274,33 @@ class TerminalLayer:
         # Freak when asked to shadow anything else
 
         assert False, (final, pn)
+
+    def _write_yx_leap_(self, params: str) -> None:
+        """Shadow ⎋[⇧H, a Leap to a Row and a Column, as ⎋[{y};{x}⇧H says, in that order"""
+
+        place = self.place
+
+        assert place.is_onscreen_place(), (place, params)
+
+        # Take zero, one, or two Pn, each empty or decimal digits, an empty Pn being 1
+
+        parms = params.split(";")
+        assert len(parms) <= 2, (params,)  # macOS Terminal ignored a third Pn, we refuse it
+        for parm in parms:
+            assert re.fullmatch(r"[0-9]*", parm), (params,)  # copes with ⎋[⇧H and ⎋[;7⇧H
+
+        parm_y = parms[0]
+        parm_x = parms[1] if parms[1:] else ""
+
+        assert PN1 == 1
+        pn_y = int(parm_y) if parm_y else PN1
+        pn_x = int(parm_x) if parm_x else PN1
+
+        # Leap to the Row first, then to the Column, which ends the wait of a Cursor to wrap
+
+        chopped_y = place.row_y_leap_to(pn_y)
+        chopped_x = place.column_x_leap_to(pn_x)
+        self.xy_chops += int(chopped_y) + int(chopped_x)
 
     def _row_insert_at_place_(self) -> None:
         """Drop the last Row, move down the Rows at & below the Cursor, & fill the Cursor Row"""

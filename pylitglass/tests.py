@@ -97,6 +97,7 @@ def main() -> None:
     _try_shadow_chops_()  # ~1ms
     _try_shadow_row_leap_()  # ~1ms
     _try_shadow_column_leap_()  # ~1ms
+    _try_shadow_yx_leap_()  # ~1ms
     _try_shadow_insert_row_()  # ~1ms
     _try_shadow_delete_row_()  # ~1ms
     _try_screen_replay_()  # ~1ms
@@ -3049,6 +3050,143 @@ def _try_shadow_column_leap_() -> None:
     assert ts.is_writable_place_after_strs("\033[7G"), ts.base_place
     assert ts.is_writable_place_after_strs("\033[20G"), ts.base_place
     assert not ts.is_writable_place_after_strs("\033[20G" + "\033[C"), ts.base_place  # no Pair fits
+
+
+def _try_shadow_yx_leap_() -> None:
+    """Try a TerminalShadow taking ⎋[⇧H to leap to a Row and a Column, as specs.md § 10 says"""
+
+    def asserts_for(write: typing.Callable[[str], None], text: str) -> bool:
+        """Say if the Write fails an assert"""
+
+        try:
+            write(text)
+        except AssertionError:
+            return True
+        return False
+
+    def shadow_five_rows(fake: FakeWriteBoss, screen_width: int) -> litpyglass.TerminalShadow:
+        """Write a, b, c, d, e into Column 1 of Rows 1 to 5, & leave the Cursor at Row 3 Column 5"""
+
+        ts = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, fake))
+        ts.shadow_read_data_else(b"\033[1;1R")
+        ts.shadow_read_data_else(f"\033[8;5;{screen_width}t".encode())
+
+        for y, char in enumerate("abcde", start=1):
+            ts.shadow_read_data_else(f"\033[{y};1R".encode())
+            ts.str_write_base_tb(char)
+
+        ts.shadow_read_data_else(b"\033[3;5R")
+        return ts
+
+    # A leap lands on the Row and the Column it names, an empty or 0 Pn acting as 1, and counts chops
+
+    xy_chops_by_text = {
+        "\033[H": ((1, 1), 0),
+        "\033[;H": ((1, 1), 0),
+        "\033[0H": ((1, 1), 0),
+        "\033[0;0H": ((1, 1), 0),
+        "\033[1;1H": ((1, 1), 0),
+        "\033[2H": ((1, 2), 0),
+        "\033[2;H": ((1, 2), 0),
+        "\033[;7H": ((7, 1), 0),
+        "\033[0;7H": ((7, 1), 0),
+        "\033[4;7H": ((7, 4), 0),
+        "\033[004;007H": ((7, 4), 0),
+        "\033[5;20H": ((20, 5), 0),
+        "\033[6;7H": ((7, 5), 1),
+        "\033[4;21H": ((20, 4), 1),
+        "\033[;32100H": ((20, 1), 1),
+        "\033[32100H": ((1, 5), 1),
+        "\033[6;21H": ((20, 5), 2),
+        "\033[32100;32100H": ((20, 5), 2),
+    }
+
+    for text, (xy, xy_chops) in xy_chops_by_text.items():
+        fake = FakeWriteBoss()
+        ts = shadow_five_rows(fake, screen_width=20)
+        write_by_xy_before = dict(ts.base.write_by_xy)
+
+        ts.str_write_base_tb(text)
+
+        occasion = (text, xy, xy_chops, ts.base_place, ts.base.xy_chops, fake.writes)
+        assert fake.writes[-1] == text.encode(), occasion
+        assert (ts.base_place.column_x, ts.base_place.row_y) == xy, occasion
+        assert ts.base.xy_chops == xy_chops, occasion
+        assert ts.base.write_by_xy == write_by_xy_before, (text, ts.base.write_by_xy)
+
+        column_x, row_y = xy
+        ts.str_write_base_tb("q")  # lands at the new Column of the new Row
+        assert ts.base.write_by_xy[(column_x, row_y)] == ((), "q"), (text, xy, ts.base.write_by_xy)
+
+    # Chops add to the chops already counted
+
+    fake = FakeWriteBoss()
+    ts = shadow_five_rows(fake, screen_width=20)
+    ts.str_write_base_tb("\033[32100;32100H")
+    ts.str_write_base_tb("\033[32100;3H")
+    assert ts.base.xy_chops == 3, (ts.base.xy_chops, ts.base_place)
+
+    # An odd Width W+1 chops a leap at its real last Column, where the Cursor may sit but not write
+
+    fake = FakeWriteBoss()
+    ts = shadow_five_rows(fake, screen_width=21)
+    ts.str_write_base_tb("\033[2;32100H")
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (21, 2), ts.base_place
+    assert ts.base.xy_chops == 1, (ts.base.xy_chops, ts.base_place)
+    assert not ts.base_place.is_writable_place(), ts.base_place
+
+    # A Cursor waiting to wrap stops waiting at a leap, even a leap to the last Column
+
+    for text, xy in (("\033[2;7H", (7, 2)), ("\033[2;20H", (20, 2)), ("\033[H", (1, 1))):
+        fake = FakeWriteBoss()
+        ts = shadow_five_rows(fake, screen_width=20)
+        ts.shadow_read_data_else(b"\033[3;20R")
+        ts.str_write_base_tb("z")  # lands in Column 20, and then the Cursor waits in Column 21
+        assert (ts.base_place.column_x, ts.base_place.row_y) == (21, 3), ts.base_place
+        ts.str_write_base_tb(text)
+        assert (ts.base_place.column_x, ts.base_place.row_y) == xy, (text, ts.base_place)
+
+        ts.str_write_base_tb("q")  # lands where the leap says, never in Column 21 or past it
+        assert ts.base.write_by_xy[xy] == ((), "q"), (text, xy, ts.base.write_by_xy)
+
+    # A leap with a third Pn, or with a Question Mark, fails an assert before any Byte goes out
+
+    fake = FakeWriteBoss()
+    ts = shadow_five_rows(fake, screen_width=20)
+    writes_before = list(fake.writes)
+    write_by_xy_before = dict(ts.base.write_by_xy)
+
+    for text in ("\033[3;7;9H", "\033[;;H", "\033[?7H", "\033[?;7H"):
+        assert asserts_for(ts.str_write_base_tb, text), (text, ts.base_place)
+
+    assert fake.writes == writes_before, (fake.writes, writes_before)
+    assert ts.base.write_by_xy == write_by_xy_before, (ts.base.write_by_xy, write_by_xy_before)
+    assert ts.base.xy_chops == 0, (ts.base.xy_chops, ts.base_place)
+
+    # A Writer may ask first if a leap keeps the Cursor in the Writable Area, and with no chop
+
+    assert ts.is_writable_place_after_strs("\033[H"), ts.base_place
+    assert ts.is_writable_place_after_strs("\033[2;7H"), ts.base_place
+    assert ts.is_writable_place_after_strs("\033[5;20H"), ts.base_place
+    assert not ts.is_writable_place_after_strs("\033[6;7H"), ts.base_place
+    assert not ts.is_writable_place_after_strs("\033[2;21H"), ts.base_place
+    assert not ts.is_writable_place_after_strs("\033[5;20H" + "\033[C"), ts.base_place  # no Pair
+    assert ts.base.xy_chops == 0, (
+        ts.base.xy_chops,
+        ts.base_place,
+    )  # a trial counts its chops in a fork, never in .base
+
+    # The Top Layer takes a leap as the Base Layer does, and the Base Layer stays where it was
+
+    fake = FakeWriteBoss()
+    ts = shadow_five_rows(fake, screen_width=20)
+    ts.str_write_top_tb("\033[2;7H")
+    assert (ts.top.place.column_x, ts.top.place.row_y) == (7, 2), ts.top.place
+    assert (ts.base_place.column_x, ts.base_place.row_y) == (5, 3), ts.base_place
+    ts.str_write_top_tb("\033[32100;32100H")
+    assert (ts.top.place.column_x, ts.top.place.row_y) == (20, 5), ts.top.place
+    assert ts.top.xy_chops == 2, (ts.top.xy_chops, ts.top.place)
+    assert ts.base.xy_chops == 0, (ts.base.xy_chops, ts.base_place)
 
 
 def _try_shadow_insert_row_() -> None:
