@@ -588,12 +588,13 @@ _try_shadow_dump_:
        Styles in force then, and let a later write there replace it.
 
     4. Keep nothing for a Move or a Backspace, but steer where the next Char lands. Keep nothing and
-       steer nothing for hiding or showing the Cursor, ⎋[⇧?25L or ⎋[⇧?25H. Fail an assert on any
-       other Control, not silently, and on a Line Feed "\n" too: skip no Char of the Str. Leap to a
-       Row on ⎋[D, as item 14 says, and to a Column on ⎋[⇧G, as item 15 says. Insert a Row at the
-       Cursor on ⎋[⇧L, as item 16 says, and delete one on ⎋[⇧M, as item 17 says. Leap to a Row and
-       a Column on ⎋[⇧H, as item 18 says. Insert Chars at the Cursor on ⎋[⇧@, as item 20 says, and
-       delete them on ⎋[⇧P, as item 21 says.
+       steer nothing for hiding or showing the Cursor, ⎋[⇧?25L or ⎋[⇧?25H, and for a Bell "\a",
+       so a dump of a Layer never holds a Bell. Fail an assert on any other Control, not silently,
+       and on a Line Feed "\n" too: skip no Char of the Str. Leap to a Row on ⎋[D, as item 14 says,
+       and to a Column on ⎋[⇧G, as item 15 says. Insert a Row at the Cursor on ⎋[⇧L, as item 16
+       says, and delete one on ⎋[⇧M, as item 17 says. Leap to a Row and a Column on ⎋[⇧H, as item 18
+       says. Insert Chars at the Cursor on ⎋[⇧@, as item 20 says, and delete them on ⎋[⇧P, as item
+       21 says.
 
     5. Start the Text Styles in force over at ⎋[M, and carry them to the next write. Join them once
        on ⎋[7M however often said. Fail an assert on any other SGR, such as ⎋[27M or ⎋[1M, not
@@ -795,4 +796,10 @@ _try_shadow_delete_chars_, and _try_shadow_drop_:
         kept Str may still chop. Leave the Cursor of the Layer where it was for a dropped Char, so a
         Move after it lands as the Layer finds it. Write no Byte, and change neither Layer, .base
         and its Place and its .xy_chops too. Leave is_writable_place_after_strs as item 5 says.
+
+    15. In str_place_after_strs_else, take the Write through a new Layer made from .base, and give
+        back a clone of the Place of that Layer: after Moves, Leaps, and Bells, and after a Move or
+        a Leap that an edge chops, so a chop is judged by where the Cursor lands. Give None when
+        the Layer cannot write all the Str, such as for a Char at a Place outside the Writable
+        Area. Write no Byte, and change neither Layer, .base and its Place and its .xy_chops too.
 ```

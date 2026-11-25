@@ -87,6 +87,7 @@ def main() -> None:
     _try_skater_fuzz_()  # ~3500ms, 24 Ptys at once, the slowest 10 steps at 150ms apart + 500ms
     _try_skater_edge_()  # ~3500ms, 4 Ptys at once, the slowest 10 → at 150ms apart + 500ms, then 3
     _try_skater_launch_edge_()  # 10 Ptys at once
+    _try_sqaxels_grid_()  # ~2000ms, 37 Ptys at once, the slowest 4 strikes at 150ms apart + 500ms
     _try_input_file_()  # ~400ms, 6 child Pythons off a Terminal at once, then 2 in turn
     _try_boss_writes_()  # ~100ms, 1 child Python off a Terminal
     _try_output_routes_()  # ~10ms, parses litpyglass.py
@@ -1925,6 +1926,126 @@ def _try_skater_launch_edge_() -> None:
         assert "\033[7m  \033[m" in screen_decode, (case, screen_decode)  # the Arrow left a Pair
 
 
+def _try_sqaxels_grid_() -> None:
+    """Try sqaxels.py forwarding what keeps the grid of Pixels and ringing a Bell for the rest"""
+
+    bell = "\a"
+    replies = b"\033[5;9R\033[8;24;80t"  # Row 5 Column 9, on a Screen 24 high, 80 wide
+
+    # Leap to each Row, edit its Chars, and leap back to Row 5, as ⎋[2'⇧} says
+
+    columns_edit = "".join(f"\033[{y}d\033[2@" for y in range(1, 25)) + "\033[5d"
+    pair_toggle = "\033[7m  \033[m\b\b"  # a Space leaves a Reverse Pair, and steps back
+
+    cases = (  # (the Bytes struck, the Bytes written, from Row 5 Column 9)
+        (b"\033[2@", "\033[2@"),
+        (b"\033[@", bell),  # an odd count of one
+        (b"\033[3@", bell),
+        (b"\033[0@", bell),  # a count of 0 takes as 1
+        (b"\033[004P", "\033[004P"),  # as struck
+        (b"\033[2P", "\033[2P"),
+        (b"\033[P", bell),
+        (b"\033[2'}", columns_edit),
+        (b"\033['}", bell),
+        (b"\033[3'~", bell),
+        (b"\033[2'~", columns_edit.replace("@", "P")),
+        (b"\033[3L", "\033[3L"),  # Rows only, any count
+        (b"\033[2M", "\033[2M"),  # not the bare ⎋[⇧M, which opens a Mouse report
+        (b"\033[7d", "\033[7d"),
+        (b"\033[7G", "\033[7G"),
+        (b"\033[8G", bell),  # Column 8 starts no Pixel
+        (b"\033[G", "\033[G"),
+        (b"\033[79G", "\033[79G"),
+        (b"\033[80G", bell),  # Column 80 has no East Column beside it
+        (b"\033[32100G", bell),  # the edge chops it to Column 80
+        (b"\033[5;7H", "\033[5;7H"),
+        (b"\033[5;8H", bell),
+        (b"\033[;H", "\033[;H"),
+        (b"\033[32100;32100H", bell),
+        (b"\033[3;7;9H", bell),  # a third Pn
+        (b"\033[2C", "\033[2C"),
+        (b"\033[3C", bell),
+        (b"\033[0C", bell),
+        (b"\033[4D", "\033[4D"),
+        (b"\033[1D", bell),
+        (b"\033[3A", "\033[3A"),  # Rows, any count
+        (b"\033[2B", "\033[2B"),
+        (b"\033[32100C", bell),
+        (b"\033[32100B", bell),  # the edge chops it
+        (b"\033[C", "\033[C\033[C"),  # the → Key, a step of one Pixel
+        (b" ", pair_toggle),  # a Space, with no Bell
+        (b"q", bell),
+        (b"a b", pair_toggle + bell),  # a pasted Text of a Space and two other Chars, one Strike
+        (b"\033[g", bell),  # a lowercase g, not the ⎋[⇧G that leaps to a Column
+    )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as executor:
+        results = tuple(executor.map(lambda case: _try_sqaxels_pty_((case[0],), replies), cases))
+
+    for (struck, want_text), (quit, screen_decode) in zip(cases, results):
+        assert quit, (struck, screen_decode)  # the 3 Returns quit it
+
+        hail = _SKATER_HAIL_  # reverts Text Styles, shows the Real Cursor
+        farewell = _SKATER_FAREWELL_
+        hail_at = screen_decode.index(hail) + len(hail)
+        farewell_at = screen_decode.index(farewell)
+
+        # Each Return rings too, since sqaxels.py does nothing else with it
+
+        want = want_text + (bell * 3)
+        got = screen_decode[hail_at:farewell_at]
+        assert got == want, (struck, got, want)
+
+
+def _try_sqaxels_pty_(strike_steps: tuple[bytes, ...], replies: bytes) -> tuple[bool, str]:
+    """Run sqaxels.py on a Pty, strike each step 150ms apart, then 3 Returns, and say if it quit"""
+
+    with tempfile.TemporaryDirectory() as cwd:  # takes the io.typescript it writes at exit
+        quit, terminal_bytes = _try_sqaxels_pty_in_(strike_steps, replies, cwd)
+
+    screen_decode = terminal_bytes.decode(errors="replace")
+    return (quit, screen_decode)
+
+
+def _try_sqaxels_pty_in_(
+    strike_steps: tuple[bytes, ...], replies: bytes, cwd: str
+) -> tuple[bool, bytes]:
+    """Run sqaxels.py on a Pty in a directory, strike each step and 3 Returns, and say if it quit"""
+
+    master_fileno, slave_fileno = pty.openpty()
+    path = os.path.join(os.path.dirname(litpyglass.__file__), "sqaxels.py")
+    argv = [sys.executable, path, "--"]  # no -I, since it imports litpyglass from beside itself
+    process = subprocess.Popen(
+        argv, stdin=slave_fileno, stdout=slave_fileno, stderr=slave_fileno, cwd=cwd
+    )
+    os.close(slave_fileno)
+
+    terminal_output = bytearray()
+
+    _pty_read_till_marker_(master_fileno, terminal_output, b"\033[6n\033[18t")
+    os.write(master_fileno, replies)
+    _pty_read_till_marker_(master_fileno, terminal_output, _SKATER_HAIL_.encode())
+    assert _SKATER_HAIL_.encode() in terminal_output, bytes(terminal_output)
+
+    _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)  # the Replies count as Frames
+
+    for data in strike_steps + (b"\r", b"\r", b"\r"):
+        try:
+            os.write(master_fileno, data)
+        except OSError:
+            break  # the Child has already exited, so the Pty is closed
+        _pty_read_for_seconds_(master_fileno, terminal_output, 0.15)  # over the 100ms gap
+
+    _pty_read_for_seconds_(master_fileno, terminal_output, 0.5)  # long enough for a quit to show
+    quit = process.poll() is not None
+    if not quit:
+        process.kill()
+    process.wait()
+    os.close(master_fileno)
+
+    return (quit, bytes(terminal_output))
+
+
 def _try_input_file_() -> None:
     """Try the three files an egg writes at exit, as specs.md § 1, § 8, and § 9 say"""
 
@@ -2545,7 +2666,8 @@ def _try_shadow_writes_() -> None:
         asserted = True
     assert asserted, ts.base.write_by_xy
 
-    # Hiding or showing the Cursor keeps nothing and steers nothing, and any other Control fails
+    # Hiding or showing the Cursor, or a Bell, keeps nothing and steers nothing, and any other
+    # Control fails
 
     ts = litpyglass.TerminalShadow(boss)
     ts.shadow_read_data_else(b"\033[2;3R")
@@ -2564,12 +2686,75 @@ def _try_shadow_writes_() -> None:
     )
     assert shadow_after == shadow_before, (shadow_after, shadow_before)
 
+    writes_before = list(fake.writes)
+    chops_before = ts.base.xy_chops
+    ts.str_write_base_tb("\a")  # Bell
+    shadow_after = (
+        dataclasses.astuple(ts.base_place),
+        dict(ts.base.write_by_xy),
+        ts.base.text_styles,
+    )
+    assert shadow_after == shadow_before, (shadow_after, shadow_before)
+    assert ts.base.xy_chops == chops_before, (ts.base.xy_chops, chops_before)
+    assert fake.writes == writes_before + [b"\a"], (fake.writes, writes_before)  # one Byte went out
+
+    ts.str_write_base_tb("a\ab")  # a Bell between two Chars steers nothing
+    assert ts.base.write_by_xy[(3, 2)][1] == "a", ts.base.write_by_xy
+    assert ts.base.write_by_xy[(4, 2)][1] == "b", ts.base.write_by_xy
+    assert ts.base_place.column_x == 5, ts.base_place
+
+    dump_text = ts.base.form_dump_text(from_y=2, from_x=3)
+    assert "\a" not in dump_text, dump_text  # the dump of a Layer never holds a Bell
+
     try:
-        ts.str_write_base_tb("\a")  # Bell
+        ts.str_write_base_tb("\t")  # Tab
         asserted = False
     except AssertionError:
         asserted = True
     assert asserted, ts.base.write_by_xy
+
+    # The Place after a Str is what a Layer would give, with no Byte written and no change made
+
+    ts = litpyglass.TerminalShadow(boss)
+    ts.shadow_read_data_else(b"\033[2;3R")
+    ts.shadow_read_data_else(b"\033[8;5;20t")
+
+    whole_before = (
+        dataclasses.astuple(ts.base_place),
+        dict(ts.base.write_by_xy),
+        ts.base.text_styles,
+        ts.base.xy_chops,
+        list(fake.writes),
+    )
+    place_cases = (
+        ("", (3, 2)),
+        ("\033[C\033[2C", (6, 2)),  # Moves
+        ("\033[7G", (7, 2)),  # a Leap to a Column
+        ("\033[4;9H", (9, 4)),  # a Leap to a Row and a Column
+        ("\033[32100G", (20, 2)),  # a Leap that the edge chops, judged by where it lands
+        ("\033[32100;32100H", (20, 5)),
+        ("\033[32100B\033[32100D", (1, 5)),  # Moves that the edge chops
+        ("ab\a", (5, 2)),  # Chars and a Bell
+        ("\033[16Cab", (21, 2)),  # b lands in the last Column, and the Cursor waits to wrap
+    )
+    for text, want_xy in place_cases:
+        next_place = ts.str_place_after_strs_else(text)
+        assert next_place is not None, (text, want_xy)
+        next_xy = (next_place.column_x, next_place.row_y)
+        assert next_xy == want_xy, (text, next_xy, want_xy)
+        assert next_place is not ts.base_place, text  # a clone
+
+    assert ts.str_place_after_strs_else("\033[18Cab") is None  # b would land in Column 21
+    assert ts.str_place_after_strs_else("\033[18Ca\b") is not None  # a lands in Column 20
+
+    whole_after = (
+        dataclasses.astuple(ts.base_place),
+        dict(ts.base.write_by_xy),
+        ts.base.text_styles,
+        ts.base.xy_chops,
+        list(fake.writes),
+    )
+    assert whole_after == whole_before, (whole_after, whole_before)  # no Byte, no change
 
     # An odd Width W+1 acts as W: the Cursor may wait in Column W+1, but we write no Char there
 

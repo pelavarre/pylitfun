@@ -2050,6 +2050,21 @@ class TerminalShadow:
 
         return True
 
+    def str_place_after_strs_else(self, text: str) -> TerminalPlace | None:
+        """Give the Place the Cursor would have after the Str, else None if it cannot be written"""
+
+        base = self.base
+
+        assert base, (base.place, text)
+
+        fork_layer = base.fork_layer()
+        fork_written = fork_layer._write_some_or_all_strs_(text)
+        if not fork_written:
+            return None
+
+        fork_place = dataclasses.replace(fork_layer.place)  # clones
+        return fork_place
+
     def str_drop_unwritable_chars(self, text: str) -> tuple[str, int]:
         """Drop each Char of the Str that cannot be written from here, and count the drops"""
 
@@ -2405,6 +2420,12 @@ class TerminalLayer:
             assert SHOW_CUSR_SM_PSQ25 == "\033[" "?25h"
 
             if split in (HIDE_CUSR_RM_PSQ25, SHOW_CUSR_SM_PSQ25):
+                continue
+
+            # Shadow no change for a Bell, which keeps nothing and steers nothing
+
+            assert BEL == "\007"
+            if t == BEL:
                 continue
 
             # Freak when asked to shadow anything else

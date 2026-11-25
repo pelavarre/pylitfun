@@ -15,13 +15,18 @@ quirks:
   starts each Pixel in an odd Column, and so steps one Column West at launch from an even one
   never quits on ⎋[⇧L, which inserts a Row at the Cursor, as ⎋[3⇧L inserts three
   never quits on ⎋[⇧M, which deletes the Row at the Cursor, as ⎋[3⇧M deletes three
-  never quits on ⎋[⇧@, which inserts Chars at the Cursor, as ⎋[2⇧@ inserts two
-  never quits on ⎋[⇧P, which deletes Chars at the Cursor, as ⎋[2⇧P deletes two
-  never quits on ⎋['⇧}, which inserts a Column at the Cursor, as ⎋[2'⇧} inserts two
-  never quits on ⎋['⇧~, which deletes the Column at the Cursor, as ⎋[2'⇧~ deletes two
+  never quits on ⎋[2⇧@, which inserts two Chars at the Cursor, as ⎋[4⇧@ inserts four
+  never quits on ⎋[2⇧P, which deletes two Chars at the Cursor, as ⎋[4⇧P deletes four
+  never quits on ⎋[2'⇧}, which inserts two Columns at the Cursor, as ⎋[4'⇧} inserts four
+  never quits on ⎋[2'⇧~, which deletes two Columns at the Cursor, as ⎋[4'⇧~ deletes four
   never quits on ⎋[D, which leaps the Cursor to Row 1, as ⎋[7D leaps it to Row 7
   never quits on ⎋[⇧G, which leaps the Cursor to the Pixel at Column 1, as ⎋[7⇧G to Column 7
   never quits on ⎋[;⇧H, which leaps to the Pixel at Row 1 Column 1, as ⎋[5;7⇧H to Row 5 Column 7
+  never quits on ⎋[4⇧C or ⎋[2⇧B, which move the Cursor by Columns or by Rows, as ⎋[2⇧D or ⎋[3⇧A do
+  rings the Bell and does nothing for an input that would leave the grid of Pixels, so for
+    an odd count of Columns, as ⎋[⇧@ or ⎋[3⇧C, for a Column that starts no Pixel, as ⎋[8⇧G,
+    or for a Move that an edge would chop, as ⎋[32100⇧C
+  rings the Bell and does nothing for any other Strike, as for a letter, a Return, or ⎋[g
   redraws io.typescript where it was drawn, and keeps what the Screen holds at quit
 
 examples:
@@ -131,7 +136,8 @@ class SqaxelsWorker:
         # the ⎋[⇧@ or ⎋[2⇧@ that inserts Chars, the ⎋[⇧P or ⎋[2⇧P that deletes them,
         # the ⎋['⇧} or ⎋[2'⇧} that inserts Columns, the ⎋['⇧~ or ⎋[2'⇧~ that deletes them,
         # the ⎋[D or ⎋[7D that leaps to a Row, the ⎋[⇧G or ⎋[7⇧G that leaps to a Column,
-        # and the ⎋[;⇧H or ⎋[5;7⇧H that leaps to a Row and a Column, to not tell us to quit
+        # the ⎋[;⇧H or ⎋[5;7⇧H that leaps to a Row and a Column, and the ⎋[4⇧C or ⎋[2⇧A that
+        # moves by Columns or Rows, to not tell us to quit
 
         assert litpyglass.IL_Y.format("") == "\033[" "L"
         assert litpyglass.DL_Y.format("") == "\033[" "M"
@@ -142,12 +148,17 @@ class SqaxelsWorker:
         assert litpyglass.CUP_Y_X.format("", "") == "\033[" ";H"
         assert litpyglass.DECIC_X.format("") == "\033[" "'}"
         assert litpyglass.DECDC_X.format("") == "\033[" "'~"
+        assert litpyglass.CUU_Y.format("") == "\033[" "A"
+        assert litpyglass.CUD_Y.format("") == "\033[" "B"
+        assert litpyglass.CUF_X.format("") == "\033[" "C"
+        assert litpyglass.CUB_X.format("") == "\033[" "D"
 
         arrow_stalwarts = tuple(re.escape(_) for _ in arrow_encodes)
         csi_stalwarts = (
             rb"\033\[[0-9]*[@LMPd]",
             rb"\033\[[0-9]*(G|(;[0-9]*)?H)",
             rb"\033\[[0-9]*'[}~]",
+            rb"\033\[[0-9]+[ABCD]",
         )
         stalwarts = arrow_stalwarts + csi_stalwarts  # each a Regex of a whole Frame
 
@@ -203,7 +214,7 @@ class SqaxelsWorker:
             hail_text = "".join(hails)
 
             ts.str_write_base_tb(hail_text)  # calls to shadow Hail only after pulling X W Y H
-            assert ts.base_place.column_x % 2, (ts.base_place,)  # a Pixel starts in an odd Column
+            assert self.is_pixel_place(ts.base_place), (ts.base_place,)  # at Column 1, 3, 5, etc
 
             assert litpyglass._2_COLUMNS_ == 2
             assert litpyglass._1_ROW_ == 1
@@ -291,12 +302,18 @@ class SqaxelsWorker:
     ) -> None:
         """Leap at each Arrow and toggle at each Space, till the Strikes end or say quit"""
 
+        assert litpyglass.BEL == "\007"
+
         open_frame: litpyglass.TerminalByteFrame | None = None  # the Frame being acted on
         open_length = 0  # the Bytes of the Open Frame already acted on
 
         for isap in ist.take_input_strikes_and_yield_each_placed(stalwarts=stalwarts):
             strike = isap.strike
             place = isap.place
+
+            # Require the Cursor on a Pixel after each input forwarded or tossed so far
+
+            assert self.is_pixel_place(place), (place,)
 
             taken = strike.taken
             caps = strike.caps
@@ -343,47 +360,9 @@ class SqaxelsWorker:
                 ts.str_write_base_tb(writable_leaps[0])
                 continue
 
-            # Write as struck the ⎋[⇧L or ⎋[3⇧L that inserts Rows at the Cursor, the ⎋[⇧M or ⎋[3⇧M
-            # that deletes them, the ⎋[⇧@ or ⎋[2⇧@ that inserts Chars, the ⎋[⇧P or ⎋[2⇧P that
-            # deletes them, and the ⎋[D or ⎋[7D that leaps the Cursor to a Row. A ⎋[32100⇧@ fails
-            # an assert in the Layer before any Byte goes out, since it spills past the Row
+            # Write as struck, or toss with a Bell, each Control that edits or moves by Pn
 
-            assert litpyglass.IL_Y.format("") == "\033[" "L"
-            assert litpyglass.DL_Y.format("") == "\033[" "M"
-            assert litpyglass.ICH_X.format("") == "\033[" "@"
-            assert litpyglass.DCH_X.format("") == "\033[" "P"
-            assert litpyglass.VPA_Y.format("") == "\033[" "d"
-
-            # todo: ⎋[⇧@ or ⎋[⇧P of an odd count shifts the Pixels East of it half a Pixel askew
-
-            if taken and re.fullmatch(rb"\033\[[0-9]*[@LMPd]", data):
-                ts.str_write_base_tb(data.decode())
-                continue
-
-            # Leap the Cursor to the Pixel at a Column, as ⎋[⇧G or ⎋[7⇧G says, or at a Row and a
-            # Column, as ⎋[;⇧H or ⎋[5;7⇧H says: leap as struck, and then step West by Backspaces
-            # onto the Pixel. Never see the bare ⎋[⇧H here, since Fn← sends it, as an Arrow above
-
-            assert litpyglass.CHA_X.format("") == "\033[" "G"
-            assert litpyglass.CUP_Y_X.format("", "") == "\033[" ";H"
-
-            if taken and re.fullmatch(rb"\033\[[0-9]*(G|(;[0-9]*)?H)", data):
-                ts.str_write_base_tb(data.decode())
-
-                back_text = self.form_pixel_back_text(ts.base_place)
-                if back_text:
-                    ts.str_write_base_tb(back_text)
-                continue
-
-            # Insert Columns at the Cursor, as ⎋['⇧} or ⎋[2'⇧} says, or delete them, as ⎋['⇧~ or
-            # ⎋[2'⇧~ says, by an ⎋[⇧@ or an ⎋[⇧P in every Row, since macOS Terminal takes neither
-
-            assert litpyglass.DECIC_X.format("") == "\033[" "'}"
-            assert litpyglass.DECDC_X.format("") == "\033[" "'~"
-
-            if taken and re.fullmatch(rb"\033\[[0-9]*'[}~]", data):
-                columns_edit_text = self.form_columns_edit_text(ts.base_place, data=data)
-                ts.str_write_base_tb(columns_edit_text)
+            if taken and self.ts_take_control_tb(ts, data=data):
                 continue
 
             # Wait for the Frame to be taken while Bytes are still typed ahead, since
@@ -410,8 +389,135 @@ class SqaxelsWorker:
             for step in range(space_count):
                 self.ts_toggle_pixel_tb(ts)
 
-            # todo: no visible change at a Strike that is neither Arrow nor Space
-            # todo: no visible rejection of such wrong choices as ⎋[G struck in place of ⎋[⇧G
+            # Toss with a Bell each taken Strike that is neither an Arrow, nor a Space, nor a Control
+            # we forward, so a Return rings too, besides counting toward the quit
+
+            is_only_spaces = bool(printables) and (not data.replace(b" ", b""))  # not 'a b'
+            if taken and data and not is_only_spaces:
+                self.ts_ring_bell_tb(ts)
+
+        base_place = ts.base_place
+        assert self.is_pixel_place(base_place), (base_place,)  # after the last input, as after each
+
+    def ts_take_control_tb(self, ts: litpyglass.TerminalShadow, data: bytes) -> bool:
+        """Write the Control as struck if it keeps the Pixels, else a Bell, and say if we know it"""
+
+        # Write as struck the ⎋[⇧L or ⎋[3⇧L that inserts Rows at the Cursor, the ⎋[⇧M or ⎋[3⇧M
+        # that deletes them, and the ⎋[D or ⎋[7D that leaps the Cursor to a Row, of any count
+
+        assert litpyglass.IL_Y.format("") == "\033[" "L"
+        assert litpyglass.DL_Y.format("") == "\033[" "M"
+        assert litpyglass.VPA_Y.format("") == "\033[" "d"
+
+        if re.fullmatch(rb"\033\[[0-9]*[LMd]", data):
+            ts.str_write_base_tb(data.decode())
+            return True
+
+        # Write as struck the ⎋[2⇧@ that inserts Chars, or the ⎋[2⇧P that deletes them, but only
+        # of an even count, since an odd count shifts the Pixels East of it half a Pixel askew.
+        # A ⎋[32100⇧@ fails an assert in the Layer before any Byte goes out, since it spills
+
+        assert litpyglass.ICH_X.format("") == "\033[" "@"
+        assert litpyglass.DCH_X.format("") == "\033[" "P"
+
+        m = re.fullmatch(rb"\033\[([0-9]*)[@P]", data)
+        if m:
+            if self.is_even_pn_digits(m.group(1)):
+                ts.str_write_base_tb(data.decode())
+            else:
+                self.ts_ring_bell_tb(ts)
+            return True
+
+        # Leap the Cursor to a Column, as ⎋[⇧G or ⎋[7⇧G says, or to a Row and a Column, as ⎋[;⇧H
+        # or ⎋[5;7⇧H says, but only to the West Column of a Pixel that fits. Never see the bare
+        # ⎋[⇧H here, since Fn← sends it, as an Arrow above
+
+        assert litpyglass.CHA_X.format("") == "\033[" "G"
+        assert litpyglass.CUP_Y_X.format("", "") == "\033[" ";H"
+
+        if re.fullmatch(rb"\033\[[0-9]*(G|(;[0-9]*)?H)", data):
+            landing = ts.str_place_after_strs_else(data.decode())
+            if (landing is not None) and self.is_pixel_place(landing):
+                ts.str_write_base_tb(data.decode())
+            else:
+                self.ts_ring_bell_tb(ts)
+            return True
+
+        # Insert Columns at the Cursor, as ⎋[2'⇧} says, or delete them, as ⎋[2'⇧~ says, by an
+        # ⎋[⇧@ or an ⎋[⇧P in every Row, since macOS Terminal takes neither, but only of an even count
+
+        assert litpyglass.DECIC_X.format("") == "\033[" "'}"
+        assert litpyglass.DECDC_X.format("") == "\033[" "'~"
+
+        m = re.fullmatch(rb"\033\[([0-9]*)'[}~]", data)
+        if m:
+            if self.is_even_pn_digits(m.group(1)):
+                columns_edit_text = self.form_columns_edit_text(ts.base_place, data=data)
+                ts.str_write_base_tb(columns_edit_text)
+            else:
+                self.ts_ring_bell_tb(ts)
+            return True
+
+        # Move the Cursor by a count of Columns or Rows, as ⎋[4⇧C or ⎋[2⇧B says, but only a Move
+        # of an even count of Columns, that no edge chops, and that ends on a Pixel that fits. The
+        # bare ⎋[⇧C and the like are the Arrow Keys, which we never see here
+
+        assert litpyglass.CUF_X.format("") == "\033[" "C"
+
+        m = re.fullmatch(rb"\033\[([0-9]+)([ABCD])", data)
+        if m:
+            digits, final = m.groups()
+            is_even_or_rows = (final in (b"A", b"B")) or self.is_even_pn_digits(digits)
+
+            decode = data.decode()
+            landing = ts.str_place_after_strs_else(decode)
+            is_pixel_fit = ts.is_writable_place_after_strs(decode + "\033[" "C")  # East Column too
+            is_landing = (landing is not None) and self.is_pixel_place(landing)
+
+            if is_even_or_rows and is_pixel_fit and is_landing:
+                ts.str_write_base_tb(decode)
+            else:
+                self.ts_ring_bell_tb(ts)
+            return True
+
+        return False
+
+    def is_even_pn_digits(self, digits: bytes) -> bool:
+        """Say if the Pn spelled by these decimal digits counts an even number, a Pn of 0 as 1"""
+
+        assert (not digits) or digits.isdigit(), (digits,)
+
+        lstrip = digits.lstrip(b"0")  # b'' for a missing Pn or a Pn of 0, which count as 1
+        last_digit = lstrip[-1:]  # not int(digits), so no limit on how many digits
+
+        is_even = last_digit in (b"0", b"2", b"4", b"6", b"8")
+        return is_even
+
+    def ts_ring_bell_tb(self, ts: litpyglass.TerminalShadow) -> None:
+        """Write one Bell, to say we toss an input, and change nothing else"""
+
+        assert litpyglass.BEL == "\007"
+
+        ts.str_write_base_tb("\007")
+
+    def is_pixel_place(self, place: litpyglass.TerminalPlace) -> bool:
+        """Say if the Cursor sits on the West Column of a Pixel that fits, on a Row of the Screen"""
+
+        column_x = place.column_x
+        x_max = place.x_max
+        x_width = place.x_width
+        row_y = place.row_y
+        y_height = place.y_height
+
+        assert 1 <= column_x, (column_x, x_width)
+        assert 1 <= x_max <= x_width, (x_max, x_width)
+
+        is_odd = bool(column_x % 2)  # a Pixel starts in Column 1, 3, 5, etc
+        is_fit = (column_x + 1) <= x_max  # its East Column is at or West of x_max
+        is_row = 1 <= row_y <= y_height
+
+        is_pixel = is_odd and is_fit and is_row
+        return is_pixel
 
     def form_leap_text(self, caps: str) -> str:
         """Spell the step of one Square Pixel toward an Arrow Key, without any Pair"""
