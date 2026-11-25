@@ -2,6 +2,11 @@
 <!-- omit in toc -->
 # pylitfun > HIRE ME
 
+8 pages of 34 headings of 150 paragraphs of 271 sentences of 4000 words, here. But 80% of this pops out the same from **[HIREME-2.md](HIREME-2.md)**, despite cut down out there to 3 Pages of 8 Headings of 29 Paragraphs of 59 Sentences of less than 900 words.
+
+
+Contents
+
 - [1 Welcome](#1-welcome)
   - [1.1 As reviewed by the Sonnet 4.6 of $$ AugmentCode](#11-as-reviewed-by-the-sonnet-46-of--augmentcode)
 - [2 Say I will do well with you, or say I won't](#2-say-i-will-do-well-with-you-or-say-i-wont)
