@@ -681,14 +681,17 @@ _try_shadow_delete_row_, and _try_shadow_dump_:
         spell no second ⎋[⇧H, no Return, and no Newline. Write each Write inside the Writable Area,
         by Row and then by Column, each run of neighbouring Columns of a Row as one run of Chars.
         Skip each Write outside the Writable Area, such as the Space of a Row filled by ⎋[⇧L in
-        Column W+1 of an odd Width. Spell each Move with a Pn of 1 or more, never a Move of nothing,
-        and spell the Column Move before the Row Move, since only ⎋[⇧D counts from a Cursor waiting
-        to wrap. Spell ⎋[M and the Text Styles of a Write only when they differ from the Text Styles
-        in force. End by restoring the Text Styles of the Layer and moving to the Cursor of the
-        Layer, so the Cells the Str redraws never depend on the Row and the Column given to leap to
-        first. Prove each piece in a blank trial Layer on every call, and fail an assert unless the
-        trial counted 0 chops, and ended at the Place and in the Text Styles of the Layer, holding
-        the Writes of the Layer inside the Writable Area. Change nothing in the Layer.
+        Column W+1 of an odd Width. Skip each plain Space at the East end of a Row too, East of the
+        last Write of the Row that is more than a plain Space, since the Terminal fills such Spaces
+        in after ⎋[⇧L and ⎋[⇧M, and keep each plain Space West of that Write. Spell each Move with a
+        Pn of 1 or more, never a Move of nothing, and spell the Column Move before the Row Move,
+        since only ⎋[⇧D counts from a Cursor waiting to wrap. Spell ⎋[M and the Text Styles of a
+        Write only when they differ from the Text Styles in force. End by restoring the Text Styles
+        of the Layer and moving to the Cursor of the Layer, so the Cells the Str redraws never
+        depend on the Row and the Column given to leap to first. Prove each piece in a blank trial
+        Layer on every call, and fail an assert unless the trial counted 0 chops, and ended at the
+        Place and in the Text Styles of the Layer, holding the Writes of the Layer that it did not
+        skip. Change nothing in the Layer.
 ```
 
 ```

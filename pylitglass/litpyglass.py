@@ -2180,7 +2180,6 @@ class TerminalLayer:
 
         column_x = place.column_x
         row_y = place.row_y
-        x_max = place.x_max
         x_width = place.x_width
         y_height = place.y_height
 
@@ -2204,9 +2203,10 @@ class TerminalLayer:
         texts.append(trial._write_piece_(CUP_Y_X.format(from_y, from_x)))
 
         # Write each Char in the Writable Area, by Row then by Column, moving only by relative Moves
-        # (skip each Write in Column W+1 of an odd Width, since no Char may be written there)
+        # (skip each Write in Column W+1 of an odd Width, since no Char may be written there,
+        # and skip the plain Spaces at the East end of each Row, since the Terminal fills those in)
 
-        yx_pairs = sorted((y, x) for x, y in write_by_xy.keys() if x <= x_max)
+        yx_pairs = self._form_dump_yx_pairs_()
         for y, x in yx_pairs:
             write_styles, char = write_by_xy[(x, y)]
             assert len(char) == 1 and char.isprintable(), (x, y, char)
@@ -2230,9 +2230,9 @@ class TerminalLayer:
         assert trial_styles == self_styles, (trial_styles, self_styles)
 
         want_by_xy: dict[tuple[int, int], tuple[tuple[str, ...], str]] = dict()
-        for xy, (write_styles, char) in write_by_xy.items():
-            if xy[0] <= x_max:
-                want_by_xy[xy] = (TerminalLayer.text_styles_in_force(write_styles), char)
+        for y, x in yx_pairs:
+            write_styles, char = write_by_xy[(x, y)]
+            want_by_xy[(x, y)] = (TerminalLayer.text_styles_in_force(write_styles), char)
 
         got_by_xy: dict[tuple[int, int], tuple[tuple[str, ...], str]] = dict()
         for xy, (write_styles, char) in trial.write_by_xy.items():
@@ -2242,6 +2242,34 @@ class TerminalLayer:
 
         text = "".join(texts)
         return text
+
+    def _form_dump_yx_pairs_(self) -> list[tuple[int, int]]:
+        """List the Row and Column of each Write to dump, by Row and then by Column"""
+
+        x_max = self.place.x_max
+        write_by_xy = self.write_by_xy
+
+        assert SP == " "
+
+        # Find the last Column of each Row that holds more than a plain Space
+
+        last_x_by_y: dict[int, int] = dict()
+        for (x, y), (write_styles, char) in write_by_xy.items():
+            styles_in_force = TerminalLayer.text_styles_in_force(write_styles)
+            is_plain_space = (char == " ") and not styles_in_force
+            if not is_plain_space:
+                if (y not in last_x_by_y.keys()) or (x > last_x_by_y[y]):
+                    last_x_by_y[y] = x
+
+        # Take each Write of the Writable Area that is at or West of that Column
+
+        yx_pairs: list[tuple[int, int]] = list()
+        for x, y in write_by_xy.keys():
+            if (x <= x_max) and (y in last_x_by_y.keys()) and (x <= last_x_by_y[y]):
+                yx_pairs.append((y, x))
+
+        yx_pairs.sort()
+        return yx_pairs
 
     def _write_piece_(self, text: str) -> str:
         """Write all the Str into this trial Layer, and give the Str back"""

@@ -3556,6 +3556,26 @@ def _try_shadow_delete_row_() -> None:
     assert (ts.base_place.column_x, ts.base_place.row_y) == (5, 3), ts.base_place
 
 
+def _shadow_dump_cells_(
+    layer: litpyglass.TerminalLayer,
+) -> dict[tuple[int, int], tuple[object, str]]:
+    """Give the Writes in the Writable Area, less the plain Spaces at the East end of each Row"""
+
+    x_max = layer.place.x_max
+    cells: dict[tuple[int, int], tuple[object, str]] = dict()
+    for xy, (styles, char) in layer.write_by_xy.items():
+        if xy[0] <= x_max:
+            cells[xy] = (litpyglass.TerminalLayer.text_styles_in_force(styles), char)
+
+    for y in sorted(set(y for _, y in cells.keys())):
+        for x in sorted((x for x, cell_y in cells.keys() if cell_y == y), reverse=True):
+            if cells[(x, y)] != ((), " "):
+                break  # quits at the last Write of the Row that is more than a plain Space
+            del cells[(x, y)]
+
+    return cells
+
+
 def _try_shadow_dump_() -> None:
     """Try a TerminalLayer dumping its Writes as a Str, and a TerminalShadow counting chops"""
 
@@ -3581,16 +3601,6 @@ def _try_shadow_dump_() -> None:
         ts.shadow_read_data_else(f"\033[8;{screen_height};{screen_width}t".encode())
         ts.shadow_read_data_else(f"\033[{row_y};{column_x}R".encode())
         return ts
-
-    def cells_of(layer: litpyglass.TerminalLayer) -> dict[tuple[int, int], tuple[object, str]]:
-        """Give the Writes in the Writable Area, with the Text Styles in force when each landed"""
-
-        x_max = layer.place.x_max
-        cells: dict[tuple[int, int], tuple[object, str]] = dict()
-        for xy, (styles, char) in layer.write_by_xy.items():
-            if xy[0] <= x_max:
-                cells[xy] = (litpyglass.TerminalLayer.text_styles_in_force(styles), char)
-        return cells
 
     def layer_of(screen_width: int, screen_height: int, text: str) -> litpyglass.TerminalLayer:
         """Write the Text from Row 1 Column 1 of a blank Shadow, and give the Base Layer"""
@@ -3632,7 +3642,7 @@ def _try_shadow_dump_() -> None:
     for screen_width, screen_height, text in cases:
         layer = layer_of(screen_width, screen_height, text)
         place = layer.place
-        want_cells = cells_of(layer)
+        want_cells = _shadow_dump_cells_(layer)
         chops_before = layer.xy_chops
 
         for from_y, from_x in ((1, 1), (screen_height, screen_width), (2, 3)):
@@ -3659,7 +3669,7 @@ def _try_shadow_dump_() -> None:
                 assert (kept_text, drop_count) == (dump, 0), (drop_count, start_y, occasion)
 
                 ts.str_write_base_tb(kept_text)
-                replay_cells = cells_of(ts.base)
+                replay_cells = _shadow_dump_cells_(ts.base)
                 assert replay_cells == want_cells, (len(replay_cells), len(want_cells), occasion)
                 assert ts.base_place == place, (ts.base_place, place, start_y, start_x, occasion)
                 assert ts.base.xy_chops == 0, (ts.base.xy_chops, occasion)
@@ -3669,8 +3679,21 @@ def _try_shadow_dump_() -> None:
 
         # The dump changes nothing in the Layer
 
-        assert cells_of(layer) == want_cells, (text, place)
+        assert _shadow_dump_cells_(layer) == want_cells, (text, place)
         assert layer.xy_chops == chops_before, (layer.xy_chops, chops_before, text)
+
+    # Layer 19: the dump keeps a plain Space between Pixels, and drops plain Spaces to the East of
+    # the last Pixel of a Row, and drops a whole Row that ⎋[⇧L or ⎋[⇧M filled with plain Spaces
+
+    east_layer = layer_of(20, 5, f"{reverse}  {plain}  {reverse}  {plain}    \033[4;1H\033[L")
+    east_dump = east_layer.form_dump_text(from_y=1, from_x=1)
+    east_occasion = (east_dump, sorted(east_layer.write_by_xy.keys()))
+    assert len(east_layer.write_by_xy) == (10 + 20), east_occasion  # 10 Chars and the Row of ⎋[⇧L
+    assert sorted(_shadow_dump_cells_(east_layer).keys()) == [
+        (x, 1) for x in range(1, 7)
+    ], east_occasion
+    east_want = f"\033[1;1H{plain}{reverse}  {plain}  {plain}{reverse}  {plain}\033[6D\033[3B"
+    assert east_dump == east_want, (east_want, east_occasion)
 
     # Cells that a dump redraws do not depend on the Row and the Column it was given
 
@@ -3684,12 +3707,18 @@ def _try_shadow_dump_() -> None:
     dump = layer.form_dump_text(from_y=1, from_x=1)
     assert dump == "\033[1;1H\033[2C\033[1B\033[m\033[7m  \033[m", (dump,)
 
-    # A Row filled by ⎋[⇧L of an odd Width W+1 skips its Space in Column W+1
+    # A Row filled by ⎋[⇧L of an odd Width W+1, with a Pixel at its East end, skips its Space in
+    # Column W+1, and the same Row with no Pixel dumps no Space at all
 
-    layer = layer_of(21, 5, "\033[2;1H\033[L")
+    layer = layer_of(21, 5, "\033[2;1H\033[L" + "\033[2;19H" + reverse + "  " + plain)
     assert (21, 2) in layer.write_by_xy.keys(), layer.write_by_xy
     dump = layer.form_dump_text(from_y=1, from_x=1)
     assert dump.count(" ") == 20, (dump.count(" "), dump)
+
+    layer = layer_of(21, 5, "\033[2;1H\033[L")
+    assert len(layer.write_by_xy) == 21, layer.write_by_xy
+    dump = layer.form_dump_text(from_y=1, from_x=1)
+    assert dump.count(" ") == 0, (dump.count(" "), dump)
 
     # A dump asserts, never silently answers, when it cannot spell the Layer
 
