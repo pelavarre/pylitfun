@@ -100,6 +100,8 @@ def main() -> None:
     _try_shadow_yx_leap_()  # ~1ms
     _try_shadow_insert_row_()  # ~1ms
     _try_shadow_delete_row_()  # ~1ms
+    _try_shadow_dump_()  # ~100ms, 9 Layers dumped, then each replayed 9 ways
+    _try_shadow_drop_()  # ~1ms
     _try_screen_replay_()  # ~1ms
 
     print("tests ok")
@@ -3552,6 +3554,268 @@ def _try_shadow_delete_row_() -> None:
     assert above_by_xy == above_by_xy_before, (above_by_xy, above_by_xy_before)
     assert len(above_by_xy) == 4, above_by_xy
     assert (ts.base_place.column_x, ts.base_place.row_y) == (5, 3), ts.base_place
+
+
+def _try_shadow_dump_() -> None:
+    """Try a TerminalLayer dumping its Writes as a Str, and a TerminalShadow counting chops"""
+
+    reverse = "\033[7m"  # ⎋[7M
+    plain = "\033[m"  # ⎋[M
+
+    def asserts_for(call: typing.Callable[[], object]) -> bool:
+        """Say if the call fails an assert"""
+
+        try:
+            call()
+        except AssertionError:
+            return True
+        return False
+
+    def shadow_blank(
+        fake: FakeWriteBoss, screen_width: int, screen_height: int, row_y: int, column_x: int
+    ) -> litpyglass.TerminalShadow:
+        """Start a Shadow that knows only a Screen and a Cursor, with no Write"""
+
+        ts = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, fake))
+        ts.shadow_read_data_else(b"\033[1;1R")
+        ts.shadow_read_data_else(f"\033[8;{screen_height};{screen_width}t".encode())
+        ts.shadow_read_data_else(f"\033[{row_y};{column_x}R".encode())
+        return ts
+
+    def cells_of(layer: litpyglass.TerminalLayer) -> dict[tuple[int, int], tuple[object, str]]:
+        """Give the Writes in the Writable Area, with the Text Styles in force when each landed"""
+
+        x_max = layer.place.x_max
+        cells: dict[tuple[int, int], tuple[object, str]] = dict()
+        for xy, (styles, char) in layer.write_by_xy.items():
+            if xy[0] <= x_max:
+                cells[xy] = (litpyglass.TerminalLayer.text_styles_in_force(styles), char)
+        return cells
+
+    def layer_of(screen_width: int, screen_height: int, text: str) -> litpyglass.TerminalLayer:
+        """Write the Text from Row 1 Column 1 of a blank Shadow, and give the Base Layer"""
+
+        ts = shadow_blank(FakeWriteBoss(), screen_width, screen_height, row_y=1, column_x=1)
+        ts.str_write_base_tb(text)
+        return ts.base
+
+    # Each case is a Width, a Height, and the Text that draws a Layer from Row 1 Column 1
+
+    cases = (
+        (20, 5, ""),  # empty
+        (20, 5, "\033[3;4H" + reverse + "  " + plain + "\b\b\033[C\033[C" + reverse + "  "),
+        (
+            20,
+            5,
+            reverse + "  " + plain + "  " + reverse + "  " + plain + "\b\b",
+        ),  # Plain among Reverse
+        (
+            20,
+            5,
+            "\033[2;1H" + reverse + "a" * 20 + "\b",
+        ),  # a run to the last Column of an even Width
+        (
+            21,
+            5,
+            "\033[2;1H" + reverse + "ab\033[3;1H\033[L" + "\033[2;1H" + "cd",
+        ),  # Column W+1 skipped
+        (21, 5, "\033[2;3Hab\033[M\033[L" + reverse + "cd"),  # Row insert after Row delete
+        (20, 5, "\033[2;3H" + reverse + "ab"),  # styles left in force as ⎋[7M
+        (
+            20,
+            5,
+            "\033[32100;32100H" + "\033[m" + reverse + "z\b",
+        ),  # the Cursor in the far South East
+        (21, 5, "\033[32100;32100H"),  # the Cursor in Column W+1 of an odd Width, with no Write
+    )
+
+    for screen_width, screen_height, text in cases:
+        layer = layer_of(screen_width, screen_height, text)
+        place = layer.place
+        want_cells = cells_of(layer)
+        chops_before = layer.xy_chops
+
+        for from_y, from_x in ((1, 1), (screen_height, screen_width), (2, 3)):
+            dump = layer.form_dump_text(from_y=from_y, from_x=from_x)
+            occasion = (text, from_y, from_x, dump, place)
+
+            # The dump starts by leaping to the Row and the Column it was given, and then only moves
+            # relatively, by Moves of 1 or more
+
+            assert dump.startswith(f"\033[{from_y};{from_x}H"), occasion
+            assert len(re.findall(r"\033\[[0-9;]*H", dump)) == 1, occasion
+            assert "\r" not in dump, occasion
+            assert "\n" not in dump, occasion
+            for move_pn, _ in re.findall(r"\033\[([0-9]*)([ABCD])", dump):
+                assert move_pn and int(move_pn) >= 1, (move_pn, occasion)
+
+            # Replay from any start Cursor of a blank Shadow of the same Size: the same Cells
+            # and the same Cursor, with no chop
+
+            for start_y, start_x in ((1, 1), (screen_height, screen_width), (3, 2)):
+                fake = FakeWriteBoss()
+                ts = shadow_blank(fake, screen_width, screen_height, start_y, start_x)
+                kept_text, drop_count = ts.str_drop_unwritable_chars(dump)
+                assert (kept_text, drop_count) == (dump, 0), (drop_count, start_y, occasion)
+
+                ts.str_write_base_tb(kept_text)
+                replay_cells = cells_of(ts.base)
+                assert replay_cells == want_cells, (len(replay_cells), len(want_cells), occasion)
+                assert ts.base_place == place, (ts.base_place, place, start_y, start_x, occasion)
+                assert ts.base.xy_chops == 0, (ts.base.xy_chops, occasion)
+                in_force = litpyglass.TerminalLayer.text_styles_in_force
+                assert in_force(ts.base.text_styles) == in_force(layer.text_styles), occasion
+                assert fake.writes[-1] == dump.encode(), (fake.writes, occasion)
+
+        # The dump changes nothing in the Layer
+
+        assert cells_of(layer) == want_cells, (text, place)
+        assert layer.xy_chops == chops_before, (layer.xy_chops, chops_before, text)
+
+    # Cells that a dump redraws do not depend on the Row and the Column it was given
+
+    layer = layer_of(20, 5, cases[1][2])
+    dumps = list(layer.form_dump_text(from_y=y, from_x=x) for y, x in ((1, 1), (5, 20), (4, 7)))
+    assert len(set(dumps)) == 3, dumps  # the leaps differ, so the Strs differ
+
+    # The Column Move comes before the Row Move, then the Pixel, then Plain
+
+    layer = layer_of(20, 5, "\033[2;3H" + reverse + "  " + plain)
+    dump = layer.form_dump_text(from_y=1, from_x=1)
+    assert dump == "\033[1;1H\033[2C\033[1B\033[m\033[7m  \033[m", (dump,)
+
+    # A Row filled by ⎋[⇧L of an odd Width W+1 skips its Space in Column W+1
+
+    layer = layer_of(21, 5, "\033[2;1H\033[L")
+    assert (21, 2) in layer.write_by_xy.keys(), layer.write_by_xy
+    dump = layer.form_dump_text(from_y=1, from_x=1)
+    assert dump.count(" ") == 20, (dump.count(" "), dump)
+
+    # A dump asserts, never silently answers, when it cannot spell the Layer
+
+    layer = layer_of(20, 5, "a")
+    assert not asserts_for(lambda: layer.form_dump_text(from_y=1, from_x=20)), layer.place
+    for from_y, from_x in ((0, 1), (6, 1), (1, 0), (1, 21)):
+        assert asserts_for(lambda: layer.form_dump_text(from_y=from_y, from_x=from_x)), (
+            from_y,
+            from_x,
+        )
+
+    layer = layer_of(20, 5, "a" * 20)  # the Cursor waits to wrap, in Column 21
+    assert layer.place.column_x == 21, layer.place
+    assert asserts_for(lambda: layer.form_dump_text(from_y=1, from_x=1)), layer.place
+
+    layer = layer_of(20, 5, "a")
+    layer.write_by_xy[(21, 1)] = ((), "b")  # a Write keyed off the Screen
+    assert asserts_for(lambda: layer.form_dump_text(from_y=1, from_x=1)), layer.write_by_xy
+
+    layer = layer_of(20, 5, "a")
+    layer.write_by_xy[(2, 1)] = (("\033[1m",), "b")  # Text Styles that are not Plain or Reverse
+    assert asserts_for(lambda: layer.form_dump_text(from_y=1, from_x=1)), layer.write_by_xy
+
+    layer = layer_of(20, 5, "a")
+    layer.write_by_xy[(2, 1)] = ((), "\n")  # a Char that cannot be written
+    assert asserts_for(lambda: layer.form_dump_text(from_y=1, from_x=1)), layer.write_by_xy
+
+    layer = layer_of(20, 5, "a")
+    layer.write_by_xy[(2, 1)] = ((), "")  # no Char
+    assert asserts_for(lambda: layer.form_dump_text(from_y=1, from_x=1)), layer.write_by_xy
+
+
+def _try_shadow_drop_() -> None:
+    """Try a TerminalShadow dropping each Char it cannot write from a Str, and counting the drops"""
+
+    def shadow_blank(
+        fake: FakeWriteBoss, screen_width: int, screen_height: int, row_y: int, column_x: int
+    ) -> litpyglass.TerminalShadow:
+        """Start a Shadow that knows only a Screen and a Cursor, with no Write"""
+
+        ts = litpyglass.TerminalShadow(typing.cast(litpyglass.TerminalBoss, fake))
+        ts.shadow_read_data_else(b"\033[1;1R")
+        ts.shadow_read_data_else(f"\033[8;{screen_height};{screen_width}t".encode())
+        ts.shadow_read_data_else(f"\033[{row_y};{column_x}R".encode())
+        return ts
+
+    fake = FakeWriteBoss()
+    ts = shadow_blank(fake, 20, 5, 3, 5)
+    ts.str_write_base_tb("ab\033[7m")
+    ts.shadow_read_data_else(b"\033[3;5R")
+    cells_before = dict(ts.base.write_by_xy)
+    place_before = dataclasses.replace(ts.base_place)
+    styles_before = ts.base.text_styles
+    writes_before = list(fake.writes)
+
+    # A Str of Controls and of Chars that fit comes back whole, with 0 drops, chops and all
+
+    for text in (
+        "",
+        "\033[C\033[C",
+        "x" * 16,
+        "\033[7m  \033[m\b",
+        "\033[32100C",
+        "\033[32100;32100H",
+    ):
+        kept_text, drop_count = ts.str_drop_unwritable_chars(text)
+        assert (kept_text, drop_count) == (text, 0), (text, kept_text, drop_count)
+
+    # Each Char at a Place outside the Writable Area drops and counts, each Control stays
+
+    texts_by_want = {
+        "x" * 17: ("x" * 16, 1),  # the 17th Char would land in Column 21
+        "x" * 20: ("x" * 16, 4),
+        "x" * 17 + "\033[7m" + "y": ("x" * 16 + "\033[7m", 2),
+        "x" * 17
+        + "\033[2D"
+        + "y": ("x" * 16 + "\033[2D" + "y", 1),  # the Cursor stayed in Column 20
+    }
+    for text, want in texts_by_want.items():
+        got = ts.str_drop_unwritable_chars(text)
+        assert got == want, (text, got, want)
+
+    # A Shadow of a small Screen takes the kept Str in full, the Moves chopped, the Chars dropped
+
+    drawing = "\033[3;3H" + "\033[7m" + "ab" * 20 + "\033[9B\033[40C" + "z"
+    small = shadow_blank(FakeWriteBoss(), 20, 5, 1, 1)
+    kept_text, drop_count = small.str_drop_unwritable_chars(drawing)
+    assert drop_count > 0, (drop_count, kept_text)
+    assert len(kept_text) < len(drawing), (len(kept_text), len(drawing))
+
+    chops_before = small.base.xy_chops
+    small.str_write_base_tb(kept_text)  # always succeeds now
+    assert small.base.xy_chops > chops_before, (small.base.xy_chops, chops_before)
+    assert small.base.write_by_xy, small.base_place
+
+    # The question writes no Byte and changes neither Layer
+
+    assert ts.base.write_by_xy == cells_before, (ts.base.write_by_xy, cells_before)
+    assert ts.base_place == place_before, (ts.base_place, place_before)
+    assert ts.base.xy_chops == 0, (ts.base.xy_chops,)
+    assert ts.base.text_styles == styles_before, (ts.base.text_styles, styles_before)
+    assert not ts.top, ts.top.place
+    assert fake.writes == writes_before, (fake.writes, writes_before)
+
+    # A Str that chops is kept, and is_writable_place_after_strs still says no to it
+
+    assert not ts.is_writable_place_after_strs("\033[32100C"), ts.base_place
+
+    # Layer 4: a Line Feed fails an assert, never skipped, in each walk of a Str, and no Byte goes out
+
+    for line_feed_text in ("\n", "a\nb", "\033[C\n", "\r\n"):
+        line_feed_writes_before = list(fake.writes)
+
+        raises: list[str] = list()
+        for write in (
+            ts.str_drop_unwritable_chars,
+            ts.str_write_base_tb,
+            ts.is_writable_place_after_strs,
+        ):
+            try:
+                write(line_feed_text)
+            except AssertionError:
+                raises.append(write.__name__)
+
+        assert len(raises) == 3, (raises, line_feed_text)
+        assert fake.writes == line_feed_writes_before, (fake.writes, line_feed_text)
 
 
 def _try_shadow_top_layer_() -> None:

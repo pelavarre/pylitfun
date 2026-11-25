@@ -575,7 +575,7 @@ Spec of TerminalLayer.
 
 We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, _try_shadow_chops_,
 _try_shadow_row_leap_, _try_shadow_column_leap_, _try_shadow_yx_leap_, _try_shadow_insert_row_,
-and _try_shadow_delete_row_:
+_try_shadow_delete_row_, and _try_shadow_dump_:
 
     1. Give a Layer its own .place, .text_styles, and .write_by_xy, and write no Byte anywhere from
        it.
@@ -588,9 +588,10 @@ and _try_shadow_delete_row_:
 
     4. Keep nothing for a Move or a Backspace, but steer where the next Char lands. Keep nothing and
        steer nothing for hiding or showing the Cursor, ⎋[⇧?25L or ⎋[⇧?25H. Fail an assert on any
-       other Control, not silently. Leap to a Row on ⎋[D, as item 14 says, and to a Column on
-       ⎋[⇧G, as item 15 says. Insert a Row at the Cursor on ⎋[⇧L, as item 16 says, and delete one
-       on ⎋[⇧M, as item 17 says. Leap to a Row and a Column on ⎋[⇧H, as item 18 says.
+       other Control, not silently, and on a Line Feed "\n" too: skip no Char of the Str. Leap to a
+       Row on ⎋[D, as item 14 says, and to a Column on ⎋[⇧G, as item 15 says. Insert a Row at the
+       Cursor on ⎋[⇧L, as item 16 says, and delete one on ⎋[⇧M, as item 17 says. Leap to a Row and
+       a Column on ⎋[⇧H, as item 18 says.
 
     5. Start the Text Styles in force over at ⎋[M, and carry them to the next write. Join them once
        on ⎋[7M however often said. Fail an assert on any other SGR, such as ⎋[27M or ⎋[1M, not
@@ -672,13 +673,29 @@ and _try_shadow_delete_row_:
         an odd Width, as macOS Terminal does, and count each chop in .xy_chops: 0, 1 or 2 for one
         ⎋[⇧H. Count nothing for a Pn of 0. End the wait of a Cursor waiting to wrap, as macOS
         Terminal does. Fail an assert on ⎋[3;7;9⇧H and ⎋[⇧?7⇧H, not silently.
+
+    19. Spell a Str that redraws the Layer on a blank Screen of the same Size, in form_dump_text,
+        given the Row and the Column to leap to first. Fail an assert on a Row or a Column off the
+        Screen or past the last Column, and on a Cursor of the Layer that waits to wrap. Start with
+        exactly one ⎋[⇧H naming that Row and that Column, and work by relative Moves from there:
+        spell no second ⎋[⇧H, no Return, and no Newline. Write each Write inside the Writable Area,
+        by Row and then by Column, each run of neighbouring Columns of a Row as one run of Chars.
+        Skip each Write outside the Writable Area, such as the Space of a Row filled by ⎋[⇧L in
+        Column W+1 of an odd Width. Spell each Move with a Pn of 1 or more, never a Move of nothing,
+        and spell the Column Move before the Row Move, since only ⎋[⇧D counts from a Cursor waiting
+        to wrap. Spell ⎋[M and the Text Styles of a Write only when they differ from the Text Styles
+        in force. End by restoring the Text Styles of the Layer and moving to the Cursor of the
+        Layer, so the Cells the Str redraws never depend on the Row and the Column given to leap to
+        first. Prove each piece in a blank trial Layer on every call, and fail an assert unless the
+        trial counted 0 chops, and ended at the Place and in the Text Styles of the Layer, holding
+        the Writes of the Layer inside the Writable Area. Change nothing in the Layer.
 ```
 
 ```
 Spec of TerminalShadow.
 
 We meet spec as tested by _try_shadow_layer_, _try_shadow_writes_, _try_shadow_top_layer_,
-_try_shadow_insert_row_, and _try_shadow_delete_row_:
+_try_shadow_insert_row_, _try_shadow_delete_row_, and _try_shadow_drop_:
 
     1. Hold a Terminal, a Base Layer named .base, and a Top Layer named .top. Read everything
        known of the Screen from .base. Forward .base_place by property and is_writeable_base_area
@@ -735,4 +752,14 @@ _try_shadow_insert_row_, and _try_shadow_delete_row_:
         assert before any Byte goes out on a Str holding ⎋[⇧L, ⎋[3⇧L, ⎋[⇧M or ⎋[3⇧M. In
         str_write_base_tb, fail an assert before any Byte goes out on such a Str while .top is on,
         and take every other Write as before.
+
+    14. In str_drop_unwritable_chars, take the Write through a new Layer made from .base, one Write
+        at a time, as _write_some_or_all_strs_ cuts a Str into Writes. Keep each Control and each
+        Char the Layer can write, in order, and drop each Char it cannot write, such as a Char at a
+        Place outside the Writable Area, and count each drop. Give back the kept Writes joined and
+        the count of drops: an empty Str gives an empty Str and 0, and a Str that all fits comes
+        back whole with 0. Count a Move or a Leap that an edge chops as no drop, and keep it, so the
+        kept Str may still chop. Leave the Cursor of the Layer where it was for a dropped Char, so a
+        Move after it lands as the Layer finds it. Write no Byte, and change neither Layer, .base
+        and its Place and its .xy_chops too. Leave is_writable_place_after_strs as item 5 says.
 ```

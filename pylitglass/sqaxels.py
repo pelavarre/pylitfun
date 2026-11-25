@@ -18,7 +18,7 @@ quirks:
   never quits on ⎋[D, which leaps the Cursor to Row 1, as ⎋[7D leaps it to Row 7
   never quits on ⎋[⇧G, which leaps the Cursor to the Pixel at Column 1, as ⎋[7⇧G to Column 7
   never quits on ⎋[;⇧H, which leaps to the Pixel at Row 1 Column 1, as ⎋[5;7⇧H to Row 5 Column 7
-  replays io.typescript from where the Cursor starts, and rewrites io.typescript at quit
+  redraws io.typescript where it was drawn, and keeps what the Screen holds at quit
 
 examples:
   python3 pylitglass/sqaxels.py  # show these examples
@@ -169,6 +169,8 @@ class SqaxelsWorker:
             # Find where the Cursor is and how big the Screen is
 
             ist.pull_yx_hw_from_ts_else(stalwarts=stalwarts)
+            entry_y = ts.base_place.row_y  # where we entered, which a dump leaps to first
+            entry_x = ts.base_place.column_x
             tb.tty_setraw_before_farewell()  # takes ⌃C ⌃D ⌃Z ⌃\ as Input, and Return as b"\r"
 
             # Choose how to hail now, before farewell later
@@ -197,7 +199,7 @@ class SqaxelsWorker:
                 ts.base_place,
             )
 
-            # Replay the drawing kept by an earlier run, if it fits where the Cursor is
+            # Replay the drawing kept by an earlier run, writing what the Screen takes of it
 
             typescript_path = "io.typescript"
             typescript_text = ""
@@ -205,28 +207,39 @@ class SqaxelsWorker:
                 with open(typescript_path, "rb") as f:
                     typescript_text = f.read().decode()
 
-            is_fitting = True
-            if typescript_text:
-                is_fitting = ts.is_writable_place_after_strs(typescript_text)
+            kept_text, drop_count = ts.str_drop_unwritable_chars(typescript_text)
 
-            if is_fitting and typescript_text:
-                ts.str_write_base_tb(typescript_text)  # so the Shadow knows every Cell
-                # todo: replay of io.typescript is relative to where the Cursor starts
+            chops_before = ts.base.xy_chops
+            ts.str_write_base_tb(kept_text)  # so the Shadow knows every Cell
+            chop_count = ts.base.xy_chops - chops_before
+            assert chop_count >= 0, (chop_count, chops_before)
 
             # Loop till quit (such as by pressing Return three times quickly)
 
-            if is_fitting:
+            is_whole = (chop_count == 0) and (drop_count == 0)
+            if is_whole:
                 self.take_strikes_tb(ts, ist=ist, stalwarts=stalwarts)
 
-            # Quit happy, keeping the drawing, but not the farewell
+            # Quit happy, keeping what the Screen holds, but not the farewell
 
-            if is_fitting:
-                tb.typescript_write_file(typescript_path)
+            if is_whole:
+                dump_text = ts.base.form_dump_text(from_y=entry_y, from_x=entry_x)
+                with open(typescript_path, "wb") as f:
+                    f.write(dump_text.encode())
 
-        # Freak when the drawing did not fit, after leaving the Terminal as we found it
+        # Report the counts of what the Screen did not take, after leaving the Terminal
 
-        if not is_fitting:
-            tb.str_print(f"{typescript_path} does not fit on this Screen from here")
+        if not is_whole:
+            # todo: name the first Write that an edge chopped, and where
+            reports: list[str] = list()
+            if chop_count:
+                moves = "Move or Leap" if (chop_count == 1) else "Moves or Leaps"
+                reports.append(f"{chop_count} {moves} chopped")
+            if drop_count:
+                chars = "Char" if (drop_count == 1) else "Chars"
+                reports.append(f"{drop_count} {chars} not written")
+
+            tb.str_print(f"{typescript_path}: {' and '.join(reports)} on this Screen")
             sys.exit(1)
 
         return tb

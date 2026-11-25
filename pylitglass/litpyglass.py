@@ -2046,6 +2046,44 @@ class TerminalShadow:
 
         return True
 
+    def str_drop_unwritable_chars(self, text: str) -> tuple[str, int]:
+        """Drop each Char of the Str that cannot be written from here, and count the drops"""
+
+        base = self.base
+
+        assert base, (base.place, text)
+
+        fork_layer = base.fork_layer()
+
+        kept_splits: list[str] = list()
+        drop_count = 0
+
+        # Walk the Writes as _write_some_or_all_strs_ does, with the same Regex
+
+        for m in re.finditer(r"\033\[([0-9;?]*)([@-~])|(.|\n)", text):  # skips no Char
+            split = m.group(0)
+
+            place_was = dataclasses.replace(fork_layer.place)  # clones
+            styles_was = fork_layer.text_styles
+            write_count_was = len(fork_layer.write_by_xy)
+
+            written = fork_layer._write_some_or_all_strs_(split)
+            if written:
+                kept_splits.append(split)
+                continue
+
+            # Drop a Char at a Place outside the Writable Area, which left the fork as it was
+
+            assert len(split) == 1 and split.isprintable(), (split,)
+            assert fork_layer.place == place_was, (fork_layer.place, place_was)
+            assert fork_layer.text_styles == styles_was, (fork_layer.text_styles, styles_was)
+            assert len(fork_layer.write_by_xy) == write_count_was, (split, write_count_was)
+
+            drop_count += 1
+
+        kept_text = "".join(kept_splits)
+        return (kept_text, drop_count)
+
     # todo: change the Terminal Shadow when we write Controls we have named
     # todo: shadow the hide ⎋[⇧?25L and the show ⎋[⇧?25H of the Cursor, when a need for it comes
     # todo: stay fit to code some other game with different conventions
@@ -2134,6 +2172,125 @@ class TerminalLayer:
 
         return layer
 
+    def form_dump_text(self, /, from_y: int, from_x: int) -> str:
+        """Spell a Str that leaps to Row from_y Column from_x and redraws this Layer from there"""
+
+        place = self.place
+        write_by_xy = self.write_by_xy
+
+        column_x = place.column_x
+        row_y = place.row_y
+        x_max = place.x_max
+        x_width = place.x_width
+        y_height = place.y_height
+
+        # Require both Cursors on the Screen, not waiting to wrap, and each Write keyed on the Screen
+
+        assert 1 <= from_x <= x_width, (from_x, x_width)
+        assert 1 <= from_y <= y_height, (from_y, y_height)
+        assert 1 <= column_x <= x_width, (column_x, x_width)
+        assert 1 <= row_y <= y_height, (row_y, y_height)
+
+        for x, y in write_by_xy.keys():
+            assert 1 <= x <= x_width, (x, x_width)
+            assert 1 <= y <= y_height, (y, y_height)
+
+        # Prove each piece by writing it into a blank trial Layer that starts at the same Place
+
+        trial_place = dataclasses.replace(place)  # clones
+        trial = TerminalLayer(place=trial_place, text_styles=(), write_by_xy=dict(), xy_chops=0)
+
+        texts: list[str] = list()
+        texts.append(trial._write_piece_(CUP_Y_X.format(from_y, from_x)))
+
+        # Write each Char in the Writable Area, by Row then by Column, moving only by relative Moves
+        # (skip each Write in Column W+1 of an odd Width, since no Char may be written there)
+
+        yx_pairs = sorted((y, x) for x, y in write_by_xy.keys() if x <= x_max)
+        for y, x in yx_pairs:
+            write_styles, char = write_by_xy[(x, y)]
+            assert len(char) == 1 and char.isprintable(), (x, y, char)
+
+            texts.append(trial._write_piece_(trial._form_move_text_(x, y)))
+            texts.append(trial._write_piece_(trial._form_styles_text_(write_styles)))
+            texts.append(trial._write_piece_(char))
+
+        # Leave the Text Styles in force and the Cursor as this Layer has them, by relative Moves
+
+        texts.append(trial._write_piece_(trial._form_styles_text_(self.text_styles)))
+        texts.append(trial._write_piece_(trial._form_move_text_(column_x, row_y)))
+
+        # Prove the round trip, before saying a word
+
+        assert trial.xy_chops == 0, (trial.xy_chops, place)
+        assert trial.place == place, (trial.place, place)
+
+        trial_styles = TerminalLayer.text_styles_in_force(trial.text_styles)
+        self_styles = TerminalLayer.text_styles_in_force(self.text_styles)
+        assert trial_styles == self_styles, (trial_styles, self_styles)
+
+        want_by_xy: dict[tuple[int, int], tuple[tuple[str, ...], str]] = dict()
+        for xy, (write_styles, char) in write_by_xy.items():
+            if xy[0] <= x_max:
+                want_by_xy[xy] = (TerminalLayer.text_styles_in_force(write_styles), char)
+
+        got_by_xy: dict[tuple[int, int], tuple[tuple[str, ...], str]] = dict()
+        for xy, (write_styles, char) in trial.write_by_xy.items():
+            got_by_xy[xy] = (TerminalLayer.text_styles_in_force(write_styles), char)
+
+        assert got_by_xy == want_by_xy, (len(got_by_xy), len(want_by_xy), place)
+
+        text = "".join(texts)
+        return text
+
+    def _write_piece_(self, text: str) -> str:
+        """Write all the Str into this trial Layer, and give the Str back"""
+
+        written = self._write_some_or_all_strs_(text)
+        assert written, (text, self.place)
+
+        return text
+
+    def _form_move_text_(self, x: int, y: int) -> str:
+        """Spell the relative Moves from the Cursor to a Column and a Row, the Column first"""
+
+        place = self.place
+
+        assert 1 <= place.column_x <= (place.x_width + 1), (place.column_x, place.x_width)
+        assert 1 <= place.row_y <= place.y_height, (place.row_y, place.y_height)
+        assert 1 <= x <= place.x_width, (x, place.x_width)
+        assert 1 <= y <= place.y_height, (y, place.y_height)
+
+        # Count ⎋[⇧D from Column W+1, the only Move that counts from there
+
+        text = ""
+        if x > place.column_x:
+            assert 1 <= place.column_x < x <= place.x_width, (place.column_x, x, place.x_width)
+            text += CUF_X.format(x - place.column_x)
+        if x < place.column_x:
+            assert 1 <= x < place.column_x <= (place.x_width + 1), (x, place.column_x)
+            text += CUB_X.format(place.column_x - x)
+
+        if y > place.row_y:
+            assert 1 <= place.row_y < y <= place.y_height, (place.row_y, y, place.y_height)
+            text += CUD_Y.format(y - place.row_y)
+        if y < place.row_y:
+            assert 1 <= y < place.row_y <= place.y_height, (y, place.row_y, place.y_height)
+            text += CUU_Y.format(place.row_y - y)
+
+        return text
+
+    def _form_styles_text_(self, styles: tuple[str, ...]) -> str:
+        """Spell the Text Styles, from ⎋[M, when they differ from the Text Styles in force"""
+
+        want_styles = TerminalLayer.text_styles_in_force(styles)
+        have_styles = TerminalLayer.text_styles_in_force(self.text_styles)
+        if want_styles == have_styles:
+            return ""
+
+        text = NO_SGR_PS + "".join(want_styles)
+        return text
+
     def _write_some_or_all_strs_(self, text: str) -> bool:
         """Write all the Str into this Layer and return True, or less than all and return False"""
 
@@ -2146,7 +2303,7 @@ class TerminalLayer:
         assert text_styles == fewer, (text_styles, fewer)
 
         next_styles = text_styles  # immutable, replaceable
-        for m in re.finditer(r"\033\[([0-9;?]*)([@-~])|(.)", text):
+        for m in re.finditer(r"\033\[([0-9;?]*)([@-~])|(.|\n)", text):  # skips no Char
             params, final, t = m.groups()
             split = m.group(0)
 
@@ -2373,6 +2530,16 @@ class TerminalLayer:
             write_by_xy[(x, place.y_height)] = (plain_styles, " ")
 
         # todo: fill with the Background Colour in force, as after ⎋[44M, when we shadow Colours
+
+    @staticmethod
+    def text_styles_in_force(text_styles: tuple[str, ...]) -> tuple[str, ...]:
+        """Drop the ⎋[M from the Text Styles, since Plain is what no style at all means"""
+
+        assert NO_SGR_PS == "\033[" "m"
+
+        fewer_styles = TerminalLayer.text_styles_compress(text_styles)
+        in_force = tuple(_ for _ in fewer_styles if _ != NO_SGR_PS)
+        return in_force
 
     @staticmethod
     def text_styles_compress(text_styles: tuple[str, ...]) -> tuple[str, ...]:
