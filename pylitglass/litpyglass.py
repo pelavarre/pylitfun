@@ -542,8 +542,15 @@ class GlassWorker:
             assert SHOW_CUSR_SM_PSQ25 == "\033[" "?25h"
 
             base_place = ts.base_place
-            max_first_x = base_place.x_max - 1  # the last Column where a Pair of Spaces fits
-            back_count = max(0, base_place.column_x - max_first_x)  # zero or more Backspaces
+            column_x = base_place.column_x
+            x_max = base_place.x_max
+            x_width = base_place.x_width
+
+            assert 1 <= column_x <= (x_width + 1), (column_x, x_width)
+            assert 2 <= x_max <= x_width, (x_max, x_width)
+
+            max_first_x = x_max - 1  # the last Column where a Pair of Spaces fits
+            back_count = max(0, column_x - max_first_x)  # zero or more Backspaces
             assert back_count >= 0, (back_count,)
 
             hails = (
@@ -740,6 +747,7 @@ class GlassWorker:
         back = "\b\b"  # backs up over two Columns
 
         if place:
+            assert 1 <= place.column_x <= place.x_width, (place.column_x, place.x_width)
             if (place.column_x + 1) >= place.x_width:
                 back = "\b"  # backs up over one Column
 
@@ -2004,6 +2012,7 @@ class TerminalShadow:
         assert place.row_y == row_y, (place.row_y, row_y)
 
         from_x = place.column_x  # counted from Column W+1 while waiting to wrap, as ⎋[⇧D does
+        assert 1 <= column_x <= from_x <= (place.x_width + 1), (column_x, from_x, place.x_width)
         x_west = from_x - column_x
         assert x_west >= 0, (x_west, from_x, column_x)
 
@@ -2374,8 +2383,12 @@ class TerminalPlace:
     def write_str_at_place(self, text: str) -> bool:
         """Shadow how writing this Str moves the Terminal Cursor, and say if an edge cut it short"""
 
+        assert 1 <= self.column_x <= (self.x_width + 1), (self.column_x, self.x_width)
+        assert 1 <= self.row_y <= self.y_height, (self.row_y, self.y_height)
+
         if text.isprintable():
             assert len(text) == 1, (text,)
+            assert self.column_x <= self.x_width, (self.column_x, self.x_width)
             self.column_x += 1
             return False
 
@@ -2487,7 +2500,11 @@ class TerminalPlace:
     def pn_to_at_plus_below_row_count(self, pn: int) -> int:
         """Give the Rows that ⎋[3⇧L or ⎋[3⇧M changes, at most those from the Cursor down"""
 
-        at_plus_below_rows = self.y_height - self.row_y + 1
+        row_y = self.row_y
+        y_height = self.y_height
+
+        assert 1 <= row_y <= y_height, (row_y, y_height)
+        at_plus_below_rows = y_height - row_y + 1
 
         assert pn >= 0, (pn,)
 

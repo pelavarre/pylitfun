@@ -233,10 +233,17 @@ class SqaxelsWorker:
     def form_pixel_back_text(self, place: litpyglass.TerminalPlace) -> str:
         """Spell the Backspaces from the Cursor West to the West Column of a Square Pixel"""
 
+        column_x = place.column_x
+        x_max = place.x_max
+        x_width = place.x_width
+
         assert litpyglass.BS == "\b"
 
-        from_x = min(place.column_x, place.x_width)  # (x > width) waits to wrap
-        max_first_x = place.x_max - 1  # the last Column where a Pair of Spaces fits
+        assert 1 <= column_x <= (x_width + 1), (column_x, x_width)
+        assert 2 <= x_max <= x_width, (x_max, x_width)
+
+        from_x = min(column_x, x_width)  # (x > width) waits to wrap
+        max_first_x = x_max - 1  # the last Column where a Pair of Spaces fits
 
         fit_x = min(from_x, max_first_x)  # as far East as a Pair fits
         odd_x = fit_x - (0 if (fit_x % 2) else 1)  # a Pixel starts in an odd Column: 1, 3, etc
